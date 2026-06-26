@@ -204,7 +204,7 @@ test("market-grade artifact OS rescue @market-owner @calendar @finance @reader-p
   const audioCard = page.getByTestId("audio-card").filter({ hasText: "market-voice.wav" }).first();
   await expect(audioCard).toBeVisible();
   await audioCard.locator("textarea[data-testid^='transcript-input-']").fill("[00:05] Создать задачу проверить граф. [00:30] Сделать заметку про деньги и сон.");
-  await audioCard.getByText("Сохранить transcript").click();
+  await audioCard.getByText("Сохранить расшифровку").click();
   await expect(audioCard.getByTestId("transcript-segment-row").first()).toBeVisible();
   await page.screenshot({ path: "output/playwright/market-player-transcript.png", fullPage: true });
 
@@ -220,9 +220,9 @@ test("market-grade artifact OS rescue @market-owner @calendar @finance @reader-p
   await page.getByTestId("surface-agents").click();
   await expect(page.getByTestId("workspace-agents")).toBeVisible();
   await page.getByTestId("agent-panel-run").click();
-  await expect(page.getByTestId("agent-run").first()).toContainText("dry-run");
+  await expect(page.getByTestId("agent-run").first()).toContainText("черновой прогон");
   await page.getByTestId("run-flow-builder").click();
-  await expect(page.getByTestId("flow-run-row").first()).toContainText("proposal_created");
+  await expect(page.getByTestId("flow-run-row").first()).toContainText("предложение создано");
   await page.screenshot({ path: "output/playwright/market-agents-flows.png", fullPage: true });
 
   await page.getByTestId("surface-graph").click();
@@ -240,7 +240,7 @@ test("market-grade artifact OS rescue @market-owner @calendar @finance @reader-p
   await expect(page.getByTestId("data-control-panel")).toBeVisible();
   await expect(page.getByTestId("storage-map")).toBeVisible();
   await expect(page.getByTestId("architecture-contract")).toBeVisible();
-  await expect(page.getByTestId("architecture-validation")).toContainText("ok");
+  await expect(page.getByTestId("architecture-validation")).toContainText("ок");
   const architectureProof = await page.evaluate(() => window.__lifeosKnowledgeBase.getArchitectureSnapshot());
   expect(architectureProof.collections.length).toBeGreaterThanOrEqual(30);
   expect(architectureProof.workspaces.length).toBeGreaterThanOrEqual(16);
@@ -255,7 +255,8 @@ test("market-grade artifact OS rescue @market-owner @calendar @finance @reader-p
   await expect(page.getByTestId("workspace-providers")).toBeVisible();
   await expect(page.getByTestId("pwa-panel")).toBeVisible();
   await page.getByTestId("check-pwa").click();
-  await expect(page.getByTestId("pwa-service-worker-status")).toContainText(/service-worker-ready|service-worker-error|unsupported/);
+  await expect(page.getByTestId("pwa-service-worker-status")).toContainText(/офлайн-оболочка готова|ошибка service worker|не поддерживается/);
+  await expect(page.getByTestId("pwa-service-worker-status")).toHaveAttribute("data-raw-status", /service-worker-ready|service-worker-error|unsupported/);
   const pwaProof = await page.evaluate(async () => {
     const state = window.__lifeosKnowledgeBase.getStateSnapshot();
     const registration = navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
@@ -273,7 +274,7 @@ test("market-grade artifact OS rescue @market-owner @calendar @finance @reader-p
   expect(pwaProof.providerRun).toBe(true);
   expect(pwaProof.registration || pwaProof.serviceWorkerStatus !== "service-worker-ready").toBe(true);
   await page.getByTestId("show-pwa-install").click();
-  await expect(page.getByTestId("pwa-install-status")).toContainText(/browser-menu-required|available|accepted|dismissed|prompted/);
+  await expect(page.getByTestId("pwa-install-status")).toHaveAttribute("data-raw-status", /browser-menu-required|available|accepted|dismissed|prompted/);
   await expect(page.getByTestId("ollama-panel")).toBeVisible();
   await page.route("http://localhost:11434/api/tags", async (route) => {
     await route.fulfill({
@@ -283,7 +284,8 @@ test("market-grade artifact OS rescue @market-owner @calendar @finance @reader-p
     });
   });
   await page.locator("main").getByTestId("probe-ollama").first().click();
-  await expect(page.locator("main").getByTestId("ollama-status")).toContainText("models_found");
+  await expect(page.locator("main").getByTestId("ollama-status")).toContainText("модели найдены");
+  await expect(page.locator("main").getByTestId("ollama-status")).toHaveAttribute("data-raw-status", "models_found");
   await page.screenshot({ path: "output/playwright/market-providers.png", fullPage: true });
 
   await page.reload();

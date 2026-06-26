@@ -42,7 +42,7 @@ Local chat history persists without AI and messages can become proposal objects.
 ```
 
 ## Graph Edges
-After: 685 edges, 685 with visible reasons.
+After: 687 edges, 687 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact | provider.run: ollama probe: Ollama models_found at http://localhost:11434 | ollama.probe: Ollama models_found at http://localhost:11434 | chat.local: Local chat message linked to artifact | chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready

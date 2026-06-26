@@ -194,7 +194,7 @@ test("owner artifact OS capture creates proposals and applies to workspaces @vis
   await page.locator("input#file-import").setInputFiles("output/playwright/fixtures/book-sample.md");
   await expect(page.getByTestId("book-workbench")).toContainText("book-sample.md");
   const mdBook = page.getByTestId("book-source-card").filter({ hasText: "book-sample.md" }).first();
-  await expect(mdBook).toContainText("text-ready");
+  await expect(mdBook).toContainText("текст готов");
   await mdBook.getByTestId("extract-highlights").click();
   await mdBook.getByTestId("highlight-title").fill("Manual highlight connects book to plan");
   await mdBook.getByTestId("add-highlight-entry").click();
@@ -208,10 +208,10 @@ test("owner artifact OS capture creates proposals and applies to workspaces @vis
     buffer: Buffer.from("%PDF-1.4\\nLifeOS parser boundary fixture\\n")
   });
   const pdfBook = page.getByTestId("book-source-card").filter({ hasText: "parser-boundary.pdf" }).first();
-  await expect(pdfBook).toContainText("Parser gate");
+  await expect(pdfBook).toContainText("Формат ждёт парсер");
   await pdfBook.getByLabel("Manual extracted text").fill("PDF chapter says owner data should stay local. This highlight must become review and graph evidence.");
   await pdfBook.getByTestId("save-source-extraction").click();
-  await expect(pdfBook).toContainText("manual-extraction-ready");
+  await expect(pdfBook).toContainText("извлечение готово");
   const p006Snapshot = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   expect(Object.values(p006Snapshot.readingItems).some((item) => item.title === "book-sample" && item.progress === 35)).toBe(true);
   expect(Object.values(p006Snapshot.highlights).some((highlight) => highlight.text.includes("Manual highlight connects book to plan"))).toBe(true);
@@ -228,16 +228,16 @@ test("owner artifact OS capture creates proposals and applies to workspaces @vis
   await expect(page.getByTestId("player-panel")).toBeVisible();
   const audioCard = page.getByTestId("audio-card").filter({ hasText: "owner-meeting.wav" }).first();
   await expect(audioCard).toBeVisible();
-  await expect(page.getByTestId("stt-gate")).toContainText("not-configured");
+  await expect(page.getByTestId("stt-gate")).toContainText("нужна настройка");
   await audioCard.getByTestId("request-stt-gate").click();
-  await expect(audioCard).toContainText("stt-provider-gated");
+  await expect(audioCard).toContainText("STT подключается отдельно");
   const transcriptText = [
     "[00:05] Owner says LifeOS should connect audio, books, calendar and graph.",
     "[00:40] Create a task to review audio insight today.",
     "[01:10] The transcript should become claims, highlights and checkpoints."
   ].join("\n");
   await audioCard.locator("textarea[data-testid^='transcript-input-']").fill(transcriptText);
-  await audioCard.getByText("Сохранить transcript").click();
+  await audioCard.getByText("Сохранить расшифровку").click();
   await expect(audioCard.getByTestId("transcript-segment-row").first()).toBeVisible();
   await audioCard.getByTestId("checkpoint-time").fill("01:10");
   await audioCard.getByTestId("checkpoint-title").fill("Review transcript insight");
@@ -267,12 +267,12 @@ test("owner artifact OS capture creates proposals and applies to workspaces @vis
   await page.getByTestId("surface-agents").click();
   await expect(page.getByTestId("agent-panel")).toBeVisible();
   await page.getByTestId("agent-panel-run").click();
-  await expect(page.getByTestId("agent-run").first()).toContainText("dry-run");
+  await expect(page.getByTestId("agent-run").first()).toContainText("черновой прогон");
   await page.getByTestId("flow-trigger").fill("new transcript");
   await page.getByTestId("flow-condition").fill("has follow-up");
   await page.getByTestId("flow-action").selectOption("task");
   await page.getByTestId("run-flow-builder").click();
-  await expect(page.getByTestId("flow-run-row").first()).toContainText("proposal_created");
+  await expect(page.getByTestId("flow-run-row").first()).toContainText("предложение создано");
   const p009Snapshot = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   expect(Object.values(p009Snapshot.proposals).some((proposal) => proposal.fields && proposal.fields.source === "local-chat")).toBe(true);
   expect(Object.values(p009Snapshot.agentRuns).some((run) => run.status === "dry-run" && Array.isArray(run.scopes) && run.scopes.includes("create-proposals"))).toBe(true);
@@ -319,36 +319,40 @@ test("owner artifact OS capture creates proposals and applies to workspaces @vis
     });
   });
   await page.locator("main").getByTestId("probe-ollama").click();
-  await expect(page.locator("main").getByTestId("ollama-status")).toContainText("models_found");
+  await expect(page.locator("main").getByTestId("ollama-status")).toContainText("модели найдены");
+  await expect(page.locator("main").getByTestId("ollama-status")).toHaveAttribute("data-raw-status", "models_found");
   await expect(page.locator("main").getByTestId("ollama-selected-model")).toContainText("lifeos-local:latest");
   await page.locator("main").getByTestId("ollama-dry-run").click();
-  await expect(page.locator("main").getByTestId("provider-run-row").first()).toContainText("proposal");
+  await expect(page.locator("main").getByTestId("provider-run-row").first()).toContainText("предложения");
   const p008BeforeRevoke = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   expect(Object.values(p008BeforeRevoke.providerRuns).some((run) => run.providerId === "ollama" && run.kind === "proposal-dry-run")).toBe(true);
   expect(Object.values(p008BeforeRevoke.proposals).some((proposal) => proposal.fields && proposal.fields.provider === "ollama" && proposal.status === "open")).toBe(true);
   await page.screenshot({ path: "output/playwright/owner-ollama.png", fullPage: true });
   await page.locator("main").getByTestId("revoke-ollama").click();
-  await expect(page.locator("main").getByTestId("ollama-status")).toContainText("revoked");
+  await expect(page.locator("main").getByTestId("ollama-status")).toContainText("отключено");
   const p008AfterRevoke = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   expect(p008AfterRevoke.ollama.status).toBe("revoked");
   expect(Object.values(p008AfterRevoke.providerRuns).some((run) => run.providerId === "ollama" && run.kind === "revoke")).toBe(true);
 
   await page.getByTestId("surface-control").click();
   await expect(page.getByTestId("data-control-panel")).toBeVisible();
-  await expect(page.getByTestId("storage-map")).toContainText("finance");
-  await expect(page.getByTestId("privacy-map")).toContainText("providers");
+  await expect(page.getByTestId("storage-map")).toContainText("деньги");
+  await expect(page.getByTestId("privacy-map")).toContainText("Ollama");
+  await expect(page.getByTestId("privacy-map")).toContainText("нужны данные владельца");
   await expect(page.getByTestId("owner-readiness-panel")).toBeVisible();
-  await expect(page.getByTestId("owner-readiness-panel")).toContainText("Artifact chain");
-  await expect(page.getByTestId("owner-readiness-panel")).toContainText("Provider gates");
-  await expect(page.getByTestId("owner-readiness-panel")).toContainText("Error boundary");
+  await expect(page.getByTestId("owner-readiness-panel")).toContainText("Цепочка артефакта");
+  await expect(page.getByTestId("owner-readiness-panel")).toContainText("Честность подключений");
+  await expect(page.getByTestId("owner-readiness-panel")).toContainText("Восстановление интерфейса");
   expect(await page.getByTestId("readiness-row").count()).toBeGreaterThanOrEqual(6);
   await page.context().setOffline(true);
   await page.evaluate(() => window.dispatchEvent(new Event("offline")));
-  await expect(page.getByTestId("network-status")).toContainText("offline");
-  await expect(page.getByTestId("owner-readiness-panel")).toContainText("offline-ready");
+  await expect(page.getByTestId("network-status")).toContainText("офлайн");
+  await expect(page.getByTestId("network-status")).toHaveAttribute("data-raw-status", "offline");
+  await expect(page.getByTestId("owner-readiness-panel")).toContainText("готово офлайн");
   await page.context().setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
-  await expect(page.getByTestId("network-status")).toContainText("online");
+  await expect(page.getByTestId("network-status")).toContainText("онлайн");
+  await expect(page.getByTestId("network-status")).toHaveAttribute("data-raw-status", "online");
   await expect(page.getByTestId("control-actions")).toBeVisible();
   const selectedExport = page.waitForEvent("download");
   await page.getByTestId("export-selected-artifact").click();
@@ -378,7 +382,7 @@ test("owner artifact OS capture creates proposals and applies to workspaces @vis
   await page.getByTestId("archive-selected-artifact").click();
   await expect(page.getByTestId("recovery-row").first()).toBeVisible();
   await page.getByTestId("restore-rollback-snapshot").first().click();
-  await expect(page.getByTestId("last-import-summary")).toContainText("Restored rollback snapshot");
+  await expect(page.getByTestId("last-import-summary")).toContainText(/Restored rollback snapshot|Восстановлен/);
   const p011Snapshot = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   expect(p011Snapshot.control.rollbackSnapshots.length).toBeGreaterThanOrEqual(1);
   expect(p011Snapshot.auditLog.some((row) => row.type === "control.rollback.restore")).toBe(true);

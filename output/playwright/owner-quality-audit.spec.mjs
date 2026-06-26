@@ -38,9 +38,10 @@ async function resetLifeOs(page) {
 
 function counts(state) {
   const alive = (collection) => Object.values(collection || {}).filter((item) => !item.deleted).length;
+  const ownerAlive = (collection) => Object.values(collection || {}).filter((item) => !item.deleted && item.systemType !== "product_brain" && !item.productBrainKey).length;
   return {
     sources: alive(state.sources),
-    notes: alive(state.notes),
+    notes: ownerAlive(state.notes),
     tasks: alive(state.tasks),
     planBlocks: alive(state.planBlocks),
     reminders: alive(state.reminders),
@@ -272,11 +273,12 @@ test("owner quality audit: varied inputs create real linked objects, not sample-
 
   await page.getByTestId("surface-control").click();
   await expect(page.getByTestId("data-control-panel")).toBeVisible();
-  await expect(page.getByTestId("owner-readiness-panel")).toContainText("Graph + Control");
+  await expect(page.getByTestId("owner-readiness-panel")).toContainText("Связи и Контроль");
   const controlState = await stateSnapshot(page);
   expect(controlState.auditLog.some((row) => row.type === "proposal.apply")).toBe(true);
   await qualityScreenshot(page, "output/playwright/quality-control-audit.png");
 
+  await page.evaluate(() => window.__lifeosKnowledgeBase.flushForTest());
   await page.reload();
   await page.waitForFunction(() => {
     const apiReady = Boolean(window.__lifeosKnowledgeBase && window.__lifeosKnowledgeBase.getStateSnapshot);

@@ -400,7 +400,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await page.locator("input#file-import").setInputFiles("output/playwright/fixtures/book-sample.md");
   await openSurface(page, "surface-reader", "book-workbench");
   const book = page.getByTestId("book-source-card").filter({ hasText: "book-sample.md" }).first();
-  await expect(book).toContainText("text-ready");
+  await expect(book).toContainText("текст готов");
   await book.getByTestId("extract-highlights").click();
   await book.getByTestId("highlight-title").fill("Highlight becomes knowledge");
   await book.getByTestId("add-highlight-entry").click();
@@ -411,7 +411,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
     mimeType: "application/pdf",
     buffer: Buffer.from("%PDF-1.4\nLifeOS parser gate fixture\n")
   });
-  await expect(page.getByTestId("book-source-card").filter({ hasText: "journey-parser-gate.pdf" })).toContainText("Parser gate");
+  await expect(page.getByTestId("book-source-card").filter({ hasText: "journey-parser-gate.pdf" })).toContainText("Формат ждёт парсер");
   await finishJourney(page, "J12", "Reader and books", before, {
     sees: "Reader parses TXT/MD, tracks progress and highlights, and shows honest PDF/EPUB parser gates with manual extraction path.",
     gated: "PDF/EPUB automatic parsing remains parser-gated until local parser packages are installed."
@@ -426,9 +426,9 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await openSurface(page, "surface-player", "player-panel");
   const audio = page.getByTestId("audio-card").filter({ hasText: "journey-voice.wav" }).first();
   await expect(audio).toBeVisible();
-  await expect(page.getByTestId("stt-gate")).toContainText("not-configured");
+  await expect(page.getByTestId("stt-gate")).toContainText("нужна настройка");
   await audio.locator("textarea[data-testid^='transcript-input-']").fill("[00:05] Создать задачу проверить граф.\n[00:30] Сделать заметку про аудио.");
-  await audio.getByText("Сохранить transcript").click();
+  await audio.getByText("Сохранить расшифровку").click();
   await audio.getByTestId("checkpoint-time").fill("00:30");
   await audio.getByTestId("checkpoint-title").fill("Audio checkpoint");
   await audio.getByTestId("add-audio-checkpoint").click();
@@ -460,7 +460,8 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await openSurface(page, "surface-chat", "chat-panel");
   await expect(page.getByTestId("ollama-status")).toBeVisible();
   await page.getByTestId("probe-ollama").first().click();
-  await expect(page.getByTestId("ollama-status").first()).toContainText("models_found");
+  await expect(page.getByTestId("ollama-status").first()).toContainText("модели найдены");
+  await expect(page.getByTestId("ollama-status").first()).toHaveAttribute("data-raw-status", "models_found");
   await finishJourney(page, "J15", "Local AI and Ollama chat", before, {
     sees: "Chat/Providers expose Ollama status, explicit probe, model list and proposal-only execution boundary.",
     gated: "A real local Ollama daemon is owner/device-dependent; this journey verifies the reachable API contract with a mocked localhost response."
@@ -491,7 +492,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await openSurface(page, "surface-agents", "agent-panel");
   await expect(page.getByTestId("agent-risk-card")).toContainText("Граница");
   await page.getByTestId("agent-panel-run").click();
-  await expect(page.getByTestId("agent-run").first()).toContainText("dry-run");
+  await expect(page.getByTestId("agent-run").first()).toContainText("черновой прогон");
   await expect(page.getByTestId("approval-queue")).toBeVisible();
   await expect(page.getByTestId("agent-run").first()).toContainText("Требуется Принять");
   await finishJourney(page, "J17", "Agents", before, {
@@ -511,7 +512,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await page.getByTestId("flow-condition").fill("over budget");
   await page.getByTestId("flow-action").selectOption("task");
   await page.getByTestId("run-flow-builder").click();
-  await expect(page.getByTestId("flow-run-row").first()).toContainText("proposal_created");
+  await expect(page.getByTestId("flow-run-row").first()).toContainText("предложение создано");
   await expect(page.getByTestId("approval-row").first()).toBeVisible();
   await finishJourney(page, "J18", "Flows and n8n-like automation", before, {
     sees: "Flow builder uses a visible trigger-condition-action board, dry-runs proposals, records execution history and keeps approval required before mutations.",
@@ -541,7 +542,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await expect(page.getByTestId("rollback-count")).toContainText("1");
   await expect(page.getByTestId("storage-map")).toBeVisible();
   await expect(page.getByTestId("architecture-contract")).toBeVisible();
-  await expect(page.getByTestId("architecture-validation")).toContainText("ok");
+  await expect(page.getByTestId("architecture-validation")).toContainText("ок");
   const architectureSnapshot = await page.evaluate(() => window.__lifeosKnowledgeBase.getArchitectureSnapshot());
   expect(architectureSnapshot.modules.some((module) => module.key === "architecture-contract")).toBe(true);
   expect(architectureSnapshot.eventBus.count).toBeGreaterThan(0);
@@ -555,9 +556,10 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await expect(page.getByTestId("provider-panel")).toContainText("Ollama");
   await expect(page.getByTestId("pwa-panel")).toBeVisible();
   await page.getByTestId("check-pwa").click();
-  await expect(page.getByTestId("pwa-service-worker-status")).toContainText(/service-worker-ready|service-worker-error|unsupported/);
+  await expect(page.getByTestId("pwa-service-worker-status")).toContainText(/офлайн-оболочка готова|ошибка service worker|не поддерживается/);
+  await expect(page.getByTestId("pwa-service-worker-status")).toHaveAttribute("data-raw-status", /service-worker-ready|service-worker-error|unsupported/);
   await page.getByTestId("prepare-provider-mail").click();
-  await expect(page.getByTestId("provider-panel")).toContainText("needs-owner-credentials");
+  await expect(page.getByTestId("provider-panel")).toContainText("нужны данные владельца");
   await finishJourney(page, "J21", "Providers", before, {
     sees: "Providers list local/external capabilities with setup states, safe probes, PWA service-worker status, revoke/prepare actions and no fake ready state.",
     gated: "Gmail, external calendar, OCR, STT and parser engines remain owner/provider setup gates; PWA install prompt still depends on browser policy."

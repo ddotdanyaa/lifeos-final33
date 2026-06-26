@@ -42,10 +42,10 @@ Capture workspace collects unprocessed source artifacts into a review board with
 ```
 
 ## Graph Edges
-After: 679 edges, 679 with visible reasons.
+After: 681 edges, 681 with visible reasons.
 
 ## Data Control Events
-After: 299 audit events. Tail: note.create: Note created: вечерний обзор: голосом записал идею про сон,... | source.project: Source projected into note: вечерний обзор: голосом записал идею про сон,....md | reading.create: Reading item created: вечерний обзор: голосом записал идею про сон,... | review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact
+After: 300 audit events. Tail: note.create: Note created: вечерний обзор: голосом записал идею про сон,... | source.project: Source projected into note: вечерний обзор: голосом записал идею про сон,....md | reading.create: Reading item created: вечерний обзор: голосом записал идею про сон,... | review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact
 
 ## Remaining Gated
 None for this local journey.

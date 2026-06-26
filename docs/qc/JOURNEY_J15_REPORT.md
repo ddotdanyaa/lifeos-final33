@@ -34,7 +34,7 @@ Chat/Providers expose Ollama status, explicit probe, model list and proposal-onl
   "providerRuns": 1,
   "proposalsOpen": 0,
   "proposalsApplied": 0,
-  "auditEvents": 1,
+  "auditEvents": 0,
   "graphNodes": 1,
   "graphEdges": 2,
   "graphEdgeReasons": 2
@@ -42,7 +42,7 @@ Chat/Providers expose Ollama status, explicit probe, model list and proposal-onl
 ```
 
 ## Graph Edges
-After: 681 edges, 681 with visible reasons.
+After: 683 edges, 683 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: reading.create: Reading item created: вечерний обзор: голосом записал идею про сон,... | review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact | provider.run: ollama probe: Ollama models_found at http://localhost:11434 | ollama.probe: Ollama models_found at http://localhost:11434

@@ -2,7 +2,7 @@
 
 STATUS: CONTINUATION_REQUIRED
 
-Updated: 2026-06-26 after Product Brain self-check and workspace 9+ visual polish.
+Updated: 2026-06-26 after Product Brain self-check, workspace 9+ visual polish and global Russian visual-coherence package.
 
 ## Why This Is Not DONE_ALL
 
@@ -16,6 +16,7 @@ Updated: 2026-06-26 after Product Brain self-check and workspace 9+ visual polis
 - PDF/EPUB parsing requires parser packages or an explicit install path.
 - Notifications/PWA permission/install prompt depends on browser/owner action.
 - The full screenshot/evidence wall remains local and is omitted from the GitHub lite snapshot by manifest.
+- This report is intentionally not a DONE_ALL report while external/provider connections still require owner action.
 
 ## What Is Locally Closed
 
@@ -25,10 +26,11 @@ Updated: 2026-06-26 after Product Brain self-check and workspace 9+ visual polis
 - Home is no-cockpit and capture-first.
 - All workspace scores in `FINAL_UI_HUMAN_AUDIT.md` are 9+ after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
 - Provider passports/setup paths/local fallbacks are implemented after `P_EXTERNAL_PROVIDER_SETUP`.
+- Main owner surfaces were cleaned after `P_GLOBAL_VISUAL_COHERENCE`: Russian-first labels, human-readable statuses, calmer Control/Providers, no mobile horizontal overflow.
 - GitHub auth works as `ddotdanyaa`.
 - GitHub origin is configured.
 - GitHub lite snapshot is published and documented.
-- No known local product-critical gate remains open before final regression/commit.
+- No known local product-critical gate remains open before final regression/commit/push of the current visual package.
 
 ## Evidence
 
@@ -41,6 +43,8 @@ Updated: 2026-06-26 after Product Brain self-check and workspace 9+ visual polis
 - `output/playwright/final/final-calendar-week.png`
 - `output/playwright/final/final-finance.png`
 - `output/playwright/final/final-agents-flows.png`
+- `output/playwright/final/final-mobile-home.png`
+- `output/playwright/final/final-mobile-capture.png`
 - `docs/ops/PRODUCT_BRAIN_RESUME_CAPSULE.md`
 - `docs/qc/FINAL_UI_HUMAN_AUDIT.md`
 - `docs/qc/PRODUCT_BRAIN_COMPLETION_MAP.csv`

@@ -109,7 +109,7 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   const pdfPath = join("output", "playwright", "fixtures", "parser-boundary-" + token + ".pdf");
   await writeFile(pdfPath, Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF"));
   await page.getByTestId("file-import").setInputFiles(pdfPath);
-  await expect(page.getByText("pdf-parser-required").first()).toBeVisible();
+  await expect(page.getByText("PDF ждёт парсер").first()).toBeVisible();
 
   const audioPath = join("output", "playwright", "fixtures", "meeting-" + token + ".wav");
   await writeFile(audioPath, Buffer.from("RIFF0000WAVEfmt "));
@@ -119,10 +119,10 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   await expect(page.getByTestId("player-panel").locator("audio").first()).toBeVisible();
   const transcriptNeedle = "Manual transcript " + token + " links to [[Renamed Target]].";
   await page.locator("[data-testid^='transcript-input-']").first().fill(transcriptNeedle);
-  await page.getByRole("button", { name: "Сохранить transcript" }).first().click();
+  await page.getByRole("button", { name: "Сохранить расшифровку" }).first().click();
   await expect(page.getByTestId("transcript-segment-row").first()).toBeVisible();
-  await page.getByRole("button", { name: "Open note" }).first().click();
-  await expect(page.getByTestId("note-title")).toHaveValue("meeting-" + token + " Transcript");
+  await page.getByRole("button", { name: "Открыть заметку" }).first().click();
+  await expect(page.getByTestId("note-title")).toHaveValue("meeting-" + token + " Расшифровка");
   await expect(page.getByTestId("note-body")).toContainText(transcriptNeedle);
 
   const goalNeedle = "Ship connected LifeOS " + token;
@@ -159,7 +159,7 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   await expect(page.getByTestId("ollama-endpoint")).toHaveValue(/localhost:11434/);
   await page.getByTestId("surface-providers").click();
   await page.getByTestId("prepare-provider-mail").click();
-  await expect(page.getByTestId("provider-panel")).toContainText("needs-owner-credentials");
+  await expect(page.getByTestId("provider-panel")).toContainText("нужны данные владельца");
   await page.getByTestId("surface-graph").click();
   const sourceFilter = page.getByTestId("graph-filter-sources");
   await expect(sourceFilter).toBeChecked();

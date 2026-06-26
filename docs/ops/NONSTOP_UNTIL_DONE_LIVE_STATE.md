@@ -1,7 +1,7 @@
 # Nonstop Until Done Live State
 
 status: CONTINUATION_REQUIRED
-updated_at: 2026-06-26T12:55:36+03:00
+updated_at: 2026-06-26T13:48:32+03:00
 
 ## Runtime
 
@@ -9,18 +9,18 @@ updated_at: 2026-06-26T12:55:36+03:00
 - branch: `owner-usable-nonstop-rescue`
 - remote status: `origin https://github.com/ddotdanyaa/lifeos-final33.git`
 - GitHub auth: `logged in as ddotdanyaa`
-- provider-passport implementation HEAD: `bf3cd47 fix: align owner final provider gate audit`
+- visual-coherence implementation HEAD: pending commit after `P_GLOBAL_VISUAL_COHERENCE`
 - provider-passport remote lite snapshot: `fabd664aa8792ebe54460dbceb2019195b248de4`
-- working tree state: clean after provider passport package and owner-final audit sync
+- working tree state: dirty while current UX/code/screenshots package is being committed
 - localhost URL: `http://127.0.0.1:4173`
-- current UI revision: `owner-ux-001-v12-provider-passports`
+- current UI revision: `owner-ux-001-v13-global-visual-coherence`
 - current Artifact schema version: `2`
 
 ## Current Package
 
-- package id: `P_EXTERNAL_PROVIDER_SETUP`
-- package name: паспорта провайдеров, пути настройки, локальные замены и gated e2e
-- reason: provider setup had to become an owner-usable passport surface, not a narrow status list.
+- package id: `P_GLOBAL_VISUAL_COHERENCE`
+- package name: цельная визуальная система и понятная русская микрокопи для всех рабочих мест
+- reason: owner reported that pages still felt same-looking, cluttered, pale and full of technical/dumb labels.
 
 ## Fixed Locally In This Package
 
@@ -33,11 +33,15 @@ updated_at: 2026-06-26T12:55:36+03:00
 - Each provider passport shows настройку, локальную замену, границу данных, доступы, действия and историю запусков.
 - `tools/audit-human-ux-final.mjs` now fails if any workspace score is below 9.
 - GitHub remote/auth stale rows were fixed in `FINAL_OPEN_GATES.csv`.
+- Topbar, workspace heroes, Library, Reader, Player, Chat, Agents, Providers and Control no longer surface raw English/status/debug wording as primary UI copy.
+- Providers and Control are visually calmer: neutral trust/passport treatment, risk colors only for actual risk/gated status.
+- Mobile 390px horizontal overflow was reproduced, diagnosed and fixed by restoring one-column workspace layout at mobile breakpoints.
+- Playwright specs now assert owner-visible Russian labels and raw provider/PWA status through `data-raw-status` or repository state, not by forcing raw strings onto the screen.
 
 ## Open Local Product Gates
 
 - None known after the latest J01-J24 and local audits.
-- Clean-tree `audit:owner-final` passed after commit.
+- Clean-tree `audit:owner-final` is pending the current commit; all local product/a11y/visual checks run so far pass except clean-tree final gate.
 
 ## External Gates
 
@@ -73,8 +77,16 @@ updated_at: 2026-06-26T12:55:36+03:00
 - `npm run audit:visual-hierarchy`: PASS
 - `npm run audit:workspace-distinctness`: PASS
 - `npm run audit:semantic-colors`: PASS
+- `npm run e2e`: PASS
+- `npm run e2e:owner`: PASS
+- `npm run e2e:market-owner`: PASS
+- `npm run e2e:quality`: PASS
 - `npm run e2e:ai-providers`: PASS
-- `npm run audit:owner-final`: PASS
+- `npm run e2e:journeys`: PASS
+- `npm run audit:human-ux-final`: PASS
+- `npm run audit:no-hardcoded-sample`: PASS
+- `npm run audit:no-cockpit-first-screen`: PASS
+- `npm run audit:owner-final`: pending clean tree after commit
 - `npm run release:push -- https://github.com/ddotdanyaa/lifeos-final33.git --lite-git-snapshot`: PASS
 
 ## Next Package

@@ -42,7 +42,7 @@ Agent dry-run is attached to the current artifact, shows safety boundaries, reco
 ```
 
 ## Graph Edges
-After: 691 edges, 691 with visible reasons.
+After: 693 edges, 693 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact | provider.run: ollama probe: Ollama models_found at http://localhost:11434 | ollama.probe: Ollama models_found at http://localhost:11434 | chat.local: Local chat message linked to artifact | chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,...

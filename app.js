@@ -1830,28 +1830,28 @@ function commandPaletteItems(state) {
     .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
   const activeNote = getActiveNote(state);
   const items = [
-    { id: "surface:inbox", group: "Рабочие места", title: "Дом / Daily OS", hint: "4 зоны: захват, день, деньги, активный артефакт", shortcut: "G H" },
-    { id: "surface:capture", group: "Рабочие места", title: "Вход / Capture", hint: "Разобрать источники и вечернюю очередь", shortcut: "G I" },
-    { id: "surface:today", group: "Рабочие места", title: "Сегодня / Tasks", hint: todayTasks ? todayTasks + " задач на сегодня" : "Спокойный список без лишнего шума", shortcut: "G T" },
-    { id: "surface:calendar", group: "Рабочие места", title: "Календарь", hint: "Неделя, agenda, time blocks и перегруз", shortcut: "G C" },
+    { id: "surface:inbox", group: "Рабочие места", title: "Дом", hint: "4 зоны: вход, день, деньги, активный артефакт", shortcut: "G H" },
+    { id: "surface:capture", group: "Рабочие места", title: "Вход", hint: "Разобрать источники и вечернюю очередь", shortcut: "G I" },
+    { id: "surface:today", group: "Рабочие места", title: "Сегодня", hint: todayTasks ? todayTasks + " задач на сегодня" : "Спокойный список без лишнего шума", shortcut: "G T" },
+    { id: "surface:calendar", group: "Рабочие места", title: "Календарь", hint: "Неделя, блоки времени и перегруз", shortcut: "G C" },
     { id: "surface:finance", group: "Рабочие места", title: "Финансы", hint: monthSpend ? "Расходы месяца: " + Math.round(monthSpend) + " ₽" : "Баланс, бюджеты, подписки, чеки", shortcut: "G F" },
     { id: "surface:habits", group: "Рабочие места", title: "Привычки", hint: "Чекины, ритм и восстановление", shortcut: "G B" },
-    { id: "surface:goals", group: "Рабочие места", title: "Цели / колесо баланса", hint: "Домены жизни, прогресс и next action", shortcut: "G O" },
-    { id: "surface:library", group: "Рабочие места", title: "База знаний", hint: "Markdown, wikilinks, backlinks, знания", shortcut: "G L" },
-    { id: "surface:reader", group: "Рабочие места", title: "Reader / книги", hint: "Прогресс, highlights, honest gates", shortcut: "G R" },
-    { id: "surface:player", group: "Рабочие места", title: "Player / голос", hint: "Аудио, transcript, proposals", shortcut: "G P" },
-    { id: "surface:chat", group: "Рабочие места", title: "Чат / local AI", hint: "Чат привязан к активному артефакту", shortcut: "G A" },
-    { id: "surface:agents", group: "Рабочие места", title: "Агенты / Flows", hint: "Dry-run, approval queue, run history", shortcut: "G W" },
-    { id: "surface:graph", group: "Рабочие места", title: "Большой граф", hint: "Global/local, filters, inspector, edge reasons", shortcut: "G G" },
-    { id: "surface:control", group: "Рабочие места", title: "Контроль данных", hint: "Audit, export, archive, rollback", shortcut: "G X" },
-    { id: "surface:providers", group: "Рабочие места", title: "Провайдеры", hint: "Ollama, OCR, STT, parser gates", shortcut: "G V" },
+    { id: "surface:goals", group: "Рабочие места", title: "Цели и баланс", hint: "Домены жизни, прогресс и следующий шаг", shortcut: "G O" },
+    { id: "surface:library", group: "Рабочие места", title: "База знаний", hint: "Заметки, ссылки, обратные связи и знания", shortcut: "G L" },
+    { id: "surface:reader", group: "Рабочие места", title: "Чтение", hint: "Прогресс, цитаты и честные ограничения форматов", shortcut: "G R" },
+    { id: "surface:player", group: "Рабочие места", title: "Голос", hint: "Аудио, расшифровка и предложения", shortcut: "G P" },
+    { id: "surface:chat", group: "Рабочие места", title: "Чат", hint: "Чат привязан к активному артефакту", shortcut: "G A" },
+    { id: "surface:agents", group: "Рабочие места", title: "Агенты и сценарии", hint: "Проверка, согласование и история запусков", shortcut: "G W" },
+    { id: "surface:graph", group: "Рабочие места", title: "Большой граф", hint: "Общий и локальный граф, фильтры, инспектор, причины связей", shortcut: "G G" },
+    { id: "surface:control", group: "Рабочие места", title: "Контроль данных", hint: "Аудит, экспорт, архив и откат", shortcut: "G X" },
+    { id: "surface:providers", group: "Рабочие места", title: "Подключения", hint: "Ollama, OCR, STT, парсеры и честные статусы", shortcut: "G V" },
     { id: "quick:task", group: "Быстрое действие", title: "Новая задача из захвата", hint: "Откроет capture-first шаблон задачи", shortcut: "N T" },
     { id: "quick:expense", group: "Быстрое действие", title: "Новый расход", hint: "Откроет шаблон расхода и финансы", shortcut: "N F" },
     { id: "quick:habit", group: "Быстрое действие", title: "Новая привычка", hint: "Откроет шаблон привычки", shortcut: "N H" },
-    { id: "action:capture", group: "Быстрое действие", title: "Разобрать текущий ввод", hint: "Создаст источник и proposal cards без silent mutation", shortcut: "Enter" },
-    { id: "action:apply-safe", group: "Быстрое действие", title: "Принять безопасные предложения", hint: openProposals ? openProposals + " открытых proposal" : "Откроет очередь предложений", shortcut: "A A" },
+    { id: "action:capture", group: "Быстрое действие", title: "Разобрать текущий ввод", hint: "Создаст источник и предложения без скрытых изменений", shortcut: "Enter" },
+    { id: "action:apply-safe", group: "Быстрое действие", title: "Принять безопасные предложения", hint: openProposals ? openProposals + " открытых предложений" : "Откроет очередь предложений", shortcut: "A A" },
     { id: "action:graph-active", group: "Связи", title: "Показать связи активного артефакта", hint: activeNote ? activeNote.title : "Выбери артефакт в базе", shortcut: "G ." },
-    { id: "action:control-active", group: "Связи", title: "Контроль активного артефакта", hint: activeNote ? "Audit trail: " + activeNote.title : "Откроет Data Control", shortcut: "C ." },
+    { id: "action:control-active", group: "Связи", title: "Контроль активного артефакта", hint: activeNote ? "След изменений: " + activeNote.title : "Откроет контроль данных", shortcut: "C ." },
     { id: "action:save-search", group: "Поиск", title: "Сохранить текущий поиск", hint: state.searchQuery || state.commandPaletteQuery ? (state.searchQuery || state.commandPaletteQuery) : "Сначала введи запрос", shortcut: "S S" }
   ];
   return items;
@@ -3912,9 +3912,9 @@ function requestSttGate(state, sourceId) {
     status: "not-configured",
     label: "STT",
     lastCheckedAt: now(),
-    requiredAction: "Connect a local STT engine before automatic transcription. Manual transcript remains available."
+    requiredAction: "Подключи локальный STT перед автоматической расшифровкой. Ручная расшифровка уже доступна."
   });
-  addAudit(state, "provider.stt.gate", "STT gate shown for " + source.name + "; no audio was sent anywhere.", source.noteId || state.activeNoteId);
+  addAudit(state, "provider.stt.gate", "Показана настройка STT для " + source.name + "; аудио никуда не отправлялось.", source.noteId || state.activeNoteId);
 }
 
 function saveSourceTranscript(state, sourceId, transcriptText) {
@@ -3927,16 +3927,16 @@ function saveSourceTranscript(state, sourceId, transcriptText) {
   source.status = "transcript-ready";
   source.updatedAt = now();
   source.analysis = analyzeSourceArtifact(source);
-  const title = stripExtension(source.name) + " Transcript";
+  const title = stripExtension(source.name) + " Расшифровка";
   const body = [
     "# " + title,
     "",
-    "Source artifact: " + source.name,
-    "Transcript mode: owner-entered local text",
+    "Источник: " + source.name,
+    "Режим: текст введён владельцем локально",
     "",
     cleanText
   ].join("\n");
-  const existingNote = source.noteId && state.notes[source.noteId] && !state.notes[source.noteId].deleted && state.notes[source.noteId].body.includes("Transcript mode:");
+  const existingNote = source.noteId && state.notes[source.noteId] && !state.notes[source.noteId].deleted && (state.notes[source.noteId].body.includes("Transcript mode:") || state.notes[source.noteId].body.includes("Режим: текст введён владельцем локально"));
   const noteId = existingNote ? source.noteId : createNote(state, title, state.activeFolderId, body);
   if (existingNote) {
     state.notes[noteId].title = title;
@@ -3947,16 +3947,16 @@ function saveSourceTranscript(state, sourceId, transcriptText) {
   syncTranscriptSegments(state, source.id, noteId, cleanText);
   extractKnowledgeFromNote(state, noteId);
   extractHighlightsFromSource(state, source.id);
-  addAudioCheckpoint(state, source.id, "Transcript saved", "00:00", "Manual transcript became repository text.");
+  addAudioCheckpoint(state, source.id, "Расшифровка сохранена", "00:00", "Ручная расшифровка стала текстом в базе.");
   addReviewItemOnce(state, "Повторить аудио: " + stripExtension(source.name), {
     sourceId: source.id,
     noteId,
     day: dateKeyFromOffset(3)
   });
-  ensureInsight(state, "Аудио стало знанием: " + stripExtension(source.name), "Transcript is source-backed now. It can create notes, tasks, claims, highlights, reviews and graph/control evidence.", { sourceId: source.id, noteId });
+  ensureInsight(state, "Аудио стало знанием: " + stripExtension(source.name), "Расшифровка связана с источником и может создавать заметки, задачи, выводы, цитаты, повторение, связи и контроль.", { sourceId: source.id, noteId });
   createActionProposalsForSource(state, source.id);
   addChatMessage(state, "assistant", "Транскрипт связан с аудио, заметкой, графом и действиями.", source.id, noteId);
-  addAudit(state, "transcript.save", "Manual transcript saved for " + source.name, noteId);
+  addAudit(state, "transcript.save", "Ручная расшифровка сохранена для " + source.name, noteId);
   rebuildIndexes(state);
   return noteId;
 }
@@ -5623,7 +5623,7 @@ function renderTopbar(state, activeNote) {
   ].join("");
   return [
     "<header class=\"topbar surface-" + escapeHtml(state.activeSurface) + "\">",
-    "<div class=\"brand\"><div class=\"mark\"></div><div><h1>LifeOS Artifact OS</h1><span>Источник -> Артефакт -> проекции -> контроль</span></div></div>",
+    "<div class=\"brand\"><div class=\"mark\"></div><div><h1>LifeOS</h1><span>Локальная ОС для дня, знаний и контроля</span></div></div>",
     "<div class=\"global-search\">",
     "<label for=\"global-search\">Найти</label>",
     "<input id=\"global-search\" data-testid=\"global-search\" value=\"" + escapeHtml(state.searchQuery) + "\" autocomplete=\"off\" aria-label=\"Search notes\">",
@@ -5637,11 +5637,11 @@ function renderTopbar(state, activeNote) {
     "</div>",
     "<div class=\"vault-status\">",
     "<span id=\"save-status\" class=\"status-pill\" role=\"status\" aria-live=\"polite\">готово</span>",
-    "<span>" + noteCount + " заметок</span>",
-    "<span>" + sourceCount + " источников</span>",
-    "<span>" + openTaskCount + " задач</span>",
+    "<span>База: " + noteCount + "</span>",
+    "<span>Входы: " + sourceCount + "</span>",
+    "<span>Открыто: " + openTaskCount + "</span>",
     "<span>локально</span>",
-    activeNote ? "<span data-testid=\"active-note-id\">активно: " + escapeHtml(shorten(activeNote.title, 42)) + "</span>" : "<span>нет заметки</span>",
+    activeNote ? "<span data-testid=\"active-note-id\">В фокусе: " + escapeHtml(shorten(activeNote.title, 42)) + "</span>" : "<span>Фокус свободен</span>",
     "</div>",
     state.activeSurface === "inbox" ? renderHomeQuickRibbon(state) : renderAppRibbon(state),
     "</header>"
@@ -6300,7 +6300,7 @@ function renderTodayWorkspace(state, note) {
   const today = ownerTodaySummary(state);
   const hero = renderWorkspaceHero(
     "today",
-    "Today / Tasks",
+    "Сегодня",
     "День без рядов тревоги",
     "Сегодня, завтра, без времени, напоминания и привычки собраны вокруг следующего действия.",
     [
@@ -6326,14 +6326,14 @@ function renderReaderWorkspace(state, note) {
   const gated = reading.filter((item) => item.status === "gated").length;
   const hero = renderWorkspaceHero(
     "reader",
-    "Reader / Books",
+    "Чтение",
     "Чтение как источник знания",
-    "Книги, PDF/EPUB gates, прогресс, highlights и заметки превращаются в карточки знаний с обратной ссылкой на источник.",
+    "Книги, ограничения форматов, прогресс, цитаты и заметки превращаются в карточки знаний с обратной ссылкой на источник.",
     [
       ["В чтении", String(reading.length)],
-      ["Highlights", String(highlights.length)],
-      ["Gates", String(gated)],
-      ["Review", String(Object.values(state.reviewItems || {}).filter((item) => !item.deleted && item.status !== "done").length)]
+      ["Цитаты", String(highlights.length)],
+      ["Ждут парсер", String(gated)],
+      ["Повторение", String(Object.values(state.reviewItems || {}).filter((item) => !item.deleted && item.status !== "done").length)]
     ],
     "<button data-action=\"import-file\" data-testid=\"book-import\">Импорт книги</button><button data-action=\"set-surface\" data-id=\"library\">База знаний</button>"
   );
@@ -6345,16 +6345,16 @@ function renderChatWorkspace(state) {
   const localStatus = state.ollama.status || "unchecked";
   const hero = renderWorkspaceHero(
     "chat",
-    "Chat / Local AI",
+    "Чат с артефактом",
     "Чат привязан к активному артефакту",
-    "Ollama виден как локальный provider: endpoint, модель, проба, proposal-only output. Никаких скрытых правок.",
+    "Можно писать заметки и вопросы без Ollama. Локальная модель, если доступна, только готовит предложения после явного запуска.",
     [
       ["Сообщения", String(messages.length)],
-      ["Ollama", localStatus],
+      ["Ollama", humanStatus(localStatus)],
       ["Модели", String((state.ollama.models || []).length)],
-      ["Proposals", String(Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open").length)]
+      ["Предложения", String(Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open").length)]
     ],
-    "<button data-action=\"ollama-dry-run\" data-testid=\"ollama-dry-run\">Предложить из AI</button><button data-action=\"set-surface\" data-id=\"providers\">Provider passport</button>"
+    "<button data-action=\"ollama-dry-run\" data-testid=\"ollama-dry-run\">Подготовить ответ</button><button data-action=\"set-surface\" data-id=\"providers\">Подключения</button>"
   );
   return renderSurfaceWorkspace("chat", hero, [
     renderProductBrainChatContext(state),
@@ -6370,7 +6370,7 @@ function renderProductBrainChatContext(state) {
   const summary = productBrainStatusSummary(state);
   return [
     "<section class=\"product-brain-chat-context\" data-testid=\"product-brain-chat-context\">",
-    "<div><span class=\"section-title\">Активный контекст</span><h3>LifeOS Product Brain</h3><p>Локальный deterministic answer engine: отвечает по состоянию разработки без Ollama и без silent mutation.</p></div>",
+    "<div><span class=\"section-title\">Активный контекст</span><h3>LifeOS Product Brain</h3><p>Локальный ответ по состоянию разработки: без внешней модели, без скрытых изменений, только как подсказка и источник задач.</p></div>",
     "<div class=\"product-brain-state-grid\">",
     "<span>Пакет <strong>" + escapeHtml(summary.currentPackage) + "</strong></span>",
     "<span>Дальше <strong>" + escapeHtml(summary.nextPackage) + "</strong></span>",
@@ -6387,16 +6387,16 @@ function renderAgentsWorkspace(state) {
   const flowRuns = Object.values(state.flowRuns || {});
   const hero = renderWorkspaceHero(
     "agents",
-    "Agents / Flows",
-    "Dry-run before automation",
-    "Агенты и flow создают только предложения, показывают scopes, run history и ждут явного применения.",
+    "Агенты и сценарии",
+    "Песочница автоматизаций перед применением",
+    "Сценарии читают активный артефакт, показывают риск и результат заранее, а изменения попадают в систему только после подтверждения.",
     [
-      ["Agent runs", String(runs.length)],
-      ["Flow runs", String(flowRuns.length)],
-      ["Open proposals", String(Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open").length)],
-      ["Audit", String(state.auditLog.length)]
+      ["Проверки агентов", String(runs.length)],
+      ["Проверки сценариев", String(flowRuns.length)],
+      ["Открыто", String(Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open").length)],
+      ["Следы", String(state.auditLog.length)]
     ],
-    "<button data-action=\"run-agent-active\" data-testid=\"hero-agent-run\">Dry-run agent</button><button data-action=\"run-flow\" data-testid=\"hero-flow-run\">Dry-run flow</button>"
+    "<button data-action=\"run-agent-active\" data-testid=\"hero-agent-run\">Проверить агента</button><button data-action=\"run-flow\" data-testid=\"hero-flow-run\">Проверить сценарий</button>"
   );
   return renderSurfaceWorkspace("agents", hero, [
     renderAgentPanel(state),
@@ -6410,7 +6410,7 @@ function renderOwnerHome(state, note) {
   const today = ownerTodaySummary(state);
   const money = financeSummary(state);
   const openProposals = Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open");
-  const sourceMeta = source ? [source.kind, source.status, source.parserStatus, formatBytes(source.size)].filter(Boolean).join(" / ") : "";
+  const sourceMeta = source ? sourceMetaLabel(source) : "";
   const visibleSource = source && source.name !== "daily-capture.md" ? source : null;
   const sourceProposals = visibleSource ? Object.values(state.proposals || {}).filter((proposal) => proposal.sourceId === visibleSource.id) : [];
   const sourceHasAppliedObjects = sourceProposals.some((proposal) => proposal.status === "applied");
@@ -6752,28 +6752,28 @@ function renderKnowledgeWorkbench(state, note) {
     "</div>",
     "</div>",
     "<div class=\"knowledge-metrics\">",
-    "<span>claims <strong>" + knowledge.claims.length + "</strong></span>",
-    "<span>questions <strong>" + knowledge.questions.length + "</strong></span>",
-    "<span>review <strong>" + knowledge.reviewItems.filter((item) => item.status !== "done").length + "</strong></span>",
-    "<span>backlinks <strong>" + backlinks + "</strong></span>",
-    "<span>wikilinks <strong>" + outlinks + "</strong></span>",
+    "<span>выводы <strong>" + knowledge.claims.length + "</strong></span>",
+    "<span>вопросы <strong>" + knowledge.questions.length + "</strong></span>",
+    "<span>повторение <strong>" + knowledge.reviewItems.filter((item) => item.status !== "done").length + "</strong></span>",
+    "<span>обратные <strong>" + backlinks + "</strong></span>",
+    "<span>ссылки <strong>" + outlinks + "</strong></span>",
     "</div>",
     renderProductBrainLibraryCard(state, note),
     "<div class=\"knowledge-forms\">",
-    "<label>Claim<input id=\"claim-title\" data-testid=\"claim-title\" autocomplete=\"off\" aria-label=\"Claim title\"></label>",
-    "<button data-action=\"add-claim-entry\" data-testid=\"add-claim-entry\">Add</button>",
-    "<label>Question<input id=\"question-title\" data-testid=\"question-title\" autocomplete=\"off\" aria-label=\"Question title\"></label>",
-    "<button data-action=\"add-question-entry\" data-testid=\"add-question-entry\">Add</button>",
-    "<label>Review<input id=\"review-title\" data-testid=\"review-title\" autocomplete=\"off\" aria-label=\"Review title\"></label>",
+    "<label>Вывод<input id=\"claim-title\" data-testid=\"claim-title\" autocomplete=\"off\" aria-label=\"Вывод\"></label>",
+    "<button data-action=\"add-claim-entry\" data-testid=\"add-claim-entry\">Добавить</button>",
+    "<label>Вопрос<input id=\"question-title\" data-testid=\"question-title\" autocomplete=\"off\" aria-label=\"Вопрос\"></label>",
+    "<button data-action=\"add-question-entry\" data-testid=\"add-question-entry\">Добавить</button>",
+    "<label>Повторение<input id=\"review-title\" data-testid=\"review-title\" autocomplete=\"off\" aria-label=\"Повторение\"></label>",
     "<input id=\"review-day\" data-testid=\"review-day\" type=\"date\" value=\"" + escapeHtml(reviewDay) + "\" aria-label=\"Review date\">",
-    "<button data-action=\"add-review-entry\" data-testid=\"add-review-entry\">Add</button>",
+    "<button data-action=\"add-review-entry\" data-testid=\"add-review-entry\">Добавить</button>",
     "</div>",
     "<div class=\"knowledge-columns\">",
-    "<div><h3>Claims</h3>" + (knowledge.claims.length ? knowledge.claims.map(renderClaimRow).join("") : "<div class=\"empty compact\">Нажми извлечение или добавь claim вручную.</div>") + "</div>",
-    "<div><h3>Questions</h3>" + (knowledge.questions.length ? knowledge.questions.map(renderQuestionRow).join("") : "<div class=\"empty compact\">Вопросы станут задачами без потери источника.</div>") + "</div>",
-    "<div><h3>Review</h3>" + (knowledge.reviewItems.length ? knowledge.reviewItems.map(renderReviewRow).join("") : "<div class=\"empty compact\">Review item появится после извлечения смысла.</div>") + "</div>",
+    "<div><h3>Выводы</h3>" + (knowledge.claims.length ? knowledge.claims.map(renderClaimRow).join("") : "<div class=\"empty compact\">Нажми извлечение или добавь вывод вручную.</div>") + "</div>",
+    "<div><h3>Вопросы</h3>" + (knowledge.questions.length ? knowledge.questions.map(renderQuestionRow).join("") : "<div class=\"empty compact\">Вопросы станут задачами без потери источника.</div>") + "</div>",
+    "<div><h3>Повторение</h3>" + (knowledge.reviewItems.length ? knowledge.reviewItems.map(renderReviewRow).join("") : "<div class=\"empty compact\">Карточка повторения появится после извлечения смысла.</div>") + "</div>",
     "</div>",
-    knowledge.insights.length ? "<div class=\"knowledge-insights\"><h3>Insights</h3>" + knowledge.insights.slice(0, 4).map((insight) => "<div class=\"insight-row\"><strong>" + escapeHtml(insight.title) + "</strong><span>" + escapeHtml(shorten(insight.reason, 140)) + "</span></div>").join("") + "</div>" : "",
+    knowledge.insights.length ? "<div class=\"knowledge-insights\"><h3>Инсайты</h3>" + knowledge.insights.slice(0, 4).map((insight) => "<div class=\"insight-row\"><strong>" + escapeHtml(insight.title) + "</strong><span>" + escapeHtml(shorten(insight.reason, 140)) + "</span></div>").join("") + "</div>" : "",
     "</section>"
   ].join("");
 }
@@ -6810,23 +6810,23 @@ function renderBookSourceCard(state, source) {
   const gated = source.parserStatus && source.parserStatus.includes("parser-required") && !source.text;
   const extraction = gated ? [
     "<div class=\"book-gate\" data-testid=\"book-parser-gate\">",
-    "<div><strong>Parser gate</strong><span>" + escapeHtml(source.parserStatus) + "</span></div>",
-    "<p>Автопарсер не включен. Источник сохранен локально, можно вставить извлеченный текст вручную.</p>",
+    "<div><strong>Формат ждёт парсер</strong><span>" + escapeHtml(humanStatus(source.parserStatus)) + "</span></div>",
+    "<p>Автопарсер не включён. Источник сохранён локально; можно вставить извлечённый текст вручную.</p>",
     "<textarea id=\"book-extraction-" + escapeHtml(source.id) + "\" data-testid=\"book-extraction\" aria-label=\"Manual extracted text\" spellcheck=\"true\"></textarea>",
-    "<button data-action=\"save-source-extraction\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-source-extraction\">Save text</button>",
+    "<button data-action=\"save-source-extraction\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-source-extraction\">Сохранить текст</button>",
     "</div>"
   ].join("") : "";
   const readableTools = source.text ? [
     "<div class=\"book-tools\">",
-    "<button data-action=\"extract-highlights\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"extract-highlights\">Extract highlights</button>",
-    "<input id=\"highlight-title-" + escapeHtml(source.id) + "\" data-testid=\"highlight-title\" autocomplete=\"off\" aria-label=\"Highlight text\">",
-    "<button data-action=\"add-highlight-entry\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"add-highlight-entry\">Add highlight</button>",
+    "<button data-action=\"extract-highlights\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"extract-highlights\">Найти цитаты</button>",
+    "<input id=\"highlight-title-" + escapeHtml(source.id) + "\" data-testid=\"highlight-title\" autocomplete=\"off\" aria-label=\"Текст цитаты\">",
+    "<button data-action=\"add-highlight-entry\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"add-highlight-entry\">Добавить цитату</button>",
     "</div>"
   ].join("") : "";
   const progress = readingItem ? [
     "<div class=\"reading-progress\">",
-    "<label>Progress<input id=\"reading-progress-" + escapeHtml(readingItem.id) + "\" data-testid=\"reading-progress\" type=\"number\" min=\"0\" max=\"100\" value=\"" + escapeHtml(readingItem.progress) + "\" aria-label=\"Reading progress\"></label>",
-    "<button data-action=\"update-reading-progress\" data-id=\"" + escapeHtml(readingItem.id) + "\" data-testid=\"update-reading-progress\">Save</button>",
+    "<label>Прогресс<input id=\"reading-progress-" + escapeHtml(readingItem.id) + "\" data-testid=\"reading-progress\" type=\"number\" min=\"0\" max=\"100\" value=\"" + escapeHtml(readingItem.progress) + "\" aria-label=\"Прогресс чтения\"></label>",
+    "<button data-action=\"update-reading-progress\" data-id=\"" + escapeHtml(readingItem.id) + "\" data-testid=\"update-reading-progress\">Сохранить</button>",
     "</div>"
   ].join("") : "";
   return [
@@ -6834,18 +6834,18 @@ function renderBookSourceCard(state, source) {
     "<div class=\"book-source-head\">",
     "<div>",
     "<strong>" + escapeHtml(source.name) + "</strong>",
-    "<span>" + escapeHtml([source.kind, source.status, source.parserStatus, formatBytes(source.size)].filter(Boolean).join(" / ")) + "</span>",
+    "<span>" + escapeHtml(sourceMetaLabel(source)) + "</span>",
     "</div>",
     "<div class=\"knowledge-actions\">",
     "<button data-action=\"open-source-note\" data-id=\"" + escapeHtml(source.id) + "\">Открыть</button>",
     "<button data-action=\"open-knowledge-control\" data-id=\"" + escapeHtml(readingItem ? readingItem.id : source.id) + "\">Контроль</button>",
     "</div>",
     "</div>",
-    readingItem ? "<div class=\"knowledge-metrics\"><span>status <strong>" + escapeHtml(readingItem.status) + "</strong></span><span>progress <strong>" + escapeHtml(readingItem.progress) + "%</strong></span><span>highlights <strong>" + highlights.length + "</strong></span></div>" : "",
+    readingItem ? "<div class=\"knowledge-metrics\"><span>статус <strong>" + escapeHtml(humanStatus(readingItem.status)) + "</strong></span><span>прогресс <strong>" + escapeHtml(readingItem.progress) + "%</strong></span><span>цитаты <strong>" + highlights.length + "</strong></span></div>" : "",
     extraction,
     readableTools,
     progress,
-    highlights.length ? "<div class=\"highlight-stack\">" + highlights.slice(0, 5).map(renderHighlightRow).join("") + "</div>" : "<div class=\"empty compact\">Highlights появятся после text import или manual extraction.</div>",
+    highlights.length ? "<div class=\"highlight-stack\">" + highlights.slice(0, 5).map(renderHighlightRow).join("") + "</div>" : "<div class=\"empty compact\">Цитаты появятся после импорта текста или ручного извлечения.</div>",
     "</article>"
   ].join("");
 }
@@ -6856,13 +6856,13 @@ function renderBookWorkbench(state, note) {
     "<section class=\"book-workbench\" data-testid=\"book-workbench\">",
     "<div class=\"knowledge-head\">",
     "<div>",
-    "<span class=\"section-title\">Files / Books</span>",
-    "<h2>Reader sources</h2>",
-    "<p>TXT/MD читаются сразу. PDF/EPUB хранятся локально и ждут parser gate или ручной текст.</p>",
+    "<span class=\"section-title\">Книги и файлы</span>",
+    "<h2>Источники для чтения</h2>",
+    "<p>TXT/MD читаются сразу. PDF/EPUB хранятся локально и ждут парсер или ручной текст.</p>",
     "</div>",
-    "<button data-action=\"import-file\" data-testid=\"book-import\">Import</button>",
+    "<button data-action=\"import-file\" data-testid=\"book-import\">Импорт</button>",
     "</div>",
-    sources.length ? "<div class=\"book-source-grid\">" + sources.map((source) => renderBookSourceCard(state, source)).join("") + "</div>" : "<div class=\"empty compact\">Импортируй TXT, MD, PDF или EPUB, чтобы создать source-backed reading item.</div>",
+    sources.length ? "<div class=\"book-source-grid\">" + sources.map((source) => renderBookSourceCard(state, source)).join("") + "</div>" : "<div class=\"empty compact\">Импортируй TXT, MD, PDF или EPUB, чтобы создать источник чтения.</div>",
     "</section>"
   ].join("");
 }
@@ -7221,9 +7221,9 @@ function renderEditor(state, note) {
     const days = calendarDays(state);
     const hero = renderWorkspaceHero(
       "calendar",
-      "Calendar",
+      "Календарь",
       "Неделя как план, а не таблица задач",
-      "Задачи и reminders становятся time blocks, их можно редактировать, переносить и открывать в Контроле.",
+      "Задачи и напоминания становятся блоками времени: их можно редактировать, переносить и открывать в Контроле.",
       [
         ["Дней", String(days.length)],
         ["Сегодня", String(calendarItemsWithReminders(state, days[0] || { key: todayKey(), tasks: [], plans: [] }).length)],
@@ -7242,9 +7242,9 @@ function renderEditor(state, note) {
     const summary = financeSummary(state);
     const hero = renderWorkspaceHero(
       "finance",
-      "Finance",
-      "Деньги как спокойный dashboard",
-      "Баланс, envelopes, транзакции, подписки и скрины чеков связаны с источниками, графом и контролем.",
+      "Финансы",
+      "Деньги как спокойная рабочая панель",
+      "Баланс, бюджеты, транзакции, подписки и скрины чеков связаны с источниками, графом и контролем.",
       [
         ["Баланс", Math.round(summary.balance) + " ₽"],
         ["Сегодня", Math.round(summary.todaySpend) + " ₽"],
@@ -7264,14 +7264,14 @@ function renderEditor(state, note) {
     const goalCount = Object.values(state.goals || {}).filter((goal) => !goal.deleted).length;
     const hero = renderWorkspaceHero(
       "goals",
-      "Habits / Goals / Wheel",
+      "Привычки, цели и баланс",
       "Ритм, восстановление и следующий шаг",
-      "Привычки и цели живут рядом с Today, деньгами, знаниями и колесом баланса, а не как отдельные формы.",
+      "Привычки и цели живут рядом с сегодняшним днём, деньгами, знаниями и колесом баланса, а не как отдельные формы.",
       [
         ["Привычки", today.habitDone + "/" + today.habitTotal],
         ["Цели", String(goalCount)],
-        ["Review", String(Object.values(state.reviewItems || {}).filter((item) => !item.deleted && item.status !== "done").length)],
-        ["Insights", String(Object.values(state.insights || {}).filter((item) => item.status === "open").length)]
+        ["Повторение", String(Object.values(state.reviewItems || {}).filter((item) => !item.deleted && item.status !== "done").length)],
+        ["Инсайты", String(Object.values(state.insights || {}).filter((item) => item.status === "open").length)]
       ],
       "<button data-action=\"quick-habit\" data-testid=\"quick-habit\">Новая привычка</button><button data-action=\"set-surface\" data-id=\"today\">Сегодня</button>"
     );
@@ -7299,16 +7299,16 @@ function renderEditor(state, note) {
     const audios = Object.values(state.sources || {}).filter((source) => !source.deleted && source.kind === "audio");
     const hero = renderWorkspaceHero(
       "player",
-      "Player / Voice",
+      "Голос и аудио",
       "Аудио становится знанием",
-      "Плеер, ручной transcript, checkpoints и действия из фрагмента создают source-backed задачи, claims и highlights.",
+      "Плеер, ручная расшифровка, закладки и действия из фрагмента создают связанные задачи, выводы и цитаты.",
       [
         ["Аудио", String(audios.length)],
-        ["Segments", String(Object.values(state.transcriptSegments || {}).filter((item) => !item.deleted).length)],
-        ["Checkpoints", String(Object.values(state.audioCheckpoints || {}).filter((item) => !item.deleted).length)],
-        ["STT", (state.providers.stt || {}).status || "not-configured"]
+        ["Фрагменты", String(Object.values(state.transcriptSegments || {}).filter((item) => !item.deleted).length)],
+        ["Закладки", String(Object.values(state.audioCheckpoints || {}).filter((item) => !item.deleted).length)],
+        ["STT", humanStatus((state.providers.stt || {}).status || "not-configured")]
       ],
-      "<button data-action=\"import-audio\" data-testid=\"player-import-audio\">Открыть аудио</button><button data-action=\"set-surface\" data-id=\"providers\">STT gate</button>"
+      "<button data-action=\"import-audio\" data-testid=\"player-import-audio\">Открыть аудио</button><button data-action=\"set-surface\" data-id=\"providers\">Настроить STT</button>"
     );
     return [
       "<main class=\"editor-pane surface-pane\">",
@@ -7329,14 +7329,14 @@ function renderEditor(state, note) {
     const providerRows = Object.values(state.providers || {});
     const hero = renderWorkspaceHero(
       "providers",
-      "Providers",
+      "Подключения",
       "Паспорт локальных и внешних движков",
-      "Каждый provider показывает статус, scopes, last probe, revoke/setup и границу local/cloud.",
+      "Каждое подключение показывает статус, локальную замену, границу данных, отключение и историю проверок.",
       [
-        ["Providers", String(providerRows.length)],
-        ["Ollama", state.ollama.status || "unchecked"],
-        ["Gated", String(providerRows.filter((provider) => /not-connected|not-configured|needs-owner/.test(provider.status || "")).length)],
-        ["Runs", String(Object.values(state.providerRuns || {}).length)]
+        ["Подключения", String(providerRows.length)],
+        ["Ollama", humanStatus(state.ollama.status || "unchecked")],
+        ["Ждут настройки", String(providerRows.filter((provider) => /not-connected|not-configured|needs-owner/.test(provider.status || "")).length)],
+        ["Проверки", String(Object.values(state.providerRuns || {}).length)]
       ],
       "<button data-action=\"probe-ollama\" data-testid=\"hero-probe-ollama\">Проба Ollama</button><button data-action=\"set-surface\" data-id=\"control\">Права</button>"
     );
@@ -7349,21 +7349,21 @@ function renderEditor(state, note) {
   if (state.activeSurface === "control") {
     const hero = renderWorkspaceHero(
       "control",
-      "Control",
+      "Контроль",
       "Данные, аудит и восстановление",
-      "Последние изменения, export, archive/recover, rollback, storage map и provider permissions видны как owner control surface.",
+      "Последние изменения, экспорт, архив, откат, хранилище и разрешения подключений собраны в одном месте.",
       [
-        ["Audit", String(state.auditLog.length)],
-        ["Rollbacks", String((state.control.rollbackSnapshots || []).length)],
-        ["Sources", String(Object.values(state.sources || {}).filter((item) => !item.deleted).length)],
-        ["Graph", String(mapGraph(state).links.length)]
+        ["Следы", String(state.auditLog.length)],
+        ["Откаты", String((state.control.rollbackSnapshots || []).length)],
+        ["Источники", String(Object.values(state.sources || {}).filter((item) => !item.deleted).length)],
+        ["Связи", String(mapGraph(state).links.length)]
       ],
-      "<button data-action=\"export-vault\" data-testid=\"export-vault\">Экспорт</button><button data-action=\"create-rollback-snapshot\" data-testid=\"hero-rollback-snapshot\">Rollback snapshot</button>"
+      "<button data-action=\"export-vault\" data-testid=\"export-vault\">Экспорт</button><button data-action=\"create-rollback-snapshot\" data-testid=\"hero-rollback-snapshot\">Снимок отката</button>"
     );
     return [
       "<main class=\"editor-pane surface-pane\">",
       renderSurfaceWorkspace("control", hero, renderDataControlPanel(state)),
-      "<section class=\"info-panel\"><div class=\"section-title\">Audit</div>" + renderAudit(state) + "</section>",
+      "<section class=\"info-panel\"><div class=\"section-title\">Последние изменения</div>" + renderAudit(state) + "</section>",
       "</main>"
     ].join("");
   }
@@ -7378,7 +7378,7 @@ function renderEditor(state, note) {
     return [
       "<main class=\"editor-pane\">",
       renderCaptureCockpit(state),
-      "<div class=\"empty big\">Capture data to start the local vault.</div>",
+      "<div class=\"empty big\">Добавь первый вход, чтобы запустить локальную базу.</div>",
       "</main>"
     ].join("");
   }
@@ -7390,31 +7390,31 @@ function renderEditor(state, note) {
     "<main class=\"editor-pane surface-pane library-surface-pane\">",
     renderSurfaceWorkspace("library", renderWorkspaceHero(
       "library",
-      "Library / Knowledge",
-      "База знаний с backlinks",
-      "Заметки, folders/spaces, markdown, wikilinks, claims, questions, review и knowledge cards остаются одним Artifact graph.",
+      "База знаний",
+      "Заметки с обратными связями",
+      "Заметки, пространства, markdown-ссылки, выводы, вопросы, повторение и карточки знаний живут в одном графе.",
       [
-        ["Links", String(note.links.length)],
-        ["Backlinks", String(incomingBacklinks(state, note.id).length)],
-        ["Claims", String(Object.values(state.claims || {}).filter((item) => !item.deleted && item.noteId === note.id).length)],
-        ["Review", String(Object.values(state.reviewItems || {}).filter((item) => !item.deleted && item.noteId === note.id).length)]
+        ["Ссылки", String(note.links.length)],
+        ["Обратные", String(incomingBacklinks(state, note.id).length)],
+        ["Выводы", String(Object.values(state.claims || {}).filter((item) => !item.deleted && item.noteId === note.id).length)],
+        ["Повторение", String(Object.values(state.reviewItems || {}).filter((item) => !item.deleted && item.noteId === note.id).length)]
       ],
-      "<button data-action=\"extract-knowledge\" data-testid=\"hero-extract-knowledge\">Извлечь знание</button><button data-action=\"set-surface\" data-id=\"reader\">Reader</button>"
+      "<button data-action=\"extract-knowledge\" data-testid=\"hero-extract-knowledge\">Извлечь знание</button><button data-action=\"set-surface\" data-id=\"reader\">Чтение</button>"
     ), renderKnowledgeWorkbench(state, note) + renderBookWorkbench(state, note)),
     "<div class=\"note-header\">",
     "<div>",
-    "<label for=\"note-title\">Title</label>",
+    "<label for=\"note-title\">Название</label>",
     "<input id=\"note-title\" data-testid=\"note-title\" value=\"" + escapeHtml(note.title) + "\" autocomplete=\"off\">",
     "</div>",
     "<div>",
-    "<label for=\"note-folder\">Folder</label>",
+    "<label for=\"note-folder\">Папка</label>",
     "<select id=\"note-folder\" data-testid=\"note-folder\">" + folderOptions + "</select>",
     "</div>",
-    "<button data-action=\"delete-note\" class=\"danger\" data-id=\"" + escapeHtml(note.id) + "\" data-testid=\"delete-note\">Delete</button>",
+    "<button data-action=\"delete-note\" class=\"danger\" data-id=\"" + escapeHtml(note.id) + "\" data-testid=\"delete-note\">Удалить</button>",
     "</div>",
     "<div class=\"editor-grid\">",
     "<section class=\"editor-card\">",
-    "<div class=\"card-head\"><h2>Edit</h2><span id=\"live-link-count\">" + note.links.length + " links</span></div>",
+    "<div class=\"card-head\"><h2>Редактор</h2><span id=\"live-link-count\">" + note.links.length + " ссылок</span></div>",
     "<textarea id=\"note-body\" data-testid=\"note-body\" spellcheck=\"true\">" + escapeHtml(note.body) + "</textarea>",
     "</section>",
     "<section class=\"preview-card\">",
@@ -7907,10 +7907,10 @@ function renderCalendarWorkbench(state) {
   const agendaItems = weekAgendaItems(state, days).slice(0, 8);
   const overload = days.map((day) => ({ day, items: calendarItemsWithReminders(state, day).filter((item) => item.status !== "done") }))
     .find((row) => row.items.length >= 5);
-  const focusTitle = overload ? "Перегруз календаря" : (agendaItems.length ? "Следующие time blocks" : "Неделя свободна");
+  const focusTitle = overload ? "Перегруз календаря" : (agendaItems.length ? "Ближайшие блоки времени" : "Неделя свободна");
   const focusDetail = overload
     ? formatDayLabel(overload.day.key) + ": " + overload.items.length + " блоков. Перенеси или укороти часть задач."
-    : (agendaItems.length ? "Показывает только то, где есть действие." : "Добавь задачу, и она появится в agenda и week-grid.");
+    : (agendaItems.length ? "Показывает только то, где есть действие." : "Добавь задачу, и она появится в недельном плане.");
   return [
     "<section class=\"info-panel calendar-workbench\" data-testid=\"calendar-workbench\">",
     "<div class=\"card-head\"><h2>Календарь</h2><span>Сегодня, завтра, неделя, без времени, напоминания и источник каждого действия</span></div>",
@@ -7929,7 +7929,7 @@ function renderCalendarWorkbench(state) {
     "<div class=\"calendar-agenda-strip\" data-testid=\"calendar-agenda-strip\">",
     "<div data-testid=\"calendar-overload-warning\"><span>Фокус недели</span><strong>" + escapeHtml(focusTitle) + "</strong><em>" + escapeHtml(focusDetail) + "</em></div>",
     "<div class=\"calendar-agenda-list\" data-testid=\"calendar-agenda-list\">",
-    agendaItems.length ? agendaItems.map((item) => "<button class=\"calendar-agenda-item\" data-action=\"set-surface\" data-id=\"today\" data-testid=\"calendar-agenda-item\"><time>" + escapeHtml(formatDayLabel(item.dayKey || item.day)) + " · " + escapeHtml(formatSchedule(item)) + "</time><strong>" + escapeHtml(shorten(item.title, 54)) + "</strong><span>" + escapeHtml(scheduleKindLabel(item.kind) + " · " + scheduleSourceHint(state, item)) + "</span></button>").join("") : "<button class=\"calendar-empty-action\" data-action=\"quick-task\" data-testid=\"calendar-empty-action\"><time>сейчас</time><strong>Добавить первый time block</strong><span>Создаст задачу, которую можно поставить в календарь.</span></button>",
+    agendaItems.length ? agendaItems.map((item) => "<button class=\"calendar-agenda-item\" data-action=\"set-surface\" data-id=\"today\" data-testid=\"calendar-agenda-item\"><time>" + escapeHtml(formatDayLabel(item.dayKey || item.day)) + " · " + escapeHtml(formatSchedule(item)) + "</time><strong>" + escapeHtml(shorten(item.title, 54)) + "</strong><span>" + escapeHtml(scheduleKindLabel(item.kind) + " · " + scheduleSourceHint(state, item)) + "</span></button>").join("") : "<button class=\"calendar-empty-action\" data-action=\"quick-task\" data-testid=\"calendar-empty-action\"><time>сейчас</time><strong>Добавить первый блок времени</strong><span>Создаст задачу, которую можно поставить в календарь.</span></button>",
     "</div>",
     "</div>",
     "<div class=\"week-board\" data-testid=\"calendar-week\">",
@@ -8039,7 +8039,7 @@ function renderFinancePanelV2(state) {
   }
   return [
     "<section class=\"info-panel finance-workbench finance-workbench-v2\" data-testid=\"finance-panel\">",
-    "<div class=\"card-head\"><h2>Финансы</h2><span>Счета, расходы, бюджет, подписки и скрины чеков как проекции одного Artifact OS</span></div>",
+    "<div class=\"card-head\"><h2>Финансы</h2><span>Счета, расходы, бюджет, подписки и скрины чеков как связанные части одной системы.</span></div>",
     "<div class=\"finance-metrics\">",
     "<div><span>Баланс</span><strong>" + Math.round(summary.balance) + " ₽</strong></div>",
     "<div><span>Сегодня</span><strong>" + Math.round(summary.todaySpend) + " ₽</strong></div>",
@@ -8502,9 +8502,9 @@ function renderFlowStepNode(kind, title, value, detail) {
 function renderAgentRunCard(run) {
   return [
     "<article class=\"agent-run\" data-testid=\"agent-run\">",
-    "<div><strong>" + escapeHtml(run.name + " / " + run.status) + "</strong><span>" + escapeHtml(shorten(run.summary, 140)) + "</span></div>",
+    "<div><strong>" + escapeHtml(run.name + " · " + humanStatus(run.status)) + "</strong><span>" + escapeHtml(shorten(run.summary, 140)) + "</span></div>",
     "<div class=\"agent-run-meta\">",
-    "<span>Scope: " + escapeHtml((run.scopes || []).join(", ") || "proposal dry-run") + "</span>",
+    "<span>Контекст: " + escapeHtml((run.scopes || []).join(", ") || "только предложения") + "</span>",
     "<span>Риск: локально, без внешней отправки</span>",
     "<span>Требуется Принять</span>",
     "</div>",
@@ -8520,9 +8520,9 @@ function renderFlowRunCard(state, run) {
   });
   return [
     "<article class=\"flow-run-card\" data-testid=\"flow-run-row\">",
-    "<div><strong>" + escapeHtml(run.status) + "</strong><span>" + escapeHtml(shorten(run.summary, 140)) + "</span></div>",
-    proposalTitles.length ? "<em>Proposal: " + escapeHtml(proposalTitles.map((title) => shorten(title, 54)).join(" / ")) + "</em>" : "<em>Proposal не создан</em>",
-    "<div class=\"agent-run-meta\"><span>Dry-run</span><span>Требуется подтверждение</span><span>Rollback/audit видны</span></div>",
+    "<div><strong>" + escapeHtml(humanStatus(run.status)) + "</strong><span>" + escapeHtml(shorten(run.summary, 140)) + "</span></div>",
+    proposalTitles.length ? "<em>Предложение: " + escapeHtml(proposalTitles.map((title) => shorten(title, 54)).join(" / ")) + "</em>" : "<em>Предложение не создано</em>",
+    "<div class=\"agent-run-meta\"><span>Проверка без изменений</span><span>Требуется подтверждение</span><span>Откат и контроль видны</span></div>",
     "<button data-action=\"focus-graph-node\" data-id=\"" + escapeHtml(run.id) + "\">Показать связи</button>",
     "</article>"
   ].join("");
@@ -8538,12 +8538,12 @@ function renderApprovalQueue(state) {
     "<div class=\"section-title\">Очередь согласования</div>",
     proposals.length ? proposals.map((proposal) => [
       "<div class=\"approval-row\" data-testid=\"approval-row\">",
-      "<span>" + escapeHtml(proposal.group || groupForProposalType(proposal.type)) + "</span>",
+      "<span>" + escapeHtml(proposalGroupLabel(proposal.group || groupForProposalType(proposal.type))) + "</span>",
       "<strong>" + escapeHtml(shorten(proposal.title, 82)) + "</strong>",
       "<button data-action=\"apply-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\">Принять</button>",
       "<button data-action=\"open-proposal-control\" data-id=\"" + escapeHtml(proposal.id) + "\">Контроль</button>",
       "</div>"
-    ].join("")).join("") : "<div class=\"empty compact\">Dry-run создаст proposal здесь. Никаких скрытых изменений до Принять.</div>",
+    ].join("")).join("") : "<div class=\"empty compact\">Проверка создаст предложение здесь. Никаких скрытых изменений до «Принять».</div>",
     "</section>"
   ].join("");
 }
@@ -8552,37 +8552,37 @@ function renderAgentPanel(state) {
   const runs = Object.values(state.agentRuns || {}).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
   const flows = Object.values(state.flows || {}).sort((a, b) => a.name.localeCompare(b.name));
   const flowRuns = Object.values(state.flowRuns || {}).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
-  const activeFlow = flows[0] || { name: "Owner builder flow", steps: [], runCount: 0, status: "ready" };
-  const trigger = activeFlow.steps.find((step) => step.kind === "trigger")?.value || "new artifact";
-  const condition = activeFlow.steps.find((step) => step.kind === "condition")?.value || "has actionable signal";
+  const activeFlow = flows[0] || { name: "Сценарий владельца", steps: [], runCount: 0, status: "ready" };
+  const trigger = activeFlow.steps.find((step) => step.kind === "trigger")?.value || "новый артефакт";
+  const condition = activeFlow.steps.find((step) => step.kind === "condition")?.value || "есть действие";
   const action = activeFlow.steps.find((step) => step.kind === "proposal_action")?.value || "task";
   return [
     "<section class=\"info-panel workflow-panel agent-flow-workbench\" data-testid=\"agent-panel\">",
-    "<div class=\"section-title\">Агенты / Flow dry-run</div>",
+    "<div class=\"section-title\">Агенты и сценарии</div>",
     "<div class=\"agent-flow-summary\">",
-    "<div><span>Agent runs</span><strong>" + runs.length + "</strong></div>",
-    "<div><span>Flow runs</span><strong>" + flowRuns.length + "</strong></div>",
-    "<div><span>Mode</span><strong>proposal-only</strong></div>",
-    "<div><span>External</span><strong>gated</strong></div>",
+    "<div><span>Агенты</span><strong>" + runs.length + "</strong></div>",
+    "<div><span>Сценарии</span><strong>" + flowRuns.length + "</strong></div>",
+    "<div><span>Режим</span><strong>только предложения</strong></div>",
+    "<div><span>Внешние действия</span><strong>по разрешению</strong></div>",
     "</div>",
-    "<div class=\"agent-risk-card\" data-testid=\"agent-risk-card\"><strong>Граница безопасности</strong><span>Агенты и flow читают активный артефакт, создают только proposals, требуют явного Принять и пишут след в Связях/Контроле.</span></div>",
-    "<div class=\"compact-form two-buttons\"><button data-action=\"run-agent-active\" data-testid=\"agent-panel-run\">Dry-run агента</button><button data-action=\"run-flow\" data-testid=\"flow-panel-run\">Dry-run flow</button></div>",
+    "<div class=\"agent-risk-card\" data-testid=\"agent-risk-card\"><strong>Граница безопасности</strong><span>Агенты и сценарии читают активный артефакт, создают только предложения, требуют явного «Принять» и пишут след в Связях/Контроле.</span></div>",
+    "<div class=\"compact-form two-buttons\"><button data-action=\"run-agent-active\" data-testid=\"agent-panel-run\">Проверить агента</button><button data-action=\"run-flow\" data-testid=\"flow-panel-run\">Проверить сценарий</button></div>",
     "<div class=\"flow-builder\" data-testid=\"flow-builder\">",
     "<label><span>Триггер</span><input id=\"flow-trigger\" data-testid=\"flow-trigger\" aria-label=\"Flow trigger\" value=\"" + escapeHtml(trigger) + "\"></label>",
     "<label><span>Условие</span><input id=\"flow-condition\" data-testid=\"flow-condition\" aria-label=\"Flow condition\" value=\"" + escapeHtml(condition) + "\"></label>",
-    "<label><span>Действие</span><select id=\"flow-action\" data-testid=\"flow-action\" aria-label=\"Flow action\"><option value=\"task\"" + (action === "task" ? " selected" : "") + ">task proposal</option><option value=\"plan\"" + (action === "plan" ? " selected" : "") + ">plan proposal</option><option value=\"review\"" + (action === "review" ? " selected" : "") + ">review proposal</option></select></label>",
-    "<button data-action=\"run-flow-builder\" data-testid=\"run-flow-builder\">Запустить dry-run</button>",
+    "<label><span>Действие</span><select id=\"flow-action\" data-testid=\"flow-action\" aria-label=\"Flow action\"><option value=\"task\"" + (action === "task" ? " selected" : "") + ">предложить задачу</option><option value=\"plan\"" + (action === "plan" ? " selected" : "") + ">предложить блок времени</option><option value=\"review\"" + (action === "review" ? " selected" : "") + ">предложить разбор</option></select></label>",
+    "<button data-action=\"run-flow-builder\" data-testid=\"run-flow-builder\">Проверить сценарий</button>",
     "</div>",
     "<div class=\"flow-builder-board\" data-testid=\"flow-builder-board\">",
-    renderFlowStepNode("trigger", "Когда", trigger, "событие в Artifact OS"),
+    renderFlowStepNode("trigger", "Когда", trigger, "событие в LifeOS"),
     renderFlowStepNode("condition", "Если", condition, "условие перед действием"),
-    renderFlowStepNode("action", "То", action + " proposal", "только proposal, без silent mutation"),
+    renderFlowStepNode("action", "То", action === "task" ? "предложить задачу" : action === "plan" ? "предложить блок времени" : "предложить разбор", "только предложение, без скрытых изменений"),
     "</div>",
-    flows.length ? "<div class=\"flow-template-list\" data-testid=\"flow-template-list\">" + flows.map((flow) => "<div class=\"provider-row\"><span>" + escapeHtml(flow.name) + "<em>" + escapeHtml(flow.steps.map((step) => step.kind + ":" + step.value).join(" -> ") || "trigger -> condition -> proposal") + "</em></span><strong>" + flow.runCount + " runs</strong></div>").join("") + "</div>" : "",
+    flows.length ? "<div class=\"flow-template-list\" data-testid=\"flow-template-list\">" + flows.map((flow) => "<div class=\"provider-row\"><span>" + escapeHtml(flow.name) + "<em>" + escapeHtml(flow.steps.map((step) => step.value).join(" → ") || "событие → условие → предложение") + "</em></span><strong>" + flow.runCount + " проверок</strong></div>").join("") + "</div>" : "",
     renderApprovalQueue(state),
     "<div class=\"agent-history-grid\">",
-    "<section><div class=\"section-title\">Agent history</div>" + (runs.length ? runs.map(renderAgentRunCard).join("") : "<div class=\"empty compact\">Agent dry-run появится после запуска.</div>") + "</section>",
-    "<section><div class=\"section-title\">Flow history</div>" + (flowRuns.length ? "<div class=\"flow-run-list\" data-testid=\"flow-run-list\">" + flowRuns.map((run) => renderFlowRunCard(state, run)).join("") + "</div>" : "<div class=\"empty compact\">Flow dry-run появится после запуска.</div>") + "</section>",
+    "<section><div class=\"section-title\">История агентов</div>" + (runs.length ? runs.map(renderAgentRunCard).join("") : "<div class=\"empty compact\">Проверка агента появится после запуска.</div>") + "</section>",
+    "<section><div class=\"section-title\">История сценариев</div>" + (flowRuns.length ? "<div class=\"flow-run-list\" data-testid=\"flow-run-list\">" + flowRuns.map((run) => renderFlowRunCard(state, run)).join("") + "</div>" : "<div class=\"empty compact\">Проверка сценария появится после запуска.</div>") + "</section>",
     "</div>",
     "</section>"
   ].join("");
@@ -8600,7 +8600,7 @@ function renderTranscriptSegmentRow(segment) {
 function renderAudioCheckpointRow(checkpoint) {
   return [
     "<div class=\"audio-checkpoint-row\" data-testid=\"audio-checkpoint-row\">",
-    "<strong>" + escapeHtml(checkpoint.timecode || "no-time") + "</strong>",
+    "<strong>" + escapeHtml(checkpoint.timecode || "без времени") + "</strong>",
     "<span>" + escapeHtml(checkpoint.title) + "</span>",
     checkpoint.note ? "<em>" + escapeHtml(shorten(checkpoint.note, 90)) + "</em>" : "",
     "</div>"
@@ -8622,29 +8622,29 @@ function renderAudioSourceCard(state, source) {
   const playerNotes = playerNotesForSource(state, source.id);
   const player = source.dataUrl
     ? "<audio controls src=\"" + escapeHtml(source.dataUrl) + "\"></audio>"
-    : "<div class=\"empty compact\">Stored as source. Re-import under 8 MB for inline playback; transcript still works.</div>";
-  const meta = [source.status, source.transcriptStatus, formatBytes(source.size)].filter(Boolean).join(" / ");
+    : "<div class=\"empty compact\">Файл сохранён как источник. Для встроенного проигрывания импортируй аудио до 8 MB; расшифровка всё равно работает.</div>";
+  const meta = sourceMetaLabel(source);
   return [
     "<article class=\"audio-card\" data-testid=\"audio-card\">",
     "<div class=\"audio-card-head\">",
     "<div><strong>" + escapeHtml(source.name) + "</strong><span>" + escapeHtml(meta) + "</span></div>",
-    "<div class=\"knowledge-actions\"><button data-action=\"open-source-note\" data-id=\"" + escapeHtml(source.id) + "\">Open note</button><button data-action=\"request-stt-gate\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"request-stt-gate\">STT gate</button></div>",
+    "<div class=\"knowledge-actions\"><button data-action=\"open-source-note\" data-id=\"" + escapeHtml(source.id) + "\">Открыть заметку</button><button data-action=\"request-stt-gate\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"request-stt-gate\">Настроить STT</button></div>",
     "</div>",
     player,
-    "<div class=\"knowledge-metrics\"><span>segments <strong>" + segments.length + "</strong></span><span>checkpoints <strong>" + checkpoints.length + "</strong></span><span>notes <strong>" + playerNotes.length + "</strong></span></div>",
-    "<label class=\"transcript-editor-label\">Manual transcript<textarea class=\"transcript-box\" data-testid=\"transcript-input-" + escapeHtml(source.id) + "\" id=\"transcript-" + escapeHtml(source.id) + "\" spellcheck=\"true\">" + escapeHtml(source.transcriptText || "") + "</textarea></label>",
+    "<div class=\"knowledge-metrics\"><span>фрагменты <strong>" + segments.length + "</strong></span><span>закладки <strong>" + checkpoints.length + "</strong></span><span>заметки <strong>" + playerNotes.length + "</strong></span></div>",
+    "<label class=\"transcript-editor-label\">Ручная расшифровка<textarea class=\"transcript-box\" data-testid=\"transcript-input-" + escapeHtml(source.id) + "\" id=\"transcript-" + escapeHtml(source.id) + "\" spellcheck=\"true\">" + escapeHtml(source.transcriptText || "") + "</textarea></label>",
     "<div class=\"audio-actions\">",
-    "<button data-action=\"save-transcript\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-transcript-" + escapeHtml(source.id) + "\">Сохранить transcript</button>",
-    "<input id=\"checkpoint-time-" + escapeHtml(source.id) + "\" data-testid=\"checkpoint-time\" autocomplete=\"off\" aria-label=\"Checkpoint time\">",
-    "<input id=\"checkpoint-title-" + escapeHtml(source.id) + "\" data-testid=\"checkpoint-title\" autocomplete=\"off\" aria-label=\"Checkpoint title\">",
-    "<button data-action=\"add-audio-checkpoint\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"add-audio-checkpoint\">Добавить checkpoint</button>",
+    "<button data-action=\"save-transcript\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-transcript-" + escapeHtml(source.id) + "\">Сохранить расшифровку</button>",
+    "<input id=\"checkpoint-time-" + escapeHtml(source.id) + "\" data-testid=\"checkpoint-time\" autocomplete=\"off\" aria-label=\"Время закладки\">",
+    "<input id=\"checkpoint-title-" + escapeHtml(source.id) + "\" data-testid=\"checkpoint-title\" autocomplete=\"off\" aria-label=\"Название закладки\">",
+    "<button data-action=\"add-audio-checkpoint\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"add-audio-checkpoint\">Добавить закладку</button>",
     "</div>",
     "<div class=\"transcript-selection-tools\">",
     "<textarea id=\"transcript-snippet-" + escapeHtml(source.id) + "\" data-testid=\"transcript-snippet\" aria-label=\"Transcript snippet\"></textarea>",
     "<div class=\"knowledge-actions\"><button data-action=\"transcript-to-note\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"transcript-to-note\">Заметка</button><button data-action=\"transcript-to-task\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"transcript-to-task\">Задача</button><button data-action=\"transcript-to-claim\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"transcript-to-claim\">Вывод</button><button data-action=\"transcript-to-highlight\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"transcript-to-highlight\">Цитата</button></div>",
     "</div>",
-    segments.length ? "<div class=\"transcript-segment-stack\">" + segments.slice(0, 10).map(renderTranscriptSegmentRow).join("") + "</div>" : "<div class=\"empty compact\">Save manual transcript to create searchable transcript segments.</div>",
-    checkpoints.length ? "<div class=\"audio-checkpoint-stack\">" + checkpoints.slice(0, 6).map(renderAudioCheckpointRow).join("") + "</div>" : "<div class=\"empty compact\">Добавь checkpoints для закладок и возврата.</div>",
+    segments.length ? "<div class=\"transcript-segment-stack\">" + segments.slice(0, 10).map(renderTranscriptSegmentRow).join("") + "</div>" : "<div class=\"empty compact\">Сохрани ручную расшифровку, и LifeOS сделает её searchable и связанной с задачами/заметками.</div>",
+    checkpoints.length ? "<div class=\"audio-checkpoint-stack\">" + checkpoints.slice(0, 6).map(renderAudioCheckpointRow).join("") + "</div>" : "<div class=\"empty compact\">Добавь закладки, чтобы быстро вернуться к важным местам.</div>",
     playerNotes.length ? "<div class=\"player-note-stack\">" + playerNotes.slice(0, 6).map(renderPlayerNoteRow).join("") + "</div>" : "",
     "</article>"
   ].join("");
@@ -8655,10 +8655,10 @@ function renderPlayerPanel(state) {
   const stt = state.providers.stt || { status: "not-configured", requiredAction: "Manual transcript is available now." };
   return [
     "<section class=\"info-panel workflow-panel player-workbench\" data-testid=\"player-panel\">",
-    "<div class=\"card-head\"><h2>Player / Transcript</h2><span>Аудио, ручная расшифровка, checkpoints и действия из transcript связаны с Artifact graph.</span></div>",
-    "<div class=\"stt-gate\" data-testid=\"stt-gate\"><div><strong>STT</strong><span>" + escapeHtml(stt.status) + "</span></div><p>" + escapeHtml(stt.requiredAction || "Manual transcript is available now.") + "</p></div>",
-    "<button data-action=\"import-audio\" data-testid=\"player-import-audio\">Import audio</button>",
-    audios.length ? "<div class=\"audio-card-grid\">" + audios.map((source) => renderAudioSourceCard(state, source)).join("") + "</div>" : "<div class=\"empty compact\">Import audio to attach playback, manual transcript and source-backed actions.</div>",
+    "<div class=\"card-head\"><h2>Плеер и расшифровка</h2><span>Аудио, ручная расшифровка, закладки и действия из текста связаны с графом и Контролем.</span></div>",
+    "<div class=\"stt-gate\" data-testid=\"stt-gate\"><div><strong>STT</strong><span>" + escapeHtml(humanStatus(stt.status)) + "</span></div><p>" + escapeHtml(stt.requiredAction || "Ручная расшифровка работает сейчас.") + "</p></div>",
+    "<button data-action=\"import-audio\" data-testid=\"player-import-audio\">Открыть аудио</button>",
+    audios.length ? "<div class=\"audio-card-grid\">" + audios.map((source) => renderAudioSourceCard(state, source)).join("") + "</div>" : "<div class=\"empty compact\">Открой аудио, чтобы слушать, расшифровывать вручную и превращать фрагменты в заметки, задачи или выводы.</div>",
     "</section>"
   ].join("");
 }
@@ -8668,9 +8668,9 @@ function renderProviderPanel(state) {
   const rows = Object.keys(providers).map((key) => {
     const provider = providers[key];
     const action = key === "mail" ? "<button data-action=\"prepare-mail\" data-id=\"" + key + "\">Подготовить</button>" : "";
-    const revoke = provider.status !== "local-only" && provider.status !== "revoked" ? "<button data-action=\"revoke-provider\" data-id=\"" + escapeHtml(key) + "\">Revoke</button>" : "";
-    const meta = [provider.endpoint, provider.scopes && provider.scopes.length ? provider.scopes.join("/") : "", provider.revokedAt ? "revoked " + provider.revokedAt : "", provider.lastError ? "error" : ""].filter(Boolean).join(" / ");
-    return "<div class=\"provider-row provider-action\"><span>" + escapeHtml(provider.label || key) + (meta ? "<em>" + escapeHtml(meta) + "</em>" : "") + "</span><strong>" + escapeHtml(provider.status) + "</strong>" + action + revoke + "</div>";
+    const revoke = provider.status !== "local-only" && provider.status !== "revoked" ? "<button data-action=\"revoke-provider\" data-id=\"" + escapeHtml(key) + "\">Отключить</button>" : "";
+    const meta = [provider.endpoint, provider.scopes && provider.scopes.length ? provider.scopes.map((scope) => scope.replace(/[-_]/g, " ")).join(", ") : "", provider.revokedAt ? "отключено " + provider.revokedAt : "", provider.lastError ? "есть ошибка" : ""].filter(Boolean).join(" · ");
+    return "<div class=\"provider-row provider-action\"><span>" + escapeHtml(provider.label || key) + (meta ? "<em>" + escapeHtml(meta) + "</em>" : "") + "</span><strong>" + escapeHtml(humanStatus(provider.status)) + "</strong>" + action + revoke + "</div>";
   }).join("");
   return [
     "<section class=\"info-panel workflow-panel\" data-testid=\"provider-panel\">",
@@ -8684,69 +8684,69 @@ function providerPassportCopy(key, provider) {
   const map = {
     ollama: {
       setup: "Запусти Ollama локально и нажми Проверить Ollama.",
-      local: "Chat, заметки и Product Brain answers работают без модели.",
+      local: "Чат, заметки и Product Brain работают без модели.",
       sends: "Только активный артефакт после явного запуска.",
-      fallback: "Локальный deterministic answer/proposal mode."
+      fallback: "Локальные ответы и предложения без внешней модели."
     },
     mail: {
-      setup: "Подготовить OAuth; до этого вставляй письмо как source.",
-      local: "Pasted mail сохраняется как источник и разбирается локально.",
-      sends: "OAuth scopes только после явного owner approval.",
+      setup: "Подготовить OAuth; до этого вставляй письмо как источник.",
+      local: "Вставленное письмо сохраняется как источник и разбирается локально.",
+      sends: "Доступы OAuth только после явного разрешения владельца.",
       fallback: "Вставка текста письма во Вход."
     },
     calendar: {
       setup: "Локальный календарь уже работает без внешних аккаунтов.",
-      local: "Tasks/reminders/planBlocks остаются в локальном repository.",
+      local: "Задачи, напоминания и блоки времени остаются в локальной базе.",
       sends: "Ничего не уходит во внешний календарь.",
-      fallback: "Today/Calendar time blocks."
+      fallback: "План дня и локальный календарь."
     },
     calendarSync: {
       setup: "Подготовить OAuth для синхронизации внешнего календаря.",
-      local: "Локальные blocks остаются источником правды.",
-      sends: "Доступы чтения/записи календаря только после явного approval владельца.",
-      fallback: "Экспорт/ручной перенос из Calendar."
+      local: "Локальные блоки остаются источником правды.",
+      sends: "Доступы чтения/записи календаря только после явного разрешения владельца.",
+      fallback: "Экспорт или ручной перенос из календаря."
     },
     automation: {
-      setup: "Flow engine локальный: trigger-condition-action dry-run.",
-      local: "Создаются только proposals и run history.",
+      setup: "Локальный сценарий: событие, условие, действие, проверка.",
+      local: "Создаются только предложения и история проверок.",
       sends: "Ничего не уходит наружу.",
-      fallback: "Approval queue и Control."
+      fallback: "Очередь согласования и Контроль."
     },
     player: {
-      setup: "Audio player локальный; STT отдельно gated.",
-      local: "Playback/manual transcript/checkpoints локальны.",
-      sends: "Аудио не отправляется без STT provider.",
-      fallback: "Ручной transcript editor."
+      setup: "Аудиоплеер локальный; STT подключается отдельно.",
+      local: "Проигрывание, ручная расшифровка и закладки локальны.",
+      sends: "Аудио не отправляется без подключения STT.",
+      fallback: "Редактор ручной расшифровки."
     },
     pwa: {
-      setup: "Проверить service worker и install prompt.",
+      setup: "Проверить офлайн-оболочку и установку.",
       local: "Shell кэшируется; данные остаются IndexedDB/localStorage.",
-      sends: "Ничего наружу; браузер решает install prompt.",
-      fallback: "Обычный browser mode."
+      sends: "Ничего наружу; установку решает браузер.",
+      fallback: "Обычный режим браузера."
     },
     stt: {
-      setup: "Подключить browser/local STT engine.",
+      setup: "Подключить браузерный или локальный STT.",
       local: "Ручная расшифровка работает сейчас.",
-      sends: "Audio только после отдельного STT permission/provider.",
-      fallback: "Ручной transcript editor."
+      sends: "Аудио только после отдельного разрешения STT.",
+      fallback: "Редактор ручной расшифровки."
     },
     ocr: {
-      setup: "Подключить OCR engine для чеков.",
+      setup: "Подключить OCR для чеков.",
       local: "Скрин чека сохраняется и заполняется вручную.",
       sends: "Изображение не отправляется без OCR provider.",
       fallback: "Ручное извлечение чека."
     },
     pdf: {
-      setup: "Установить PDF parser package.",
-      local: "Файл хранится как source; gate честно объясняет ограничение.",
-      sends: "PDF не парсится/не отправляется без parser path.",
-      fallback: "TXT/MD reader."
+      setup: "Установить PDF-парсер.",
+      local: "Файл хранится как источник; экран честно объясняет ограничение.",
+      sends: "PDF не парсится и не отправляется без парсера.",
+      fallback: "Чтение TXT/MD."
     },
     epub: {
-      setup: "Установить EPUB parser package.",
-      local: "Книга хранится как source; TXT/MD reader работает.",
-      sends: "EPUB не парсится/не отправляется без parser path.",
-      fallback: "TXT/MD reader."
+      setup: "Установить EPUB-парсер.",
+      local: "Книга хранится как источник; TXT/MD читаются сейчас.",
+      sends: "EPUB не парсится и не отправляется без парсера.",
+      fallback: "Чтение TXT/MD."
     },
     notifications: {
       setup: "Запросить browser notification permission только явно.",
@@ -8782,7 +8782,7 @@ function providerStatusLabel(status) {
 
 function renderProviderPassport(state, key, provider) {
   const copy = providerPassportCopy(key, provider);
-  const scopes = provider.scopes && provider.scopes.length ? provider.scopes.join(", ") : "локально";
+  const scopes = provider.scopes && provider.scopes.length ? provider.scopes.map((scope) => scope.replace(/[-_]/g, " ")).join(", ") : "локально";
   const status = provider.status || "unknown";
   const canPrepare = ["mail", "calendarSync", "ocr", "stt", "pdf", "epub", "notifications"].includes(key);
   const canProbe = key === "ollama" || key === "pwa";
@@ -8805,7 +8805,7 @@ function renderProviderPassport(state, key, provider) {
     "</div>",
     provider.requiredAction ? "<p class=\"provider-required\">" + escapeHtml(provider.requiredAction) + "</p>" : "",
     provider.lastError ? "<div class=\"provider-error\">" + escapeHtml(shorten(provider.lastError, 140)) + "</div>" : "",
-    lastRun ? "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(lastRun.kind + " / " + lastRun.status) + "</strong><span>" + escapeHtml(shorten(lastRun.summary, 120)) + "</span></div>" : "<div class=\"empty compact\">Пока нет запуска провайдера. Действие будет записано в Control.</div>",
+    lastRun ? "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(providerRunLabel(lastRun)) + "</strong><span>" + escapeHtml(shorten(lastRun.summary, 120)) + "</span></div>" : "<div class=\"empty compact\">Пока нет проверки подключения. Действие будет записано в Контроль.</div>",
     "<div class=\"provider-actions\">" + [setupAction, probeAction, revoke].filter(Boolean).join("") + "</div>",
     "</article>"
   ].join("");
@@ -8817,7 +8817,7 @@ function renderProviderPanelV2(state) {
   const keys = preferred.filter((key) => providers[key]).concat(Object.keys(providers).filter((key) => !preferred.includes(key)));
   return [
     "<section class=\"info-panel workflow-panel provider-passport-panel\" data-testid=\"provider-panel\">",
-    "<div class=\"card-head\"><h2>Подключения</h2><span>Каждый провайдер показывает статус, настройку, локальную замену, границу данных и историю запусков. Fake ready запрещен.</span></div>",
+    "<div class=\"card-head\"><h2>Подключения</h2><span>Каждое подключение честно показывает, что работает локально, что ждёт настройки и какие данные могут уйти наружу.</span></div>",
     "<div class=\"provider-passport-grid-list\">",
     keys.map((key) => renderProviderPassport(state, key, providers[key])).join(""),
     "</div>",
@@ -8832,16 +8832,17 @@ function renderPwaPanel(state) {
   const swStatus = env.serviceWorkerStatus || provider.status || "unchecked";
   const installStatus = env.installPromptStatus || "not-seen";
   const displayMode = env.displayMode || "browser";
+  const displayLabel = displayMode === "browser" ? "браузер" : displayMode === "standalone" ? "как приложение" : displayMode === "minimal-ui" ? "минимальный режим" : displayMode;
   const error = env.pwaLastError ? "<div class=\"provider-error\">" + escapeHtml(shorten(env.pwaLastError, 140)) + "</div>" : "";
   return [
     "<section class=\"info-panel workflow-panel pwa-panel\" data-testid=\"pwa-panel\">",
-    "<div class=\"section-title\">PWA / Offline</div>",
-    "<div class=\"provider-row\"><span>Manifest</span><strong data-testid=\"pwa-manifest\">" + escapeHtml(manifest) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Service worker</span><strong data-testid=\"pwa-service-worker-status\">" + escapeHtml(swStatus) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Scope</span><strong data-testid=\"pwa-service-worker-scope\">" + escapeHtml(env.serviceWorkerScope || "not registered yet") + "</strong></div>",
-    "<div class=\"provider-row\"><span>Install prompt</span><strong data-testid=\"pwa-install-status\">" + escapeHtml(installStatus) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Display mode</span><strong data-testid=\"pwa-display-mode\">" + escapeHtml(displayMode) + "</strong></div>",
-    "<div class=\"provider-send-box\" data-testid=\"pwa-boundary\"><strong>Что честно работает</strong><span>Shell кэшируется локальным service worker. Данные остаются в IndexedDB/localStorage. Установка зависит от браузера и не подделывается.</span></div>",
+    "<div class=\"section-title\">Офлайн и установка</div>",
+    "<div class=\"provider-row\"><span>Файл приложения</span><strong data-testid=\"pwa-manifest\">" + escapeHtml(manifest) + "</strong></div>",
+    "<div class=\"provider-row\"><span>Офлайн-оболочка</span><strong data-testid=\"pwa-service-worker-status\" data-raw-status=\"" + escapeHtml(swStatus) + "\">" + escapeHtml(humanStatus(swStatus)) + "</strong></div>",
+    "<div class=\"provider-row\"><span>Область</span><strong data-testid=\"pwa-service-worker-scope\">" + escapeHtml(env.serviceWorkerScope || "ещё не зарегистрирована") + "</strong></div>",
+    "<div class=\"provider-row\"><span>Установка</span><strong data-testid=\"pwa-install-status\" data-raw-status=\"" + escapeHtml(installStatus) + "\">" + escapeHtml(humanStatus(installStatus)) + "</strong></div>",
+    "<div class=\"provider-row\"><span>Режим окна</span><strong data-testid=\"pwa-display-mode\" data-raw-status=\"" + escapeHtml(displayMode) + "\">" + escapeHtml(displayLabel) + "</strong></div>",
+    "<div class=\"provider-send-box\" data-testid=\"pwa-boundary\"><strong>Что честно работает</strong><span>Оболочка кэшируется локально. Данные остаются в браузерном хранилище. Установка зависит от браузера и не подделывается.</span></div>",
     "<div class=\"provider-actions\"><button data-action=\"check-pwa\" data-testid=\"check-pwa\">Проверить PWA</button><button data-action=\"show-pwa-install\" data-testid=\"show-pwa-install\">Установить</button></div>",
     error,
     "</section>"
@@ -8901,39 +8902,39 @@ function ownerReadinessRows(state) {
   return [
     {
       id: "artifact-chain",
-      label: "Artifact chain",
+      label: "Цепочка артефакта",
       status: liveSources.length && appliedObjectCount && graph.nodes.length ? "ok" : "needs-data",
-      detail: liveSources.length + " sources / " + appliedObjectCount + " projections / " + graph.nodes.length + " graph nodes"
+      detail: liveSources.length + " источников · " + appliedObjectCount + " проекций · " + graph.nodes.length + " узлов"
     },
     {
       id: "repository",
-      label: "Repository persistence",
+      label: "Сохранение базы",
       status: repository && repository.storageMode ? "ok" : "error",
-      detail: (repository && repository.storageMode ? repository.storageMode : "unavailable") + " / audit " + state.auditLog.length
+      detail: (repository && repository.storageMode ? repository.storageMode : "недоступно") + " · следов " + state.auditLog.length
     },
     {
       id: "graph-control",
-      label: "Graph + Control",
+      label: "Связи и Контроль",
       status: graph.nodes.length && graph.links.length && state.auditLog.length ? "ok" : "needs-data",
-      detail: graph.nodes.length + " nodes / " + graph.links.length + " links / " + state.auditLog.length + " audit rows"
+      detail: graph.nodes.length + " узлов · " + graph.links.length + " связей · " + state.auditLog.length + " следов"
     },
     {
       id: "offline",
-      label: "Offline local mode",
+      label: "Локальный режим",
       status: state.environment.online ? "online" : "offline-ready",
-      detail: state.environment.online ? "network online; local repository still authoritative" : "network offline; local repository remains usable"
+      detail: state.environment.online ? "сеть доступна; локальная база остаётся главной" : "сеть недоступна; локальная база остаётся usable"
     },
     {
       id: "provider-gates",
-      label: "Provider gates",
+      label: "Честность подключений",
       status: fakeReadyProvider ? "review" : "ok",
-      detail: fakeReadyProvider ? "provider claims ready/connected; inspect before trust" : "external providers are explicit, local-only, revoked or not configured"
+      detail: fakeReadyProvider ? "есть спорный статус готовности; нужно проверить" : "внешние подключения явно локальные, отключены или ждут настройки"
     },
     {
       id: "error-boundary",
-      label: "Error boundary",
+      label: "Восстановление интерфейса",
       status: bootError ? "error" : "ready",
-      detail: bootError ? shorten(bootError.message || String(bootError), 120) : "runtime errors render the recovery shell instead of corrupting state"
+      detail: bootError ? shorten(bootError.message || String(bootError), 120) : "при ошибке показывается экран восстановления, база не портится"
     }
   ];
 }
@@ -8942,12 +8943,12 @@ function renderOwnerReadinessPanel(state) {
   const rows = ownerReadinessRows(state);
   return [
     "<div class=\"owner-readiness\" data-testid=\"owner-readiness-panel\">",
-    "<div class=\"subsection-title\">Owner readiness</div>",
+    "<div class=\"subsection-title\">Готовность для владельца</div>",
     rows.map((row) => {
       return [
         "<div class=\"readiness-row\" data-testid=\"readiness-row\" data-readiness-id=\"" + escapeHtml(row.id) + "\" data-status=\"" + escapeHtml(row.status) + "\">",
         "<span>" + escapeHtml(row.label) + "</span>",
-        "<strong data-testid=\"readiness-state\">" + escapeHtml(row.status) + "</strong>",
+        "<strong data-testid=\"readiness-state\">" + escapeHtml(humanStatus(row.status) || row.status) + "</strong>",
         "<em>" + escapeHtml(row.detail) + "</em>",
         "</div>"
       ].join("");
@@ -9140,15 +9141,15 @@ function renderProductBrainControlCard(state) {
     "<section class=\"product-brain-control-card\" data-testid=\"product-brain-control-card\">",
     "<div class=\"section-title\">Состояние разработки LifeOS</div>",
     "<div class=\"product-brain-state-grid\">",
-    "<span>DONE <strong>" + (summary.counts.DONE || 0) + "</strong></span>",
-    "<span>PARTIAL <strong>" + (summary.counts.PARTIAL || 0) + "</strong></span>",
-    "<span>BROKEN <strong>" + (summary.counts.BROKEN || 0) + "</strong></span>",
-    "<span>GATED <strong>" + (summary.counts.GATED || 0) + "</strong></span>",
-    "<span>NEXT <strong>" + escapeHtml(summary.nextPackage) + "</strong></span>",
+    "<span>готово <strong>" + (summary.counts.DONE || 0) + "</strong></span>",
+    "<span>частично <strong>" + (summary.counts.PARTIAL || 0) + "</strong></span>",
+    "<span>сломано <strong>" + (summary.counts.BROKEN || 0) + "</strong></span>",
+    "<span>ждёт настройки <strong>" + (summary.counts.GATED || 0) + "</strong></span>",
+    "<span>дальше <strong>" + escapeHtml(summary.nextPackage) + "</strong></span>",
     "</div>",
-    "<div class=\"provider-row\"><span>Product Brain</span><strong>" + escapeHtml(summary.version || PRODUCT_BRAIN_VERSION) + "</strong></div>",
-    "<div class=\"provider-row\"><span>GitHub release</span><strong data-testid=\"product-brain-github-status\">" + escapeHtml(summary.githubReleaseStatus) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Root artifact</span><strong>LifeOS Product Brain</strong></div>",
+    "<div class=\"provider-row\"><span>Память разработки</span><strong>" + escapeHtml(summary.version || PRODUCT_BRAIN_VERSION) + "</strong></div>",
+    "<div class=\"provider-row\"><span>GitHub</span><strong data-testid=\"product-brain-github-status\">" + escapeHtml(summary.githubReleaseStatus) + "</strong></div>",
+    "<div class=\"provider-row\"><span>Центр</span><strong>LifeOS Product Brain</strong></div>",
     "<div class=\"knowledge-actions\"><button data-action=\"open-note\" data-id=\"" + PRODUCT_BRAIN_ROOT_ID + "\" data-testid=\"control-open-product-brain\">Открыть источник</button><button data-action=\"set-surface\" data-id=\"graph\" data-testid=\"control-product-brain-graph\">Показать связи</button><button data-action=\"set-surface\" data-id=\"chat\" data-testid=\"control-product-brain-chat\">Спросить</button></div>",
     "</section>"
   ].join("");
@@ -9165,51 +9166,51 @@ function renderDataControlPanelV2(state) {
   const snapshots = Array.isArray(state.control.rollbackSnapshots) ? state.control.rollbackSnapshots : [];
   const corruptRecords = Array.isArray(state.control.corruptRecords) ? state.control.corruptRecords : [];
   const corruptStatusLabel = (status) => status === "recovered" ? "восстановлено" : "изолировано";
-  const providerRows = Object.entries(state.providers || {}).map(([key, provider]) => "<span>" + escapeHtml(key) + " <strong>" + escapeHtml(provider.status || "unknown") + "</strong></span>").join("");
-  const privacyZones = Object.entries(state.control.privacyZones || {}).map(([key, value]) => "<span>" + escapeHtml(key) + " <strong>" + escapeHtml(value) + "</strong></span>").join("");
+  const providerRows = Object.entries(state.providers || {}).map(([, provider]) => "<span>" + escapeHtml(provider.label || "Подключение") + " <strong>" + escapeHtml(humanStatus(provider.status || "unknown")) + "</strong></span>").join("");
+  const privacyZones = Object.entries(state.control.privacyZones || {}).map(([key, value]) => "<span>" + escapeHtml(humanObjectLabel(key)) + " <strong>" + escapeHtml(humanStatus(value) || value) + "</strong></span>").join("");
   const architecture = buildArchitectureSnapshot(state);
   const architectureProblems = architecture.validation.problems || [];
   const lastArchitectureEvent = architecture.eventBus.lastEvent;
   return [
     "<section class=\"info-panel workflow-panel data-control-v2\" data-testid=\"data-control-panel\">",
-    "<div class=\"section-title\">Data Control</div>",
+    "<div class=\"section-title\">Контроль данных</div>",
     "<div class=\"control-actions\" data-testid=\"control-actions\">",
-    "<button data-action=\"export-vault\" data-testid=\"control-export-all\">Export all</button>",
-    "<button data-action=\"export-selected-artifact\" data-testid=\"export-selected-artifact\">Export selected</button>",
-    "<button data-action=\"import-backup\" data-testid=\"import-backup\">Import backup</button>",
-    "<button data-action=\"create-rollback-snapshot\" data-testid=\"create-rollback-snapshot\">Snapshot</button>",
-    "<button data-action=\"archive-selected-artifact\" data-testid=\"archive-selected-artifact\">Archive selected</button>",
+    "<button data-action=\"export-vault\" data-testid=\"control-export-all\">Экспорт всего</button>",
+    "<button data-action=\"export-selected-artifact\" data-testid=\"export-selected-artifact\">Экспорт фокуса</button>",
+    "<button data-action=\"import-backup\" data-testid=\"import-backup\">Импорт бэкапа</button>",
+    "<button data-action=\"create-rollback-snapshot\" data-testid=\"create-rollback-snapshot\">Снимок отката</button>",
+    "<button data-action=\"archive-selected-artifact\" data-testid=\"archive-selected-artifact\">В архив</button>",
     "</div>",
-    "<div class=\"provider-row\"><span>Schema</span><strong>v" + state.schemaVersion + "</strong></div>",
-    "<div class=\"provider-row\"><span>Network</span><strong data-testid=\"network-status\">" + (state.environment.online ? "online" : "offline") + "</strong></div>",
-    "<div class=\"provider-row\"><span>Storage</span><strong>" + escapeHtml(usage + " / " + quota) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Persisted</span><strong>" + (state.environment.persisted ? "yes" : "no") + "</strong></div>",
-    "<div class=\"provider-row\"><span>Selected</span><strong data-testid=\"control-selected\">" + escapeHtml(selectedTitle) + "</strong></div>",
-    state.control.lastExportSummary ? "<div class=\"provider-row\"><span>Last export</span><strong data-testid=\"last-export-summary\">" + escapeHtml(state.control.lastExportSummary) + "</strong></div>" : "",
-    state.control.lastImportSummary ? "<div class=\"provider-row\"><span>Last import</span><strong data-testid=\"last-import-summary\">" + escapeHtml(state.control.lastImportSummary) + "</strong></div>" : "",
-    "<div class=\"storage-map\" data-testid=\"storage-map\">" + objectCounts.map((row) => "<span>" + escapeHtml(row[0]) + " <strong>" + row[1] + "</strong></span>").join("") + "</div>",
+    "<div class=\"provider-row\"><span>Версия базы</span><strong>v" + state.schemaVersion + "</strong></div>",
+    "<div class=\"provider-row\"><span>Сеть</span><strong data-testid=\"network-status\" data-raw-status=\"" + (state.environment.online ? "online" : "offline") + "\">" + (state.environment.online ? "онлайн" : "офлайн") + "</strong></div>",
+    "<div class=\"provider-row\"><span>Хранилище</span><strong>" + escapeHtml(usage + " / " + quota) + "</strong></div>",
+    "<div class=\"provider-row\"><span>Закреплено в браузере</span><strong>" + (state.environment.persisted ? "да" : "нет") + "</strong></div>",
+    "<div class=\"provider-row\"><span>В фокусе</span><strong data-testid=\"control-selected\">" + escapeHtml(selectedTitle) + "</strong></div>",
+    state.control.lastExportSummary ? "<div class=\"provider-row\"><span>Последний экспорт</span><strong data-testid=\"last-export-summary\">" + escapeHtml(state.control.lastExportSummary) + "</strong></div>" : "",
+    state.control.lastImportSummary ? "<div class=\"provider-row\"><span>Последний импорт</span><strong data-testid=\"last-import-summary\">" + escapeHtml(state.control.lastImportSummary) + "</strong></div>" : "",
+    "<div class=\"storage-map\" data-testid=\"storage-map\">" + objectCounts.map((row) => "<span>" + escapeHtml(controlCountLabel(row[0])) + " <strong>" + row[1] + "</strong></span>").join("") + "</div>",
     "<div class=\"storage-map privacy-map\" data-testid=\"privacy-map\">" + privacyZones + providerRows + "</div>",
     renderProductBrainControlCard(state),
     "<div class=\"architecture-contract\" data-testid=\"architecture-contract\">",
-    "<div class=\"section-title\">Artifact OS contract</div>",
+    "<div class=\"section-title\">Контракт LifeOS</div>",
     "<div class=\"storage-map\" data-testid=\"architecture-contract-map\">",
-    "<span>collections <strong data-testid=\"architecture-collection-count\">" + architecture.collections.length + "</strong></span>",
-    "<span>workspaces <strong data-testid=\"architecture-workspace-count\">" + architecture.workspaces.length + "</strong></span>",
-    "<span>modules <strong data-testid=\"architecture-module-count\">" + architecture.modules.length + "</strong></span>",
-    "<span>adapters <strong data-testid=\"architecture-adapter-count\">" + architecture.stateAdapters.length + "</strong></span>",
-    "<span>events <strong data-testid=\"architecture-event-count\">" + architecture.eventBus.count + "</strong></span>",
+    "<span>коллекции <strong data-testid=\"architecture-collection-count\">" + architecture.collections.length + "</strong></span>",
+    "<span>рабочие места <strong data-testid=\"architecture-workspace-count\">" + architecture.workspaces.length + "</strong></span>",
+    "<span>модули <strong data-testid=\"architecture-module-count\">" + architecture.modules.length + "</strong></span>",
+    "<span>адаптеры <strong data-testid=\"architecture-adapter-count\">" + architecture.stateAdapters.length + "</strong></span>",
+    "<span>события <strong data-testid=\"architecture-event-count\">" + architecture.eventBus.count + "</strong></span>",
     "</div>",
-    "<div class=\"provider-row\"><span>Boundary</span><strong data-testid=\"architecture-version\">" + escapeHtml(architecture.architectureVersion) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Validation</span><strong data-testid=\"architecture-validation\">" + (architecture.validation.ok ? "ok" : escapeHtml(architectureProblems.join("; "))) + "</strong></div>",
-    lastArchitectureEvent ? "<div class=\"provider-row\"><span>Last architecture event</span><strong data-testid=\"architecture-last-event\">" + escapeHtml(lastArchitectureEvent.type + " / " + lastArchitectureEvent.summary) + "</strong></div>" : "<div class=\"empty compact\" data-testid=\"architecture-last-event\">No architecture events yet.</div>",
+    "<div class=\"provider-row\"><span>Граница</span><strong data-testid=\"architecture-version\">" + escapeHtml(architecture.architectureVersion) + "</strong></div>",
+    "<div class=\"provider-row\"><span>Проверка</span><strong data-testid=\"architecture-validation\">" + (architecture.validation.ok ? "ок" : escapeHtml(architectureProblems.join("; "))) + "</strong></div>",
+    lastArchitectureEvent ? "<div class=\"provider-row\"><span>Последнее событие</span><strong data-testid=\"architecture-last-event\">" + escapeHtml(lastArchitectureEvent.type + " / " + lastArchitectureEvent.summary) + "</strong></div>" : "<div class=\"empty compact\" data-testid=\"architecture-last-event\">Событий архитектуры пока нет.</div>",
     "</div>",
     renderOwnerReadinessPanel(state),
-    "<div class=\"provider-row\"><span>Rollback snapshots</span><strong data-testid=\"rollback-count\">" + snapshots.length + "</strong></div>",
-    snapshots.length ? snapshots.map((snapshot) => "<div class=\"recovery-row rollback-row\" data-testid=\"rollback-row\"><span>" + escapeHtml(snapshot.title + " / " + snapshot.summary) + "</span><button data-action=\"restore-rollback-snapshot\" data-id=\"" + escapeHtml(snapshot.id) + "\" data-testid=\"restore-rollback-snapshot\">Restore</button></div>").join("") : "<div class=\"empty compact\" data-testid=\"rollback-empty\">No rollback snapshots yet.</div>",
-    "<div class=\"provider-row\"><span>Corrupt records</span><strong data-testid=\"corrupt-record-count\">" + corruptRecords.length + "</strong></div>",
+    "<div class=\"provider-row\"><span>Снимки отката</span><strong data-testid=\"rollback-count\">" + snapshots.length + "</strong></div>",
+    snapshots.length ? snapshots.map((snapshot) => "<div class=\"recovery-row rollback-row\" data-testid=\"rollback-row\"><span>" + escapeHtml(snapshot.title + " / " + snapshot.summary) + "</span><button data-action=\"restore-rollback-snapshot\" data-id=\"" + escapeHtml(snapshot.id) + "\" data-testid=\"restore-rollback-snapshot\">Восстановить</button></div>").join("") : "<div class=\"empty compact\" data-testid=\"rollback-empty\">Снимков отката пока нет.</div>",
+    "<div class=\"provider-row\"><span>Повреждённые записи</span><strong data-testid=\"corrupt-record-count\">" + corruptRecords.length + "</strong></div>",
     corruptRecords.length ? corruptRecords.map((record) => "<div class=\"recovery-row corrupt-row\" data-testid=\"corrupt-record-row\"><span>" + escapeHtml(corruptStatusLabel(record.status) + " / " + record.kind + ": " + record.reason) + "</span><button data-action=\"recover-corrupt-record\" data-id=\"" + escapeHtml(record.id) + "\" data-testid=\"recover-corrupt-record\"" + (record.status === "recovered" ? " disabled" : "") + ">Восстановить</button></div>").join("") : "<div class=\"empty compact\" data-testid=\"corrupt-record-empty\">Изолированных поврежденных записей нет.</div>",
-    "<div class=\"provider-row\"><span>Recovery</span><strong>" + rows.length + "</strong></div>",
-    rows.length ? rows.map((row) => "<div class=\"recovery-row\" data-testid=\"recovery-row\"><span>" + escapeHtml(row.kind + ": " + row.title) + "</span><button data-action=\"restore-" + row.kind + "\" data-id=\"" + escapeHtml(row.id) + "\">Restore</button></div>").join("") : "<div class=\"empty compact\">Archive is empty.</div>",
+    "<div class=\"provider-row\"><span>Архив</span><strong>" + rows.length + "</strong></div>",
+    rows.length ? rows.map((row) => "<div class=\"recovery-row\" data-testid=\"recovery-row\"><span>" + escapeHtml(humanObjectLabel(row.kind) + ": " + row.title) + "</span><button data-action=\"restore-" + row.kind + "\" data-id=\"" + escapeHtml(row.id) + "\">Вернуть</button></div>").join("") : "<div class=\"empty compact\">Архив пуст.</div>",
     "</section>"
   ].join("");
 }
@@ -9260,6 +9261,152 @@ function formatBytes(size) {
   return Math.round(value / 1024 / 102.4) / 10 + " MB";
 }
 
+function humanObjectLabel(kind) {
+  const labels = {
+    source: "Источник",
+    note: "Заметка",
+    task: "Задача",
+    reminder: "Напоминание",
+    habit: "Привычка",
+    goal: "Цель",
+    plan: "План",
+    finance: "Деньги",
+    backup: "Бэкап",
+    image: "Скрин",
+    audio: "Аудио",
+    book: "Книга",
+    text: "Текст",
+    mail: "Письмо",
+    file: "Файл"
+  };
+  return labels[String(kind || "")] || String(kind || "Объект");
+}
+
+function humanStatus(value) {
+  const labels = {
+    captured: "ждёт разбора",
+    "text-ready": "текст готов",
+    "audio-stored": "аудио сохранено",
+    stored: "сохранено",
+    reading: "в чтении",
+    gated: "нужно подключение",
+    queued: "в очереди",
+    "manual-transcript-required": "нужна расшифровка",
+    "manual-transcript-ready": "расшифровка готова",
+    "transcript-ready": "расшифровка готова",
+    "needs-owner-transcript": "нужна расшифровка",
+    "stt-provider-gated": "STT подключается отдельно",
+    "ocr-manual-required": "чек заполняется вручную",
+    "manual-extraction-ready": "извлечение готово",
+    "pdf-parser-required": "PDF ждёт парсер",
+    "epub-parser-required": "EPUB ждёт парсер",
+    "parser-required": "нужен парсер",
+    "backup-preview": "предпросмотр бэкапа",
+    "backup-imported": "бэкап загружен",
+    open: "открыто",
+    applied: "принято",
+    done: "готово",
+    active: "активно",
+    revoked: "отключено",
+    unchecked: "не проверено",
+    "models_found": "модели найдены",
+    offline: "офлайн",
+    online: "онлайн",
+    "service-worker-ready": "офлайн-оболочка готова",
+    supported: "поддерживается",
+    unsupported: "не поддерживается",
+    "service-worker-error": "ошибка service worker",
+    "not-seen": "браузер не предложил",
+    available: "можно установить",
+    accepted: "установка принята",
+    dismissed: "установка отклонена",
+    prompted: "запрос показан",
+    "browser-menu-required": "через меню браузера",
+    "permission-required": "нужно разрешение",
+    "not-connected": "не подключено",
+    "not-configured": "нужна настройка",
+    "needs-owner-credentials": "нужны данные владельца",
+    "local-only": "локально",
+    "proposal_created": "предложение создано",
+    "dry-run": "черновой прогон",
+    "needs-data": "нужно действие",
+    "offline-ready": "готово офлайн",
+    ready: "готово",
+    ok: "ок",
+    review: "проверить",
+    error: "ошибка",
+    selected: "выбрано"
+  };
+  return labels[String(value || "")] || String(value || "");
+}
+
+function sourceMetaLabel(source) {
+  if (!source) return "";
+  const parts = [
+    humanObjectLabel(source.kind),
+    humanStatus(source.status),
+    humanStatus(source.parserStatus),
+    humanStatus(source.transcriptStatus),
+    source.size ? formatBytes(source.size) : ""
+  ].filter(Boolean);
+  return Array.from(new Set(parts)).join(" · ");
+}
+
+function providerRunLabel(run) {
+  if (!run) return "";
+  const kindLabels = {
+    prepare: "подготовка",
+    probe: "проверка",
+    revoke: "отключение",
+    "dry-run": "черновой прогон",
+    "proposal-dry-run": "предложения",
+    "model-select": "модель",
+    "service-worker-check": "проверка PWA",
+    "owner-check": "проверка владельца",
+    "install-prompt": "установка"
+  };
+  return (kindLabels[run.kind] || humanStatus(run.kind) || run.kind) + " / " + humanStatus(run.status || "");
+}
+
+function controlCountLabel(key) {
+  const labels = {
+    sources: "источники",
+    tasks: "задачи",
+    finance: "деньги",
+    habits: "привычки",
+    goals: "цели",
+    insights: "инсайты",
+    claims: "выводы",
+    questions: "вопросы",
+    review: "повторение",
+    reading: "чтение",
+    highlights: "цитаты",
+    transcript: "расшифровка",
+    "audio checkpoints": "аудио-закладки",
+    "player notes": "заметки плеера",
+    "saved searches": "поиски",
+    "provider runs": "проверки провайдеров",
+    "flow runs": "прогоны потоков"
+  };
+  return labels[key] || key;
+}
+
+function auditTypeLabel(type) {
+  const value = String(type || "");
+  if (!value) return "Событие";
+  if (value.includes("capture") || value.includes("source")) return "Источник";
+  if (value.includes("task") || value.includes("reminder") || value.includes("plan")) return "План";
+  if (value.includes("finance") || value.includes("receipt") || value.includes("budget")) return "Деньги";
+  if (value.includes("habit") || value.includes("goal")) return "Прогресс";
+  if (value.includes("graph") || value.includes("link")) return "Связь";
+  if (value.includes("provider") || value.includes("ollama") || value.includes("pwa")) return "Подключение";
+  if (value.includes("rollback") || value.includes("backup") || value.includes("control")) return "Контроль";
+  if (value.includes("chat")) return "Чат";
+  if (value.includes("agent") || value.includes("flow")) return "Сценарий";
+  if (value.includes("reader") || value.includes("highlight") || value.includes("knowledge")) return "Знание";
+  return value.split(".").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join(" ");
+}
+
 function sourcesForPanel(state, note) {
   const sources = Object.values(state.sources || {}).filter((source) => !source.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   if (!note) return sources.slice(0, 6);
@@ -9280,10 +9427,10 @@ function renderSourcePanel(state, note) {
 
 function renderSourceRow(source, state) {
   const note = source.noteId ? state.notes[source.noteId] : null;
-  const meta = [source.kind, source.status, source.parserStatus, formatBytes(source.size)].filter(Boolean).join(" / ");
+  const meta = sourceMetaLabel(source);
   const transcript = source.kind === "audio" ? [
     "<textarea class=\"transcript-box\" data-testid=\"transcript-input-" + escapeHtml(source.id) + "\" id=\"transcript-" + escapeHtml(source.id) + "\" spellcheck=\"true\">" + escapeHtml(source.transcriptText || "") + "</textarea>",
-    "<button data-action=\"save-transcript\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-transcript-" + escapeHtml(source.id) + "\">Сохранить transcript</button>"
+    "<button data-action=\"save-transcript\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-transcript-" + escapeHtml(source.id) + "\">Сохранить расшифровку</button>"
   ].join("") : "";
   return [
     "<div class=\"source-row\" data-testid=\"source-row\">",
@@ -9311,21 +9458,21 @@ function renderTodayPanel(state, note) {
   const blocks = Object.values(state.planBlocks || {}).filter((block) => !block.deleted && block.day === today).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
   return [
     "<section class=\"info-panel workflow-panel\" data-testid=\"today-panel\">",
-    "<div class=\"section-title\">Today / Goals</div>",
+    "<div class=\"section-title\">Сегодня и цели</div>",
     "<div class=\"compact-form\">",
     "<input id=\"task-input\" data-testid=\"task-input\" autocomplete=\"off\" aria-label=\"Task\" value=\"\">",
-    "<button data-action=\"add-task\" data-testid=\"add-task\">Add</button>",
+    "<button data-action=\"add-task\" data-testid=\"add-task\">Добавить</button>",
     "</div>",
     "<div class=\"compact-form\">",
     "<input id=\"goal-input\" data-testid=\"goal-input\" autocomplete=\"off\" aria-label=\"Goal\" value=\"\">",
-    "<button data-action=\"add-goal\" data-testid=\"add-goal\">Goal</button>",
+    "<button data-action=\"add-goal\" data-testid=\"add-goal\">Цель</button>",
     "</div>",
     "<div class=\"compact-form\">",
     "<input id=\"plan-input\" data-testid=\"plan-input\" autocomplete=\"off\" aria-label=\"Plan block\" value=\"\">",
-    "<button data-action=\"add-plan-block\" data-testid=\"add-plan-block\">Plan</button>",
+    "<button data-action=\"add-plan-block\" data-testid=\"add-plan-block\">В план</button>",
     "</div>",
     blocks.length ? blocks.map((block) => renderPlanRow(block)).join("") : "",
-    tasks.length ? tasks.map((task) => renderTaskRow(task)).join("") : "<div class=\"empty compact\">No open day items yet.</div>",
+    tasks.length ? tasks.map((task) => renderTaskRow(task)).join("") : "<div class=\"empty compact\">На сегодня пока нет открытых действий.</div>",
     goals.length ? goals.map((goal) => renderGoalRow(goal, state)).join("") : "",
     "</section>"
   ].join("");
@@ -9335,9 +9482,9 @@ function renderTaskRow(task) {
   const done = task.status === "done";
   return [
     "<div class=\"task-row" + (done ? " done" : "") + "\" data-testid=\"task-row\">",
-    "<button class=\"toggle-button\" data-action=\"toggle-task\" data-id=\"" + escapeHtml(task.id) + "\" data-testid=\"task-toggle\">" + (done ? "Done" : "Open") + "</button>",
+    "<button class=\"toggle-button\" data-action=\"toggle-task\" data-id=\"" + escapeHtml(task.id) + "\" data-testid=\"task-toggle\">" + (done ? "Готово" : "Открыто") + "</button>",
     "<span>" + escapeHtml(task.title) + "</span>",
-    "<button class=\"mini-button\" data-action=\"archive-task\" data-id=\"" + escapeHtml(task.id) + "\">Archive</button>",
+    "<button class=\"mini-button\" data-action=\"archive-task\" data-id=\"" + escapeHtml(task.id) + "\">Архив</button>",
     "</div>"
   ].join("");
 }
@@ -9346,9 +9493,9 @@ function renderPlanRow(block) {
   const done = block.status === "done";
   return [
     "<div class=\"task-row plan-row" + (done ? " done" : "") + "\" data-testid=\"plan-row\">",
-    "<button class=\"toggle-button\" data-action=\"toggle-plan-block\" data-id=\"" + escapeHtml(block.id) + "\" data-testid=\"plan-toggle\">" + (done ? "Done" : "Plan") + "</button>",
+    "<button class=\"toggle-button\" data-action=\"toggle-plan-block\" data-id=\"" + escapeHtml(block.id) + "\" data-testid=\"plan-toggle\">" + (done ? "Готово" : "План") + "</button>",
     "<span>" + escapeHtml(block.title) + "</span>",
-    "<button class=\"mini-button\" data-action=\"archive-plan\" data-id=\"" + escapeHtml(block.id) + "\">Archive</button>",
+    "<button class=\"mini-button\" data-action=\"archive-plan\" data-id=\"" + escapeHtml(block.id) + "\">Архив</button>",
     "</div>"
   ].join("");
 }
@@ -9421,7 +9568,7 @@ function renderPlanRowV5(state, block) {
 }
 
 function renderOllamaPanel(state) {
-  const models = state.ollama.models && state.ollama.models.length ? state.ollama.models.join(", ") : "no models listed";
+  const models = state.ollama.models && state.ollama.models.length ? state.ollama.models.join(", ") : "модели не найдены";
   const error = state.ollama.lastError ? "<div class=\"provider-error\">" + escapeHtml(shorten(state.ollama.lastError, 120)) + "</div>" : "";
   const activeNote = getActiveNote(state);
   const modelOptions = (state.ollama.models || []).map((model) => {
@@ -9431,19 +9578,19 @@ function renderOllamaPanel(state) {
   const runs = Object.values(state.providerRuns || {}).filter((run) => run.providerId === "ollama").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 6);
   return [
     "<section class=\"info-panel workflow-panel\" data-testid=\"ollama-panel\">",
-    "<div class=\"section-title\">Local AI / Ollama</div>",
-    "<div class=\"provider-row\"><span>Статус</span><strong data-testid=\"ollama-status\">" + escapeHtml(state.ollama.status) + "</strong></div>",
+    "<div class=\"section-title\">Локальный AI / Ollama</div>",
+    "<div class=\"provider-row\"><span>Статус</span><strong data-testid=\"ollama-status\" data-raw-status=\"" + escapeHtml(state.ollama.status) + "\">" + escapeHtml(humanStatus(state.ollama.status)) + "</strong></div>",
     "<input id=\"ollama-endpoint\" data-testid=\"ollama-endpoint\" autocomplete=\"off\" aria-label=\"Ollama endpoint\" value=\"" + escapeHtml(state.ollama.endpoint) + "\">",
     "<div class=\"provider-actions\"><button data-action=\"probe-ollama\" data-testid=\"probe-ollama\">Проверить Ollama</button><button data-action=\"ollama-dry-run\" data-testid=\"ollama-dry-run\">Создать предложения</button><button data-action=\"revoke-provider\" data-id=\"ollama\" data-testid=\"revoke-ollama\">Отключить</button></div>",
     state.ollama.models.length ? "<label class=\"provider-select\">Модель<select id=\"ollama-model\" data-testid=\"ollama-model\" aria-label=\"Ollama model\">" + modelOptions + "</select><button data-action=\"save-ollama-model\" data-testid=\"save-ollama-model\">Сохранить модель</button></label>" : "",
     "<div class=\"provider-row\"><span>Модели</span><strong>" + escapeHtml(models) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Выбрана</span><strong data-testid=\"ollama-selected-model\">" + escapeHtml(state.ollama.selectedModel || "none") + "</strong></div>",
-    "<div class=\"provider-row\"><span>Граница</span><strong>" + escapeHtml((state.ollama.scopes || []).join(", ") || "active-artifact-analysis") + "</strong></div>",
-    "<div class=\"provider-send-box\" data-testid=\"ollama-send-preview\"><strong>Что будет отправлено после явного запуска</strong><span>" + escapeHtml(activeNote ? activeNote.title : "Нет активной заметки") + " / только предложения / без silent mutation</span></div>",
+    "<div class=\"provider-row\"><span>Выбрана</span><strong data-testid=\"ollama-selected-model\">" + escapeHtml(state.ollama.selectedModel || "не выбрана") + "</strong></div>",
+    "<div class=\"provider-row\"><span>Доступ</span><strong>" + escapeHtml((state.ollama.scopes || []).map((scope) => scope.replace(/[-_]/g, " ")).join(", ") || "активный артефакт") + "</strong></div>",
+    "<div class=\"provider-send-box\" data-testid=\"ollama-send-preview\"><strong>Что будет отправлено после явного запуска</strong><span>" + escapeHtml(activeNote ? activeNote.title : "Нет активной заметки") + " · только предложения · без скрытых изменений</span></div>",
     state.ollama.lastCheckedAt ? "<div class=\"provider-row\"><span>Проверено</span><strong>" + escapeHtml(state.ollama.lastCheckedAt) + "</strong></div>" : "",
     state.ollama.revokedAt ? "<div class=\"provider-row\"><span>Отключено</span><strong>" + escapeHtml(state.ollama.revokedAt) + "</strong></div>" : "",
     error,
-    runs.length ? "<div class=\"provider-run-list\" data-testid=\"provider-run-list\">" + runs.map((run) => "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(run.kind + " / " + run.status) + "</strong><span>" + escapeHtml(shorten(run.summary, 120)) + "</span></div>").join("") + "</div>" : "<div class=\"empty compact\">Ollama run еще не запускался. Проверка всегда явная.</div>",
+    runs.length ? "<div class=\"provider-run-list\" data-testid=\"provider-run-list\">" + runs.map((run) => "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(providerRunLabel(run)) + "</strong><span>" + escapeHtml(shorten(run.summary, 120)) + "</span></div>").join("") + "</div>" : "<div class=\"empty compact\">Ollama ещё не проверялся. Проверка всегда явная.</div>",
     "</section>"
   ].join("");
 }
@@ -9451,8 +9598,8 @@ function renderOllamaPanel(state) {
 function renderAudit(state) {
   const rows = state.auditLog.slice(-8).reverse();
   return rows.length ? rows.map((row) => {
-    return "<div class=\"audit-row\"><strong>" + escapeHtml(row.type) + "</strong><span>" + escapeHtml(shorten(row.summary, 74)) + "</span></div>";
-  }).join("") : "<div class=\"empty compact\">No audit rows yet.</div>";
+    return "<div class=\"audit-row\"><strong>" + escapeHtml(auditTypeLabel(row.type)) + "</strong><span>" + escapeHtml(shorten(row.summary, 74)) + "</span></div>";
+  }).join("") : "<div class=\"empty compact\">Изменений пока нет.</div>";
 }
 
 function mountGraph() {

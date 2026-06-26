@@ -1,49 +1,53 @@
 # Nonstop Until Done Report
 
 status: CONTINUATION_REQUIRED
-updated_at: 2026-06-26T11:55:00+03:00
+updated_at: 2026-06-26T13:50:55+03:00
 
 ## Current Package
 
-`P_EXTERNAL_PROVIDER_SETUP - provider passports, setup paths and local fallbacks`
+`P_GLOBAL_VISUAL_COHERENCE - целостность, русский язык, удобство всех рабочих мест`
 
 ## What Changed
 
-- Product Brain was used as the source of truth before new work.
-- Product Brain runtime notes were updated from stale `PARTIAL` GitHub/journey states to current `DONE/NEXT/GATED` states.
-- Product Brain journey ledger now records J01-J24 as revalidated with screenshot evidence.
-- Product Brain gap queue now records `P_WORKSPACE_9PLUS_VISUAL_POLISH` and `P_EXTERNAL_PROVIDER_SETUP` as done.
-- Provider workspace now shows passports for Ollama, Mail, Calendar, OCR, STT, PDF, EPUB, Notifications, PWA, Flows and Player.
-- Provider passports show setup, local fallback, data boundary, scopes, actions and run history.
-- Shared workspace CSS was strengthened so the product reads as distinct work modes rather than one pale form shell.
-- Finance became a clearer dashboard with operation/account/budget/subscription/receipt zones.
-- Calendar became a stronger week planner with seven-day board, agenda strip and focus warning.
-- Agents/Flows gained stronger canvas-like dry-run treatment.
-- Human UX audit now requires every workspace score to be 9+.
-- GitHub remote/auth stale gates were corrected: auth works, origin exists, lite snapshot is published.
+- Product Brain снова использован как источник правды перед визуальной правкой.
+- Все основные workspace получили единый UX-каркас: понятный заголовок, главный следующий шаг, короткий контекст и логичную последовательность секций.
+- Верхняя панель, палитра команд, hero-блоки, метрики, статусы провайдеров, Control, Chat, Player, Reader, Calendar, Finance, Agents/Flows и Providers переведены на нормальный русский язык без служебного английского в основной поверхности.
+- Служебные статусы вроде `ready`, `ok`, `offline`, `transcript-ready`, `needs-data` теперь показываются владельцу как человеческие русские состояния; технические значения сохранены только в `data-raw-status` для тестов.
+- Providers и Control стали спокойными рабочими режимами, а не стеной тревожных панелей.
+- Mobile overflow исправлен: рабочая область на 390px больше не расширяет страницу горизонтально.
+- Playwright-спеки обновлены под новый русский UX-контракт без ослабления поведенческих проверок.
+- Скриншоты J01-J24 и финальные визуальные доказательства пересняты после правки.
 
 ## Current Proof
 
 - `gh auth status`: PASS as `ddotdanyaa`
 - `git remote -v`: PASS with `https://github.com/ddotdanyaa/lifeos-final33.git`
 - `node --check app.js`: PASS
-- `node --check tools/audit-product-brain.mjs`: PASS
 - `npm run verify`: PASS
-- `npm run e2e:product-brain`: PASS
-- `npm run e2e:final-owner`: PASS
-- `npm run e2e:ai-providers`: PASS
+- `npm run e2e`: PASS
+- `npm run e2e:owner`: PASS
+- `npm run e2e:market-owner`: PASS
+- `npm run e2e:quality`: PASS
 - `npm run e2e:journeys`: PASS
+- `npm run e2e:product-brain`: PASS
 - `npm run audit:product-brain`: PASS
 - `npm run audit:visual-hierarchy`: PASS
 - `npm run audit:workspace-distinctness`: PASS
 - `npm run audit:semantic-colors`: PASS
+- `npm run audit:no-cockpit-first-screen`: PASS
+- `npm run audit:no-hardcoded-sample`: PASS
+- `npm run audit:buttons`: PASS
+- `npm run audit:human-ux-final`: PASS
+- `git diff --check`: pending final rerun after report update
 
 ## Local Gate State
 
 - Product Brain exists as runtime Artifact OS state.
-- J01-J24 pass after the visual package.
-- Human UX scorecard is now 9+ for all workspaces, with external/provider limitations marked honestly.
-- No known local product-critical gate remains open before final regression/commit.
+- J01-J24 pass after the global visual coherence package.
+- Home no longer reads as a one-page cockpit.
+- Major workspaces now have distinct visual language, Russian-first actions and readable status hierarchy.
+- No known local product-critical UX gate remains before final regression, commit and release push.
+- `audit:owner-final` is expected to pass only after the current dirty tree is committed.
 
 ## External Gates
 
