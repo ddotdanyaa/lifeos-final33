@@ -77,7 +77,7 @@ test("Product Brain is runtime artifact graph, control state, library knowledge 
   expect(stateProof.filter).toBe(true);
   expect(stateProof.graphRoot).toBe(true);
   expect(stateProof.edgeReasons).toBeGreaterThanOrEqual(10);
-  expect(stateProof.summary.nextPackage).toBe("P_GITHUB_RELEASE_RETRY");
+  expect(stateProof.summary.nextPackage).toBe("P_OWNER_FINAL_REVALIDATION");
 
   await selectSurface(page, "library");
   await expect(page.getByTestId("workspace-library")).toBeVisible();
@@ -94,14 +94,14 @@ test("Product Brain is runtime artifact graph, control state, library knowledge 
 
   await selectSurface(page, "control");
   await expect(page.getByTestId("product-brain-control-card")).toBeVisible();
-  await expect(page.getByTestId("product-brain-github-status")).toContainText("HTTP_408_RETRY_REQUIRED");
+  await expect(page.getByTestId("product-brain-github-status")).toContainText("LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE");
   await page.screenshot({ path: "output/playwright/product-brain-control.png", fullPage: true });
 
   await selectSurface(page, "chat");
   await expect(page.getByTestId("product-brain-chat-context")).toBeVisible();
   await page.getByTestId("chat-input").fill("что осталось доделать?");
   await page.getByTestId("send-chat").click();
-  await expect(page.getByTestId("chat-panel")).toContainText("P_GITHUB_RELEASE_RETRY");
-  await expect(page.getByTestId("chat-panel")).toContainText("HTTP 408");
+  await expect(page.getByTestId("chat-panel")).toContainText("P_OWNER_FINAL_REVALIDATION");
+  await expect(page.getByTestId("chat-panel")).toContainText("GitHub lite snapshot");
   await page.screenshot({ path: "output/playwright/product-brain-chat.png", fullPage: true });
 });

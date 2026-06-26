@@ -29,4 +29,7 @@ Release evidence:
 
 - `gh auth status`: authenticated as `ddotdanyaa`.
 - `git remote -v`: origin is `https://github.com/ddotdanyaa/lifeos-final33.git`.
-- `git push`: blocked by HTTP 408, not by missing owner auth.
+- `git push`: full-history push was blocked by HTTP 408, not by missing owner auth.
+- `npm run release:push -- https://github.com/ddotdanyaa/lifeos-final33.git --lite-git-snapshot`: pushed the remote branch.
+- GitHub URL: `https://github.com/ddotdanyaa/lifeos-final33/tree/owner-usable-nonstop-rescue`.
+- Omitted large evidence is documented in remote `docs/ops/GITHUB_RELEASE_OMITTED_FILES.md`.

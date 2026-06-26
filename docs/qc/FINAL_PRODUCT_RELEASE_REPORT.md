@@ -6,8 +6,9 @@ Why not DONE_ALL:
 
 - GitHub authentication is fixed.
 - GitHub repository and `origin` are created.
-- Remote branch is not verified because HTTPS upload returned `HTTP 408`.
-- Product Brain is now implemented locally and records this as `P_GITHUB_RELEASE_RETRY`.
+- Remote branch is verified by `git ls-remote --heads origin owner-usable-nonstop-rescue`.
+- Product Brain records this as `LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE`.
+- The GitHub branch is a code-first lite snapshot. It omits 135 large local evidence files, all listed in remote `docs/ops/GITHUB_RELEASE_OMITTED_FILES.md`.
 
 Completed in current package:
 
@@ -20,7 +21,7 @@ Completed in current package:
 
 Open release gate:
 
-`P_GITHUB_RELEASE_RETRY`
+`P_OWNER_FINAL_REVALIDATION`
 
 Required proof before DONE_ALL:
 
@@ -30,4 +31,3 @@ npm run audit:product-brain
 npm run audit:owner-final
 git diff --check
 ```
-

@@ -126,6 +126,8 @@ const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 const ledger = readCsv("docs/qc/OWNER_RESCUE_1000_RISK_LEDGER.csv");
 const fixtures = JSON.parse(readFileSync("output/playwright/fixtures/owner-input-fixtures.json", "utf8"));
 const productBrainQueue = JSON.parse(readFileSync("docs/qc/PRODUCT_BRAIN_GAP_QUEUE.json", "utf8"));
+const releaseState = readFileSync("docs/ops/GITHUB_RELEASE_STATE.md", "utf8");
+const remoteBranch = trySh("git ls-remote --heads origin owner-usable-nonstop-rescue");
 const blockedRows = ledger.filter((row) => row.resolution_status === "BLOCKED_OWNER_CREDENTIAL_WITH_EXACT_NEXT_ACTION");
 const blockedIds = blockedRows.map((row) => row.id).sort();
 const networkRetryRows = ledger.filter((row) => row.resolution_status === "BLOCKED_EXTERNAL_NETWORK_RETRY_WITH_PROOF");
@@ -139,7 +141,7 @@ assert(status === "", "working tree is clean", { status: status || "clean" });
 assert(ledger.length === 1000, "1000-risk ledger has exactly 1000 rows", { rows: ledger.length });
 assert(openRows.length === 0, "1000-risk ledger has zero open/in-progress/revalidate rows", { openRows: openRows.length });
 assert(blockedIds.length === 0, "GitHub credential blocks are closed after owner auth", { blockedIds });
-assert(networkRetryRows.length <= 2, "only GitHub HTTP upload retry rows remain network-blocked", { networkRetryRows: networkRetryRows.map((row) => row.id) });
+assert(networkRetryRows.length === 0, "GitHub HTTP upload retry rows are closed after lite snapshot push", { networkRetryRows: networkRetryRows.map((row) => row.id) });
 assert(fixedRows.length > 0, "ledger contains code/test fixed rows", { fixedRows: fixedRows.length });
 assert(providerRows.length > 0, "ledger contains honest provider-gate rows", { providerRows: providerRows.length });
 assert(dedupedRows.length > 0, "ledger contains deduped rows against W ledger", { dedupedRows: dedupedRows.length });
@@ -159,7 +161,10 @@ for (const path of REQUIRED_SCREENSHOTS) {
 
 assert(remote.output.includes("https://github.com/ddotdanyaa/lifeos-final33.git"), "GitHub origin remote is configured", { remote: remote.output || "NO_REMOTE" });
 assert(ghStatus.ok && ghStatus.output.includes("ddotdanyaa"), "GitHub CLI is authenticated as owner", { ghStatus: ghStatus.output || "not authenticated" });
-assert(productBrainQueue.some((item) => item.id === "P_GITHUB_RELEASE_RETRY" && item.status === "open"), "Product Brain queue records GitHub release retry", { queue: productBrainQueue.map((item) => ({ id: item.id, status: item.status })) });
+assert(productBrainQueue.some((item) => item.id === "P_GITHUB_RELEASE_RETRY" && item.status === "done"), "Product Brain queue records completed GitHub release retry", { queue: productBrainQueue.map((item) => ({ id: item.id, status: item.status })) });
+assert(productBrainQueue.some((item) => item.id === "P_OWNER_FINAL_REVALIDATION" && item.status === "open"), "Product Brain queue records final revalidation as next package", { queue: productBrainQueue.map((item) => ({ id: item.id, status: item.status })) });
+assert(releaseState.includes("LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE"), "GitHub release state records lite snapshot caveat");
+assert(remoteBranch.ok && remoteBranch.output.includes("refs/heads/owner-usable-nonstop-rescue"), "GitHub remote branch is verified by ls-remote", { remoteBranch: remoteBranch.output || remoteBranch });
 
 const failed = checks.filter((check) => !check.ok);
 const summary = {
@@ -175,7 +180,7 @@ const summary = {
   fixtures: fixtures.length,
   screenshots: REQUIRED_SCREENSHOTS.length,
   requiredScripts: REQUIRED_SCRIPTS.length,
-  githubGate: networkRetryRows.length ? "HTTP_408_RETRY_REQUIRED" : "REMOTE_AND_AUTH_READY",
+  githubGate: "LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE",
   failed: failed.map((check) => ({ message: check.message, details: check.details }))
 };
 

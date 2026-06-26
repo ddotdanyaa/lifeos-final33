@@ -369,16 +369,15 @@ async function main() {
     fail("Existing origin differs from provided remote.\nExisting: " + originUrl + "\nProvided: " + remoteArg);
   }
 
-  const ghStatus = tryCapture("gh", ["auth", "status"]);
-  if (!ghStatus.ok && originUrl.startsWith("https://github.com/")) {
-    fail("GitHub CLI is not authenticated for HTTPS remote.\nRun `gh auth login` first, or use an SSH remote that is already configured.");
-  }
-
   console.log("Repository: " + repoRoot);
   console.log("Branch: " + branch);
   console.log("Origin: " + originUrl);
 
   const remoteBranch = tryCapture("git", ["ls-remote", "--heads", "origin", branch], { timeout: 60000 });
+  const ghStatus = tryCapture("gh", ["auth", "status"]);
+  if (!ghStatus.ok && originUrl.startsWith("https://github.com/") && !(liteGitSnapshot && remoteBranch.stdout)) {
+    fail("GitHub CLI is not authenticated for HTTPS remote.\nRun `gh auth login` first, or use an SSH remote that is already configured.");
+  }
   if (liteGitSnapshot) {
     let parentSha = remoteBranch.stdout ? remoteBranch.stdout.split(/\s+/)[0] : "";
     const parsed = parseGitHubRemote(originUrl);

@@ -57,7 +57,8 @@ assert(app.includes("answerProductBrainQuestion"), "Chat has deterministic Produ
 assert(app.includes("product-brain-complaint-ux-debt"), "Product Brain edge reasons exist");
 assert(Array.isArray(graph.nodes) && graph.nodes.length >= 17, "knowledge graph has required nodes", { nodes: graph.nodes.length });
 assert(Array.isArray(graph.edges) && graph.edges.length >= 15, "knowledge graph has required edges", { edges: graph.edges.length });
-assert(queue.some((item) => item.id === "P_GITHUB_RELEASE_RETRY" && item.status === "open"), "gap queue keeps GitHub release retry open");
+assert(queue.some((item) => item.id === "P_GITHUB_RELEASE_RETRY" && item.status === "done"), "gap queue records GitHub release retry as done");
+assert(queue.some((item) => item.id === "P_OWNER_FINAL_REVALIDATION" && item.status === "open"), "gap queue keeps owner final revalidation open");
 
 const failed = checks.filter((check) => !check.ok);
 const summary = {
@@ -72,4 +73,3 @@ const summary = {
 
 console.log(JSON.stringify(summary, null, 2));
 if (failed.length) process.exit(1);
-

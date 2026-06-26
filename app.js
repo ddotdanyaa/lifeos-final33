@@ -16,7 +16,7 @@ const AUTO_SAVE_MS = 1500;
 const SOURCE_NOTE_TEXT_LIMIT = 60000;
 const INLINE_MEDIA_LIMIT = 8 * 1024 * 1024;
 const UI_REVISION = "owner-ux-001-v1";
-const PRODUCT_BRAIN_VERSION = "2026-06-26-p-product-brain-001";
+const PRODUCT_BRAIN_VERSION = "2026-06-26-p-github-lite-snapshot";
 const PRODUCT_BRAIN_FOLDER_ID = "folder-product-brain";
 const PRODUCT_BRAIN_ROOT_ID = "note-product-brain-root";
 const WIKI_LINK_PATTERN = /\[\[(.*?)\]\]/g;
@@ -46,8 +46,8 @@ const PRODUCT_BRAIN_NODE_SPECS = [
       "",
       "Связанные узлы: [[Product Vision]], [[Artifact OS Contract]], [[Current Build State]], [[Owner Complaints]], [[UX Debt]], [[Bug Ledger]], [[Journey Map]], [[Feature Completeness Map]], [[Research Map]], [[Design System Map]], [[GitHub Release Map]], [[Provider Gates Map]], [[Performance Large Vault]], [[Recovery Migration]], [[Graph Quality]], [[Chat First Home]].",
       "",
-      "Текущий package: P_PRODUCT_BRAIN_001.",
-      "Следующий package: P_GITHUB_RELEASE_RETRY, потому что GitHub auth и origin уже есть, но push обрывается HTTP 408 на медленном HTTPS upload.",
+      "Текущий package: P_GITHUB_RELEASE_RETRY.",
+      "Следующий package: P_OWNER_FINAL_REVALIDATION, потому что GitHub lite snapshot уже опубликован, но финальные owner/product audits нужно повторить на новом состоянии.",
       "Контракт: source -> Artifact -> projections -> repository -> graph/backlinks -> receipt/audit -> Data Control -> owner-visible result -> proof."
     ].join("\n")
   },
@@ -73,7 +73,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Current Build State",
     status: "PARTIAL",
     kind: "state",
-    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nЧастично: GitHub release. Авторизация работает, origin создан, но push получил HTTP 408.\n\nGated честно: Ollama offline, Gmail, external calendar OAuth, OCR, STT, PDF/EPUB parser, notifications permission.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
+    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nGitHub release: опубликован lite snapshot на owner-usable-nonstop-rescue; git ls-remote подтверждает remote branch. Большие ledgers и screenshot wall сохранены локально и перечислены в remote manifest docs/ops/GITHUB_RELEASE_OMITTED_FILES.md.\n\nGated честно: Ollama offline, Gmail, external calendar OAuth, OCR, STT, PDF/EPUB parser, notifications permission.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
   },
   {
     id: "note-product-brain-owner-complaints",
@@ -97,7 +97,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Bug Ledger",
     status: "PARTIAL",
     kind: "bugs",
-    body: "# Bug Ledger\n\nКлассы багов: parser bugs, storage bugs, duplicate proposals, dead buttons, layout overlap, right rail clutter, stale tests, GitHub no remote, auth not logged in, slow GitHub push HTTP 408.\n\nRegression proof: [[Journey Map]], [[GitHub Release Map]], audit:buttons, audit:no-hardcoded-sample, audit:product-brain."
+    body: "# Bug Ledger\n\nКлассы багов: parser bugs, storage bugs, duplicate proposals, dead buttons, layout overlap, right rail clutter, stale tests, GitHub no remote, auth not logged in, slow GitHub push HTTP 408, oversized release evidence upload.\n\nRegression proof: [[Journey Map]], [[GitHub Release Map]], audit:buttons, audit:no-hardcoded-sample, audit:product-brain."
   },
   {
     id: "note-product-brain-journeys",
@@ -137,7 +137,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "GitHub Release Map",
     status: "PARTIAL",
     kind: "release",
-    body: "# GitHub Release Map\n\nAccount: ddotdanyaa.\nRepo: https://github.com/ddotdanyaa/lifeos-final33.\nBranch: owner-usable-nonstop-rescue.\nAuth: logged in through GitHub CLI.\nRemote: origin configured.\nPush: retry required. Full push and snapshot push reached upload path but ended with HTTP 408.\n\nNext exact action: retry smaller release branch/API upload or split evidence artifacts, then verify git ls-remote.\n\nСвязано с [[Bug Ledger]]."
+    body: "# GitHub Release Map\n\nAccount: ddotdanyaa.\nRepo: https://github.com/ddotdanyaa/lifeos-final33.\nBranch: owner-usable-nonstop-rescue.\nAuth: logged in through GitHub CLI.\nRemote: origin configured.\nPush: lite Git snapshot published and verified by git ls-remote. Full-history push stayed impractical because local pack history is 1.51 GiB; oversized evidence files are listed in docs/ops/GITHUB_RELEASE_OMITTED_FILES.md on the remote branch.\n\nNext exact action: rerun final owner/product audits and decide whether a separate evidence archive is needed.\n\nСвязано с [[Bug Ledger]]."
   },
   {
     id: "note-product-brain-providers",
@@ -996,9 +996,9 @@ function ensureProductBrain(state) {
   state.control.productBrain = Object.assign({}, state.control.productBrain || {}, {
     version: PRODUCT_BRAIN_VERSION,
     rootNoteId: PRODUCT_BRAIN_ROOT_ID,
-    currentPackage: "P_PRODUCT_BRAIN_001",
-    nextPackage: "P_GITHUB_RELEASE_RETRY",
-    githubReleaseStatus: "HTTP_408_RETRY_REQUIRED",
+    currentPackage: "P_GITHUB_RELEASE_RETRY",
+    nextPackage: "P_OWNER_FINAL_REVALIDATION",
+    githubReleaseStatus: "LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE",
     localStatus: "PARTIAL",
     externalStatus: "GATED",
     updatedAt: createdAt
@@ -1020,8 +1020,8 @@ function productBrainStatusSummary(state) {
     version: state.control && state.control.productBrain ? state.control.productBrain.version : "",
     rootNoteId: PRODUCT_BRAIN_ROOT_ID,
     currentPackage: state.control && state.control.productBrain ? state.control.productBrain.currentPackage : "P_PRODUCT_BRAIN_001",
-    nextPackage: state.control && state.control.productBrain ? state.control.productBrain.nextPackage : "P_GITHUB_RELEASE_RETRY",
-    githubReleaseStatus: state.control && state.control.productBrain ? state.control.productBrain.githubReleaseStatus : "HTTP_408_RETRY_REQUIRED",
+    nextPackage: state.control && state.control.productBrain ? state.control.productBrain.nextPackage : "P_OWNER_FINAL_REVALIDATION",
+    githubReleaseStatus: state.control && state.control.productBrain ? state.control.productBrain.githubReleaseStatus : "LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE",
     counts,
     noteCount: notes.length
   };
@@ -2833,13 +2833,13 @@ function answerProductBrainQuestion(state, text) {
   if (!productIntent) return "";
   const summary = productBrainStatusSummary(state);
   if (q.includes("что осталось") || q.includes("додел") || q.includes("осталось")) {
-    return summary.nextPackage + " / HTTP 408: по Product Brain осталось закрыть GitHub release push. Auth/origin уже есть, но upload оборвался; после push нужно повторить final owner/product-brain evidence и держать provider gates честными.";
+    return summary.nextPackage + " / GitHub lite snapshot: remote branch опубликован и подтверждается git ls-remote. Осталось повторить final owner/product-brain audits, подтвердить clean tree и решить, нужен ли отдельный архив для omitted evidence.";
   }
   if (q.includes("почему") || q.includes("не готов")) {
-    return "Не называю систему DONE_ALL, потому что GitHub ветка еще не подтверждена через ls-remote: push дошел до upload, но GitHub вернул HTTP 408. Внешние движки Ollama/Gmail/OCR/STT/PDF/EPUB остаются gated честно, с fallback без фейкового успеха.";
+    return "Не называю систему DONE_ALL автоматически: GitHub ветка подтверждена как lite snapshot, но 135 больших evidence файлов вынесены в remote manifest, а внешние движки Ollama/Gmail/OCR/STT/PDF/EPUB остаются gated честно, с fallback без фейкового успеха.";
   }
   if (q.includes("след") || q.includes("пакет") || q.includes("важн")) {
-    return "Следующий самый важный пакет: " + summary.nextPackage + ". Цель: выгрузить release snapshot на GitHub меньшими кусками или через GitHub API, обновить GITHUB_RELEASE_STATE, затем повторить audit:product-brain и owner-final.";
+    return "Следующий самый важный пакет: " + summary.nextPackage + ". Цель: повторить verify/e2e/product-brain/owner-final после GitHub lite snapshot и обновить final release report.";
   }
   if (q.includes("ux")) {
     return "Главные UX-долги из Product Brain: не допустить возврата cockpit Home, сохранить distinct workspaces, держать Graph с Product Brain filter/edge reasons, сделать Chat понятным контекстным двигателем, показывать development state в Control.";

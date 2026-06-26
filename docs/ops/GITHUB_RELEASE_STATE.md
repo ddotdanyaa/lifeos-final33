@@ -28,7 +28,7 @@ private: true
 Push status:
 
 ```text
-HTTP_408_RETRY_REQUIRED
+LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE
 ```
 
 Evidence:
@@ -37,13 +37,20 @@ Evidence:
 - `git remote -v` shows origin.
 - Full-history push timed out because local Git pack history is large.
 - Snapshot push with explicit GitHub token reached object writing, then GitHub returned `HTTP 408`.
-- `git ls-remote --heads origin owner-usable-nonstop-rescue` has not confirmed the remote branch yet.
+- API snapshot reached 300/350 files but GitHub rejected repeated blob uploads with `400`/credential interruptions.
+- Lite Git snapshot succeeded without force push.
+- `git ls-remote --heads origin owner-usable-nonstop-rescue` confirms the remote branch.
+- GitHub URL: `https://github.com/ddotdanyaa/lifeos-final33/tree/owner-usable-nonstop-rescue`.
+- Remote branch includes `docs/ops/GITHUB_RELEASE_OMITTED_FILES.md`, which lists 135 omitted large evidence files kept locally.
 
 Next package:
 
-`P_GITHUB_RELEASE_RETRY`: push a smaller release branch/API upload and verify with:
+`P_OWNER_FINAL_REVALIDATION`: rerun final local audits after the published lite snapshot:
 
 ```powershell
-git ls-remote --heads origin owner-usable-nonstop-rescue
+npm run verify
+npm run e2e
+npm run e2e:owner
+npm run e2e:product-brain
+npm run audit:owner-final
 ```
-

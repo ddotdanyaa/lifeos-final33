@@ -11,7 +11,7 @@ Checks represented:
 - Control has `product-brain-control-card`.
 - Chat has deterministic Product Brain answers via `answerProductBrainQuestion`.
 - Library has `product-brain-library-card`.
-- GitHub auth and remote are no longer treated as missing; push remains `HTTP_408_RETRY_REQUIRED`.
+- GitHub auth and remote are no longer treated as missing; lite snapshot push is verified as `LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE`.
 
 Evidence commands passed:
 

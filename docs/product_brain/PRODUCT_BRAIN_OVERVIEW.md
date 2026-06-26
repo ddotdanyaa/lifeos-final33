@@ -14,10 +14,9 @@ Current state:
 
 - GitHub auth: works for account `ddotdanyaa`.
 - GitHub remote: `https://github.com/ddotdanyaa/lifeos-final33.git`.
-- GitHub push: `HTTP_408_RETRY_REQUIRED`; both full-history push and snapshot push reached upload but were disconnected by slow HTTPS upload.
+- GitHub push: `LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE`; branch `owner-usable-nonstop-rescue` is verified by `git ls-remote`, with oversized local evidence listed in the remote omitted-files manifest.
 - Local app: Product Brain package is implemented in `app.js`, `styles.css`, docs, audit script, and Playwright evidence.
 
 Next package:
 
-`P_GITHUB_RELEASE_RETRY`: publish a smaller release snapshot or upload through GitHub API, then verify `git ls-remote --heads origin owner-usable-nonstop-rescue`.
-
+`P_OWNER_FINAL_REVALIDATION`: rerun final owner/product audits after the verified lite snapshot.
