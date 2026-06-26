@@ -1,26 +1,25 @@
 journey,status,evidence,product_brain_link,next_proof
-J01,PARTIAL,output/playwright/final/final-home.png,Journey Map,Re-run after Product Brain package
-J02,PARTIAL,output/playwright/journeys/j02-after.png,Journey Map,Re-run owner journeys
-J03,PARTIAL,output/playwright/market-after-analysis.png,Journey Map,Re-run market owner
-J04,PARTIAL,output/playwright/fixtures/owner-input-fixtures.json,Journey Map,Re-run fixtures
-J05,PARTIAL,output/playwright/market-finance.png,Journey Map,Re-run finance
-J06,PARTIAL,output/playwright/final/final-screenshot-expense.png,Journey Map,Re-run receipt flow
-J07,PARTIAL,output/playwright/market-finance.png,Journey Map,Re-run finance dashboard
-J08,PARTIAL,output/playwright/market-habits-goals-wheel.png,Journey Map,Re-run habits
-J09,PARTIAL,output/playwright/market-habits-goals-wheel.png,Journey Map,Re-run goals/wheel
-J10,PARTIAL,output/playwright/market-library-knowledge.png,Journey Map,Re-run knowledge
-J11,PARTIAL,output/playwright/market-library-knowledge.png,Journey Map,Re-run library
-J12,PARTIAL,output/playwright/market-reader.png,Journey Map,Re-run reader
-J13,PARTIAL,output/playwright/market-player-transcript.png,Journey Map,Re-run player
-J14,PARTIAL,output/playwright/journeys/j14-after.png,Journey Map,Re-run evening review
-J15,PARTIAL,output/playwright/market-chat-local-ai.png,Journey Map,Re-run ai providers
-J16,PARTIAL,output/playwright/product-brain-chat.png,Journey Map,Re-run chat without AI
-J17,PARTIAL,output/playwright/market-agents-flows.png,Journey Map,Re-run agents
-J18,PARTIAL,output/playwright/market-agents-flows.png,Journey Map,Re-run flows
-J19,PARTIAL,output/playwright/product-brain-graph.png,Graph Quality,Re-run graph
-J20,PARTIAL,output/playwright/product-brain-control.png,Recovery Migration,Re-run control
-J21,PARTIAL,output/playwright/market-providers.png,Provider Gates Map,Re-run providers
-J22,PARTIAL,output/playwright/final/final-mobile-home.png,Journey Map,Re-run mobile
-J23,PARTIAL,output/playwright/owner-large-vault.png,Performance Large Vault,Re-run performance
-J24,PARTIAL,output/playwright/quality-control-audit.png,Recovery Migration,Re-run recovery
-
+J01,PASS_REVALIDATED,output/playwright/journeys/j01-before.png;output/playwright/journeys/j01-after.png,Journey Map,audit:no-cockpit-first-screen
+J02,PASS_REVALIDATED,output/playwright/journeys/j02-before.png;output/playwright/journeys/j02-after.png,Journey Map,e2e:final-owner parser/dedupe proof
+J03,PASS_REVALIDATED,output/playwright/journeys/j03-before.png;output/playwright/journeys/j03-after.png,Journey Map,e2e:journeys
+J04,PASS_REVALIDATED,output/playwright/journeys/j04-before.png;output/playwright/journeys/j04-after.png,Journey Map,e2e:fixtures 150 fixture matrix
+J05,PASS_REVALIDATED,output/playwright/journeys/j05-before.png;output/playwright/journeys/j05-after.png,Journey Map,e2e:journeys finance quick capture
+J06,PASS_WITH_PROVIDER_GATE,output/playwright/journeys/j06-before.png;output/playwright/journeys/j06-after.png,Provider Gates Map,OCR manual receipt fallback proof
+J07,PASS_REVALIDATED,output/playwright/journeys/j07-before.png;output/playwright/journeys/j07-after.png,Journey Map,finance dashboard screenshot
+J08,PASS_REVALIDATED,output/playwright/journeys/j08-before.png;output/playwright/journeys/j08-after.png,Journey Map,habits check/uncheck proof
+J09,PASS_REVALIDATED,output/playwright/journeys/j09-before.png;output/playwright/journeys/j09-after.png,Journey Map,goals/wheel domain insight proof
+J10,PASS_REVALIDATED,output/playwright/journeys/j10-before.png;output/playwright/journeys/j10-after.png,Journey Map,knowledge artifact graph/control proof
+J11,PASS_REVALIDATED,output/playwright/journeys/j11-before.png;output/playwright/journeys/j11-after.png,Journey Map,library/product brain visibility proof
+J12,PASS_WITH_PROVIDER_GATE,output/playwright/journeys/j12-before.png;output/playwright/journeys/j12-after.png,Provider Gates Map,TXT/MD reader and PDF/EPUB honest gate
+J13,PASS_WITH_PROVIDER_GATE,output/playwright/journeys/j13-before.png;output/playwright/journeys/j13-after.png,Provider Gates Map,audio/manual transcript and STT gate
+J14,PASS_REVALIDATED,output/playwright/journeys/j14-before.png;output/playwright/journeys/j14-after.png,Journey Map,evening review grouped proposals
+J15,PASS_WITH_PROVIDER_GATE,output/playwright/journeys/j15-before.png;output/playwright/journeys/j15-after.png,Provider Gates Map,Ollama probe/offline model gate
+J16,PASS_REVALIDATED,output/playwright/journeys/j16-before.png;output/playwright/journeys/j16-after.png,Journey Map,chat without AI persistence/proposals
+J17,PASS_REVALIDATED,output/playwright/journeys/j17-before.png;output/playwright/journeys/j17-after.png,Journey Map,agent dry-run approval proof
+J18,PASS_REVALIDATED,output/playwright/journeys/j18-before.png;output/playwright/journeys/j18-after.png,Journey Map,flow trigger-condition-action proof
+J19,PASS_REVALIDATED,output/playwright/journeys/j19-before.png;output/playwright/journeys/j19-after.png,Graph Quality,big graph filter/search/inspector proof
+J20,PASS_REVALIDATED,output/playwright/journeys/j20-before.png;output/playwright/journeys/j20-after.png,Recovery Migration,Data Control export/recover proof
+J21,PASS_WITH_PROVIDER_GATES,output/playwright/journeys/j21-before.png;output/playwright/journeys/j21-after.png,Provider Gates Map,provider passport/offline state proof
+J22,PASS_WITH_PERMISSION_GATE,output/playwright/journeys/j22-before.png;output/playwright/journeys/j22-after.png,Journey Map,mobile capture-first and notification boundary
+J23,PASS_REVALIDATED,output/playwright/journeys/j23-before.png;output/playwright/journeys/j23-after.png,Performance Large Vault,large-vault benchmark proof
+J24,PASS_REVALIDATED,output/playwright/journeys/j24-before.png;output/playwright/journeys/j24-after.png,Recovery Migration,corrupt record recovery proof

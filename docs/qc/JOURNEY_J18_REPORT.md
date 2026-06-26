@@ -42,7 +42,7 @@ Flow builder uses a visible trigger-condition-action board, dry-runs proposals, 
 ```
 
 ## Graph Edges
-After: 636 edges, 636 with visible reasons.
+After: 701 edges, 701 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: provider.run: ollama probe: Ollama models_found at http://localhost:11434 | ollama.probe: Ollama models_found at http://localhost:11434 | chat.local: Local chat message linked to artifact | chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Flow dry-run created proposal: plan | flow.dry-run: Flow dry-run created proposal: task

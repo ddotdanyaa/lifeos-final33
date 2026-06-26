@@ -17,10 +17,9 @@ J15,Ollama chat,PASS_WITH_PROVIDER_GATE,OLLAMA_OWNER_DAEMON,docs/qc/JOURNEY_J15_
 J16,Chat without AI,PASS,none,docs/qc/JOURNEY_J16_REPORT.md,output/playwright/journeys/j16-before.png;output/playwright/journeys/j16-after.png
 J17,Agents,PASS,none,docs/qc/JOURNEY_J17_REPORT.md,output/playwright/journeys/j17-before.png;output/playwright/journeys/j17-after.png
 J18,Flows,PASS,none,docs/qc/JOURNEY_J18_REPORT.md,output/playwright/journeys/j18-before.png;output/playwright/journeys/j18-after.png
-J19,Big graph,PASS_WITH_OPEN_LOCAL_GATE,P13_GRAPH_HARDENING,docs/qc/JOURNEY_J19_REPORT.md,output/playwright/journeys/j19-before.png;output/playwright/journeys/j19-after.png
+J19,Big graph,PASS_REVALIDATED,none,docs/qc/JOURNEY_J19_REPORT.md,output/playwright/journeys/j19-before.png;output/playwright/journeys/j19-after.png
 J20,Data Control,PASS,none,docs/qc/JOURNEY_J20_REPORT.md,output/playwright/journeys/j20-before.png;output/playwright/journeys/j20-after.png
 J21,Providers,PASS_WITH_PROVIDER_GATES,external_providers,docs/qc/JOURNEY_J21_REPORT.md,output/playwright/journeys/j21-before.png;output/playwright/journeys/j21-after.png
 J22,Mobile/PWA,PASS_WITH_PERMISSION_GATE,notifications_permission,docs/qc/JOURNEY_J22_REPORT.md,output/playwright/journeys/j22-before.png;output/playwright/journeys/j22-after.png
-J23,Performance large vault,PASS_WITH_OPEN_LOCAL_GATE,P17_LARGE_VAULT_EXACT_SCALE,docs/qc/JOURNEY_J23_REPORT.md,output/playwright/journeys/j23-before.png;output/playwright/journeys/j23-after.png
-J24,Recovery migration corruption,PASS_WITH_OPEN_LOCAL_GATE,P24_CORRUPT_RECORD_FIXTURE,docs/qc/JOURNEY_J24_REPORT.md,output/playwright/journeys/j24-before.png;output/playwright/journeys/j24-after.png
-
+J23,Performance large vault,PASS_REVALIDATED,none,docs/qc/JOURNEY_J23_REPORT.md,output/playwright/journeys/j23-before.png;output/playwright/journeys/j23-after.png
+J24,Recovery migration corruption,PASS_REVALIDATED,none,docs/qc/JOURNEY_J24_REPORT.md,output/playwright/journeys/j24-before.png;output/playwright/journeys/j24-after.png

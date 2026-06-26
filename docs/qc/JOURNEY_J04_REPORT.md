@@ -32,20 +32,20 @@ Twenty typo-heavy and mixed-language inputs create source artifacts and proposal
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 0,
-  "proposalsOpen": 95,
+  "proposalsOpen": 98,
   "proposalsApplied": 0,
   "auditEvents": 154,
-  "graphNodes": 191,
-  "graphEdges": 340,
-  "graphEdgeReasons": 340
+  "graphNodes": 194,
+  "graphEdges": 346,
+  "graphEdgeReasons": 346
 }
 ```
 
 ## Graph Edges
-After: 386 edges, 386 with visible reasons.
+After: 451 edges, 451 with visible reasons.
 
 ## Data Control Events
-After: 188 audit events. Tail: note.create: Note created: каждый день вода 2л и читать 20 страниц | source.project: Source projected into note: каждый день вода 2л и читать 20 страниц.md | reading.create: Reading item created: каждый день вода 2л и читать 20 страниц | review.create: Review item created: Повторить highlight: каждый день вода 2л и читать 20 страниц | highlight.create: Highlight created: каждый день вода 2л и читать 20 страниц | highlight.extract: Highlights extracted from каждый день вода 2л и читать 20 страниц.md: 1 | source.import: Source imported: каждый день вода 2л и читать 20 страниц.md (text) | inbox.capture: Inbox text captured as artifact
+After: 189 audit events. Tail: note.create: Note created: каждый день вода 2л и читать 20 страниц | source.project: Source projected into note: каждый день вода 2л и читать 20 страниц.md | reading.create: Reading item created: каждый день вода 2л и читать 20 страниц | review.create: Review item created: Повторить highlight: каждый день вода 2л и читать 20 страниц | highlight.create: Highlight created: каждый день вода 2л и читать 20 страниц | highlight.extract: Highlights extracted from каждый день вода 2л и читать 20 страниц.md: 1 | source.import: Source imported: каждый день вода 2л и читать 20 страниц.md (text) | inbox.capture: Inbox text captured as artifact
 
 ## Remaining Gated
 None for this local journey.

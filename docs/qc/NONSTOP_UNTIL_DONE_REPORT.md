@@ -1,55 +1,63 @@
 # Nonstop Until Done Report
 
-status: BLOCKED_EXTERNAL_CREDENTIAL_ONLY
-updated_at: 2026-06-26T07:20:00+03:00
+status: CONTINUATION_REQUIRED
+updated_at: 2026-06-26T11:55:00+03:00
 
 ## Current Package
 
-`P27 - C25 architecture contract and local gate closure`
+`P_WORKSPACE_9PLUS_VISUAL_POLISH - Product Brain self-check and 9+ workspace revalidation`
 
 ## What Changed
 
-- Added `artifact-os-architecture.mjs` as a real imported module for Artifact OS schema, collections, workspace contracts, module boundaries, state adapters and invariants.
-- `ReactiveStore.commit()` now persists architecture event-bus receipts in `control.architectureEvents`.
-- Data Control now renders an `architecture-contract` panel with validation, collection/workspace/module/adapter counts and last architecture event.
-- `window.__lifeosKnowledgeBase.getArchitectureSnapshot()` exposes the same contract to e2e/audits.
-- `service-worker.js` caches the architecture module, and `server.mjs` serves `.mjs` as JavaScript.
-- Added `npm run audit:architecture`.
-- Market ledger C25 rows moved to `FIXED_WITH_CODE_AND_TEST`; local deferred rows dropped from 200 to 0.
+- Product Brain was used as the source of truth before new work.
+- Product Brain runtime notes were updated from stale `PARTIAL` GitHub/journey states to current `DONE/NEXT/GATED` states.
+- Product Brain journey ledger now records J01-J24 as revalidated with screenshot evidence.
+- Product Brain gap queue now records `P_WORKSPACE_9PLUS_VISUAL_POLISH` as done and `P_EXTERNAL_PROVIDER_SETUP` as next.
+- Shared workspace CSS was strengthened so the product reads as distinct work modes rather than one pale form shell.
+- Finance became a clearer dashboard with operation/account/budget/subscription/receipt zones.
+- Calendar became a stronger week planner with seven-day board, agenda strip and focus warning.
+- Agents/Flows gained stronger canvas-like dry-run treatment.
+- Human UX audit now requires every workspace score to be 9+.
+- GitHub remote/auth stale gates were corrected: auth works, origin exists, lite snapshot is published.
 
 ## Current Proof
 
+- `gh auth status`: PASS as `ddotdanyaa`
+- `git remote -v`: PASS with `https://github.com/ddotdanyaa/lifeos-final33.git`
 - `node --check app.js`: PASS
-- `node --check artifact-os-architecture.mjs`: PASS
-- `node --check tools/audit-architecture-contract.mjs`: PASS
+- `node --check tools/audit-product-brain.mjs`: PASS
 - `npm run verify`: PASS
-- `npm run audit:architecture`: PASS
-- `npm run e2e:market-owner`: PASS
+- `npm run e2e:product-brain`: PASS
+- `npm run e2e:final-owner`: PASS
 - `npm run e2e:journeys`: PASS
-- `npm run audit:market-ledger`: PASS with `rDeferred: 0`
-- `docs/architecture/ARTIFACT_OS_ARCHITECTURE_CONTRACT.md`
-- `output/playwright/market-control.png`
-- `output/playwright/final/final-control.png`
-- `docs/qc/MARKET_RESEARCH_LEDGER_STATUS.csv`
-- `docs/qc/MARKET_RESEARCH_EXECUTION_REPORT.md`
+- `npm run audit:product-brain`: PASS
+- `npm run audit:visual-hierarchy`: PASS
+- `npm run audit:workspace-distinctness`: PASS
+- `npm run audit:semantic-colors`: PASS
 
 ## Local Gate State
 
-- No local market rows remain `DEFERRED_WITH_REASON`.
-- No R rows remain `NOT_STARTED`.
-- No known local product-critical gates remain open before final regression and clean-tree commit check.
+- Product Brain exists as runtime Artifact OS state.
+- J01-J24 pass after the visual package.
+- Human UX scorecard is now 9+ for all workspaces, with external/provider limitations marked honestly.
+- No known local product-critical gate remains open before final regression/commit.
 
 ## External Gates
 
-- GitHub remote/auth is missing.
-- External Gmail/calendar credentials are missing.
-- OCR/STT/PDF/EPUB provider/parser gates remain honest setup gates.
+- Ollama local daemon/model setup.
+- Gmail OAuth.
+- External calendar OAuth.
+- OCR engine.
+- STT engine/browser permission.
+- PDF/EPUB parser packages.
+- Notifications/PWA permission/install prompt.
+- Optional external evidence archive for large screenshots/ledgers omitted from the lite GitHub snapshot.
 
 ## Next Package
 
-`P20 - GitHub release gate`
+`P_EXTERNAL_PROVIDER_SETUP`
 
 Expected result:
 
-- If the owner provides GitHub remote/auth, push the branch with `npm run release:push -- <github-remote-url>`.
-- Without owner GitHub credentials/remote, final status remains `BLOCKED_EXTERNAL_CREDENTIAL_ONLY`.
+- Each provider has a clear passport, setup steps, local fallback, revoke/disconnect where applicable, and e2e proof of offline/gated state.
+- No provider is marked connected unless a real probe or credential/permission flow succeeds.

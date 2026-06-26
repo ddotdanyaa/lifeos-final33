@@ -1,9 +1,25 @@
 journey,required_product_brain_evidence,status,next_fix
-J01,Home remains no-cockpit while Product Brain exists,PARTIAL,P_OWNER_FINAL_REVALIDATION
-J11,Library shows LifeOS Product Brain,BUILT,P_PRODUCT_BRAIN_001
-J15,Chat can answer state without Ollama,BUILT,P_PRODUCT_BRAIN_001
-J19,Graph Product Brain filter and edge reasons,BUILT,P_PRODUCT_BRAIN_001
-J20,Control shows development state,BUILT,P_PRODUCT_BRAIN_001
-J21,Provider gates remain honest,PARTIAL,P_OWNER_FINAL_REVALIDATION
-J24,Recovery and state docs remain auditable,PARTIAL,P_OWNER_FINAL_REVALIDATION
-
+J01,Home remains no-cockpit while Product Brain exists,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J02,Simple task parser creates proposal/apply without duplicates,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J03,Mixed input creates grouped proposals across workspaces,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J04,Messy capture generalizes beyond one hardcoded phrase,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J05,Finance quick capture updates dashboard graph and control,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J06,Receipt screenshot has manual fallback and OCR gate,PASS_WITH_PROVIDER_GATE,P_EXTERNAL_PROVIDER_SETUP
+J07,Finance dashboard is owner-visible after reload,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J08,Habits check/uncheck writes graph/control evidence,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J09,Goals and wheel show domain insight and next action,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J10,Knowledge artifact becomes second-brain object,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J11,Library shows LifeOS Product Brain,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J12,Reader parses TXT/MD and gates PDF/EPUB honestly,PASS_WITH_PROVIDER_GATE,P_EXTERNAL_PROVIDER_SETUP
+J13,Player supports manual transcript and gates STT honestly,PASS_WITH_PROVIDER_GATE,P_EXTERNAL_PROVIDER_SETUP
+J14,Evening review groups proposals without overload,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J15,Chat has Ollama probe/offline provider gate,PASS_WITH_PROVIDER_GATE,P_EXTERNAL_PROVIDER_SETUP
+J16,Chat can answer Product Brain state without Ollama,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J17,Agents create approval-required dry-runs,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J18,Flows show trigger-condition-action dry-run,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J19,Graph Product Brain filter and edge reasons,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J20,Control shows development state and recovery,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J21,Provider gates remain honest,PASS_WITH_PROVIDER_GATES,P_EXTERNAL_PROVIDER_SETUP
+J22,Mobile capture-first and permission boundary,PASS_WITH_PERMISSION_GATE,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J23,Large-vault performance is benchmarked,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH
+J24,Recovery and state docs remain auditable,PASS_REVALIDATED,P_WORKSPACE_9PLUS_VISUAL_POLISH

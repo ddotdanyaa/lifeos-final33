@@ -32,6 +32,15 @@ if (!problems.length) {
   for (const workspace of requiredWorkspaces) {
     if (!body.includes(`| ${workspace} |`)) problems.push(`workspace score missing: ${workspace}`);
   }
+  const tableRows = body.split(/\r?\n/).filter((line) => /^\| [^|]+ \|/.test(line) && !line.includes("---"));
+  for (const row of tableRows) {
+    const cells = row.split("|").map((cell) => cell.trim()).filter(Boolean);
+    if (!cells.length || cells[0] === "Workspace") continue;
+    const scores = cells.slice(1, 10).map((value) => Number(value));
+    if (scores.length === 9 && scores.some((score) => Number.isFinite(score) && score < 9)) {
+      problems.push(`workspace score below 9: ${cells[0]}`);
+    }
+  }
   if (body.includes("STATUS: DONE_ALL") && /,LOCAL,OPEN,/.test(gates)) problems.push("DONE_ALL claimed while local gates remain open");
   if (!body.includes("STATUS: CONTINUATION_REQUIRED") && /,LOCAL,OPEN,/.test(gates)) problems.push("open local gates require CONTINUATION_REQUIRED");
   if (!body.includes("F01") || !body.includes("F25")) problems.push("F01-F25 audit coverage missing");

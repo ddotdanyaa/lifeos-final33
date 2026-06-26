@@ -42,10 +42,10 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
 ```
 
 ## Graph Edges
-After: 40 edges, 40 with visible reasons.
+After: 105 edges, 105 with visible reasons.
 
 ## Data Control Events
-After: 34 audit events. Tail: proposal.apply: Applied proposal: Напомнить: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | finance.account: Finance account set: Основной счет | finance.transaction: Finance expense: завтра в :зал, купить протеин , каждый день в... 2500 RUB | proposal.apply: Applied proposal: завтра в :зал, купить протеин , каждый день в... | habit.create: Habit created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | goal.create: Goal created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером
+After: 35 audit events. Tail: proposal.apply: Applied proposal: Напомнить: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | finance.account: Finance account set: Основной счет | finance.transaction: Finance expense: завтра в :зал, купить протеин , каждый день в... 2500 RUB | proposal.apply: Applied proposal: завтра в :зал, купить протеин , каждый день в... | habit.create: Habit created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | goal.create: Goal created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером
 
 ## Remaining Gated
 None for this local journey.

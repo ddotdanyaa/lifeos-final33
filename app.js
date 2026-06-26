@@ -16,7 +16,7 @@ const AUTO_SAVE_MS = 1500;
 const SOURCE_NOTE_TEXT_LIMIT = 60000;
 const INLINE_MEDIA_LIMIT = 8 * 1024 * 1024;
 const UI_REVISION = "owner-ux-001-v1";
-const PRODUCT_BRAIN_VERSION = "2026-06-26-p-github-lite-snapshot";
+const PRODUCT_BRAIN_VERSION = "2026-06-26-after-product-brain-self-check";
 const PRODUCT_BRAIN_FOLDER_ID = "folder-product-brain";
 const PRODUCT_BRAIN_ROOT_ID = "note-product-brain-root";
 const WIKI_LINK_PATTERN = /\[\[(.*?)\]\]/g;
@@ -37,7 +37,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     id: PRODUCT_BRAIN_ROOT_ID,
     key: "root",
     title: "LifeOS Product Brain",
-    status: "PARTIAL",
+    status: "NEXT",
     kind: "central",
     body: [
       "# LifeOS Product Brain",
@@ -46,8 +46,8 @@ const PRODUCT_BRAIN_NODE_SPECS = [
       "",
       "Связанные узлы: [[Product Vision]], [[Artifact OS Contract]], [[Current Build State]], [[Owner Complaints]], [[UX Debt]], [[Bug Ledger]], [[Journey Map]], [[Feature Completeness Map]], [[Research Map]], [[Design System Map]], [[GitHub Release Map]], [[Provider Gates Map]], [[Performance Large Vault]], [[Recovery Migration]], [[Graph Quality]], [[Chat First Home]].",
       "",
-      "Текущий package: P_OWNER_FINAL_REVALIDATION.",
-      "Следующий package: P_EXTERNAL_PROVIDER_SETUP, потому что локальные owner/product audits прошли, а оставшиеся gates требуют внешние движки или отдельный evidence archive.",
+      "Текущий package: AFTER_PRODUCT_BRAIN_SELF_CHECK.",
+      "Следующий package: P_EXTERNAL_PROVIDER_SETUP, потому что J01-J24, UX/product/recovery/performance audits и GitHub lite snapshot уже проверены, а оставшиеся gates требуют внешние движки или отдельный evidence archive.",
       "Контракт: source -> Artifact -> projections -> repository -> graph/backlinks -> receipt/audit -> Data Control -> owner-visible result -> proof."
     ].join("\n")
   },
@@ -71,15 +71,15 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     id: "note-product-brain-current-build",
     key: "current-build",
     title: "Current Build State",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "state",
-    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nGitHub release: опубликован lite snapshot на owner-usable-nonstop-rescue; git ls-remote подтверждает remote branch. Большие ledgers и screenshot wall сохранены локально и перечислены в remote manifest docs/ops/GITHUB_RELEASE_OMITTED_FILES.md.\n\nGated честно: Ollama offline, Gmail, external calendar OAuth, OCR, STT, PDF/EPUB parser, notifications permission.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
+    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nПосле Product Brain self-check повторно прошли J01-J24, no-cockpit, visual hierarchy, workspace distinctness, semantic colors, human UX, performance и recovery audits.\n\nGitHub release: опубликован lite snapshot на owner-usable-nonstop-rescue; git ls-remote подтверждает remote branch. Большие ledgers и screenshot wall сохранены локально и перечислены в remote manifest docs/ops/GITHUB_RELEASE_OMITTED_FILES.md.\n\nGated честно: Ollama offline, Gmail, external calendar OAuth, OCR, STT, PDF/EPUB parser, notifications permission.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
   },
   {
     id: "note-product-brain-owner-complaints",
     key: "owner-complaints",
     title: "Owner Complaints",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "complaints",
     body: "# Owner Complaints\n\n- непонятный первый экран;\n- cockpit и слишком много панелей;\n- одинаковые страницы;\n- чат не чувствуется главным рабочим двигателем;\n- graph недостаточно Obsidian-like;\n- agents/flows недостаточно n8n-like;\n- финансы, привычки и цели выглядели формами, не dashboard;\n- календарь был dense;\n- GitHub не видел изменения;\n- today at 23:00 парсился неверно;\n- система делала пример, а не общий движок.\n\nЭти жалобы связаны с [[UX Debt]] и [[Bug Ledger]]."
   },
@@ -87,15 +87,15 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     id: "note-product-brain-ux-debt",
     key: "ux-debt",
     title: "UX Debt",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "ux",
-    body: "# UX Debt\n\nГлавные UX-долги: Home должен оставаться chat/capture-first; Graph должен показывать Product Brain filter и edge reasons; Chat должен отвечать по Product Brain без Ollama; Control должен показывать состояние разработки; release state должен быть честным.\n\nДоказательство закрытия: [[Journey Map]], product-brain screenshots, audit:product-brain."
+    body: "# UX Debt\n\nЗакрытые локальные UX-долги: Home остается capture-first и не возвращается в cockpit; Graph показывает Product Brain filter и edge reasons; Chat отвечает по Product Brain без Ollama; Control показывает состояние разработки; release state честно показывает lite snapshot и omitted evidence manifest; workspace scorecard поднят до 9+ после P_WORKSPACE_9PLUS_VISUAL_POLISH.\n\nДоказательство закрытия: [[Journey Map]], product-brain screenshots, audit:product-brain, audit:no-cockpit-first-screen, audit:human-ux-final."
   },
   {
     id: "note-product-brain-bug-ledger",
     key: "bug-ledger",
     title: "Bug Ledger",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "bugs",
     body: "# Bug Ledger\n\nКлассы багов: parser bugs, storage bugs, duplicate proposals, dead buttons, layout overlap, right rail clutter, stale tests, GitHub no remote, auth not logged in, slow GitHub push HTTP 408, oversized release evidence upload.\n\nRegression proof: [[Journey Map]], [[GitHub Release Map]], audit:buttons, audit:no-hardcoded-sample, audit:product-brain."
   },
@@ -103,17 +103,17 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     id: "note-product-brain-journeys",
     key: "journeys",
     title: "Journey Map",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "journeys",
-    body: "# Journey Map\n\nJ01-J24: clean first open, fast task, mixed capture, messy capture, finance, receipt, dashboard, habits, goals/wheel, knowledge, library, reader, player, voice review, Ollama, chat offline, agents, flows, graph, control, providers, mobile, large vault, recovery.\n\nEvidence: output/playwright/final, output/playwright/journeys, output/playwright/product-brain-graph.png, product-brain-control.png, product-brain-chat.png, product-brain-library.png.\n\nСвязано с [[Feature Completeness Map]], [[Graph Quality]], [[Recovery Migration]]."
+    body: "# Journey Map\n\nJ01-J24 повторно пройдены после Product Brain self-check: clean first open, fast task, mixed capture, messy capture, finance, receipt, dashboard, habits, goals/wheel, knowledge, library, reader, player, voice review, Ollama gate, chat offline, agents, flows, graph, control, providers, mobile, large vault, recovery.\n\nEvidence: output/playwright/final, output/playwright/journeys, docs/qc/JOURNEY_J01_REPORT.md..J24, output/playwright/product-brain-graph.png, product-brain-control.png, product-brain-chat.png, product-brain-library.png.\n\nСвязано с [[Feature Completeness Map]], [[Graph Quality]], [[Recovery Migration]]."
   },
   {
     id: "note-product-brain-features",
     key: "features",
     title: "Feature Completeness Map",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "features",
-    body: "# Feature Completeness Map\n\nWorkspaces: Home, Capture, Today, Calendar, Finance, Habits, Goals, Library, Reader, Player, Chat, Agents, Flow, Graph, Control, Providers, Product Brain.\n\nГотовность требует отдельный job, distinct layout, shared artifact repository, graph/control evidence, reload persistence, screenshot, UX score >= 9 и no dead buttons.\n\nСм. [[Design System Map]], [[Journey Map]], [[Control]]."
+    body: "# Feature Completeness Map\n\nWorkspaces: Home, Capture, Today, Calendar, Finance, Habits, Goals, Library, Reader, Player, Chat, Agents, Flow, Graph, Control, Providers, Product Brain.\n\nГотовность требует отдельный job, distinct layout, shared artifact repository, graph/control evidence, reload persistence, screenshot, UX score >= 9 и no dead buttons.\n\nP_WORKSPACE_9PLUS_VISUAL_POLISH обновил scorecard и доказал, что рабочие места выглядят как разные рабочие режимы, а не формы с заголовками.\n\nСм. [[Design System Map]], [[Journey Map]], [[Control]]."
   },
   {
     id: "note-product-brain-research",
@@ -135,9 +135,9 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     id: "note-product-brain-github",
     key: "github",
     title: "GitHub Release Map",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "release",
-    body: "# GitHub Release Map\n\nAccount: ddotdanyaa.\nRepo: https://github.com/ddotdanyaa/lifeos-final33.\nBranch: owner-usable-nonstop-rescue.\nAuth: logged in through GitHub CLI.\nRemote: origin configured.\nPush: lite Git snapshot published and verified by git ls-remote. Full-history push stayed impractical because local pack history is 1.51 GiB; oversized evidence files are listed in docs/ops/GITHUB_RELEASE_OMITTED_FILES.md on the remote branch.\n\nNext exact action: rerun final owner/product audits and decide whether a separate evidence archive is needed.\n\nСвязано с [[Bug Ledger]]."
+    body: "# GitHub Release Map\n\nAccount: ddotdanyaa.\nRepo: https://github.com/ddotdanyaa/lifeos-final33.\nBranch: owner-usable-nonstop-rescue.\nAuth: logged in through GitHub CLI.\nRemote: origin configured.\nPush: lite Git snapshot published and verified by git ls-remote. Full-history push stayed impractical because local pack history is 1.51 GiB; oversized evidence files are listed in docs/ops/GITHUB_RELEASE_OMITTED_FILES.md on the remote branch.\n\nNext exact action: keep provider setup honest and optionally publish a separate evidence archive if the owner wants the full screenshot wall outside Git.\n\nСвязано с [[Bug Ledger]]."
   },
   {
     id: "note-product-brain-providers",
@@ -167,7 +167,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     id: "note-product-brain-graph-quality",
     key: "graph-quality",
     title: "Graph Quality",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "graph",
     body: "# Graph Quality\n\nGraph must be Obsidian-like enough: global/local, zoom/pan, filters, clickable nodes, inspector, edge reasons, search, open linked workspace.\n\nProduct Brain adds a dedicated graph filter and edge reasons.\n\nEvidence: [[Journey Map]] J19 and output/playwright/product-brain-graph.png."
   },
@@ -175,7 +175,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     id: "note-product-brain-chat-home",
     key: "chat-home",
     title: "Chat First Home",
-    status: "PARTIAL",
+    status: "DONE",
     kind: "chat",
     body: "# Chat First Home\n\nHome remains capture-first. Chat is artifact-bound and answers Product Brain questions without Ollama.\n\nSupported questions: что осталось доделать, почему не готово, следующий пакет, UX-долги, календарь evidence.\n\nRelated: [[LifeOS Product Brain]], [[Current Build State]], [[UX Debt]], [[GitHub Release Map]]."
   }
@@ -996,10 +996,10 @@ function ensureProductBrain(state) {
   state.control.productBrain = Object.assign({}, state.control.productBrain || {}, {
     version: PRODUCT_BRAIN_VERSION,
     rootNoteId: PRODUCT_BRAIN_ROOT_ID,
-    currentPackage: "P_GITHUB_RELEASE_RETRY",
+    currentPackage: "AFTER_PRODUCT_BRAIN_SELF_CHECK",
     nextPackage: "P_EXTERNAL_PROVIDER_SETUP",
     githubReleaseStatus: "LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE",
-    localStatus: "PARTIAL",
+    localStatus: "DONE",
     externalStatus: "GATED",
     updatedAt: createdAt
   });

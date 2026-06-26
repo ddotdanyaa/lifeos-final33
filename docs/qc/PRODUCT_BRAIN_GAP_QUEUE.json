@@ -10,14 +10,21 @@
     "id": "P_OWNER_FINAL_REVALIDATION",
     "priority": "P0",
     "status": "done",
-    "reason": "After Product Brain and GitHub lite snapshot, final owner/product audits and screenshots were rerun successfully.",
-    "nextCommand": "npm run verify && npm run e2e && npm run e2e:owner && npm run audit:product-brain"
+    "reason": "After Product Brain and GitHub lite snapshot, final owner/product audits, J01-J24, performance and recovery were rerun successfully.",
+    "nextCommand": "npm run e2e:journeys && npm run audit:journeys && npm run audit:human-ux-final"
+  },
+  {
+    "id": "P_WORKSPACE_9PLUS_VISUAL_POLISH",
+    "priority": "P0",
+    "status": "done",
+    "reason": "Workspace CSS was strengthened, J01-J24 were rerun, and FINAL_UI_HUMAN_AUDIT now enforces no score below 9.",
+    "nextCommand": "npm run e2e:journeys && npm run e2e:product-brain && npm run audit:human-ux-final && npm run audit:visual-hierarchy"
   },
   {
     "id": "P_EXTERNAL_PROVIDER_SETUP",
     "priority": "P1",
     "status": "open",
-    "reason": "Local code gates pass; remaining work requires owner/provider setup or an optional separate archive for omitted large evidence.",
+    "reason": "After P_WORKSPACE_9PLUS_VISUAL_POLISH, remaining work requires owner/provider setup or an optional separate archive for omitted large evidence.",
     "nextCommand": "connect Ollama/Gmail/calendar/OCR/STT/PDF/EPUB/Notifications as desired, or keep honest gates visible"
   }
 ]

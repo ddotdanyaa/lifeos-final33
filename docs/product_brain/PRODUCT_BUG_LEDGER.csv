@@ -3,4 +3,4 @@ BUG001,GitHub,Full-history HTTPS push ends with HTTP 408 after auth succeeds; li
 BUG002,Graph,Product Brain previously had no dedicated filter,FIXED,audit:product-brain,Keep filter test
 BUG003,Chat,Development questions previously needed AI or generic response,FIXED,product-brain chat e2e,Keep deterministic answer test
 BUG004,Control,Development state was only docs-level,FIXED,Control Product Brain card,Keep Control screenshot
-BUG005,Ledger,Old owner-final audit expected no GitHub auth/remote,NEEDS_UPDATE,audit:owner-final after auth,Update release gate checks
+BUG005,Ledger,Old owner-final audit expected no GitHub auth/remote,FIXED_REVALIDATED,audit:owner-final after auth plus gh auth status,Keep release gate checks current

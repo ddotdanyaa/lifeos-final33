@@ -1,6 +1,6 @@
 gate_id,scope,status,owner_visible_reason,next_action,evidence
-GITHUB_REMOTE,EXTERNAL,WAITING_FOR_OWNER_GITHUB_AUTH,No GitHub remote is configured,Owner must provide GitHub remote or authenticate gh,git remote -v empty
-GITHUB_AUTH,EXTERNAL,WAITING_FOR_OWNER_GITHUB_AUTH,GitHub CLI is not authenticated,Owner must run gh auth login or provide authenticated session,gh auth status no logged-in host
+GITHUB_REMOTE,RELEASE,FIXED_WITH_LITE_SNAPSHOT,Remote origin is configured at https://github.com/ddotdanyaa/lifeos-final33.git,Keep lite snapshot release helper and omitted evidence manifest current,git remote -v;git ls-remote --heads origin owner-usable-nonstop-rescue
+GITHUB_AUTH,RELEASE,FIXED_WITH_AUTH,GitHub CLI is authenticated as ddotdanyaa,Keep auth state documented and avoid fake DONE_ALL if token expires,gh auth status
 GMAIL_EXTERNAL_SYNC,EXTERNAL,BLOCKED_EXTERNAL_PROVIDER_ONLY,Gmail sync requires OAuth credentials,Keep pasted mail path local and show provider gate,Providers workspace Gmail gate
 EXTERNAL_CALENDAR_SYNC,EXTERNAL,BLOCKED_EXTERNAL_PROVIDER_ONLY,External calendar sync requires OAuth credentials,Keep local calendar blocks and show setup gate,Providers workspace calendar gate
 OCR_ENGINE,EXTERNAL,BLOCKED_EXTERNAL_PROVIDER_ONLY,Automatic OCR requires OCR engine,Keep screenshot receipt manual extraction,Finance receipt workbench

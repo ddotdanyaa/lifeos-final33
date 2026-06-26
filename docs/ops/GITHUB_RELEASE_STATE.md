@@ -45,12 +45,12 @@ Evidence:
 
 Next package:
 
-`P_OWNER_FINAL_REVALIDATION`: rerun final local audits after the published lite snapshot:
+`P_EXTERNAL_PROVIDER_SETUP`: keep GitHub release state current while connecting or validating honest provider gates. The local owner/product revalidation and workspace 9+ visual polish package have already passed:
 
 ```powershell
 npm run verify
-npm run e2e
-npm run e2e:owner
 npm run e2e:product-brain
+npm run e2e:journeys
+npm run audit:human-ux-final
 npm run audit:owner-final
 ```

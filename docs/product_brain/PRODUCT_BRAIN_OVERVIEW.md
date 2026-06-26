@@ -16,6 +16,8 @@ Current state:
 - GitHub remote: `https://github.com/ddotdanyaa/lifeos-final33.git`.
 - GitHub push: `LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE`; branch `owner-usable-nonstop-rescue` is verified by `git ls-remote`, with oversized local evidence listed in the remote omitted-files manifest.
 - Local app: Product Brain package is implemented in `app.js`, `styles.css`, docs, audit script, and Playwright evidence.
+- Product self-check: J01-J24 were rerun after Product Brain and after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
+- Human UX scorecard: all workspaces are 9+ in `docs/qc/FINAL_UI_HUMAN_AUDIT.md`; provider limitations remain explicit gates, not hidden completion.
 
 Next package:
 
