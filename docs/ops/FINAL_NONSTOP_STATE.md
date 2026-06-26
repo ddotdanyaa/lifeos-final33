@@ -1,39 +1,41 @@
 # Final Nonstop State
 
 STATUS: CONTINUATION_REQUIRED
-updated_at: 2026-06-26T12:55:36+03:00
+updated_at: 2026-06-26T14:18:00+03:00
 
 ## Runtime
 
 - repo path: `C:\Users\Данил\Documents\LIFEOS FINAL 33%`
 - branch: `owner-usable-nonstop-rescue`
-- provider-passport implementation HEAD: `bf3cd47 fix: align owner final provider gate audit`
-- provider-passport remote lite snapshot: `fabd664aa8792ebe54460dbceb2019195b248de4`
+- visual-coherence implementation HEAD: `d44227e fix: unify LifeOS visual language`
 - remote: `origin https://github.com/ddotdanyaa/lifeos-final33.git`
 - GitHub auth: `logged in as ddotdanyaa`
 - GitHub release: `LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE`
 - localhost: `http://127.0.0.1:4173`
-- current UI revision: `owner-ux-001-v12-provider-passports`
+- current UI revision: `owner-ux-001-v13-global-visual-coherence`
 - artifact schema version: `2`
 
 ## Current Package
 
-- package id: `P_EXTERNAL_PROVIDER_SETUP`
-- package name: паспорта провайдеров, пути настройки, локальные замены и gated e2e
-- reason: Providers had to become owner-readable passports, not a cramped list of provider statuses.
+- package id: `P_GLOBAL_VISUAL_COHERENCE`
+- package name: целостная визуальная система и понятная русская микрокопия для всех рабочих мест
+- reason: владелец сообщил, что страницы всё ещё выглядели одинаково, перегруженно, бледно и с техническими/глупыми надписями.
 
 ## Fixed Locally
 
 - Product Brain works in Library, Graph, Control and Chat.
-- J01-J24 pass after Product Brain and visual polish.
+- J01-J24 pass after Product Brain, visual polish, provider passports and global visual coherence.
 - Workspace UX scorecard is 9+.
 - GitHub remote/auth work and the lite snapshot branch is published.
-- Provider workspace now shows passports for Ollama, почты, локального/внешнего календаря, OCR, STT, PDF, EPUB, уведомлений, PWA, потоков and плеера.
-- Each provider passport shows настройку, локальную замену, границу данных, доступы, действия and историю запусков.
+- Topbar, command palette, workspace heroes, Library, Reader, Player, Chat, Agents, Providers and Control now use Russian-first owner-facing labels instead of raw technical strings.
+- Provider and PWA statuses are owner-readable while tests keep raw truth in `data-raw-status`.
+- Providers and Control are visually calmer: neutral trust/passport treatment, risk colors only for real risk or gated status.
+- Mobile 390px horizontal overflow was reproduced, diagnosed and fixed by restoring one-column workspace layout at mobile breakpoints.
+- Each provider passport shows setup, local fallback, data boundary, permissions/actions and run history.
 
 ## Open Local Gates
 
-- None known after current local tests.
+- None known after current local tests and clean-tree final audit.
 
 ## External Gates
 
@@ -48,11 +50,27 @@ updated_at: 2026-06-26T12:55:36+03:00
 
 ## Last Tests
 
+- `node --check app.js`
 - `npm run verify`
-- `npm run e2e:ai-providers`
+- `npm run e2e`
+- `npm run e2e:owner`
+- `npm run e2e:market-owner`
+- `npm run e2e:quality`
+- `npm run e2e:product-brain`
 - `npm run e2e:journeys`
+- `npm run e2e:ai-providers`
+- `npm run audit:buttons`
+- `npm run audit:no-hardcoded-sample`
+- `npm run audit:no-cockpit-first-screen`
+- `npm run audit:visual-hierarchy`
+- `npm run audit:workspace-distinctness`
+- `npm run audit:semantic-colors`
 - `npm run audit:human-ux-final`
 - `npm run audit:product-brain`
+- `npm run audit:workspace-links`
+- `npm run audit:ledger`
+- `npm run audit:release-evidence`
+- `npm run audit:market-ledger`
 - `npm run audit:owner-final`
 - `npm run release:push -- https://github.com/ddotdanyaa/lifeos-final33.git --lite-git-snapshot`
 

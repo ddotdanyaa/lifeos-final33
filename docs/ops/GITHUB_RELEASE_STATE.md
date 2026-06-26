@@ -1,6 +1,6 @@
 # GitHub Release State
 
-Updated: 2026-06-26
+Updated: 2026-06-26 after `P_GLOBAL_VISUAL_COHERENCE`.
 
 Repo path: `C:\Users\Данил\Documents\LIFEOS FINAL 33%`
 
@@ -35,23 +35,27 @@ Evidence:
 
 - `gh auth status` succeeds for account `ddotdanyaa`.
 - `git remote -v` shows origin.
-- Full-history push timed out because local Git pack history is large.
-- Snapshot push with explicit GitHub token reached object writing, then GitHub returned `HTTP 408`.
-- API snapshot reached 300/350 files but GitHub rejected repeated blob uploads with `400`/credential interruptions.
-- Lite Git snapshot succeeded without force push.
-- `git ls-remote --heads origin owner-usable-nonstop-rescue` confirms the remote branch.
-- Provider-passport package remote snapshot: `fabd664aa8792ebe54460dbceb2019195b248de4`.
+- Full-history push was impractical because the local Git pack and evidence wall are large.
+- Lite Git snapshot succeeds without force push.
+- `git ls-remote --heads origin owner-usable-nonstop-rescue` confirms the remote branch after release helper runs.
 - GitHub URL: `https://github.com/ddotdanyaa/lifeos-final33/tree/owner-usable-nonstop-rescue`.
 - Remote branch includes `docs/ops/GITHUB_RELEASE_OMITTED_FILES.md`, which lists 135 omitted large evidence files kept locally.
+- Latest visual package local commit: `d44227e fix: unify LifeOS visual language`.
+- Latest release helper push completed successfully after this package; exact remote lite commit is intentionally read from helper output / `git ls-remote` because the lite snapshot hash is generated at publish time.
 
 Next package:
 
-`P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`: keep GitHub release state current while the owner connects real providers. The local owner/product revalidation, workspace 9+ visual polish and provider passport package have already passed:
+`P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`: keep GitHub release state current while the owner connects real providers. The local owner/product revalidation, workspace 9+ visual polish, provider passport package and global visual coherence package have passed:
 
 ```powershell
 npm run verify
+npm run e2e
+npm run e2e:owner
+npm run e2e:market-owner
+npm run e2e:quality
 npm run e2e:product-brain
 npm run e2e:journeys
+npm run e2e:ai-providers
 npm run audit:human-ux-final
 npm run audit:owner-final
 ```

@@ -10,7 +10,7 @@ Updated: 2026-06-26 after `P_GLOBAL_VISUAL_COHERENCE`.
 - Chat answers Product Brain questions deterministically without Ollama.
 - J01-J24 were rerun with Playwright after Product Brain, visual polish and provider passports.
 - Home no longer returns to first-screen cockpit: no-cockpit, visual hierarchy, workspace distinctness and semantic color audits pass.
-- GitHub is authenticated as `ddotdanyaa`, origin is configured, and the lite snapshot branch is published at `fabd664aa8792ebe54460dbceb2019195b248de4`.
+- GitHub is authenticated as `ddotdanyaa`, origin is configured, and the lite snapshot branch is published through `npm run release:push -- https://github.com/ddotdanyaa/lifeos-final33.git --lite-git-snapshot`.
 - The global UI language is now Russian-first across the main owner surfaces: workspace heroes, command palette, Control, Providers, Chat, Player, Reader, Calendar, Finance and Agents/Flows.
 - Mobile capture layout was rechecked at 390px and no longer has horizontal overflow.
 
