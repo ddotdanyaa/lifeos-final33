@@ -1,0 +1,46 @@
+{
+  "version": "2026-06-26-p-product-brain-001",
+  "root": {
+    "id": "note-product-brain-root",
+    "title": "LifeOS Product Brain",
+    "type": "product_brain",
+    "privacyScope": "local"
+  },
+  "nodes": [
+    { "id": "note-product-brain-root", "key": "root", "title": "LifeOS Product Brain", "status": "PARTIAL" },
+    { "id": "note-product-brain-vision", "key": "vision", "title": "Product Vision", "status": "DONE" },
+    { "id": "note-product-brain-contract", "key": "contract", "title": "Artifact OS Contract", "status": "DONE" },
+    { "id": "note-product-brain-current-build", "key": "current-build", "title": "Current Build State", "status": "PARTIAL" },
+    { "id": "note-product-brain-owner-complaints", "key": "owner-complaints", "title": "Owner Complaints", "status": "PARTIAL" },
+    { "id": "note-product-brain-ux-debt", "key": "ux-debt", "title": "UX Debt", "status": "PARTIAL" },
+    { "id": "note-product-brain-bug-ledger", "key": "bug-ledger", "title": "Bug Ledger", "status": "PARTIAL" },
+    { "id": "note-product-brain-journeys", "key": "journeys", "title": "Journey Map", "status": "PARTIAL" },
+    { "id": "note-product-brain-features", "key": "features", "title": "Feature Completeness Map", "status": "PARTIAL" },
+    { "id": "note-product-brain-research", "key": "research", "title": "Research Map", "status": "DONE" },
+    { "id": "note-product-brain-design", "key": "design", "title": "Design System Map", "status": "DONE" },
+    { "id": "note-product-brain-github", "key": "github", "title": "GitHub Release Map", "status": "PARTIAL" },
+    { "id": "note-product-brain-providers", "key": "providers", "title": "Provider Gates Map", "status": "GATED" },
+    { "id": "note-product-brain-performance", "key": "performance", "title": "Performance Large Vault", "status": "DONE" },
+    { "id": "note-product-brain-recovery", "key": "recovery", "title": "Recovery Migration", "status": "DONE" },
+    { "id": "note-product-brain-graph-quality", "key": "graph-quality", "title": "Graph Quality", "status": "PARTIAL" },
+    { "id": "note-product-brain-chat-home", "key": "chat-home", "title": "Chat First Home", "status": "PARTIAL" }
+  ],
+  "edges": [
+    { "from": "root", "to": "vision", "reason": "product-brain-root-vision" },
+    { "from": "root", "to": "contract", "reason": "product-brain-root-contract" },
+    { "from": "root", "to": "current-build", "reason": "product-brain-root-state" },
+    { "from": "root", "to": "owner-complaints", "reason": "product-brain-root-complaints" },
+    { "from": "owner-complaints", "to": "ux-debt", "reason": "product-brain-complaint-ux-debt" },
+    { "from": "ux-debt", "to": "features", "reason": "product-brain-ux-debt-feature-map" },
+    { "from": "bug-ledger", "to": "journeys", "reason": "product-brain-bug-regression-test" },
+    { "from": "journeys", "to": "features", "reason": "product-brain-journey-evidence" },
+    { "from": "research", "to": "design", "reason": "product-brain-research-design-rule" },
+    { "from": "providers", "to": "features", "reason": "product-brain-provider-setup-action" },
+    { "from": "github", "to": "bug-ledger", "reason": "product-brain-release-bug" },
+    { "from": "graph-quality", "to": "journeys", "reason": "product-brain-graph-evidence" },
+    { "from": "chat-home", "to": "current-build", "reason": "product-brain-chat-state" },
+    { "from": "recovery", "to": "journeys", "reason": "product-brain-recovery-evidence" },
+    { "from": "performance", "to": "graph-quality", "reason": "product-brain-performance-graph" }
+  ]
+}
+

@@ -1,0 +1,2052 @@
+[
+  {
+    "id": "F001",
+    "class": "mixed_owner_sample",
+    "input": "Завтра в 14:00 зал, купить протеин 2500 ₽, каждый день вода 2л, до 1 июля накопить 30000, напомни вечером",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "finance_expense",
+      "habit",
+      "goal",
+      "reminder"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "finance",
+      "habit",
+      "goal",
+      "reminder",
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F002",
+    "class": "dated_task",
+    "input": "Завтра подготовить договор для клиента #1",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F003",
+    "class": "timed_task",
+    "input": "В пятницу в 14:00 зал и растяжка #1",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F004",
+    "class": "recurring_task",
+    "input": "Каждый понедельник проверять финансы #1",
+    "expectedClasses": [
+      "task",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F005",
+    "class": "expense",
+    "input": "Кофе 250 рублей сегодня #1",
+    "expectedClasses": [
+      "finance_expense"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F006",
+    "class": "expense_shop",
+    "input": "Пятерочка 1240 продукты #1",
+    "expectedClasses": [
+      "finance_expense",
+      "food"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F007",
+    "class": "balance",
+    "input": "Баланс карта 15200 #1",
+    "expectedClasses": [
+      "finance_balance"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F008",
+    "class": "income",
+    "input": "Зарплата 100000 пришла #1",
+    "expectedClasses": [
+      "finance_income"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F009",
+    "class": "subscription",
+    "input": "Подписка Яндекс 399 28 июня #1",
+    "expectedClasses": [
+      "subscription",
+      "bill"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F010",
+    "class": "budget",
+    "input": "Лимит на еду 30000 в месяц #1",
+    "expectedClasses": [
+      "budget"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F011",
+    "class": "habit",
+    "input": "Каждый день вода 2 литра #1",
+    "expectedClasses": [
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F012",
+    "class": "goal",
+    "input": "Хочу накопить 30000 до 1 июля #1",
+    "expectedClasses": [
+      "goal"
+    ],
+    "minimumProposalTypes": [
+      "goal"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F013",
+    "class": "idea",
+    "input": "Идея: сделать курс по локальному AI #1",
+    "expectedClasses": [
+      "idea",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F014",
+    "class": "project",
+    "input": "Проект ремонт кухни: выбрать материалы и бюджет #1",
+    "expectedClasses": [
+      "project",
+      "task",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "task",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F015",
+    "class": "book",
+    "input": "Книга: Atomic Habits, заметка про маленькие привычки #1",
+    "expectedClasses": [
+      "book",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "media"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F016",
+    "class": "email",
+    "input": "From: anna@example.com Subject: встреча завтра в 16:00 обсудить бюджет #1",
+    "expectedClasses": [
+      "email",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F017",
+    "class": "audio",
+    "input": "Аудио встреча: решили отправить счет и проверить задачи #1",
+    "expectedClasses": [
+      "audio",
+      "transcript",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "media",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F018",
+    "class": "home",
+    "input": "Дом: купить лампочки и починить полку #1",
+    "expectedClasses": [
+      "home",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F019",
+    "class": "health",
+    "input": "Сон 6 часов, энергия низкая, вечером прогулка #1",
+    "expectedClasses": [
+      "health",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit",
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F020",
+    "class": "travel",
+    "input": "Поездка в Казань 12 июля, купить билеты до пятницы #1",
+    "expectedClasses": [
+      "travel",
+      "calendar",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "calendar",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F021",
+    "class": "reminder",
+    "input": "РќР°РїРѕРјРЅРё РІРµС‡РµСЂРѕРј РѕС‚РїСЂР°РІРёС‚СЊ РґРѕРєСѓРјРµРЅС‚С‹ #1",
+    "expectedClasses": [
+      "reminder",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "reminder",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F022",
+    "class": "transfer_savings",
+    "input": "РџРµСЂРµРІРµР» 5000 РЅР° РЅР°РєРѕРїР»РµРЅРёСЏ #1",
+    "expectedClasses": [
+      "finance_transfer",
+      "savings"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F023",
+    "class": "research_question",
+    "input": "Р’РѕРїСЂРѕСЃ РґР»СЏ РёСЃСЃР»РµРґРѕРІР°РЅРёСЏ: РєР°Рє СЃРІСЏР·Р°С‚СЊ РєРЅРёРіРё, Р°СѓРґРёРѕ Рё Р·Р°РґР°С‡Рё РіСЂР°С„РѕРј #1",
+    "expectedClasses": [
+      "knowledge",
+      "research_question"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F024",
+    "class": "typo_heavy_ru",
+    "input": "Р·Р°РІС‚СЂР° РІ 6 встат пргтовить завтрак Рё РЅР°РїРѕРјРЅРё #1",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "reminder"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "reminder"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F025",
+    "class": "english_russian_mix",
+    "input": "Next week РїРѕРґРіРѕС‚РѕРІРёС‚СЊ budget review and add task РґР»СЏ finance #1",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F026",
+    "class": "uncertain_ambiguous",
+    "input": "РјРѕР¶РµС‚ РЅР°РґРѕ РєР°Рє-С‚Рѕ СЂР°Р·РѕР±СЂР°С‚СЊ РёРґРµСЋ РїСЂРѕ РґРѕРј Рё РґРµРЅСЊРіРё #1",
+    "expectedClasses": [
+      "uncertain",
+      "idea",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F027",
+    "class": "simple_task",
+    "input": "Позвонить врачу и записаться на прием #2",
+    "expectedClasses": [
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F028",
+    "class": "dated_task",
+    "input": "Завтра подготовить договор для клиента #2",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F029",
+    "class": "timed_task",
+    "input": "В пятницу в 14:00 зал и растяжка #2",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F030",
+    "class": "recurring_task",
+    "input": "Каждый понедельник проверять финансы #2",
+    "expectedClasses": [
+      "task",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F031",
+    "class": "expense",
+    "input": "Кофе 250 рублей сегодня #2",
+    "expectedClasses": [
+      "finance_expense"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F032",
+    "class": "expense_shop",
+    "input": "Пятерочка 1240 продукты #2",
+    "expectedClasses": [
+      "finance_expense",
+      "food"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F033",
+    "class": "balance",
+    "input": "Баланс карта 15200 #2",
+    "expectedClasses": [
+      "finance_balance"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F034",
+    "class": "income",
+    "input": "Зарплата 100000 пришла #2",
+    "expectedClasses": [
+      "finance_income"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F035",
+    "class": "subscription",
+    "input": "Подписка Яндекс 399 28 июня #2",
+    "expectedClasses": [
+      "subscription",
+      "bill"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F036",
+    "class": "budget",
+    "input": "Лимит на еду 30000 в месяц #2",
+    "expectedClasses": [
+      "budget"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F037",
+    "class": "habit",
+    "input": "Каждый день вода 2 литра #2",
+    "expectedClasses": [
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F038",
+    "class": "goal",
+    "input": "Хочу накопить 30000 до 1 июля #2",
+    "expectedClasses": [
+      "goal"
+    ],
+    "minimumProposalTypes": [
+      "goal"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F039",
+    "class": "idea",
+    "input": "Идея: сделать курс по локальному AI #2",
+    "expectedClasses": [
+      "idea",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F040",
+    "class": "project",
+    "input": "Проект ремонт кухни: выбрать материалы и бюджет #2",
+    "expectedClasses": [
+      "project",
+      "task",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "task",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F041",
+    "class": "book",
+    "input": "Книга: Atomic Habits, заметка про маленькие привычки #2",
+    "expectedClasses": [
+      "book",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "media"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F042",
+    "class": "email",
+    "input": "From: anna@example.com Subject: встреча завтра в 16:00 обсудить бюджет #2",
+    "expectedClasses": [
+      "email",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F043",
+    "class": "audio",
+    "input": "Аудио встреча: решили отправить счет и проверить задачи #2",
+    "expectedClasses": [
+      "audio",
+      "transcript",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "media",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F044",
+    "class": "home",
+    "input": "Дом: купить лампочки и починить полку #2",
+    "expectedClasses": [
+      "home",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F045",
+    "class": "health",
+    "input": "Сон 6 часов, энергия низкая, вечером прогулка #2",
+    "expectedClasses": [
+      "health",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit",
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F046",
+    "class": "travel",
+    "input": "Поездка в Казань 12 июля, купить билеты до пятницы #2",
+    "expectedClasses": [
+      "travel",
+      "calendar",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "calendar",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F047",
+    "class": "reminder",
+    "input": "РќР°РїРѕРјРЅРё РІРµС‡РµСЂРѕРј РѕС‚РїСЂР°РІРёС‚СЊ РґРѕРєСѓРјРµРЅС‚С‹ #2",
+    "expectedClasses": [
+      "reminder",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "reminder",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F048",
+    "class": "transfer_savings",
+    "input": "РџРµСЂРµРІРµР» 5000 РЅР° РЅР°РєРѕРїР»РµРЅРёСЏ #2",
+    "expectedClasses": [
+      "finance_transfer",
+      "savings"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F049",
+    "class": "research_question",
+    "input": "Р’РѕРїСЂРѕСЃ РґР»СЏ РёСЃСЃР»РµРґРѕРІР°РЅРёСЏ: РєР°Рє СЃРІСЏР·Р°С‚СЊ РєРЅРёРіРё, Р°СѓРґРёРѕ Рё Р·Р°РґР°С‡Рё РіСЂР°С„РѕРј #2",
+    "expectedClasses": [
+      "knowledge",
+      "research_question"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F050",
+    "class": "typo_heavy_ru",
+    "input": "Р·Р°РІС‚СЂР° РІ 6 встат пргтовить завтрак Рё РЅР°РїРѕРјРЅРё #2",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "reminder"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "reminder"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F051",
+    "class": "english_russian_mix",
+    "input": "Next week РїРѕРґРіРѕС‚РѕРІРёС‚СЊ budget review and add task РґР»СЏ finance #2",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F052",
+    "class": "uncertain_ambiguous",
+    "input": "РјРѕР¶РµС‚ РЅР°РґРѕ РєР°Рє-С‚Рѕ СЂР°Р·РѕР±СЂР°С‚СЊ РёРґРµСЋ РїСЂРѕ РґРѕРј Рё РґРµРЅСЊРіРё #2",
+    "expectedClasses": [
+      "uncertain",
+      "idea",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F053",
+    "class": "simple_task",
+    "input": "Позвонить врачу и записаться на прием #3",
+    "expectedClasses": [
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F054",
+    "class": "dated_task",
+    "input": "Завтра подготовить договор для клиента #3",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F055",
+    "class": "timed_task",
+    "input": "В пятницу в 14:00 зал и растяжка #3",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F056",
+    "class": "recurring_task",
+    "input": "Каждый понедельник проверять финансы #3",
+    "expectedClasses": [
+      "task",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F057",
+    "class": "expense",
+    "input": "Кофе 250 рублей сегодня #3",
+    "expectedClasses": [
+      "finance_expense"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F058",
+    "class": "expense_shop",
+    "input": "Пятерочка 1240 продукты #3",
+    "expectedClasses": [
+      "finance_expense",
+      "food"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F059",
+    "class": "balance",
+    "input": "Баланс карта 15200 #3",
+    "expectedClasses": [
+      "finance_balance"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F060",
+    "class": "income",
+    "input": "Зарплата 100000 пришла #3",
+    "expectedClasses": [
+      "finance_income"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F061",
+    "class": "subscription",
+    "input": "Подписка Яндекс 399 28 июня #3",
+    "expectedClasses": [
+      "subscription",
+      "bill"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F062",
+    "class": "budget",
+    "input": "Лимит на еду 30000 в месяц #3",
+    "expectedClasses": [
+      "budget"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F063",
+    "class": "habit",
+    "input": "Каждый день вода 2 литра #3",
+    "expectedClasses": [
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F064",
+    "class": "goal",
+    "input": "Хочу накопить 30000 до 1 июля #3",
+    "expectedClasses": [
+      "goal"
+    ],
+    "minimumProposalTypes": [
+      "goal"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F065",
+    "class": "idea",
+    "input": "Идея: сделать курс по локальному AI #3",
+    "expectedClasses": [
+      "idea",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F066",
+    "class": "project",
+    "input": "Проект ремонт кухни: выбрать материалы и бюджет #3",
+    "expectedClasses": [
+      "project",
+      "task",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "task",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F067",
+    "class": "book",
+    "input": "Книга: Atomic Habits, заметка про маленькие привычки #3",
+    "expectedClasses": [
+      "book",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "media"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F068",
+    "class": "email",
+    "input": "From: anna@example.com Subject: встреча завтра в 16:00 обсудить бюджет #3",
+    "expectedClasses": [
+      "email",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F069",
+    "class": "audio",
+    "input": "Аудио встреча: решили отправить счет и проверить задачи #3",
+    "expectedClasses": [
+      "audio",
+      "transcript",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "media",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F070",
+    "class": "home",
+    "input": "Дом: купить лампочки и починить полку #3",
+    "expectedClasses": [
+      "home",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F071",
+    "class": "health",
+    "input": "Сон 6 часов, энергия низкая, вечером прогулка #3",
+    "expectedClasses": [
+      "health",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit",
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F072",
+    "class": "travel",
+    "input": "Поездка в Казань 12 июля, купить билеты до пятницы #3",
+    "expectedClasses": [
+      "travel",
+      "calendar",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "calendar",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F073",
+    "class": "reminder",
+    "input": "РќР°РїРѕРјРЅРё РІРµС‡РµСЂРѕРј РѕС‚РїСЂР°РІРёС‚СЊ РґРѕРєСѓРјРµРЅС‚С‹ #3",
+    "expectedClasses": [
+      "reminder",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "reminder",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F074",
+    "class": "transfer_savings",
+    "input": "РџРµСЂРµРІРµР» 5000 РЅР° РЅР°РєРѕРїР»РµРЅРёСЏ #3",
+    "expectedClasses": [
+      "finance_transfer",
+      "savings"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F075",
+    "class": "research_question",
+    "input": "Р’РѕРїСЂРѕСЃ РґР»СЏ РёСЃСЃР»РµРґРѕРІР°РЅРёСЏ: РєР°Рє СЃРІСЏР·Р°С‚СЊ РєРЅРёРіРё, Р°СѓРґРёРѕ Рё Р·Р°РґР°С‡Рё РіСЂР°С„РѕРј #3",
+    "expectedClasses": [
+      "knowledge",
+      "research_question"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F076",
+    "class": "typo_heavy_ru",
+    "input": "Р·Р°РІС‚СЂР° РІ 6 встат пргтовить завтрак Рё РЅР°РїРѕРјРЅРё #3",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "reminder"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "reminder"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F077",
+    "class": "english_russian_mix",
+    "input": "Next week РїРѕРґРіРѕС‚РѕРІРёС‚СЊ budget review and add task РґР»СЏ finance #3",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F078",
+    "class": "uncertain_ambiguous",
+    "input": "РјРѕР¶РµС‚ РЅР°РґРѕ РєР°Рє-С‚Рѕ СЂР°Р·РѕР±СЂР°С‚СЊ РёРґРµСЋ РїСЂРѕ РґРѕРј Рё РґРµРЅСЊРіРё #3",
+    "expectedClasses": [
+      "uncertain",
+      "idea",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F079",
+    "class": "simple_task",
+    "input": "Позвонить врачу и записаться на прием #4",
+    "expectedClasses": [
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F080",
+    "class": "dated_task",
+    "input": "Завтра подготовить договор для клиента #4",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F081",
+    "class": "timed_task",
+    "input": "В пятницу в 14:00 зал и растяжка #4",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F082",
+    "class": "recurring_task",
+    "input": "Каждый понедельник проверять финансы #4",
+    "expectedClasses": [
+      "task",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F083",
+    "class": "expense",
+    "input": "Кофе 250 рублей сегодня #4",
+    "expectedClasses": [
+      "finance_expense"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F084",
+    "class": "expense_shop",
+    "input": "Пятерочка 1240 продукты #4",
+    "expectedClasses": [
+      "finance_expense",
+      "food"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F085",
+    "class": "balance",
+    "input": "Баланс карта 15200 #4",
+    "expectedClasses": [
+      "finance_balance"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F086",
+    "class": "income",
+    "input": "Зарплата 100000 пришла #4",
+    "expectedClasses": [
+      "finance_income"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F087",
+    "class": "subscription",
+    "input": "Подписка Яндекс 399 28 июня #4",
+    "expectedClasses": [
+      "subscription",
+      "bill"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F088",
+    "class": "budget",
+    "input": "Лимит на еду 30000 в месяц #4",
+    "expectedClasses": [
+      "budget"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F089",
+    "class": "habit",
+    "input": "Каждый день вода 2 литра #4",
+    "expectedClasses": [
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F090",
+    "class": "goal",
+    "input": "Хочу накопить 30000 до 1 июля #4",
+    "expectedClasses": [
+      "goal"
+    ],
+    "minimumProposalTypes": [
+      "goal"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F091",
+    "class": "idea",
+    "input": "Идея: сделать курс по локальному AI #4",
+    "expectedClasses": [
+      "idea",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F092",
+    "class": "project",
+    "input": "Проект ремонт кухни: выбрать материалы и бюджет #4",
+    "expectedClasses": [
+      "project",
+      "task",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "task",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F093",
+    "class": "book",
+    "input": "Книга: Atomic Habits, заметка про маленькие привычки #4",
+    "expectedClasses": [
+      "book",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "media"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F094",
+    "class": "email",
+    "input": "From: anna@example.com Subject: встреча завтра в 16:00 обсудить бюджет #4",
+    "expectedClasses": [
+      "email",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F095",
+    "class": "audio",
+    "input": "Аудио встреча: решили отправить счет и проверить задачи #4",
+    "expectedClasses": [
+      "audio",
+      "transcript",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "media",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F096",
+    "class": "home",
+    "input": "Дом: купить лампочки и починить полку #4",
+    "expectedClasses": [
+      "home",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F097",
+    "class": "health",
+    "input": "Сон 6 часов, энергия низкая, вечером прогулка #4",
+    "expectedClasses": [
+      "health",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit",
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F098",
+    "class": "travel",
+    "input": "Поездка в Казань 12 июля, купить билеты до пятницы #4",
+    "expectedClasses": [
+      "travel",
+      "calendar",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "calendar",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F099",
+    "class": "reminder",
+    "input": "РќР°РїРѕРјРЅРё РІРµС‡РµСЂРѕРј РѕС‚РїСЂР°РІРёС‚СЊ РґРѕРєСѓРјРµРЅС‚С‹ #4",
+    "expectedClasses": [
+      "reminder",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "reminder",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F100",
+    "class": "transfer_savings",
+    "input": "РџРµСЂРµРІРµР» 5000 РЅР° РЅР°РєРѕРїР»РµРЅРёСЏ #4",
+    "expectedClasses": [
+      "finance_transfer",
+      "savings"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F101",
+    "class": "research_question",
+    "input": "Р’РѕРїСЂРѕСЃ РґР»СЏ РёСЃСЃР»РµРґРѕРІР°РЅРёСЏ: РєР°Рє СЃРІСЏР·Р°С‚СЊ РєРЅРёРіРё, Р°СѓРґРёРѕ Рё Р·Р°РґР°С‡Рё РіСЂР°С„РѕРј #4",
+    "expectedClasses": [
+      "knowledge",
+      "research_question"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F102",
+    "class": "typo_heavy_ru",
+    "input": "Р·Р°РІС‚СЂР° РІ 6 встат пргтовить завтрак Рё РЅР°РїРѕРјРЅРё #4",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "reminder"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "reminder"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F103",
+    "class": "english_russian_mix",
+    "input": "Next week РїРѕРґРіРѕС‚РѕРІРёС‚СЊ budget review and add task РґР»СЏ finance #4",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F104",
+    "class": "uncertain_ambiguous",
+    "input": "РјРѕР¶РµС‚ РЅР°РґРѕ РєР°Рє-С‚Рѕ СЂР°Р·РѕР±СЂР°С‚СЊ РёРґРµСЋ РїСЂРѕ РґРѕРј Рё РґРµРЅСЊРіРё #4",
+    "expectedClasses": [
+      "uncertain",
+      "idea",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F105",
+    "class": "simple_task",
+    "input": "Позвонить врачу и записаться на прием #5",
+    "expectedClasses": [
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F106",
+    "class": "dated_task",
+    "input": "Завтра подготовить договор для клиента #5",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F107",
+    "class": "timed_task",
+    "input": "В пятницу в 14:00 зал и растяжка #5",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F108",
+    "class": "recurring_task",
+    "input": "Каждый понедельник проверять финансы #5",
+    "expectedClasses": [
+      "task",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F109",
+    "class": "expense",
+    "input": "Кофе 250 рублей сегодня #5",
+    "expectedClasses": [
+      "finance_expense"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F110",
+    "class": "expense_shop",
+    "input": "Пятерочка 1240 продукты #5",
+    "expectedClasses": [
+      "finance_expense",
+      "food"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F111",
+    "class": "balance",
+    "input": "Баланс карта 15200 #5",
+    "expectedClasses": [
+      "finance_balance"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F112",
+    "class": "income",
+    "input": "Зарплата 100000 пришла #5",
+    "expectedClasses": [
+      "finance_income"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F113",
+    "class": "subscription",
+    "input": "Подписка Яндекс 399 28 июня #5",
+    "expectedClasses": [
+      "subscription",
+      "bill"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F114",
+    "class": "budget",
+    "input": "Лимит на еду 30000 в месяц #5",
+    "expectedClasses": [
+      "budget"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F115",
+    "class": "habit",
+    "input": "Каждый день вода 2 литра #5",
+    "expectedClasses": [
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F116",
+    "class": "goal",
+    "input": "Хочу накопить 30000 до 1 июля #5",
+    "expectedClasses": [
+      "goal"
+    ],
+    "minimumProposalTypes": [
+      "goal"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F117",
+    "class": "idea",
+    "input": "Идея: сделать курс по локальному AI #5",
+    "expectedClasses": [
+      "idea",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F118",
+    "class": "project",
+    "input": "Проект ремонт кухни: выбрать материалы и бюджет #5",
+    "expectedClasses": [
+      "project",
+      "task",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "task",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F119",
+    "class": "book",
+    "input": "Книга: Atomic Habits, заметка про маленькие привычки #5",
+    "expectedClasses": [
+      "book",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "media"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F120",
+    "class": "email",
+    "input": "From: anna@example.com Subject: встреча завтра в 16:00 обсудить бюджет #5",
+    "expectedClasses": [
+      "email",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F121",
+    "class": "ambiguous_time_ru",
+    "input": "? 11 ???????? ???",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "uncertain_time"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F122",
+    "class": "explicit_evening_time_ru",
+    "input": "??????? ? 11 ?????? ???????? ???",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F123",
+    "class": "morning_context_time_ru",
+    "input": "?????? ? 6 ?????? ? ??????????? ???????",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F124",
+    "class": "evening_bucket_ru",
+    "input": "??????? ??????? ???????? ???",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "uncertain_time"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F125",
+    "class": "two_days_ambiguous_time_ru",
+    "input": "????? 2 ??? ? 9 ?????? ? ???????????",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "uncertain_time"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F126",
+    "class": "receipt_manual_gate",
+    "input": "??? ???? ???????? 1840 ????????? ???????",
+    "expectedClasses": [
+      "finance_expense",
+      "receipt"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F127",
+    "class": "subscription_due_date",
+    "input": "???????? ?????? 299 28 ????",
+    "expectedClasses": [
+      "subscription",
+      "bill"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F128",
+    "class": "budget_warning",
+    "input": "????? ???? 8000 ? ?????, ??????? ???? 420",
+    "expectedClasses": [
+      "budget",
+      "finance_expense"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F129",
+    "class": "habit_recovery",
+    "input": "?? ?????????? ????? ???????, ????? ???????????? ???????? ??????",
+    "expectedClasses": [
+      "habit",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "habit",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F130",
+    "class": "goal_next_action",
+    "input": "???? ??????? ?????????? ?? ????????, ????????? ??? 20 ????? speaking ??????",
+    "expectedClasses": [
+      "goal",
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "goal",
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F131",
+    "class": "wheel_domain_health",
+    "input": "???????? ???????: ??? 5 ?????, ???? 1 ????, ????? ?????? ????",
+    "expectedClasses": [
+      "health",
+      "habit"
+    ],
+    "minimumProposalTypes": [
+      "habit",
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F132",
+    "class": "knowledge_wikilink",
+    "input": "??????? [[???]] ?????? ?? ??????? ? ?????? ???",
+    "expectedClasses": [
+      "knowledge",
+      "wiki"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F133",
+    "class": "reader_highlight",
+    "input": "highlight: ?????? ?????? ?? ????? ??? ???????? -> ??????? ???????? ??????",
+    "expectedClasses": [
+      "book",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "media"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F134",
+    "class": "audio_transcript_action",
+    "input": "??????????: ? 00:12 ???????????? ???????? ???? ? ??????? ?????? ?? ???????",
+    "expectedClasses": [
+      "audio",
+      "transcript",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "media",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F135",
+    "class": "mail_gate",
+    "input": "From: bank@example.com Subject: ??????? ????? ???????? ??????? ? ???????",
+    "expectedClasses": [
+      "email",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F136",
+    "class": "ollama_gate",
+    "input": "????????? AI: ????????? Ollama ????????? ???????? ????????",
+    "expectedClasses": [
+      "local_ai",
+      "provider_gate"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F137",
+    "class": "agent_dry_run",
+    "input": "????? ????? ????? ???????? ????????? ???? ??? ??????????",
+    "expectedClasses": [
+      "agent",
+      "flow"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F138",
+    "class": "flow_expense_budget",
+    "input": "flow: ????? ?????? -> ???????? ?????? -> ???????? ??????????????",
+    "expectedClasses": [
+      "flow",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "finance",
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F139",
+    "class": "graph_operation",
+    "input": "???????? ????? ????? ??????, ???????, ???????? ? ?????",
+    "expectedClasses": [
+      "graph",
+      "knowledge"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F140",
+    "class": "control_export",
+    "input": "?????????????? ????????? ???????? ? ???????? ????????? ?????????",
+    "expectedClasses": [
+      "control",
+      "export"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F141",
+    "class": "recover_archive",
+    "input": "???????????? ?????? ??????? ? ????? ????????????",
+    "expectedClasses": [
+      "control",
+      "recovery"
+    ],
+    "minimumProposalTypes": [
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F142",
+    "class": "mobile_capture",
+    "input": "? ???????? ??????: ?????? ???? 120 ? ????????? ???????",
+    "expectedClasses": [
+      "mobile",
+      "finance_expense",
+      "reminder"
+    ],
+    "minimumProposalTypes": [
+      "finance",
+      "reminder"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F143",
+    "class": "mixed_typo_ru_final",
+    "input": "??????? ? 8 ???? ????????? ???????? ? ??????",
+    "expectedClasses": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F144",
+    "class": "english_russian_final",
+    "input": "tomorrow 7pm ?????? and create follow up task",
+    "expectedClasses": [
+      "task",
+      "calendar"
+    ],
+    "minimumProposalTypes": [
+      "task",
+      "calendar"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F145",
+    "class": "unclear_question",
+    "input": "????? ???? ?????-?????? ????????? ???? ??? ??? ? ??????",
+    "expectedClasses": [
+      "uncertain",
+      "idea",
+      "finance"
+    ],
+    "minimumProposalTypes": [
+      "knowledge",
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F146",
+    "class": "finance_transfer_final",
+    "input": "??????? 5000 ?? ?????????? ? ????? ???????",
+    "expectedClasses": [
+      "finance_transfer",
+      "savings"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F147",
+    "class": "income_bonus_final",
+    "input": "????? 15000 ?????? ?? ?????",
+    "expectedClasses": [
+      "finance_income",
+      "balance"
+    ],
+    "minimumProposalTypes": [
+      "finance"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F148",
+    "class": "calendar_overload_final",
+    "input": "?????? 09:00 ????, 09:30 ??????, 10:00 ??????, ????????? ????????",
+    "expectedClasses": [
+      "calendar",
+      "task"
+    ],
+    "minimumProposalTypes": [
+      "calendar",
+      "task"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F149",
+    "class": "notification_gate_final",
+    "input": "??????? ?????? ? 10 ? ??????? ???? ??????????? ???????? ?????????",
+    "expectedClasses": [
+      "reminder",
+      "provider_gate"
+    ],
+    "minimumProposalTypes": [
+      "reminder"
+    ],
+    "shouldMutateBeforeApply": false
+  },
+  {
+    "id": "F150",
+    "class": "parser_gate_final",
+    "input": "?????? epub ????? ???? ??????? ??? ????????? ???????? ? ?????? ???????? gate",
+    "expectedClasses": [
+      "book",
+      "parser_gate"
+    ],
+    "minimumProposalTypes": [
+      "media",
+      "knowledge"
+    ],
+    "shouldMutateBeforeApply": false
+  }
+]

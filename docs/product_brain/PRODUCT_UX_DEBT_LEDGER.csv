@@ -1,0 +1,7 @@
+id,priority,workspace,problem,owner_impact,proof_required,status,next_fix
+UX001,P0,Home,Do not return to cockpit first screen,Owner loses 5-second clarity,home screenshot plus no-cockpit audit,PARTIAL,Keep chat/capture-first Home
+UX002,P0,Graph,Product Brain must be filterable and inspectable,Owner cannot see development graph,product-brain-graph.png plus edge reasons,BUILT,P_PRODUCT_BRAIN_001
+UX003,P0,Chat,Chat must answer development questions without Ollama,Owner sees local AI as blocked,product-brain-chat.png plus deterministic answer,BUILT,P_PRODUCT_BRAIN_001
+UX004,P0,Control,Development state must be visible,Owner cannot trust completion claims,product-brain-control.png plus audit card,BUILT,P_PRODUCT_BRAIN_001
+UX005,P1,GitHub,Release state must be honest,Owner cannot see code on GitHub,git ls-remote evidence,PARTIAL,P_GITHUB_RELEASE_RETRY
+

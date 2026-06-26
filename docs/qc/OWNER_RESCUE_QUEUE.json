@@ -1,0 +1,103 @@
+[
+  {
+    "id": "P01",
+    "title": "Git/state/dedupe/research",
+    "status": "done",
+    "openRisks": [],
+    "acceptance": [
+      "source state recorded",
+      "1000-risk ledger generated",
+      "GitHub credential block explicit"
+    ],
+    "files": [
+      "docs/ops/OWNER_RESCUE_LIVE_STATE.md",
+      "docs/qc/OWNER_RESCUE_1000_RISK_LEDGER.csv",
+      "docs/qc/OWNER_RESCUE_QUEUE.json",
+      "docs/qc/OWNER_RESCUE_1000_REPORT.md",
+      "docs/qc/OWNER_RESCUE_RESEARCH_LEDGER.md",
+      "docs/qc/OWNER_RESCUE_RESUME_CAPSULE.md",
+      "tools/push-owner-rescue.mjs"
+    ],
+    "tests": [
+      "npm run audit:ledger",
+      "npm run audit:owner-final",
+      "npm run release:push -- --help",
+      "git status -sb"
+    ],
+    "screenshots": [],
+    "commit": "ab069cc"
+  },
+  {
+    "id": "P02",
+    "title": "UI/IA redesign: calm first screen and progressive disclosure",
+    "status": "done",
+    "openRisks": [],
+    "acceptance": [
+      "4-zone home",
+      "left workspace nav",
+      "no cockpit/proof wall",
+      "Russian proposal actions",
+      "UX screenshots"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "output/playwright/ux-rescue.spec.mjs",
+      "docs/qc/OWNER_UX_001_REPORT.md"
+    ],
+    "tests": [
+      "npm run e2e:ux",
+      "npm run verify"
+    ],
+    "screenshots": [
+      "output/playwright/ux-home-calm.png",
+      "output/playwright/ux-after-analysis.png",
+      "output/playwright/ux-after-quick-task.png",
+      "output/playwright/ux-calendar.png",
+      "output/playwright/ux-dashboard.png",
+      "output/playwright/ux-graph.png",
+      "output/playwright/ux-mobile.png"
+    ],
+    "commit": "ab069cc"
+  },
+  {
+    "id": "P03",
+    "title": "Provider gates and R-ledger closure",
+    "status": "done",
+    "openRisks": [],
+    "acceptance": [
+      "only GitHub remote/auth/push remains hard-blocked",
+      "provider/OAuth gates are honest UI with tests",
+      "no fake connected provider state",
+      "1000-risk ledger has zero open/revalidate rows"
+    ],
+    "files": [
+      "app.js",
+      "output/playwright/owner-rescue.spec.mjs",
+      "output/playwright/owner-quality-audit.spec.mjs",
+      "tools/generate-owner-rescue-1000-ledger.mjs",
+      "tools/audit-owner-rescue-final.mjs",
+      "docs/qc/OWNER_RESCUE_1000_RISK_LEDGER.csv",
+      "docs/qc/OWNER_RESCUE_1000_REPORT.md",
+      "docs/qc/OWNER_REAL_PRODUCT_QUALITY_AUDIT.md"
+    ],
+    "tests": [
+      "npm run e2e:owner",
+      "npm run e2e:quality",
+      "npm run e2e:fixtures",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-ollama.png",
+      "output/playwright/owner-control.png",
+      "output/playwright/owner-chat-agents-flow.png",
+      "output/playwright/quality-home-audit.png",
+      "output/playwright/quality-control-audit.png"
+    ],
+    "commit": "ab069cc"
+  }
+]

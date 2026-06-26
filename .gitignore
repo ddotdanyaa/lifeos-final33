@@ -1,0 +1,32 @@
+.playwright-cli/
+.server.*.log
+node_modules/
+.env
+.env.*
+*.local
+dist/
+build/
+.cache/
+tmp/
+temp/
+coverage/
+playwright-report/
+test-results/
+*.log
+*.sqlite
+*.db
+*.ldb
+*.leveldb
+Local Storage/
+IndexedDB/
+Session Storage/
+Cache/
+Code Cache/
+user-data/
+uploads/private/
+media/private/
+secrets/
+credentials/
+output/playwright/fixtures/lifeos-book-*.txt
+output/playwright/fixtures/meeting-*.wav
+output/playwright/fixtures/parser-boundary-*.pdf

@@ -1,0 +1,184 @@
+[
+  {
+    "id": "P01",
+    "title": "State/Git/ledger/fixture normalization",
+    "status": "done",
+    "evidence": [
+      "npm run e2e:fixtures",
+      "npm run audit:release-evidence",
+      "docs/ops/NONSTOP_UNTIL_DONE_LIVE_STATE.md",
+      "docs/qc/NONSTOP_UNTIL_DONE_REPORT.md",
+      "docs/qc/NONSTOP_UNTIL_DONE_LEDGER.csv"
+    ]
+  },
+  {
+    "id": "P19",
+    "title": "Final journey audit scaffold and evidence generation",
+    "status": "done",
+    "evidence": [
+      "npm run e2e:journeys",
+      "npm run audit:journeys",
+      "docs/qc/JOURNEY_J01_REPORT.md through docs/qc/JOURNEY_J24_REPORT.md",
+      "output/playwright/journeys/*.png",
+      "output/playwright/final/*.png"
+    ]
+  },
+  {
+    "id": "P13",
+    "title": "Big Graph usability hardening",
+    "status": "done",
+    "evidence": [
+      "docs/qc/JOURNEY_J19_REPORT.md",
+      "output/playwright/final/final-big-graph.png",
+      "npm run e2e:graph"
+    ]
+  },
+  {
+    "id": "P17",
+    "title": "Large vault performance benchmark",
+    "status": "done",
+    "evidence": [
+      "docs/qc/JOURNEY_J23_REPORT.md",
+      "output/playwright/final/final-performance-large-vault.png",
+      "npm run audit:performance-final"
+    ]
+  },
+  {
+    "id": "P24",
+    "title": "Recovery / migration / corruption proof",
+    "status": "done",
+    "evidence": [
+      "docs/qc/JOURNEY_J24_REPORT.md",
+      "output/playwright/final/final-recovery-flow.png",
+      "npm run audit:recovery-final"
+    ]
+  },
+  {
+    "id": "P12",
+    "title": "Agents / Flows dry-run builder polish",
+    "status": "done",
+    "evidence": [
+      "docs/qc/JOURNEY_J17_REPORT.md",
+      "docs/qc/JOURNEY_J18_REPORT.md",
+      "output/playwright/final/final-agents-flows.png"
+    ]
+  },
+  {
+    "id": "P07",
+    "title": "Habits / Goals / Wheel computed domain dashboard",
+    "status": "done",
+    "evidence": [
+      "docs/qc/JOURNEY_J09_REPORT.md",
+      "output/playwright/final/final-habits-goals-wheel.png",
+      "output/playwright/market-habits-goals-wheel.png",
+      "output/playwright/owner-habits-goals.png"
+    ]
+  },
+  {
+    "id": "P02/P05/P18",
+    "title": "Home 9/10 hierarchy + Calendar mobile/week market polish",
+    "status": "done",
+    "evidence": [
+      "output/playwright/final/final-home.png",
+      "output/playwright/final/final-calendar-week.png",
+      "output/playwright/ux-home-calm.png",
+      "output/playwright/ux-calendar.png",
+      "npm run e2e:ux",
+      "npm run e2e:calendar",
+      "npm run audit:no-cockpit-first-screen",
+      "npm run audit:visual-hierarchy"
+    ]
+  },
+  {
+    "id": "MARKET_R8000",
+    "title": "Market R0001-R8000 row-level closure with evidence",
+    "status": "done",
+    "evidence": [
+      "docs/qc/MARKET_RESEARCH_LEDGER_STATUS.csv",
+      "docs/qc/MARKET_RESEARCH_EXECUTION_REPORT.md",
+      "docs/ops/MARKET_RESEARCH_RESCUE_STATE.md",
+      "npm run audit:market-ledger"
+    ]
+  },
+  {
+    "id": "P23",
+    "title": "Domain artifacts as graph projections",
+    "status": "done",
+    "evidence": [
+      "app.js",
+      "styles.css",
+      "docs/qc/JOURNEY_J09_REPORT.md",
+      "output/playwright/market-habits-goals-wheel.png",
+      "output/playwright/final/final-habits-goals-wheel.png",
+      "npm run e2e:market-owner",
+      "npm run e2e:journeys"
+    ]
+  },
+  {
+    "id": "MARKET_DEFERRED_LOCAL",
+    "title": "Deferred local market backlog: command palette, PWA, architecture",
+    "status": "done",
+    "evidence": [
+      "app.js",
+      "artifact-os-architecture.mjs",
+      "tools/audit-architecture-contract.mjs",
+      "docs/architecture/ARTIFACT_OS_ARCHITECTURE_CONTRACT.md",
+      "npm run audit:architecture",
+      "npm run audit:market-ledger"
+    ]
+  },
+  {
+    "id": "P25",
+    "title": "Command palette, keyboard shortcuts and saved searches",
+    "status": "done",
+    "evidence": [
+      "app.js",
+      "styles.css",
+      "output/playwright/market-owner.spec.mjs",
+      "npm run e2e:market-owner",
+      "npm run audit:buttons",
+      "npm run audit:market-ledger"
+    ]
+  },
+  {
+    "id": "MARKET_DEFERRED_LOCAL_C19",
+    "title": "PWA service-worker/installability package",
+    "status": "done",
+    "evidence": [
+      "manifest.webmanifest",
+      "service-worker.js",
+      "assets/lifeos-icon.svg",
+      "assets/lifeos-maskable.svg",
+      "app.js",
+      "output/playwright/market-owner.spec.mjs",
+      "npm run e2e:market-owner",
+      "npm run audit:market-ledger"
+    ]
+  },
+  {
+    "id": "MARKET_DEFERRED_LOCAL_C25",
+    "title": "Architecture and developer maintainability closure",
+    "status": "done",
+    "evidence": [
+      "artifact-os-architecture.mjs",
+      "app.js",
+      "service-worker.js",
+      "docs/architecture/ARTIFACT_OS_ARCHITECTURE_CONTRACT.md",
+      "tools/audit-architecture-contract.mjs",
+      "output/playwright/market-owner.spec.mjs",
+      "output/playwright/final-journeys.spec.mjs",
+      "npm run audit:architecture",
+      "npm run e2e:market-owner",
+      "npm run e2e:journeys"
+    ]
+  },
+  {
+    "id": "P20",
+    "title": "GitHub release gate",
+    "status": "blocked_external",
+    "externalGates": [
+      "owner GitHub remote",
+      "owner GitHub authentication"
+    ]
+  }
+]

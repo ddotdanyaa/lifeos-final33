@@ -1,0 +1,26 @@
+journey,status,evidence,product_brain_link,next_proof
+J01,PARTIAL,output/playwright/final/final-home.png,Journey Map,Re-run after Product Brain package
+J02,PARTIAL,output/playwright/journeys/j02-after.png,Journey Map,Re-run owner journeys
+J03,PARTIAL,output/playwright/market-after-analysis.png,Journey Map,Re-run market owner
+J04,PARTIAL,output/playwright/fixtures/owner-input-fixtures.json,Journey Map,Re-run fixtures
+J05,PARTIAL,output/playwright/market-finance.png,Journey Map,Re-run finance
+J06,PARTIAL,output/playwright/final/final-screenshot-expense.png,Journey Map,Re-run receipt flow
+J07,PARTIAL,output/playwright/market-finance.png,Journey Map,Re-run finance dashboard
+J08,PARTIAL,output/playwright/market-habits-goals-wheel.png,Journey Map,Re-run habits
+J09,PARTIAL,output/playwright/market-habits-goals-wheel.png,Journey Map,Re-run goals/wheel
+J10,PARTIAL,output/playwright/market-library-knowledge.png,Journey Map,Re-run knowledge
+J11,PARTIAL,output/playwright/market-library-knowledge.png,Journey Map,Re-run library
+J12,PARTIAL,output/playwright/market-reader.png,Journey Map,Re-run reader
+J13,PARTIAL,output/playwright/market-player-transcript.png,Journey Map,Re-run player
+J14,PARTIAL,output/playwright/journeys/j14-after.png,Journey Map,Re-run evening review
+J15,PARTIAL,output/playwright/market-chat-local-ai.png,Journey Map,Re-run ai providers
+J16,PARTIAL,output/playwright/product-brain-chat.png,Journey Map,Re-run chat without AI
+J17,PARTIAL,output/playwright/market-agents-flows.png,Journey Map,Re-run agents
+J18,PARTIAL,output/playwright/market-agents-flows.png,Journey Map,Re-run flows
+J19,PARTIAL,output/playwright/product-brain-graph.png,Graph Quality,Re-run graph
+J20,PARTIAL,output/playwright/product-brain-control.png,Recovery Migration,Re-run control
+J21,PARTIAL,output/playwright/market-providers.png,Provider Gates Map,Re-run providers
+J22,PARTIAL,output/playwright/final/final-mobile-home.png,Journey Map,Re-run mobile
+J23,PARTIAL,output/playwright/owner-large-vault.png,Performance Large Vault,Re-run performance
+J24,PARTIAL,output/playwright/quality-control-audit.png,Recovery Migration,Re-run recovery
+

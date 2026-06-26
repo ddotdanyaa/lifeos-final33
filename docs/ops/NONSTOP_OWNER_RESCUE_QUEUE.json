@@ -1,0 +1,674 @@
+[
+  {
+    "id": "P000",
+    "title": "Git/source gate, baseline, control artifacts",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "24f6671"
+  },
+  {
+    "id": "P001",
+    "title": "Universal Capture + General Analysis + Proposal Cards + Apply Engine + Clean Home",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "24f6671"
+  },
+  {
+    "id": "P002",
+    "title": "Calendar / Tasks / Reminders",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:visual",
+      "npm run e2e:fixtures",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-calendar.png"
+    ]
+  },
+  {
+    "id": "P003",
+    "title": "Finance / Budget / Screenshot expenses",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-finance.png"
+    ]
+  },
+  {
+    "id": "P004",
+    "title": "Habits / Goals / Progress / Insights",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-habits-goals.png"
+    ]
+  },
+  {
+    "id": "P005",
+    "title": "Library / Knowledge / Second brain",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-knowledge-insights.png"
+    ]
+  },
+  {
+    "id": "P006",
+    "title": "Files / Books / PDF / EPUB gates or parsers",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-books.png"
+    ]
+  },
+  {
+    "id": "P007",
+    "title": "Audio / Player / Transcript / STT gate",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-player-transcript.png"
+    ]
+  },
+  {
+    "id": "P008",
+    "title": "Ollama / Provider model pipeline",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-ollama.png"
+    ]
+  },
+  {
+    "id": "P009",
+    "title": "Chat / Agents / Flows",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-chat-agents-flow.png"
+    ]
+  },
+  {
+    "id": "P010",
+    "title": "Obsidian-like Graph",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-big-graph.png",
+      "output/playwright/owner-large-vault.png"
+    ]
+  },
+  {
+    "id": "P011",
+    "title": "Data Control / export / recover / rollback",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-control.png"
+    ]
+  },
+  {
+    "id": "P012",
+    "title": "Privacy / Mobile / performance / accessibility / empty states",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "git diff --check",
+      "output/playwright/owner-mobile.png",
+      "output/playwright/owner-large-vault.png"
+    ]
+  },
+  {
+    "id": "P013",
+    "title": "Full ledger closure and GitHub release report",
+    "status": "done",
+    "openWeaknesses": [],
+    "acceptance": [
+      "repository-backed objects",
+      "owner-visible UI",
+      "graph/control/audit evidence",
+      "Playwright or audit proof"
+    ],
+    "files": [
+      "app.js",
+      "styles.css",
+      "smoke.mjs",
+      "package.json",
+      "output/playwright/*.spec.mjs"
+    ],
+    "tests": [
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:ux",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "npm run audit:owner-final"
+    ],
+    "screenshots": [
+      "output/playwright/owner-home.png"
+    ],
+    "commit": "see git log -1 for final package commit",
+    "evidence": [
+      "node --check app.js",
+      "npm run verify",
+      "npm run e2e",
+      "npm run e2e:owner",
+      "npm run e2e:fixtures",
+      "npm run e2e:visual",
+      "npm run audit:no-hardcoded-sample",
+      "npm run audit:buttons",
+      "npm run audit:ledger",
+      "npm run audit:workspace-links",
+      "npm run audit:release-evidence",
+      "git diff --check",
+      "output/playwright/owner-control.png",
+      "output/playwright/owner-mobile.png",
+      "output/playwright/owner-large-vault.png"
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+journey_id,title,status,local_gate,report,screenshots
+J01,Clean first open,PASS,none,docs/qc/JOURNEY_J01_REPORT.md,output/playwright/journeys/j01-before.png;output/playwright/journeys/j01-after.png
+J02,Fast simple task,PASS_REVALIDATED,parser_dedupe_hardened,docs/qc/JOURNEY_J02_REPORT.md,output/playwright/journeys/j02-before.png;output/playwright/journeys/j02-after.png
+J03,Mixed daily input,PASS,none,docs/qc/JOURNEY_J03_REPORT.md,output/playwright/journeys/j03-before.png;output/playwright/journeys/j03-after.png
+J04,Messy capture matrix,PASS_REVALIDATED,fixture_floor_150,docs/qc/JOURNEY_J04_REPORT.md,output/playwright/journeys/j04-before.png;output/playwright/journeys/j04-after.png
+J05,Finance quick capture,PASS,none,docs/qc/JOURNEY_J05_REPORT.md,output/playwright/journeys/j05-before.png;output/playwright/journeys/j05-after.png
+J06,Screenshot receipt,PASS_WITH_PROVIDER_GATE,OCR_ENGINE,docs/qc/JOURNEY_J06_REPORT.md,output/playwright/journeys/j06-before.png;output/playwright/journeys/j06-after.png
+J07,Finance dashboard,PASS,none,docs/qc/JOURNEY_J07_REPORT.md,output/playwright/journeys/j07-before.png;output/playwright/journeys/j07-after.png
+J08,Habits,PASS,none,docs/qc/JOURNEY_J08_REPORT.md,output/playwright/journeys/j08-before.png;output/playwright/journeys/j08-after.png
+J09,Goals and wheel,PASS,none,docs/qc/JOURNEY_J09_REPORT.md,output/playwright/journeys/j09-before.png;output/playwright/journeys/j09-after.png
+J10,Knowledge second brain,PASS,none,docs/qc/JOURNEY_J10_REPORT.md,output/playwright/journeys/j10-before.png;output/playwright/journeys/j10-after.png
+J11,Library Obsidian-like workspace,PASS,none,docs/qc/JOURNEY_J11_REPORT.md,output/playwright/journeys/j11-before.png;output/playwright/journeys/j11-after.png
+J12,Reader books,PASS_WITH_PROVIDER_GATE,PDF_EPUB_PARSERS,docs/qc/JOURNEY_J12_REPORT.md,output/playwright/journeys/j12-before.png;output/playwright/journeys/j12-after.png
+J13,Audio player,PASS_WITH_PROVIDER_GATE,STT_ENGINE,docs/qc/JOURNEY_J13_REPORT.md,output/playwright/journeys/j13-before.png;output/playwright/journeys/j13-after.png
+J14,Evening review,PASS,none,docs/qc/JOURNEY_J14_REPORT.md,output/playwright/journeys/j14-before.png;output/playwright/journeys/j14-after.png
+J15,Ollama chat,PASS_WITH_PROVIDER_GATE,OLLAMA_OWNER_DAEMON,docs/qc/JOURNEY_J15_REPORT.md,output/playwright/journeys/j15-before.png;output/playwright/journeys/j15-after.png
+J16,Chat without AI,PASS,none,docs/qc/JOURNEY_J16_REPORT.md,output/playwright/journeys/j16-before.png;output/playwright/journeys/j16-after.png
+J17,Agents,PASS,none,docs/qc/JOURNEY_J17_REPORT.md,output/playwright/journeys/j17-before.png;output/playwright/journeys/j17-after.png
+J18,Flows,PASS,none,docs/qc/JOURNEY_J18_REPORT.md,output/playwright/journeys/j18-before.png;output/playwright/journeys/j18-after.png
+J19,Big graph,PASS_WITH_OPEN_LOCAL_GATE,P13_GRAPH_HARDENING,docs/qc/JOURNEY_J19_REPORT.md,output/playwright/journeys/j19-before.png;output/playwright/journeys/j19-after.png
+J20,Data Control,PASS,none,docs/qc/JOURNEY_J20_REPORT.md,output/playwright/journeys/j20-before.png;output/playwright/journeys/j20-after.png
+J21,Providers,PASS_WITH_PROVIDER_GATES,external_providers,docs/qc/JOURNEY_J21_REPORT.md,output/playwright/journeys/j21-before.png;output/playwright/journeys/j21-after.png
+J22,Mobile/PWA,PASS_WITH_PERMISSION_GATE,notifications_permission,docs/qc/JOURNEY_J22_REPORT.md,output/playwright/journeys/j22-before.png;output/playwright/journeys/j22-after.png
+J23,Performance large vault,PASS_WITH_OPEN_LOCAL_GATE,P17_LARGE_VAULT_EXACT_SCALE,docs/qc/JOURNEY_J23_REPORT.md,output/playwright/journeys/j23-before.png;output/playwright/journeys/j23-after.png
+J24,Recovery migration corruption,PASS_WITH_OPEN_LOCAL_GATE,P24_CORRUPT_RECORD_FIXTURE,docs/qc/JOURNEY_J24_REPORT.md,output/playwright/journeys/j24-before.png;output/playwright/journeys/j24-after.png
+

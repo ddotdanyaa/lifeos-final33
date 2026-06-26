@@ -1,0 +1,9 @@
+journey,required_product_brain_evidence,status,next_fix
+J01,Home remains no-cockpit while Product Brain exists,PARTIAL,P_OWNER_FINAL_REVALIDATION
+J11,Library shows LifeOS Product Brain,BUILT,P_PRODUCT_BRAIN_001
+J15,Chat can answer state without Ollama,BUILT,P_PRODUCT_BRAIN_001
+J19,Graph Product Brain filter and edge reasons,BUILT,P_PRODUCT_BRAIN_001
+J20,Control shows development state,BUILT,P_PRODUCT_BRAIN_001
+J21,Provider gates remain honest,PARTIAL,P_OWNER_FINAL_REVALIDATION
+J24,Recovery and state docs remain auditable,PARTIAL,P_OWNER_FINAL_REVALIDATION
+

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "local-first": {
+      "source": "oakoss/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/local-first/SKILL.md",
+      "computedHash": "a94cf51d38493e9d7dad0f4388da886aa49a04fd582b1eb5e074cb52543e70f5"
+    },
+    "playwright-e2e-init": {
+      "source": "shipshitdev/library",
+      "sourceType": "github",
+      "skillPath": "skills/playwright-e2e-init/SKILL.md",
+      "computedHash": "e438cb5de14c5aa0cdc37f09a8829312eabe8920da13ef4be1ce2cab14e4ae87"
+    }
+  }
+}

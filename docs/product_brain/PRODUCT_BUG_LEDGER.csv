@@ -1,0 +1,7 @@
+id,area,bug,status,regression_proof,next_action
+BUG001,GitHub,HTTPS push ends with HTTP 408 after auth succeeds,OPEN_RETRY,gh auth status and failed push log,P_GITHUB_RELEASE_RETRY
+BUG002,Graph,Product Brain previously had no dedicated filter,FIXED,audit:product-brain,Keep filter test
+BUG003,Chat,Development questions previously needed AI or generic response,FIXED,product-brain chat e2e,Keep deterministic answer test
+BUG004,Control,Development state was only docs-level,FIXED,Control Product Brain card,Keep Control screenshot
+BUG005,Ledger,Old owner-final audit expected no GitHub auth/remote,NEEDS_UPDATE,audit:owner-final after auth,Update release gate checks
+
