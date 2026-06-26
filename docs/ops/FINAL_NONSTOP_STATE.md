@@ -1,13 +1,14 @@
 # Final Nonstop State
 
 STATUS: CONTINUATION_REQUIRED
-updated_at: 2026-06-26T12:15:00+03:00
+updated_at: 2026-06-26T12:55:36+03:00
 
 ## Runtime
 
 - repo path: `C:\Users\Данил\Documents\LIFEOS FINAL 33%`
 - branch: `owner-usable-nonstop-rescue`
-- local HEAD: `297a9eb fix: revalidate product brain workspace polish` before the provider-passport follow-up commit
+- provider-passport implementation HEAD: `bf3cd47 fix: align owner final provider gate audit`
+- provider-passport remote lite snapshot: `fabd664aa8792ebe54460dbceb2019195b248de4`
 - remote: `origin https://github.com/ddotdanyaa/lifeos-final33.git`
 - GitHub auth: `logged in as ddotdanyaa`
 - GitHub release: `LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE`
@@ -18,7 +19,7 @@ updated_at: 2026-06-26T12:15:00+03:00
 ## Current Package
 
 - package id: `P_EXTERNAL_PROVIDER_SETUP`
-- package name: provider passports, setup paths, local fallbacks and gated e2e
+- package name: паспорта провайдеров, пути настройки, локальные замены и gated e2e
 - reason: Providers had to become owner-readable passports, not a cramped list of provider statuses.
 
 ## Fixed Locally
@@ -27,8 +28,8 @@ updated_at: 2026-06-26T12:15:00+03:00
 - J01-J24 pass after Product Brain and visual polish.
 - Workspace UX scorecard is 9+.
 - GitHub remote/auth work and the lite snapshot branch is published.
-- Provider workspace now shows passports for Ollama, Mail, local/external Calendar, OCR, STT, PDF, EPUB, Notifications, PWA, Flows and Player.
-- Each provider passport shows setup, local fallback, data boundary, scopes, actions and run history.
+- Provider workspace now shows passports for Ollama, почты, локального/внешнего календаря, OCR, STT, PDF, EPUB, уведомлений, PWA, потоков and плеера.
+- Each provider passport shows настройку, локальную замену, границу данных, доступы, действия and историю запусков.
 
 ## Open Local Gates
 
@@ -53,6 +54,7 @@ updated_at: 2026-06-26T12:15:00+03:00
 - `npm run audit:human-ux-final`
 - `npm run audit:product-brain`
 - `npm run audit:owner-final`
+- `npm run release:push -- https://github.com/ddotdanyaa/lifeos-final33.git --lite-git-snapshot`
 
 ## Next Package
 

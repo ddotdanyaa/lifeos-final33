@@ -40,6 +40,7 @@ Evidence:
 - API snapshot reached 300/350 files but GitHub rejected repeated blob uploads with `400`/credential interruptions.
 - Lite Git snapshot succeeded without force push.
 - `git ls-remote --heads origin owner-usable-nonstop-rescue` confirms the remote branch.
+- Provider-passport package remote snapshot: `fabd664aa8792ebe54460dbceb2019195b248de4`.
 - GitHub URL: `https://github.com/ddotdanyaa/lifeos-final33/tree/owner-usable-nonstop-rescue`.
 - Remote branch includes `docs/ops/GITHUB_RELEASE_OMITTED_FILES.md`, which lists 135 omitted large evidence files kept locally.
 

@@ -1,7 +1,7 @@
 # Nonstop Until Done Live State
 
 status: CONTINUATION_REQUIRED
-updated_at: 2026-06-26T11:55:00+03:00
+updated_at: 2026-06-26T12:55:36+03:00
 
 ## Runtime
 
@@ -9,34 +9,35 @@ updated_at: 2026-06-26T11:55:00+03:00
 - branch: `owner-usable-nonstop-rescue`
 - remote status: `origin https://github.com/ddotdanyaa/lifeos-final33.git`
 - GitHub auth: `logged in as ddotdanyaa`
-- HEAD before current package commit: `dfcae92 fix: advance product brain queue to provider setup`
-- working tree state: dirty until `P_WORKSPACE_9PLUS_VISUAL_POLISH` is committed
+- provider-passport implementation HEAD: `bf3cd47 fix: align owner final provider gate audit`
+- provider-passport remote lite snapshot: `fabd664aa8792ebe54460dbceb2019195b248de4`
+- working tree state: clean after provider passport package and owner-final audit sync
 - localhost URL: `http://127.0.0.1:4173`
-- current UI revision: `owner-ux-001-v11-product-brain-9plus-polish`
+- current UI revision: `owner-ux-001-v12-provider-passports`
 - current Artifact schema version: `2`
 
 ## Current Package
 
 - package id: `P_EXTERNAL_PROVIDER_SETUP`
-- package name: Provider passports, setup paths, local fallbacks and gated e2e
+- package name: паспорта провайдеров, пути настройки, локальные замены и gated e2e
 - reason: provider setup had to become an owner-usable passport surface, not a narrow status list.
 
 ## Fixed Locally In This Package
 
-- Product Brain runtime statuses now reflect the current state: local build/journeys/GitHub are done, provider setup remains gated/next.
+- Product Brain runtime statuses now reflect the current state: local build/journeys/GitHub/provider setup are done, owner provider connections are external/next.
 - `docs/product_brain/PRODUCT_JOURNEY_LEDGER.csv` records J01-J24 as PASS/PASS_WITH_PROVIDER_GATE after the latest Playwright run.
 - `docs/qc/PRODUCT_BRAIN_JOURNEY_MATRIX.csv` records all Product Brain journey evidence and provider gates.
 - `styles.css` upgrades shared workspace surfaces, finance dashboard, calendar week planner, agents/flows canvas, reader/player/control/provider visual treatment.
 - `docs/qc/FINAL_UI_HUMAN_AUDIT.md` now has 9+ scores and status `CONTINUATION_REQUIRED`.
-- Provider workspace now renders passports for Ollama, Mail, Calendar, OCR, STT, PDF, EPUB, Notifications, PWA, Flows and Player.
-- Each provider passport shows setup, local fallback, data boundary, scopes, actions and run history.
+- Provider workspace now renders passports for Ollama, почты, календаря, OCR, STT, PDF, EPUB, уведомлений, PWA, потоков and плеера.
+- Each provider passport shows настройку, локальную замену, границу данных, доступы, действия and историю запусков.
 - `tools/audit-human-ux-final.mjs` now fails if any workspace score is below 9.
 - GitHub remote/auth stale rows were fixed in `FINAL_OPEN_GATES.csv`.
 
 ## Open Local Product Gates
 
 - None known after the latest J01-J24 and local audits.
-- Final clean-tree/owner-final checks must run after commit.
+- Clean-tree `audit:owner-final` passed after commit.
 
 ## External Gates
 
@@ -73,6 +74,8 @@ updated_at: 2026-06-26T11:55:00+03:00
 - `npm run audit:workspace-distinctness`: PASS
 - `npm run audit:semantic-colors`: PASS
 - `npm run e2e:ai-providers`: PASS
+- `npm run audit:owner-final`: PASS
+- `npm run release:push -- https://github.com/ddotdanyaa/lifeos-final33.git --lite-git-snapshot`: PASS
 
 ## Next Package
 

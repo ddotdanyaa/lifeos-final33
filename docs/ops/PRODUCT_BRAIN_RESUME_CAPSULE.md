@@ -1,6 +1,6 @@
 # Product Brain Resume Capsule
 
-Updated: 2026-06-26 after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
+Updated: 2026-06-26 after `P_EXTERNAL_PROVIDER_SETUP`.
 
 ## 1. What Fully Works
 
@@ -8,15 +8,15 @@ Updated: 2026-06-26 after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
 - Graph has the `Product Brain` filter, clickable Product Brain nodes and edge reasons.
 - Control shows `Состояние разработки LifeOS` with Product Brain, GitHub release and provider state.
 - Chat answers Product Brain questions deterministically without Ollama.
-- J01-J24 were rerun with Playwright after Product Brain and again after the visual polish package.
+- J01-J24 were rerun with Playwright after Product Brain, visual polish and provider passports.
 - Home no longer returns to first-screen cockpit: no-cockpit, visual hierarchy, workspace distinctness and semantic color audits pass.
-- GitHub is authenticated as `ddotdanyaa`, origin is configured, and the lite snapshot branch is published.
+- GitHub is authenticated as `ddotdanyaa`, origin is configured, and the lite snapshot branch is published at `fabd664aa8792ebe54460dbceb2019195b248de4`.
 
 ## 2. What Partially Works
 
 - GitHub release is a code-first lite snapshot because full-history push was blocked by oversized local pack/evidence; omitted evidence is documented in the remote manifest.
 - Provider-backed automation remains proposal-first locally, but external engines are not connected.
-- Product Brain marks the root as `NEXT` because real provider connections require owner credentials/local engines, not because a local Product Brain feature is missing.
+- Product Brain marks the root as `NEXT` because real provider connections require owner credentials/local engines, not because a local Product Brain or provider-passport feature is missing.
 
 ## 3. What Was Visually Inconvenient
 
@@ -28,7 +28,8 @@ Updated: 2026-06-26 after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
 ## 4. What Is Technically Broken
 
 - No current local runtime/test break is known after the latest checks.
-- `audit:human-ux-final` was strengthened to fail if any workspace score is below 9.
+- `audit:human-ux-final` fails if any workspace score is below 9.
+- `audit:owner-final` passed on a clean tree after the provider-passport package.
 - Full-history Git push remains impractical because of repository/evidence size, but the release helper successfully publishes a lite Git snapshot without force push.
 
 ## 5. What Is Gated
@@ -68,8 +69,11 @@ The local product gates were rerun and are closed: J01-J24, Product Brain, visua
 - `npm run audit:product-brain`
 - `npm run verify`
 - `npm run e2e:product-brain`
-- `npm run e2e:final-owner`
+- `npm run e2e:owner`
 - `npm run e2e:journeys`
+- `npm run e2e:ai-providers`
+- `npm run audit:owner-final`
+- `npm run release:push -- https://github.com/ddotdanyaa/lifeos-final33.git --lite-git-snapshot`
 
 ## Last Screenshots
 
