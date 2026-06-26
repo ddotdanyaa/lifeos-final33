@@ -45,7 +45,7 @@ Fresh Home opens as four owner zones: Universal Capture, Today/Next, Money/Habit
 After: 65 edges, 65 with visible reasons.
 
 ## Data Control Events
-After: 2 audit events. Tail: product_brain.seed: Product Brain artifact graph updated to 2026-06-26-after-product-brain-self-check | provider.run: pwa boot: PWA shell checked: service-worker-ready
+After: 2 audit events. Tail: product_brain.seed: Product Brain artifact graph updated to 2026-06-26-provider-passports | provider.run: pwa boot: PWA shell checked: service-worker-ready
 
 ## Remaining Gated
 None for this local journey.

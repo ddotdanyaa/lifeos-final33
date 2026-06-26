@@ -6,7 +6,7 @@ Updated: 2026-06-26 after Product Brain self-check and workspace 9+ visual polis
 
 ## Why This Is Not DONE_ALL
 
-`DONE_ALL` is not allowed yet because provider setup and real external/local engine connections are not completed:
+`DONE_ALL` is not allowed yet because real external/local engine connections are not completed:
 
 - Ollama daemon may be offline and needs real `/api/tags` probe.
 - Gmail sync requires OAuth credentials.
@@ -24,6 +24,7 @@ Updated: 2026-06-26 after Product Brain self-check and workspace 9+ visual polis
 - J01-J24 pass after the latest visual package.
 - Home is no-cockpit and capture-first.
 - All workspace scores in `FINAL_UI_HUMAN_AUDIT.md` are 9+ after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
+- Provider passports/setup paths/local fallbacks are implemented after `P_EXTERNAL_PROVIDER_SETUP`.
 - GitHub auth works as `ddotdanyaa`.
 - GitHub origin is configured.
 - GitHub lite snapshot is published and documented.
@@ -47,12 +48,12 @@ Updated: 2026-06-26 after Product Brain self-check and workspace 9+ visual polis
 
 ## Next Package
 
-`P_EXTERNAL_PROVIDER_SETUP`
+`P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`
 
 Do next:
 
-- verify provider passport UI for Ollama/Gmail/calendar/OCR/STT/PDF/EPUB/Notifications;
-- add/refresh setup instructions where missing;
+- owner starts Ollama or supplies credentials/permissions/local engines;
+- rerun provider probes after each real connection;
 - keep local fallback paths working;
 - run offline/gated e2e;
 - do not mark any provider ready without a real probe/permission/credential path.

@@ -3,5 +3,5 @@ UX001,P0,Home,Do not return to cockpit first screen,Owner loses 5-second clarity
 UX002,P0,Graph,Product Brain must be filterable and inspectable,Owner cannot see development graph,product-brain-graph.png plus edge reasons,BUILT,P_PRODUCT_BRAIN_001
 UX003,P0,Chat,Chat must answer development questions without Ollama,Owner sees local AI as blocked,product-brain-chat.png plus deterministic answer,BUILT,P_PRODUCT_BRAIN_001
 UX004,P0,Control,Development state must be visible,Owner cannot trust completion claims,product-brain-control.png plus audit card,BUILT,P_PRODUCT_BRAIN_001
-UX005,P1,GitHub,Release state must be honest,Owner can see code-first lite snapshot on GitHub,git ls-remote evidence plus omitted-files manifest,DONE_WITH_CAVEAT,P_EXTERNAL_PROVIDER_SETUP
-UX006,P0,All workspaces,Workspace UX scorecard must be 9+ where not externally gated,Owner should see distinct serious work modes instead of forms with headings,fresh final screenshots plus human UX audit,BUILT_REVALIDATED,P_EXTERNAL_PROVIDER_SETUP
+UX005,P1,GitHub,Release state must be honest,Owner can see code-first lite snapshot on GitHub,git ls-remote evidence plus omitted-files manifest,DONE_WITH_CAVEAT,P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL
+UX006,P0,All workspaces,Workspace UX scorecard must be 9+ where not externally gated,Owner should see distinct serious work modes instead of forms with headings,fresh final screenshots plus human UX audit,BUILT_REVALIDATED,P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL

@@ -16,7 +16,7 @@ Updated: 2026-06-26 after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
 
 - GitHub release is a code-first lite snapshot because full-history push was blocked by oversized local pack/evidence; omitted evidence is documented in the remote manifest.
 - Provider-backed automation remains proposal-first locally, but external engines are not connected.
-- Product Brain marks the root as `NEXT` because development continues through provider setup, not because a local Product Brain feature is missing.
+- Product Brain marks the root as `NEXT` because real provider connections require owner credentials/local engines, not because a local Product Brain feature is missing.
 
 ## 3. What Was Visually Inconvenient
 
@@ -44,18 +44,18 @@ Updated: 2026-06-26 after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
 
 ## 6. What To Do Next
 
-Next package: `P_EXTERNAL_PROVIDER_SETUP`.
+Next package: `P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`.
 
 Concrete next work:
 
-- Keep provider passports honest.
-- Add owner setup checklist per provider where missing.
+- Owner connects desired provider or installs local engine.
+- Rerun provider probes after each real connection.
 - Test offline/gated state for Ollama, Gmail, calendar, OCR, STT, PDF/EPUB and notifications.
 - Do not count a provider as connected unless a real probe/permission/credential path succeeds.
 
 ## 7. Why This Is The Next Priority
 
-The local product gates were rerun and are closed: J01-J24, Product Brain, visual hierarchy, no-cockpit, workspace distinctness, semantic colors, human UX, performance and recovery pass. The only remaining high-impact path is turning honest provider gates into owner setup flows while preserving local fallbacks and no fake provider success.
+The local product gates were rerun and are closed: J01-J24, Product Brain, visual hierarchy, no-cockpit, workspace distinctness, semantic colors, human UX, provider passports, performance and recovery pass. The only remaining high-impact path is real owner/provider connection work while preserving local fallbacks and no fake provider success.
 
 ## Last Commands
 

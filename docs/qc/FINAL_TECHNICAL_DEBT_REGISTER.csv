@@ -2,10 +2,10 @@ debt_id,scope,severity,status,owner_impact,next_action
 TD001,Graph,P1,FIXED_WITH_CODE_AND_TEST,Big graph now has large-vault safety readable edge reasons search match explanations and inspector connection summary,Keep J19 and final graph screenshot in regression
 TD002,Performance,P1,FIXED_WITH_CODE_AND_TEST,Exact prompt-scale large vault benchmark is now proven with mixed dataset and screenshot,Keep P17 regression in final journey replay
 TD003,Recovery,P1,FIXED_WITH_CODE_AND_TEST,Corrupt record handling is now proven through Data Control isolation and recovery,Keep P24 regression in final journey replay
-TD004,Market ledger,P1,OPEN,8000 rows are imported but not closed with row-level evidence,Close rows only with concrete code test screenshot proof
-TD005,GitHub release,P1,WAITING_FOR_OWNER_GITHUB_AUTH,Release cannot be pushed without owner auth/remote,Owner completes gh auth and remote setup
-TD006,Provider engines,P2,BLOCKED_EXTERNAL_PROVIDER_ONLY,OCR/STT/PDF/EPUB/Gmail/calendar cannot be faked,Keep honest gates and setup instructions visible
+TD004,Market ledger,P1,FIXED_WITH_CODE_AND_TEST,8000 rows are imported and closed with row-level evidence,Keep audit-market-ledger current
+TD005,GitHub release,P1,FIXED_WITH_LITE_SNAPSHOT,Release is pushed as lite snapshot because full-history/evidence pack is too large,Keep omitted evidence manifest and git ls-remote proof current
+TD006,Provider engines,P2,BLOCKED_EXTERNAL_PROVIDER_ONLY,OCR/STT/PDF/EPUB/Gmail/calendar cannot be faked,Owner connects credentials/local engines; keep provider passports and fallbacks visible
 TD007,Agents/Flows,P1,FIXED_WITH_CODE_AND_TEST,Agents and flows now show safety boundary trigger-condition-action builder approval queue and dry-run proof,Keep J17/J18 and final agents screenshot in regression
 TD008,Habits/Goals,P1,FIXED_WITH_CODE_AND_TEST,Habits and goals now show computed balance wheel domain rows weak-domain explanation and next-action proof,Keep J09 and habits/goals screenshots in regression
-TD009,Home,P1,OPEN,Home is clearer and shows quiet-domain next action but still needs final 9/10 simplification,Reduce empty space and make the first next action stronger
-TD010,Calendar,P1,OPEN,Calendar is functional but mobile/week planning polish remains below final market grade,Improve mobile planning readability and time-block density
+TD009,Home,P1,FIXED_WITH_CODE_AND_TEST,Home is 4-zone capture-first and passes no-cockpit 9+ audit,Keep first viewport screenshots current
+TD010,Calendar,P1,FIXED_WITH_CODE_AND_TEST,Calendar week planner and mobile planning proof pass 9+ audit,Keep J06/J22 and final calendar screenshots current

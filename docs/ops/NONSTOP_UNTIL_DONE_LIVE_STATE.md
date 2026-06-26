@@ -17,9 +17,9 @@ updated_at: 2026-06-26T11:55:00+03:00
 
 ## Current Package
 
-- package id: `P_WORKSPACE_9PLUS_VISUAL_POLISH`
-- package name: Product Brain self-check, journey revalidation and workspace 9+ visual polish
-- reason: Product Brain/Journeys were functional, but human scorecard still showed 8/10 rows, which the owner explicitly rejects as not market-grade.
+- package id: `P_EXTERNAL_PROVIDER_SETUP`
+- package name: Provider passports, setup paths, local fallbacks and gated e2e
+- reason: provider setup had to become an owner-usable passport surface, not a narrow status list.
 
 ## Fixed Locally In This Package
 
@@ -27,7 +27,9 @@ updated_at: 2026-06-26T11:55:00+03:00
 - `docs/product_brain/PRODUCT_JOURNEY_LEDGER.csv` records J01-J24 as PASS/PASS_WITH_PROVIDER_GATE after the latest Playwright run.
 - `docs/qc/PRODUCT_BRAIN_JOURNEY_MATRIX.csv` records all Product Brain journey evidence and provider gates.
 - `styles.css` upgrades shared workspace surfaces, finance dashboard, calendar week planner, agents/flows canvas, reader/player/control/provider visual treatment.
-- `docs/qc/FINAL_UI_HUMAN_AUDIT.md` now has 9+ scores and status `CONTINUATION_REQUIRED` rather than pretending provider setup is done.
+- `docs/qc/FINAL_UI_HUMAN_AUDIT.md` now has 9+ scores and status `CONTINUATION_REQUIRED`.
+- Provider workspace now renders passports for Ollama, Mail, Calendar, OCR, STT, PDF, EPUB, Notifications, PWA, Flows and Player.
+- Each provider passport shows setup, local fallback, data boundary, scopes, actions and run history.
 - `tools/audit-human-ux-final.mjs` now fails if any workspace score is below 9.
 - GitHub remote/auth stale rows were fixed in `FINAL_OPEN_GATES.csv`.
 
@@ -70,9 +72,10 @@ updated_at: 2026-06-26T11:55:00+03:00
 - `npm run audit:visual-hierarchy`: PASS
 - `npm run audit:workspace-distinctness`: PASS
 - `npm run audit:semantic-colors`: PASS
+- `npm run e2e:ai-providers`: PASS
 
 ## Next Package
 
-- package id: `P_EXTERNAL_PROVIDER_SETUP`
-- package name: honest provider setup flows and offline/gated state revalidation
-- status: local continuation until provider passports/setup tests are complete; actual external connections still require owner credentials/engines.
+- package id: `P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`
+- package name: real owner/provider connections
+- status: blocked externally until owner supplies credentials, permissions or local engines.

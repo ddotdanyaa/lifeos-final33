@@ -1,75 +1,60 @@
 # Final Nonstop State
 
-STATUS: BLOCKED_EXTERNAL_CREDENTIAL_ONLY
-updated_at: 2026-06-26T07:20:00+03:00
+STATUS: CONTINUATION_REQUIRED
+updated_at: 2026-06-26T12:15:00+03:00
 
 ## Runtime
 
 - repo path: `C:\Users\Данил\Documents\LIFEOS FINAL 33%`
 - branch: `owner-usable-nonstop-rescue`
-- HEAD before this package commit: `f68862d fix: add pwa service worker passport`
-- remote: `NO_REMOTE`
-- GitHub auth: `WAITING_FOR_OWNER_GITHUB_AUTH` (`gh auth status` reports no logged-in GitHub host)
+- local HEAD: `297a9eb fix: revalidate product brain workspace polish` before the provider-passport follow-up commit
+- remote: `origin https://github.com/ddotdanyaa/lifeos-final33.git`
+- GitHub auth: `logged in as ddotdanyaa`
+- GitHub release: `LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE`
 - localhost: `http://127.0.0.1:4173`
-- working tree: dirty until current P27 package is committed
-- current UI revision: `owner-ux-001-v10-architecture-contract`
+- current UI revision: `owner-ux-001-v12-provider-passports`
 - artifact schema version: `2`
 
 ## Current Package
 
-- package id: `P27`
-- package name: Architecture contract and C25 closure
-- reason: the last local market rows required executable architecture proof for module boundaries, state adapters, event bus, code splitting and schema docs.
+- package id: `P_EXTERNAL_PROVIDER_SETUP`
+- package name: provider passports, setup paths, local fallbacks and gated e2e
+- reason: Providers had to become owner-readable passports, not a cramped list of provider statuses.
 
-## Fixed Locally In This Package
+## Fixed Locally
 
-- `artifact-os-architecture.mjs` defines the executable Artifact OS architecture contract.
-- Data Control renders the architecture contract and validation state.
-- Repository commits persist architecture event-bus receipts.
-- Playwright verifies the contract through `getArchitectureSnapshot()`.
-- `audit:architecture` blocks regressions in module boundaries, state adapters, event bus, Data Control render, service-worker shell cache and package wiring.
-- Market ledger now reports `rDeferred: 0`.
+- Product Brain works in Library, Graph, Control and Chat.
+- J01-J24 pass after Product Brain and visual polish.
+- Workspace UX scorecard is 9+.
+- GitHub remote/auth work and the lite snapshot branch is published.
+- Provider workspace now shows passports for Ollama, Mail, local/external Calendar, OCR, STT, PDF, EPUB, Notifications, PWA, Flows and Player.
+- Each provider passport shows setup, local fallback, data boundary, scopes, actions and run history.
 
 ## Open Local Gates
 
-- None known after P27.
+- None known after current local tests.
 
 ## External Gates
 
-- `GITHUB_REMOTE`: remote is not configured.
-- `GITHUB_AUTH`: owner must complete `gh auth login` or provide authenticated session.
+- `OLLAMA_OWNER_DAEMON`: owner starts/installs local Ollama model server.
 - `GMAIL_EXTERNAL_SYNC`: requires OAuth/credentials; pasted mail works locally.
 - `EXTERNAL_CALENDAR_SYNC`: requires OAuth/credentials; local calendar blocks work.
 - `OCR_ENGINE`: automatic OCR requires OCR engine; manual receipt extraction works.
 - `STT_ENGINE`: automatic STT requires local/browser/provider engine; manual transcript works.
 - `PDF_EPUB_PARSERS`: TXT/MD works; PDF/EPUB remain honest parser gates.
+- `NOTIFICATIONS_PERMISSION`: browser permission/install behavior is owner/browser controlled.
+- `OPTIONAL_EVIDENCE_ARCHIVE`: full evidence wall is local and omitted from GitHub lite snapshot by manifest.
 
-## Tests Passed In Current Package
+## Last Tests
 
-- `node --check app.js`
-- `node --check artifact-os-architecture.mjs`
-- `node --check tools/audit-architecture-contract.mjs`
 - `npm run verify`
-- `npm run audit:architecture`
-- `npm run e2e:market-owner`
+- `npm run e2e:ai-providers`
 - `npm run e2e:journeys`
-- `npm run audit:market-ledger`
-
-## Current Evidence
-
-- `artifact-os-architecture.mjs`
-- `app.js`
-- `service-worker.js`
-- `server.mjs`
-- `docs/architecture/ARTIFACT_OS_ARCHITECTURE_CONTRACT.md`
-- `tools/audit-architecture-contract.mjs`
-- `output/playwright/market-owner.spec.mjs`
-- `output/playwright/final-journeys.spec.mjs`
-- `docs/qc/MARKET_RESEARCH_LEDGER_STATUS.csv`
-- `docs/qc/MARKET_RESEARCH_EXECUTION_REPORT.md`
+- `npm run audit:human-ux-final`
+- `npm run audit:product-brain`
+- `npm run audit:owner-final`
 
 ## Next Package
 
-- package id: `P20`
-- package name: GitHub release gate
-- status: blocked by missing owner GitHub remote/auth.
+- package id: `P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`
+- status: blocked externally until the owner supplies credentials, permissions or local provider engines.

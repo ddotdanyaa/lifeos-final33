@@ -34,7 +34,7 @@ Reader parses TXT/MD, tracks progress and highlights, and shows honest PDF/EPUB 
   "providerRuns": 0,
   "proposalsOpen": 15,
   "proposalsApplied": 0,
-  "auditEvents": 21,
+  "auditEvents": 22,
   "graphNodes": 32,
   "graphEdges": 62,
   "graphEdgeReasons": 62

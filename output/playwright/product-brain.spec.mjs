@@ -77,7 +77,7 @@ test("Product Brain is runtime artifact graph, control state, library knowledge 
   expect(stateProof.filter).toBe(true);
   expect(stateProof.graphRoot).toBe(true);
   expect(stateProof.edgeReasons).toBeGreaterThanOrEqual(10);
-  expect(stateProof.summary.nextPackage).toBe("P_EXTERNAL_PROVIDER_SETUP");
+  expect(stateProof.summary.nextPackage).toBe("P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL");
 
   await selectSurface(page, "library");
   await expect(page.getByTestId("workspace-library")).toBeVisible();
@@ -101,7 +101,7 @@ test("Product Brain is runtime artifact graph, control state, library knowledge 
   await expect(page.getByTestId("product-brain-chat-context")).toBeVisible();
   await page.getByTestId("chat-input").fill("что осталось доделать?");
   await page.getByTestId("send-chat").click();
-  await expect(page.getByTestId("chat-panel")).toContainText("P_EXTERNAL_PROVIDER_SETUP");
+  await expect(page.getByTestId("chat-panel")).toContainText("P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL");
   await expect(page.getByTestId("chat-panel")).toContainText("GitHub lite snapshot");
   await page.screenshot({ path: "output/playwright/product-brain-chat.png", fullPage: true });
 });

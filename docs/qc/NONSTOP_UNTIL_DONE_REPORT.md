@@ -5,14 +5,16 @@ updated_at: 2026-06-26T11:55:00+03:00
 
 ## Current Package
 
-`P_WORKSPACE_9PLUS_VISUAL_POLISH - Product Brain self-check and 9+ workspace revalidation`
+`P_EXTERNAL_PROVIDER_SETUP - provider passports, setup paths and local fallbacks`
 
 ## What Changed
 
 - Product Brain was used as the source of truth before new work.
 - Product Brain runtime notes were updated from stale `PARTIAL` GitHub/journey states to current `DONE/NEXT/GATED` states.
 - Product Brain journey ledger now records J01-J24 as revalidated with screenshot evidence.
-- Product Brain gap queue now records `P_WORKSPACE_9PLUS_VISUAL_POLISH` as done and `P_EXTERNAL_PROVIDER_SETUP` as next.
+- Product Brain gap queue now records `P_WORKSPACE_9PLUS_VISUAL_POLISH` and `P_EXTERNAL_PROVIDER_SETUP` as done.
+- Provider workspace now shows passports for Ollama, Mail, Calendar, OCR, STT, PDF, EPUB, Notifications, PWA, Flows and Player.
+- Provider passports show setup, local fallback, data boundary, scopes, actions and run history.
 - Shared workspace CSS was strengthened so the product reads as distinct work modes rather than one pale form shell.
 - Finance became a clearer dashboard with operation/account/budget/subscription/receipt zones.
 - Calendar became a stronger week planner with seven-day board, agenda strip and focus warning.
@@ -29,6 +31,7 @@ updated_at: 2026-06-26T11:55:00+03:00
 - `npm run verify`: PASS
 - `npm run e2e:product-brain`: PASS
 - `npm run e2e:final-owner`: PASS
+- `npm run e2e:ai-providers`: PASS
 - `npm run e2e:journeys`: PASS
 - `npm run audit:product-brain`: PASS
 - `npm run audit:visual-hierarchy`: PASS
@@ -55,9 +58,9 @@ updated_at: 2026-06-26T11:55:00+03:00
 
 ## Next Package
 
-`P_EXTERNAL_PROVIDER_SETUP`
+`P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`
 
 Expected result:
 
-- Each provider has a clear passport, setup steps, local fallback, revoke/disconnect where applicable, and e2e proof of offline/gated state.
+- Owner connects desired provider or installs local engine.
 - No provider is marked connected unless a real probe or credential/permission flow succeeds.

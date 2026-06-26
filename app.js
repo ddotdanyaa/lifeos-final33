@@ -16,7 +16,7 @@ const AUTO_SAVE_MS = 1500;
 const SOURCE_NOTE_TEXT_LIMIT = 60000;
 const INLINE_MEDIA_LIMIT = 8 * 1024 * 1024;
 const UI_REVISION = "owner-ux-001-v1";
-const PRODUCT_BRAIN_VERSION = "2026-06-26-after-product-brain-self-check";
+const PRODUCT_BRAIN_VERSION = "2026-06-26-provider-passports";
 const PRODUCT_BRAIN_FOLDER_ID = "folder-product-brain";
 const PRODUCT_BRAIN_ROOT_ID = "note-product-brain-root";
 const WIKI_LINK_PATTERN = /\[\[(.*?)\]\]/g;
@@ -46,8 +46,8 @@ const PRODUCT_BRAIN_NODE_SPECS = [
       "",
       "Связанные узлы: [[Product Vision]], [[Artifact OS Contract]], [[Current Build State]], [[Owner Complaints]], [[UX Debt]], [[Bug Ledger]], [[Journey Map]], [[Feature Completeness Map]], [[Research Map]], [[Design System Map]], [[GitHub Release Map]], [[Provider Gates Map]], [[Performance Large Vault]], [[Recovery Migration]], [[Graph Quality]], [[Chat First Home]].",
       "",
-      "Текущий package: AFTER_PRODUCT_BRAIN_SELF_CHECK.",
-      "Следующий package: P_EXTERNAL_PROVIDER_SETUP, потому что J01-J24, UX/product/recovery/performance audits и GitHub lite snapshot уже проверены, а оставшиеся gates требуют внешние движки или отдельный evidence archive.",
+      "Текущий package: P_EXTERNAL_PROVIDER_SETUP.",
+      "Следующий package: P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL, потому что паспорта провайдеров, пути настройки, локальные замены и gated e2e уже реализованы; реальные подключения требуют данных владельца, разрешений или локальных движков.",
       "Контракт: source -> Artifact -> projections -> repository -> graph/backlinks -> receipt/audit -> Data Control -> owner-visible result -> proof."
     ].join("\n")
   },
@@ -73,7 +73,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Current Build State",
     status: "DONE",
     kind: "state",
-    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nПосле Product Brain self-check повторно прошли J01-J24, no-cockpit, visual hierarchy, workspace distinctness, semantic colors, human UX, performance и recovery audits.\n\nGitHub release: опубликован lite snapshot на owner-usable-nonstop-rescue; git ls-remote подтверждает remote branch. Большие ledgers и screenshot wall сохранены локально и перечислены в remote manifest docs/ops/GITHUB_RELEASE_OMITTED_FILES.md.\n\nGated честно: Ollama offline, Gmail, external calendar OAuth, OCR, STT, PDF/EPUB parser, notifications permission.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
+    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nПосле Product Brain self-check повторно прошли J01-J24, no-cockpit, visual hierarchy, workspace distinctness, semantic colors, human UX, performance и recovery audits.\n\nПаспорта провайдеров теперь покрывают Ollama, почту, локальный/внешний календарь, OCR, STT, PDF, EPUB, уведомления, PWA, потоки и плеер: статус, настройка, локальная замена, граница данных и история запусков видны владельцу.\n\nGitHub release: опубликован lite snapshot на owner-usable-nonstop-rescue; git ls-remote подтверждает remote branch. Большие ledgers и screenshot wall сохранены локально и перечислены в remote manifest docs/ops/GITHUB_RELEASE_OMITTED_FILES.md.\n\nGated честно: реальные подключения Ollama/Gmail/внешнего календаря/OCR/STT/PDF/EPUB/уведомлений требуют данных владельца, разрешений или локальных движков.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
   },
   {
     id: "note-product-brain-owner-complaints",
@@ -145,7 +145,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Provider Gates Map",
     status: "GATED",
     kind: "providers",
-    body: "# Provider Gates Map\n\nOllama: explicit localhost probe; offline is honest; output becomes proposal only.\nGmail/external calendar: credentials required; pasted mail/local calendar work now.\nOCR: receipt source and manual extraction work; engine gated.\nSTT: manual transcript works; engine gated.\nPDF/EPUB: source stored; TXT/MD parse now; parser gate for unsupported formats.\nNotifications/PWA: permission and browser capability shown.\n\nProvider gate -> setup action виден в Control/Providers."
+    body: "# Provider Gates Map\n\nOllama: явная localhost-проверка; офлайн-состояние честное; результат становится только proposal.\nGmail/внешний календарь: нужны данные владельца; вставка письма и локальный календарь работают сейчас.\nOCR: источник-чек и ручное извлечение работают; движок gated.\nSTT: ручной transcript работает; движок gated.\nPDF/EPUB: источник сохраняется; TXT/MD разбираются сейчас; для неподдержанных форматов есть честный parser gate.\nNotifications/PWA: показаны разрешение и возможности браузера.\n\nКаждый provider passport показывает статус, настройку, локальную замену, границу данных, доступы, отключение/проверку/подготовку и историю запусков. Fake ready запрещен.\n\nProvider gate -> setup action виден в Control/Providers."
   },
   {
     id: "note-product-brain-performance",
@@ -830,13 +830,17 @@ function createInitialState() {
     flows: {},
     providers: {
       ollama: { status: "unchecked", label: "Ollama", endpoint: "http://localhost:11434", lastCheckedAt: "", lastProbeAt: "", lastError: "", scopes: ["active-artifact-analysis"], revokedAt: "" },
-      mail: { status: "not-connected", label: "Mail", lastCheckedAt: "" },
-      calendar: { status: "local-only", label: "Calendar", lastCheckedAt: "" },
-      calendarSync: { status: "not-connected", label: "External Calendar", lastCheckedAt: "", scopes: ["calendar-read", "calendar-write"], requiredAction: "Owner-approved OAuth credentials are required for external calendar sync; local calendar works now." },
-      automation: { status: "local-only", label: "Flows", lastCheckedAt: "" },
-      player: { status: "local-only", label: "Player", lastCheckedAt: "" },
-      pwa: { status: "unchecked", label: "PWA / Offline shell", endpoint: "/service-worker.js", lastCheckedAt: "", scopes: ["offline-shell", "install-boundary"], requiredAction: "LifeOS registers a local service worker when the browser supports it. Install prompt is controlled by the browser." },
-      stt: { status: "not-configured", label: "STT", lastCheckedAt: "", requiredAction: "Install or connect a local STT engine; manual transcript is available now." }
+      mail: { status: "not-connected", label: "Почта", lastCheckedAt: "" },
+      calendar: { status: "local-only", label: "Календарь", lastCheckedAt: "" },
+      calendarSync: { status: "not-connected", label: "Внешний календарь", lastCheckedAt: "", scopes: ["calendar-read", "calendar-write"], requiredAction: "Нужны OAuth-данные владельца для синхронизации внешнего календаря; локальный календарь уже работает." },
+      automation: { status: "local-only", label: "Потоки", lastCheckedAt: "" },
+      player: { status: "local-only", label: "Плеер", lastCheckedAt: "" },
+      pwa: { status: "unchecked", label: "PWA / офлайн-оболочка", endpoint: "/service-worker.js", lastCheckedAt: "", scopes: ["offline-shell", "install-boundary"], requiredAction: "LifeOS регистрирует локальный service worker, если браузер это поддерживает; install prompt контролирует браузер." },
+      stt: { status: "not-configured", label: "STT", lastCheckedAt: "", scopes: ["audio-transcript"], requiredAction: "Подключи локальный STT-движок или browser speech; ручная расшифровка уже работает." },
+      ocr: { status: "not-configured", label: "OCR", lastCheckedAt: "", scopes: ["receipt-image-text"], requiredAction: "Подключи локальный OCR-движок; ручное извлечение данных из чека уже работает." },
+      pdf: { status: "parser-required", label: "PDF-парсер", lastCheckedAt: "", scopes: ["book-source-parse"], requiredAction: "Установи PDF-парсер перед извлечением текста; хранение источника и честный gate уже работают." },
+      epub: { status: "parser-required", label: "EPUB-парсер", lastCheckedAt: "", scopes: ["book-source-parse"], requiredAction: "Установи EPUB-парсер перед извлечением текста; TXT/MD reader уже работает." },
+      notifications: { status: "permission-required", label: "Уведомления", lastCheckedAt: "", scopes: ["browser-permission"], requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." }
     },
     ollama: {
       endpoint: "http://localhost:11434",
@@ -996,8 +1000,8 @@ function ensureProductBrain(state) {
   state.control.productBrain = Object.assign({}, state.control.productBrain || {}, {
     version: PRODUCT_BRAIN_VERSION,
     rootNoteId: PRODUCT_BRAIN_ROOT_ID,
-    currentPackage: "AFTER_PRODUCT_BRAIN_SELF_CHECK",
-    nextPackage: "P_EXTERNAL_PROVIDER_SETUP",
+    currentPackage: "P_EXTERNAL_PROVIDER_SETUP",
+    nextPackage: "P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL",
     githubReleaseStatus: "LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE",
     localStatus: "DONE",
     externalStatus: "GATED",
@@ -1092,13 +1096,17 @@ function normalizeState(input) {
     flows: base.flows || {},
     providers: Object.assign({
       ollama: { status: "unchecked", label: "Ollama", endpoint: "http://localhost:11434", lastCheckedAt: "", lastProbeAt: "", lastError: "", scopes: ["active-artifact-analysis"], revokedAt: "" },
-      mail: { status: "not-connected", label: "Mail", lastCheckedAt: "" },
-      calendar: { status: "local-only", label: "Calendar", lastCheckedAt: "" },
-      calendarSync: { status: "not-connected", label: "External Calendar", lastCheckedAt: "", scopes: ["calendar-read", "calendar-write"], requiredAction: "Owner-approved OAuth credentials are required for external calendar sync; local calendar works now." },
-      automation: { status: "local-only", label: "Flows", lastCheckedAt: "" },
-      player: { status: "local-only", label: "Player", lastCheckedAt: "" },
-      pwa: { status: "unchecked", label: "PWA / Offline shell", endpoint: "/service-worker.js", lastCheckedAt: "", scopes: ["offline-shell", "install-boundary"], requiredAction: "LifeOS registers a local service worker when the browser supports it. Install prompt is controlled by the browser." },
-      stt: { status: "not-configured", label: "STT", lastCheckedAt: "", requiredAction: "Install or connect a local STT engine; manual transcript is available now." }
+      mail: { status: "not-connected", label: "Почта", lastCheckedAt: "" },
+      calendar: { status: "local-only", label: "Календарь", lastCheckedAt: "" },
+      calendarSync: { status: "not-connected", label: "Внешний календарь", lastCheckedAt: "", scopes: ["calendar-read", "calendar-write"], requiredAction: "Нужны OAuth-данные владельца для синхронизации внешнего календаря; локальный календарь уже работает." },
+      automation: { status: "local-only", label: "Потоки", lastCheckedAt: "" },
+      player: { status: "local-only", label: "Плеер", lastCheckedAt: "" },
+      pwa: { status: "unchecked", label: "PWA / офлайн-оболочка", endpoint: "/service-worker.js", lastCheckedAt: "", scopes: ["offline-shell", "install-boundary"], requiredAction: "LifeOS регистрирует локальный service worker, если браузер это поддерживает; install prompt контролирует браузер." },
+      stt: { status: "not-configured", label: "STT", lastCheckedAt: "", scopes: ["audio-transcript"], requiredAction: "Подключи локальный STT-движок или browser speech; ручная расшифровка уже работает." },
+      ocr: { status: "not-configured", label: "OCR", lastCheckedAt: "", scopes: ["receipt-image-text"], requiredAction: "Подключи локальный OCR-движок; ручное извлечение данных из чека уже работает." },
+      pdf: { status: "parser-required", label: "PDF-парсер", lastCheckedAt: "", scopes: ["book-source-parse"], requiredAction: "Установи PDF-парсер перед извлечением текста; хранение источника и честный gate уже работают." },
+      epub: { status: "parser-required", label: "EPUB-парсер", lastCheckedAt: "", scopes: ["book-source-parse"], requiredAction: "Установи EPUB-парсер перед извлечением текста; TXT/MD reader уже работает." },
+      notifications: { status: "permission-required", label: "Уведомления", lastCheckedAt: "", scopes: ["browser-permission"], requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." }
     }, base.providers || {}),
     ollama: Object.assign({
       endpoint: "http://localhost:11434",
@@ -1482,7 +1490,20 @@ function normalizeState(input) {
     run.createdAt = run.createdAt || now();
     run.updatedAt = run.updatedAt || run.createdAt;
   }
-  for (const provider of Object.values(state.providers)) {
+  const providerRussianMeta = {
+    mail: { label: "Почта", requiredAction: "" },
+    calendar: { label: "Календарь", requiredAction: "" },
+    calendarSync: { label: "Внешний календарь", requiredAction: "Нужны OAuth-данные владельца для синхронизации внешнего календаря; локальный календарь уже работает." },
+    automation: { label: "Потоки", requiredAction: "" },
+    player: { label: "Плеер", requiredAction: "" },
+    pwa: { label: "PWA / офлайн-оболочка", requiredAction: "LifeOS регистрирует локальный service worker, если браузер это поддерживает; install prompt контролирует браузер." },
+    stt: { label: "STT", requiredAction: "Подключи локальный STT-движок или browser speech; ручная расшифровка уже работает." },
+    ocr: { label: "OCR", requiredAction: "Подключи локальный OCR-движок; ручное извлечение данных из чека уже работает." },
+    pdf: { label: "PDF-парсер", requiredAction: "Установи PDF-парсер перед извлечением текста; хранение источника и честный gate уже работают." },
+    epub: { label: "EPUB-парсер", requiredAction: "Установи EPUB-парсер перед извлечением текста; TXT/MD reader уже работает." },
+    notifications: { label: "Уведомления", requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." }
+  };
+  for (const [providerKey, provider] of Object.entries(state.providers)) {
     provider.status = cleanLine(provider.status || "not-connected");
     provider.label = cleanLine(provider.label || "Provider");
     provider.endpoint = cleanLine(provider.endpoint || "");
@@ -1492,6 +1513,12 @@ function normalizeState(input) {
     provider.revokedAt = String(provider.revokedAt || "");
     provider.requiredAction = String(provider.requiredAction || "");
     provider.lastCheckedAt = String(provider.lastCheckedAt || "");
+    if (providerRussianMeta[providerKey]) {
+      provider.label = providerRussianMeta[providerKey].label;
+      if (providerRussianMeta[providerKey].requiredAction) {
+        provider.requiredAction = providerRussianMeta[providerKey].requiredAction;
+      }
+    }
   }
   ensureProductBrain(state);
   for (const key of Object.keys(state.graphFilters)) {
@@ -8653,20 +8680,147 @@ function renderProviderPanel(state) {
   ].join("");
 }
 
+function providerPassportCopy(key, provider) {
+  const map = {
+    ollama: {
+      setup: "Запусти Ollama локально и нажми Проверить Ollama.",
+      local: "Chat, заметки и Product Brain answers работают без модели.",
+      sends: "Только активный артефакт после явного запуска.",
+      fallback: "Локальный deterministic answer/proposal mode."
+    },
+    mail: {
+      setup: "Подготовить OAuth; до этого вставляй письмо как source.",
+      local: "Pasted mail сохраняется как источник и разбирается локально.",
+      sends: "OAuth scopes только после явного owner approval.",
+      fallback: "Вставка текста письма во Вход."
+    },
+    calendar: {
+      setup: "Локальный календарь уже работает без внешних аккаунтов.",
+      local: "Tasks/reminders/planBlocks остаются в локальном repository.",
+      sends: "Ничего не уходит во внешний календарь.",
+      fallback: "Today/Calendar time blocks."
+    },
+    calendarSync: {
+      setup: "Подготовить OAuth для синхронизации внешнего календаря.",
+      local: "Локальные blocks остаются источником правды.",
+      sends: "Доступы чтения/записи календаря только после явного approval владельца.",
+      fallback: "Экспорт/ручной перенос из Calendar."
+    },
+    automation: {
+      setup: "Flow engine локальный: trigger-condition-action dry-run.",
+      local: "Создаются только proposals и run history.",
+      sends: "Ничего не уходит наружу.",
+      fallback: "Approval queue и Control."
+    },
+    player: {
+      setup: "Audio player локальный; STT отдельно gated.",
+      local: "Playback/manual transcript/checkpoints локальны.",
+      sends: "Аудио не отправляется без STT provider.",
+      fallback: "Ручной transcript editor."
+    },
+    pwa: {
+      setup: "Проверить service worker и install prompt.",
+      local: "Shell кэшируется; данные остаются IndexedDB/localStorage.",
+      sends: "Ничего наружу; браузер решает install prompt.",
+      fallback: "Обычный browser mode."
+    },
+    stt: {
+      setup: "Подключить browser/local STT engine.",
+      local: "Ручная расшифровка работает сейчас.",
+      sends: "Audio только после отдельного STT permission/provider.",
+      fallback: "Ручной transcript editor."
+    },
+    ocr: {
+      setup: "Подключить OCR engine для чеков.",
+      local: "Скрин чека сохраняется и заполняется вручную.",
+      sends: "Изображение не отправляется без OCR provider.",
+      fallback: "Ручное извлечение чека."
+    },
+    pdf: {
+      setup: "Установить PDF parser package.",
+      local: "Файл хранится как source; gate честно объясняет ограничение.",
+      sends: "PDF не парсится/не отправляется без parser path.",
+      fallback: "TXT/MD reader."
+    },
+    epub: {
+      setup: "Установить EPUB parser package.",
+      local: "Книга хранится как source; TXT/MD reader работает.",
+      sends: "EPUB не парсится/не отправляется без parser path.",
+      fallback: "TXT/MD reader."
+    },
+    notifications: {
+      setup: "Запросить browser notification permission только явно.",
+      local: "Reminders видны в Today/Calendar без permission.",
+      sends: "Ничего наружу; permission контролирует браузер.",
+      fallback: "Внутренние reminders и Control."
+    }
+  };
+  return map[key] || {
+    setup: provider.requiredAction || "Провайдер требует явной настройки владельцем.",
+    local: "Локальное состояние Artifact OS остаётся доступным.",
+    sends: "Данные не отправляются без явного подтверждения.",
+    fallback: "Используй локальный workspace-flow."
+  };
+}
+
+function providerStatusLabel(status) {
+  const labels = {
+    "local-only": "локально",
+    "not-connected": "не подключено",
+    "not-configured": "нужна настройка",
+    "permission-required": "нужно разрешение",
+    "parser-required": "нужен парсер",
+    "needs-owner-credentials": "нужны данные владельца",
+    "unchecked": "не проверено",
+    "offline": "офлайн",
+    "models_found": "модели найдены",
+    "service-worker-ready": "готово локально",
+    "revoked": "отключено"
+  };
+  return labels[String(status || "")] || String(status || "unknown");
+}
+
+function renderProviderPassport(state, key, provider) {
+  const copy = providerPassportCopy(key, provider);
+  const scopes = provider.scopes && provider.scopes.length ? provider.scopes.join(", ") : "локально";
+  const status = provider.status || "unknown";
+  const canPrepare = ["mail", "calendarSync", "ocr", "stt", "pdf", "epub", "notifications"].includes(key);
+  const canProbe = key === "ollama" || key === "pwa";
+  const setupAction = canPrepare ? "<button data-action=\"prepare-provider\" data-id=\"" + escapeHtml(key) + "\" data-testid=\"prepare-provider-" + escapeHtml(key) + "\">Подготовить</button>" : "";
+  const probeAction = key === "ollama"
+    ? "<button data-action=\"probe-ollama\" data-testid=\"probe-provider-ollama\">Проверить Ollama</button>"
+    : key === "pwa"
+      ? "<button data-action=\"check-pwa\" data-testid=\"probe-provider-pwa\">Проверить PWA</button>"
+      : "";
+  const revoke = status !== "local-only" && status !== "revoked" ? "<button data-action=\"revoke-provider\" data-id=\"" + escapeHtml(key) + "\">Отключить</button>" : "";
+  const lastRun = Object.values(state.providerRuns || {}).filter((run) => run.providerId === key).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+  return [
+    "<article class=\"provider-passport\" data-testid=\"provider-row-" + escapeHtml(key) + "\" data-provider=\"" + escapeHtml(key) + "\">",
+    "<div class=\"provider-passport-head\"><div><span>Подключение</span><strong>" + escapeHtml(provider.label || key) + "</strong></div><mark data-status=\"" + escapeHtml(status) + "\">" + escapeHtml(providerStatusLabel(status)) + "</mark></div>",
+    "<div class=\"provider-passport-grid\">",
+    "<div><span>Настройка</span><strong>" + escapeHtml(copy.setup) + "</strong></div>",
+    "<div><span>Локальная замена</span><strong>" + escapeHtml(copy.local) + "</strong></div>",
+    "<div><span>Граница данных</span><strong>" + escapeHtml(copy.sends) + "</strong></div>",
+    "<div><span>Доступы</span><strong>" + escapeHtml(scopes) + "</strong></div>",
+    "</div>",
+    provider.requiredAction ? "<p class=\"provider-required\">" + escapeHtml(provider.requiredAction) + "</p>" : "",
+    provider.lastError ? "<div class=\"provider-error\">" + escapeHtml(shorten(provider.lastError, 140)) + "</div>" : "",
+    lastRun ? "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(lastRun.kind + " / " + lastRun.status) + "</strong><span>" + escapeHtml(shorten(lastRun.summary, 120)) + "</span></div>" : "<div class=\"empty compact\">Пока нет запуска провайдера. Действие будет записано в Control.</div>",
+    "<div class=\"provider-actions\">" + [setupAction, probeAction, revoke].filter(Boolean).join("") + "</div>",
+    "</article>"
+  ].join("");
+}
+
 function renderProviderPanelV2(state) {
   const providers = state.providers || {};
-  const rows = Object.keys(providers).map((key) => {
-    const provider = providers[key];
-    const canPrepare = key === "mail" || key === "calendarSync";
-    const action = canPrepare ? "<button data-action=\"prepare-provider\" data-id=\"" + escapeHtml(key) + "\" data-testid=\"prepare-provider-" + escapeHtml(key) + "\">&#1055;&#1086;&#1076;&#1075;&#1086;&#1090;&#1086;&#1074;&#1080;&#1090;&#1100;</button>" : "";
-    const revoke = provider.status !== "local-only" && provider.status !== "revoked" ? "<button data-action=\"revoke-provider\" data-id=\"" + escapeHtml(key) + "\">Revoke</button>" : "";
-    const meta = [provider.endpoint, provider.scopes && provider.scopes.length ? provider.scopes.join("/") : "", provider.requiredAction, provider.revokedAt ? "revoked " + provider.revokedAt : "", provider.lastError ? "error" : ""].filter(Boolean).join(" / ");
-    return "<div class=\"provider-row provider-action\" data-testid=\"provider-row-" + escapeHtml(key) + "\"><span>" + escapeHtml(provider.label || key) + (meta ? "<em>" + escapeHtml(meta) + "</em>" : "") + "</span><strong>" + escapeHtml(provider.status) + "</strong>" + action + revoke + "</div>";
-  }).join("");
+  const preferred = ["ollama", "mail", "calendar", "calendarSync", "ocr", "stt", "pdf", "epub", "notifications", "pwa", "automation", "player"];
+  const keys = preferred.filter((key) => providers[key]).concat(Object.keys(providers).filter((key) => !preferred.includes(key)));
   return [
-    "<section class=\"info-panel workflow-panel\" data-testid=\"provider-panel\">",
-    "<div class=\"section-title\">&#1055;&#1086;&#1076;&#1082;&#1083;&#1102;&#1095;&#1077;&#1085;&#1080;&#1103;</div>",
-    rows,
+    "<section class=\"info-panel workflow-panel provider-passport-panel\" data-testid=\"provider-panel\">",
+    "<div class=\"card-head\"><h2>Подключения</h2><span>Каждый провайдер показывает статус, настройку, локальную замену, границу данных и историю запусков. Fake ready запрещен.</span></div>",
+    "<div class=\"provider-passport-grid-list\">",
+    keys.map((key) => renderProviderPassport(state, key, providers[key])).join(""),
+    "</div>",
     "</section>"
   ].join("");
 }
@@ -9278,18 +9432,18 @@ function renderOllamaPanel(state) {
   return [
     "<section class=\"info-panel workflow-panel\" data-testid=\"ollama-panel\">",
     "<div class=\"section-title\">Local AI / Ollama</div>",
-    "<div class=\"provider-row\"><span>Status</span><strong data-testid=\"ollama-status\">" + escapeHtml(state.ollama.status) + "</strong></div>",
+    "<div class=\"provider-row\"><span>Статус</span><strong data-testid=\"ollama-status\">" + escapeHtml(state.ollama.status) + "</strong></div>",
     "<input id=\"ollama-endpoint\" data-testid=\"ollama-endpoint\" autocomplete=\"off\" aria-label=\"Ollama endpoint\" value=\"" + escapeHtml(state.ollama.endpoint) + "\">",
-    "<div class=\"provider-actions\"><button data-action=\"probe-ollama\" data-testid=\"probe-ollama\">Probe Ollama</button><button data-action=\"ollama-dry-run\" data-testid=\"ollama-dry-run\">Run as proposals</button><button data-action=\"revoke-provider\" data-id=\"ollama\" data-testid=\"revoke-ollama\">Revoke</button></div>",
-    state.ollama.models.length ? "<label class=\"provider-select\">Model<select id=\"ollama-model\" data-testid=\"ollama-model\" aria-label=\"Ollama model\">" + modelOptions + "</select><button data-action=\"save-ollama-model\" data-testid=\"save-ollama-model\">Save model</button></label>" : "",
-    "<div class=\"provider-row\"><span>Models</span><strong>" + escapeHtml(models) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Selected</span><strong data-testid=\"ollama-selected-model\">" + escapeHtml(state.ollama.selectedModel || "none") + "</strong></div>",
-    "<div class=\"provider-row\"><span>Scope</span><strong>" + escapeHtml((state.ollama.scopes || []).join(", ") || "active-artifact-analysis") + "</strong></div>",
-    "<div class=\"provider-send-box\" data-testid=\"ollama-send-preview\"><strong>What will be sent after Run</strong><span>" + escapeHtml(activeNote ? activeNote.title : "No active note") + " / proposal-only / no silent mutation</span></div>",
-    state.ollama.lastCheckedAt ? "<div class=\"provider-row\"><span>Checked</span><strong>" + escapeHtml(state.ollama.lastCheckedAt) + "</strong></div>" : "",
-    state.ollama.revokedAt ? "<div class=\"provider-row\"><span>Revoked</span><strong>" + escapeHtml(state.ollama.revokedAt) + "</strong></div>" : "",
+    "<div class=\"provider-actions\"><button data-action=\"probe-ollama\" data-testid=\"probe-ollama\">Проверить Ollama</button><button data-action=\"ollama-dry-run\" data-testid=\"ollama-dry-run\">Создать предложения</button><button data-action=\"revoke-provider\" data-id=\"ollama\" data-testid=\"revoke-ollama\">Отключить</button></div>",
+    state.ollama.models.length ? "<label class=\"provider-select\">Модель<select id=\"ollama-model\" data-testid=\"ollama-model\" aria-label=\"Ollama model\">" + modelOptions + "</select><button data-action=\"save-ollama-model\" data-testid=\"save-ollama-model\">Сохранить модель</button></label>" : "",
+    "<div class=\"provider-row\"><span>Модели</span><strong>" + escapeHtml(models) + "</strong></div>",
+    "<div class=\"provider-row\"><span>Выбрана</span><strong data-testid=\"ollama-selected-model\">" + escapeHtml(state.ollama.selectedModel || "none") + "</strong></div>",
+    "<div class=\"provider-row\"><span>Граница</span><strong>" + escapeHtml((state.ollama.scopes || []).join(", ") || "active-artifact-analysis") + "</strong></div>",
+    "<div class=\"provider-send-box\" data-testid=\"ollama-send-preview\"><strong>Что будет отправлено после явного запуска</strong><span>" + escapeHtml(activeNote ? activeNote.title : "Нет активной заметки") + " / только предложения / без silent mutation</span></div>",
+    state.ollama.lastCheckedAt ? "<div class=\"provider-row\"><span>Проверено</span><strong>" + escapeHtml(state.ollama.lastCheckedAt) + "</strong></div>" : "",
+    state.ollama.revokedAt ? "<div class=\"provider-row\"><span>Отключено</span><strong>" + escapeHtml(state.ollama.revokedAt) + "</strong></div>" : "",
     error,
-    runs.length ? "<div class=\"provider-run-list\" data-testid=\"provider-run-list\">" + runs.map((run) => "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(run.kind + " / " + run.status) + "</strong><span>" + escapeHtml(shorten(run.summary, 120)) + "</span></div>").join("") + "</div>" : "<div class=\"empty compact\">No Ollama provider run yet. Probe is explicit.</div>",
+    runs.length ? "<div class=\"provider-run-list\" data-testid=\"provider-run-list\">" + runs.map((run) => "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(run.kind + " / " + run.status) + "</strong><span>" + escapeHtml(shorten(run.summary, 120)) + "</span></div>").join("") + "</div>" : "<div class=\"empty compact\">Ollama run еще не запускался. Проверка всегда явная.</div>",
     "</section>"
   ].join("");
 }

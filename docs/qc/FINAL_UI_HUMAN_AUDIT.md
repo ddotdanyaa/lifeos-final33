@@ -55,4 +55,4 @@ Scores are deliberately strict. A score below 9 is a local product gate unless t
 
 ## Remaining Continuation Reason
 
-The remaining work is `P_EXTERNAL_PROVIDER_SETUP`: Ollama daemon, Gmail OAuth, external calendar OAuth, OCR/STT engines, PDF/EPUB parsers, Notifications/PWA permission and optional external evidence archive. These are not counted as local UX failures because every one has an owner-visible provider gate and local fallback.
+The remaining work is `P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`: Ollama daemon, Gmail OAuth, external calendar OAuth, OCR/STT engines, PDF/EPUB parsers, Notifications/PWA permission and optional external evidence archive. These are not counted as local UX failures because every one has an owner-visible provider passport, setup path and local fallback.

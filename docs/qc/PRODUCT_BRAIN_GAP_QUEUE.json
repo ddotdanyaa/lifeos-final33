@@ -23,8 +23,15 @@
   {
     "id": "P_EXTERNAL_PROVIDER_SETUP",
     "priority": "P1",
-    "status": "open",
-    "reason": "After P_WORKSPACE_9PLUS_VISUAL_POLISH, remaining work requires owner/provider setup or an optional separate archive for omitted large evidence.",
-    "nextCommand": "connect Ollama/Gmail/calendar/OCR/STT/PDF/EPUB/Notifications as desired, or keep honest gates visible"
+    "status": "done",
+    "reason": "Provider workspace now renders passports for Ollama, Mail, Calendar, OCR, STT, PDF, EPUB, Notifications, PWA, Flows and Player with setup, local fallback, data boundary, actions and run history.",
+    "nextCommand": "npm run e2e:ai-providers && npm run e2e:journeys"
+  },
+  {
+    "id": "P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL",
+    "priority": "EXTERNAL",
+    "status": "blocked_external_credential_only",
+    "reason": "Real connections require owner credentials, browser permissions or local engines: Ollama daemon, Gmail OAuth, external calendar OAuth, OCR/STT engines, PDF/EPUB parser packages and Notifications permission.",
+    "nextCommand": "Owner connects desired provider; then rerun npm run e2e:ai-providers && npm run audit:owner-final"
   }
 ]

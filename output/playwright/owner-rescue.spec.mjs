@@ -302,10 +302,10 @@ test("owner artifact OS capture creates proposals and applies to workspaces @vis
   await page.screenshot({ path: "output/playwright/owner-big-graph.png", fullPage: true });
 
   await page.getByTestId("surface-providers").click();
-  await expect(page.locator("main").getByTestId("provider-row-calendarSync")).toContainText("External Calendar");
-  await expect(page.locator("main").getByTestId("provider-row-calendarSync")).toContainText("not-connected");
+  await expect(page.locator("main").getByTestId("provider-row-calendarSync")).toContainText("Внешний календарь");
+  await expect(page.locator("main").getByTestId("provider-row-calendarSync")).toContainText("не подключено");
   await page.locator("main").getByTestId("prepare-provider-calendarSync").click();
-  await expect(page.locator("main").getByTestId("provider-row-calendarSync")).toContainText("needs-owner-credentials");
+  await expect(page.locator("main").getByTestId("provider-row-calendarSync")).toContainText("нужны данные владельца");
   const calendarProviderGate = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot().providers.calendarSync);
   expect(calendarProviderGate.status).toBe("needs-owner-credentials");
   expect(calendarProviderGate.requiredAction).toContain("OAuth");

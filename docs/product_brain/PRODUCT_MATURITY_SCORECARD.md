@@ -17,7 +17,7 @@ Updated: 2026-06-26 after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
 | Agents / Flows | 9 | BUILT_REVALIDATED | keep dry-run approval boundary | final-agents-flows |
 | Graph | 9 | BUILT_REVALIDATED | keep Product Brain filter and edge reasons | product-brain-graph.png |
 | Control | 9 | BUILT_REVALIDATED | keep release/evidence state honest | product-brain-control.png |
-| Providers | 9 | GATED_HONESTLY | owner credentials and local engines | final-providers |
+| Providers | 9 | PASSPORTS_BUILT_EXTERNAL_GATED | owner credentials, browser permissions and local engines | final-providers |
 | GitHub Release | 9 | LITE_SNAPSHOT_PUSHED | Remote branch verified by git ls-remote; oversized evidence omitted into manifest | docs/ops/GITHUB_RELEASE_STATE.md |
 
-Next package: `P_EXTERNAL_PROVIDER_SETUP`.
+Next package: `P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`.

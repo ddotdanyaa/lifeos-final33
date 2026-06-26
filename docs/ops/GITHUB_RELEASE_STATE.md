@@ -45,7 +45,7 @@ Evidence:
 
 Next package:
 
-`P_EXTERNAL_PROVIDER_SETUP`: keep GitHub release state current while connecting or validating honest provider gates. The local owner/product revalidation and workspace 9+ visual polish package have already passed:
+`P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`: keep GitHub release state current while the owner connects real providers. The local owner/product revalidation, workspace 9+ visual polish and provider passport package have already passed:
 
 ```powershell
 npm run verify
