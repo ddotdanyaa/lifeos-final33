@@ -162,7 +162,8 @@ for (const path of REQUIRED_SCREENSHOTS) {
 assert(remote.output.includes("https://github.com/ddotdanyaa/lifeos-final33.git"), "GitHub origin remote is configured", { remote: remote.output || "NO_REMOTE" });
 assert(ghStatus.ok && ghStatus.output.includes("ddotdanyaa"), "GitHub CLI is authenticated as owner", { ghStatus: ghStatus.output || "not authenticated" });
 assert(productBrainQueue.some((item) => item.id === "P_GITHUB_RELEASE_RETRY" && item.status === "done"), "Product Brain queue records completed GitHub release retry", { queue: productBrainQueue.map((item) => ({ id: item.id, status: item.status })) });
-assert(productBrainQueue.some((item) => item.id === "P_OWNER_FINAL_REVALIDATION" && item.status === "open"), "Product Brain queue records final revalidation as next package", { queue: productBrainQueue.map((item) => ({ id: item.id, status: item.status })) });
+assert(productBrainQueue.some((item) => item.id === "P_OWNER_FINAL_REVALIDATION" && item.status === "done"), "Product Brain queue records final revalidation as done", { queue: productBrainQueue.map((item) => ({ id: item.id, status: item.status })) });
+assert(productBrainQueue.some((item) => item.id === "P_EXTERNAL_PROVIDER_SETUP" && item.status === "open"), "Product Brain queue records external provider setup as next package", { queue: productBrainQueue.map((item) => ({ id: item.id, status: item.status })) });
 assert(releaseState.includes("LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE"), "GitHub release state records lite snapshot caveat");
 assert(remoteBranch.ok && remoteBranch.output.includes("refs/heads/owner-usable-nonstop-rescue"), "GitHub remote branch is verified by ls-remote", { remoteBranch: remoteBranch.output || remoteBranch });
 

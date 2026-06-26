@@ -46,8 +46,8 @@ const PRODUCT_BRAIN_NODE_SPECS = [
       "",
       "Связанные узлы: [[Product Vision]], [[Artifact OS Contract]], [[Current Build State]], [[Owner Complaints]], [[UX Debt]], [[Bug Ledger]], [[Journey Map]], [[Feature Completeness Map]], [[Research Map]], [[Design System Map]], [[GitHub Release Map]], [[Provider Gates Map]], [[Performance Large Vault]], [[Recovery Migration]], [[Graph Quality]], [[Chat First Home]].",
       "",
-      "Текущий package: P_GITHUB_RELEASE_RETRY.",
-      "Следующий package: P_OWNER_FINAL_REVALIDATION, потому что GitHub lite snapshot уже опубликован, но финальные owner/product audits нужно повторить на новом состоянии.",
+      "Текущий package: P_OWNER_FINAL_REVALIDATION.",
+      "Следующий package: P_EXTERNAL_PROVIDER_SETUP, потому что локальные owner/product audits прошли, а оставшиеся gates требуют внешние движки или отдельный evidence archive.",
       "Контракт: source -> Artifact -> projections -> repository -> graph/backlinks -> receipt/audit -> Data Control -> owner-visible result -> proof."
     ].join("\n")
   },
@@ -997,7 +997,7 @@ function ensureProductBrain(state) {
     version: PRODUCT_BRAIN_VERSION,
     rootNoteId: PRODUCT_BRAIN_ROOT_ID,
     currentPackage: "P_GITHUB_RELEASE_RETRY",
-    nextPackage: "P_OWNER_FINAL_REVALIDATION",
+    nextPackage: "P_EXTERNAL_PROVIDER_SETUP",
     githubReleaseStatus: "LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE",
     localStatus: "PARTIAL",
     externalStatus: "GATED",
@@ -1020,7 +1020,7 @@ function productBrainStatusSummary(state) {
     version: state.control && state.control.productBrain ? state.control.productBrain.version : "",
     rootNoteId: PRODUCT_BRAIN_ROOT_ID,
     currentPackage: state.control && state.control.productBrain ? state.control.productBrain.currentPackage : "P_PRODUCT_BRAIN_001",
-    nextPackage: state.control && state.control.productBrain ? state.control.productBrain.nextPackage : "P_OWNER_FINAL_REVALIDATION",
+    nextPackage: state.control && state.control.productBrain ? state.control.productBrain.nextPackage : "P_EXTERNAL_PROVIDER_SETUP",
     githubReleaseStatus: state.control && state.control.productBrain ? state.control.productBrain.githubReleaseStatus : "LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE",
     counts,
     noteCount: notes.length
@@ -2833,13 +2833,13 @@ function answerProductBrainQuestion(state, text) {
   if (!productIntent) return "";
   const summary = productBrainStatusSummary(state);
   if (q.includes("что осталось") || q.includes("додел") || q.includes("осталось")) {
-    return summary.nextPackage + " / GitHub lite snapshot: remote branch опубликован и подтверждается git ls-remote. Осталось повторить final owner/product-brain audits, подтвердить clean tree и решить, нужен ли отдельный архив для omitted evidence.";
+    return summary.nextPackage + " / локально закрыто: Product Brain, GitHub lite snapshot и final owner audits прошли. Остались только внешние provider gates и вопрос отдельного архива для omitted evidence.";
   }
   if (q.includes("почему") || q.includes("не готов")) {
     return "Не называю систему DONE_ALL автоматически: GitHub ветка подтверждена как lite snapshot, но 135 больших evidence файлов вынесены в remote manifest, а внешние движки Ollama/Gmail/OCR/STT/PDF/EPUB остаются gated честно, с fallback без фейкового успеха.";
   }
   if (q.includes("след") || q.includes("пакет") || q.includes("важн")) {
-    return "Следующий самый важный пакет: " + summary.nextPackage + ". Цель: повторить verify/e2e/product-brain/owner-final после GitHub lite snapshot и обновить final release report.";
+    return "Следующий самый важный пакет: " + summary.nextPackage + ". Цель: подключить или честно оставить gated Ollama/Gmail/calendar/OCR/STT/PDF/EPUB/Notifications и при необходимости вынести omitted evidence в отдельный архив.";
   }
   if (q.includes("ux")) {
     return "Главные UX-долги из Product Brain: не допустить возврата cockpit Home, сохранить distinct workspaces, держать Graph с Product Brain filter/edge reasons, сделать Chat понятным контекстным двигателем, показывать development state в Control.";

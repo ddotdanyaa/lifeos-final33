@@ -19,4 +19,4 @@ Current state:
 
 Next package:
 
-`P_OWNER_FINAL_REVALIDATION`: rerun final owner/product audits after the verified lite snapshot.
+`P_EXTERNAL_PROVIDER_SETUP`: local code/product gates pass; remaining work is owner/provider setup or optional external evidence archive.

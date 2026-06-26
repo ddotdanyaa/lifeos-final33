@@ -1,5 +1,5 @@
 id,area,bug,status,regression_proof,next_action
-BUG001,GitHub,Full-history HTTPS push ends with HTTP 408 after auth succeeds; lite snapshot is published,DONE_WITH_LITE_SNAPSHOT,git ls-remote confirms remote branch and omitted-files manifest,P_OWNER_FINAL_REVALIDATION
+BUG001,GitHub,Full-history HTTPS push ends with HTTP 408 after auth succeeds; lite snapshot is published,DONE_WITH_LITE_SNAPSHOT,git ls-remote confirms remote branch and omitted-files manifest,P_EXTERNAL_PROVIDER_SETUP
 BUG002,Graph,Product Brain previously had no dedicated filter,FIXED,audit:product-brain,Keep filter test
 BUG003,Chat,Development questions previously needed AI or generic response,FIXED,product-brain chat e2e,Keep deterministic answer test
 BUG004,Control,Development state was only docs-level,FIXED,Control Product Brain card,Keep Control screenshot

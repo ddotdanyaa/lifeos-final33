@@ -58,7 +58,8 @@ assert(app.includes("product-brain-complaint-ux-debt"), "Product Brain edge reas
 assert(Array.isArray(graph.nodes) && graph.nodes.length >= 17, "knowledge graph has required nodes", { nodes: graph.nodes.length });
 assert(Array.isArray(graph.edges) && graph.edges.length >= 15, "knowledge graph has required edges", { edges: graph.edges.length });
 assert(queue.some((item) => item.id === "P_GITHUB_RELEASE_RETRY" && item.status === "done"), "gap queue records GitHub release retry as done");
-assert(queue.some((item) => item.id === "P_OWNER_FINAL_REVALIDATION" && item.status === "open"), "gap queue keeps owner final revalidation open");
+assert(queue.some((item) => item.id === "P_OWNER_FINAL_REVALIDATION" && item.status === "done"), "gap queue records owner final revalidation as done");
+assert(queue.some((item) => item.id === "P_EXTERNAL_PROVIDER_SETUP" && item.status === "open"), "gap queue keeps external provider setup open");
 
 const failed = checks.filter((check) => !check.ok);
 const summary = {
