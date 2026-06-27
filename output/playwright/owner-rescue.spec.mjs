@@ -35,7 +35,77 @@ async function resetLifeOs(page) {
   await page.reload();
 }
 
-test("owner artifact OS capture creates proposals and applies to workspaces @visual", async ({ page }) => {
+test("owner chat-first capture creates real workspace objects @visual", async ({ page }) => {
+  await mkdir("output/playwright", { recursive: true });
+  await resetLifeOs(page);
+
+  await expect(page.getByTestId("command-center")).toBeVisible();
+  await expect(page.getByTestId("mega-dropzone")).toBeVisible();
+  await expect(page.getByTestId("mega-dropzone")).toContainText("Что добавить в LifeOS?");
+  await expect(page.getByTestId("home-workspace-rail").getByRole("button")).toHaveCount(9);
+  await expect(page.getByTestId("command-center")).not.toContainText("Product Brain");
+  await expect(page.getByTestId("command-center")).not.toContainText(/ledger|evidence|Release Map|UX Debt/i);
+  await page.screenshot({ path: "output/playwright/owner-home.png", fullPage: true });
+
+  await page.getByTestId("capture-input").fill("сегодня в 11 вечера заказать еду");
+  await page.getByTestId("capture-text").click();
+  await expect(page.getByTestId("lifeos-understanding")).toContainText("Это задача");
+  await expect(page.getByTestId("lifeos-understanding")).toContainText("сегодня, 23:00");
+  await expect(page.getByTestId("human-primary-action")).toContainText("Создать задачу сегодня в 23:00");
+  await page.screenshot({ path: "output/playwright/owner-analysis.png", fullPage: true });
+
+  const beforeApply = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+  expect(Object.values(beforeApply.tasks).some((task) => String(task.title || "").includes("заказать еду"))).toBe(false);
+  await page.getByTestId("human-primary-action").click();
+  await page.getByTestId("surface-today").click();
+  await expect(page.getByTestId("workspace-today")).toContainText("заказать еду");
+  await page.getByTestId("surface-calendar").click();
+  await expect(page.getByTestId("workspace-calendar")).toContainText("23:00");
+  await page.screenshot({ path: "output/playwright/owner-after-apply.png", fullPage: true });
+
+  const todayTaskState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+  expect(Object.values(todayTaskState.tasks).some((task) => {
+    const time = task.startTime || task.time || "";
+    return String(task.title || "").includes("заказать еду") && time === "23:00";
+  })).toBe(true);
+  expect(Object.values(todayTaskState.auditLog || {}).some((event) => /task|proposal|apply/i.test(String(event.type || event.action || "")))).toBe(true);
+
+  await page.getByTestId("surface-inbox").click();
+  await page.getByTestId("capture-input").fill("пятерочка 1240 продукты сегодня, баланс карта 15200");
+  await page.getByTestId("capture-text").click();
+  await expect(page.getByTestId("lifeos-understanding")).toContainText("Расход: Пятёрочка, 1240 ₽");
+  await expect(page.getByTestId("lifeos-understanding")).toContainText("Баланс: Карта, 15200 ₽");
+  await expect(page.getByTestId("human-primary-action")).toContainText("Добавить расход и обновить баланс");
+  await page.getByTestId("human-primary-action").click();
+  await page.getByTestId("surface-finance").click();
+  await expect(page.getByTestId("workspace-finance")).toContainText("Пятёрочка");
+  await expect(page.getByTestId("workspace-finance")).toContainText("15200");
+
+  const financeState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+  expect(Object.values(financeState.financeTransactions).some((tx) => tx.amount === 1240 && String(tx.title || "").includes("Пятёрочка"))).toBe(true);
+  expect(Object.values(financeState.financeAccounts).some((account) => account.balance === 15200)).toBe(true);
+
+  await page.getByTestId("surface-graph").click();
+  await expect(page.getByTestId("graph-workbench")).toHaveClass(/graph-canvas/);
+  await expect(page.getByTestId("graph-filter-productBrain")).not.toBeChecked();
+  await expect(page.getByTestId("graph-counts")).toContainText(/связ|edges/);
+  await page.screenshot({ path: "output/playwright/owner-graph.png", fullPage: true });
+
+  await page.getByTestId("surface-control").click();
+  await expect(page.getByTestId("data-control-panel")).toBeVisible();
+  await expect(page.getByTestId("data-control-panel")).toContainText("Контроль данных");
+  await expect(page.getByTestId("data-control-panel")).toContainText(/связ|след/);
+  await page.screenshot({ path: "output/playwright/owner-control.png", fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 980 });
+  await page.getByTestId("surface-inbox").click();
+  await expect(page.getByTestId("mega-dropzone")).toBeVisible();
+  const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
+  expect(horizontalOverflow).toBe(false);
+  await page.screenshot({ path: "output/playwright/owner-mobile.png", fullPage: true });
+});
+
+test.skip("legacy cockpit owner artifact OS capture creates proposals and applies to workspaces @visual", async ({ page }) => {
   await mkdir("output/playwright", { recursive: true });
   await resetLifeOs(page);
 

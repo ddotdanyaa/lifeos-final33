@@ -1,0 +1,55 @@
+{
+  "name": "LifeOS Artifact OS",
+  "short_name": "LifeOS",
+  "description": "Local-first daily Artifact OS for capture, planning, knowledge, finance, habits, local AI and data control.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eef2f5",
+  "theme_color": "#0f3443",
+  "orientation": "any",
+  "categories": ["productivity", "utilities", "finance", "lifestyle"],
+  "icons": [
+    {
+      "src": "/assets/lifeos-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/lifeos-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Capture",
+      "short_name": "Capture",
+      "description": "Open LifeOS capture-first workspace.",
+      "url": "/?surface=capture",
+      "icons": [
+        {
+          "src": "/assets/lifeos-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Today",
+      "short_name": "Today",
+      "description": "Open LifeOS daily planning workspace.",
+      "url": "/?surface=today",
+      "icons": [
+        {
+          "src": "/assets/lifeos-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

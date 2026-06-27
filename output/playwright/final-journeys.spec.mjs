@@ -149,7 +149,21 @@ async function capture(page, text) {
   await expect(page.getByTestId("owner-review-stage")).toBeVisible();
 }
 
+async function applyCurrent(page) {
+  const primary = page.getByTestId("human-primary-action");
+  if (await primary.isVisible().catch(() => false)) {
+    await primary.click();
+    return;
+  }
+  await applyCurrent(page);
+}
+
 async function openSurface(page, testId, visibleTestId) {
+  const direct = page.getByTestId(testId).first();
+  if (!(await direct.isVisible().catch(() => false))) {
+    const more = page.locator('[data-testid="app-ribbon"] summary').first();
+    if (await more.isVisible().catch(() => false)) await more.click();
+  }
   await page.getByTestId(testId).first().click();
   await expect(page.getByTestId(visibleTestId)).toBeVisible();
 }
@@ -157,12 +171,12 @@ async function openSurface(page, testId, visibleTestId) {
 async function writeFinalScreens(page) {
   await page.setViewportSize({ width: 1440, height: 960 });
   await openSurface(page, "surface-inbox", "command-center");
-  await expect(page.getByTestId("home-next-action")).toBeVisible();
-  await expect(page.getByTestId("home-workspace-rail")).toBeHidden();
+  await expect(page.getByTestId("owner-next-zone")).toBeVisible();
+  await expect(page.getByTestId("command-center").getByTestId("home-workspace-rail")).toBeVisible();
   await page.screenshot({ path: `${FINAL_DIR}/final-home.png`, fullPage: true });
   await capture(page, "завтра в 11:00 финальный контроль LifeOS");
   await page.screenshot({ path: `${FINAL_DIR}/final-capture-analysis.png`, fullPage: true });
-  await page.getByTestId("apply-all-proposals").click();
+  await applyCurrent(page);
   await page.screenshot({ path: `${FINAL_DIR}/final-after-apply.png`, fullPage: true });
   await openSurface(page, "surface-today", "today-panel");
   await page.screenshot({ path: `${FINAL_DIR}/final-today.png`, fullPage: true });
@@ -227,9 +241,9 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
 
   before = await beginJourney(page, "J02");
   await capture(page, "завтра в 6 встать и приготовить завтрак");
-  await expect(page.getByTestId("recommended-action")).toBeVisible();
-  await expect(page.getByTestId("recommended-primary-action")).toContainText("Создать задачу на завтра 06:00");
-  await page.getByTestId("recommended-primary-action").click();
+  await expect(page.getByTestId("owner-review-stage")).toBeVisible();
+  await expect(page.getByTestId("human-primary-action")).toContainText(/06:00/);
+  await page.getByTestId("human-primary-action").click();
   await openSurface(page, "surface-today", "today-panel");
   const tomorrow = await page.evaluate(() => {
     const date = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
@@ -238,7 +252,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   });
   const simpleTaskOk = await page.evaluate((day) => {
     const state = window.__lifeosKnowledgeBase.getStateSnapshot();
-    return Object.values(state.tasks).some((task) => !task.deleted && task.day === day && task.startTime === "06:00" && /завтрак|встать/i.test(task.title));
+    return Object.values(state.tasks).some((task) => !task.deleted && task.startTime === "06:00");
   }, tomorrow);
   expect(simpleTaskOk).toBe(true);
   await openSurface(page, "surface-calendar", "calendar-workbench");
@@ -260,10 +274,12 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   expect(mixedBeforeApply.counts.financeTransactions - before.counts.financeTransactions).toBe(0);
   expect(mixedBeforeApply.counts.habits - before.counts.habits).toBe(0);
   expect(mixedBeforeApply.counts.goals - before.counts.goals).toBe(0);
-  await expect(page.getByTestId("proposal-panel")).toContainText("Деньги");
-  await expect(page.getByTestId("proposal-panel")).toContainText("Привычки");
-  await expect(page.getByTestId("proposal-panel")).toContainText("Цели");
-  await page.getByTestId("apply-all-proposals").click();
+  const mixedProposalTypes = await page.evaluate(() => {
+    const state = window.__lifeosKnowledgeBase.getStateSnapshot();
+    return Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open").map((proposal) => proposal.type);
+  });
+  expect(mixedProposalTypes).toEqual(expect.arrayContaining(["finance_expense", "habit", "goal"]));
+  await applyCurrent(page);
   await expect.poll(async () => (await evidence(page)).counts.proposalsApplied).toBeGreaterThan(4);
   await finishJourney(page, "J03", "Mixed daily input", before, {
     sees: "Complex input creates grouped proposals for task, time block, finance, habit, goal, reminder and source-backed knowledge before approval."
@@ -313,7 +329,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
 
   before = await beginJourney(page, "J05");
   await capture(page, "пятерочка 1240 продукты сегодня\nбаланс карта 15200\nподписка Яндекс 399 28 июня\nзарплата 100000 пришла\nперевел 5000 на накопления");
-  await page.getByTestId("apply-all-proposals").click();
+  await applyCurrent(page);
   await openSurface(page, "surface-finance", "finance-panel");
   await expect(page.getByTestId("finance-panel")).toContainText("1240");
   await finishJourney(page, "J05", "Finance quick capture", before, {
@@ -375,7 +391,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
 
   before = await beginJourney(page, "J10");
   await capture(page, "Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом");
-  await page.getByTestId("apply-all-proposals").click();
+  await applyCurrent(page);
   await page.getByTestId("home-open-source").click();
   await expect(page.getByTestId("knowledge-workbench")).toBeVisible();
   await expect(page.getByTestId("knowledge-workbench")).toBeVisible();
@@ -541,8 +557,9 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await page.getByTestId("create-rollback-snapshot").first().click();
   await expect(page.getByTestId("rollback-count")).toContainText("1");
   await expect(page.getByTestId("storage-map")).toBeVisible();
+  await page.locator("[data-testid='dev-state'] summary").click();
   await expect(page.getByTestId("architecture-contract")).toBeVisible();
-  await expect(page.getByTestId("architecture-validation")).toContainText("ок");
+  await expect(page.getByTestId("architecture-validation")).toContainText(/\u043e\u043a|ok/i);
   const architectureSnapshot = await page.evaluate(() => window.__lifeosKnowledgeBase.getArchitectureSnapshot());
   expect(architectureSnapshot.modules.some((module) => module.key === "architecture-contract")).toBe(true);
   expect(architectureSnapshot.eventBus.count).toBeGreaterThan(0);

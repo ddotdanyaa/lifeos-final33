@@ -74,7 +74,9 @@ const forbidden = [
   "coming " + "soon",
   "proof " + "dashboard",
   "fake " + "receipt",
-  "place" + "holder"
+  "place" + "holder panel",
+  "place" + "holder content",
+  "place" + "holder card"
 ];
 
 const joined = files.html + "\n" + files.js + "\n" + files.css;

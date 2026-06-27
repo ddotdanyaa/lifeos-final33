@@ -10,7 +10,7 @@ Idea capture becomes a source-backed knowledge artifact with project/next-action
 {
   "sources": 1,
   "notes": 1,
-  "tasks": 1,
+  "tasks": 0,
   "calendarBlocks": 0,
   "reminders": 0,
   "financeTransactions": 0,
@@ -32,20 +32,20 @@ Idea capture becomes a source-backed knowledge artifact with project/next-action
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 0,
-  "proposalsOpen": 3,
-  "proposalsApplied": 2,
-  "auditEvents": 12,
+  "proposalsOpen": 4,
+  "proposalsApplied": 1,
+  "auditEvents": 10,
   "graphNodes": 10,
-  "graphEdges": 19,
-  "graphEdgeReasons": 19
+  "graphEdges": 18,
+  "graphEdgeReasons": 18
 }
 ```
 
 ## Graph Edges
-After: 528 edges, 528 with visible reasons.
+After: 466 edges, 466 with visible reasons.
 
 ## Data Control Events
-After: 238 audit events. Tail: highlight.create: Highlight created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку | task.create: Task created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | proposal.apply: Applied proposal: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом
+After: 241 audit events. Tail: reading.create: Reading item created: Идея: сделать систему второго мозга для книг,... | review.create: Review item created: Повторить highlight: Идея: сделать систему второго мозга для книг, аудио... | highlight.create: Highlight created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку
 
 ## Remaining Gated
 None for this local journey.

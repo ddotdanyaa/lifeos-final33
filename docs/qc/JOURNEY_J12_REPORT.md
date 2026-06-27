@@ -42,10 +42,10 @@ Reader parses TXT/MD, tracks progress and highlights, and shows honest PDF/EPUB 
 ```
 
 ## Graph Edges
-After: 591 edges, 591 with visible reasons.
+After: 529 edges, 529 with visible reasons.
 
 ## Data Control Events
-After: 261 audit events. Tail: highlight.extract: Highlights extracted from book-sample.md: 4 | review.create: Review item created: Повторить highlight: Highlight becomes knowledge | highlight.create: Highlight created: Highlight becomes knowledge | reading.progress: Reading progress 45%: book-sample | note.create: Note created: journey-parser-gate | source.project.gated: Book source projected with parser gate: journey-parser-gate.pdf | reading.create: Reading item created: journey-parser-gate | source.import: Source imported: journey-parser-gate.pdf (book)
+After: 264 audit events. Tail: highlight.extract: Highlights extracted from book-sample.md: 4 | review.create: Review item created: Повторить highlight: Highlight becomes knowledge | highlight.create: Highlight created: Highlight becomes knowledge | reading.progress: Reading progress 45%: book-sample | note.create: Note created: journey-parser-gate | source.project.gated: Book source projected with parser gate: journey-parser-gate.pdf | reading.create: Reading item created: journey-parser-gate | source.import: Source imported: journey-parser-gate.pdf (book)
 
 ## Remaining Gated
 PDF/EPUB automatic parsing remains parser-gated until local parser packages are installed.

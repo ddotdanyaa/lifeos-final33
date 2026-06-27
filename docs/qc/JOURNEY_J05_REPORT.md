@@ -42,10 +42,10 @@ Finance text capture creates expense, account/balance, subscription/bill, income
 ```
 
 ## Graph Edges
-After: 484 edges, 484 with visible reasons.
+After: 423 edges, 423 with visible reasons.
 
 ## Data Control Events
-After: 215 audit events. Tail: finance.transaction: Finance expense: пятерочка продукты сегодня баланс карта подпи... 1240 RUB | proposal.apply: Applied proposal: пятерочка продукты сегодня баланс карта подпи... | finance.transaction: Finance income: Доход 1240 RUB | proposal.apply: Applied proposal: Доход | finance.account: Finance account set: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: пятерочка продукты сегодня баланс карта подпи... 1240 | proposal.apply: Applied proposal: пятерочка продукты сегодня баланс карта подпи...
+After: 220 audit events. Tail: finance.transaction: Finance expense: Пятёрочка 1240 RUB | proposal.apply: Applied proposal: Пятёрочка | finance.transaction: Finance income: Доход 1240 RUB | proposal.apply: Applied proposal: Доход | finance.account: Finance account set: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка
 
 ## Remaining Gated
 None for this local journey.

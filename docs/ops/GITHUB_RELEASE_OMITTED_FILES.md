@@ -8,77 +8,89 @@ They are excluded here so GitHub can receive the branch without the historical 1
 | `docs/qc/LIFEOS_MARKET_RESEARCH_8000_UX_FUNCTION_LEDGER.csv` | 10540154 | larger than lite Git snapshot threshold |
 | `docs/qc/MARKET_RESEARCH_LEDGER_STATUS.csv` | 6690005 | larger than lite Git snapshot threshold |
 | `docs/source_of_truth/V33_CANON_ITEM_IMPLEMENTATION_CLASSES.csv` | 1210070 | larger than lite Git snapshot threshold |
-| `output/playwright/final/final-after-apply.png` | 254737 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-agents-flows.png` | 568490 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-big-graph.png` | 363954 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-calendar-day.png` | 112219 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-calendar-week.png` | 112354 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-capture-analysis.png` | 253421 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-chat-local-ai.png` | 754908 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-control.png` | 603344 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-finance.png` | 130721 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-habits-goals-wheel.png` | 193836 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-home.png` | 150285 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-library.png` | 547806 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-mobile-capture.png` | 226115 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-mobile-home.png` | 196650 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/after-simple-task.png` | 322581 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/agents-flow-canvas.png` | 910619 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/big-graph.png` | 455430 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/calendar-clean.png` | 131372 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/chat-local-ai.png` | 767458 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/control-human.png` | 325653 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/finance-dashboard.png` | 125005 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/home-chat-first.png` | 73338 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/mobile-home.png` | 62720 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/player-transcript.png` | 501528 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/public-demo.png` | 75364 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final-human/reader-real.png` | 541215 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-after-apply.png` | 84895 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-agents-flows.png` | 461210 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-big-graph.png` | 296503 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-calendar-day.png` | 147051 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-calendar-week.png` | 147196 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-capture-analysis.png` | 82812 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-chat-local-ai.png` | 424722 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-control.png` | 330355 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-finance.png` | 129410 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-habits-goals-wheel.png` | 192612 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-home.png` | 79503 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-library.png` | 479107 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-mobile-capture.png` | 210158 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-mobile-home.png` | 62393 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/final/final-parser-proposals.png` | 237139 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-performance-large-vault.png` | 189479 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-player-transcript.png` | 433689 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-providers.png` | 690023 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-reader.png` | 430205 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-recovery-flow.png` | 568726 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-screenshot-expense.png` | 130721 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/final/final-today.png` | 467152 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j01-after.png` | 144992 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j01-before.png` | 144992 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j02-after.png` | 547265 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j02-before.png` | 144992 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j03-after.png` | 157686 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j03-before.png` | 547265 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j04-after.png` | 259713 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j04-before.png` | 157686 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j05-after.png` | 135851 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j05-before.png` | 259713 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j06-after.png` | 167838 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j06-before.png` | 135959 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j07-after.png` | 167950 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j07-before.png` | 167838 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j08-after.png` | 193449 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j08-before.png` | 168040 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j09-after.png` | 199607 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j09-before.png` | 193449 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j10-after.png` | 789356 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j10-before.png` | 199607 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j11-after.png` | 597331 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j11-before.png` | 777667 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j12-after.png` | 662533 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j12-before.png` | 587770 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j13-after.png` | 522289 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j13-before.png` | 672479 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j14-after.png` | 4374965 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j14-before.png` | 517291 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j15-after.png` | 2895620 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j15-before.png` | 4374965 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j16-after.png` | 2914605 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j16-before.png` | 2901775 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j17-after.png` | 3368108 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j17-before.png` | 2912745 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j18-after.png` | 3496169 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j18-before.png` | 3373214 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j19-after.png` | 351370 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j19-before.png` | 3493966 | larger than lite Git snapshot threshold |
-| `output/playwright/journeys/j20-after.png` | 503476 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j20-before.png` | 350654 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j21-after.png` | 688383 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j21-before.png` | 503476 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j22-after.png` | 690823 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j22-before.png` | 685539 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j23-after.png` | 190271 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j23-before.png` | 690887 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j24-after.png` | 568726 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/journeys/j24-before.png` | 190473 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/kb-graph-canvas.png` | 136884 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-performance-large-vault.png` | 190094 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-player-transcript.png` | 355042 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-providers.png` | 689951 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-reader.png` | 357062 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-recovery-flow.png` | 306627 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-screenshot-expense.png` | 129553 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/final/final-today.png` | 348559 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j01-after.png` | 73338 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j01-before.png` | 73338 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j02-after.png` | 313775 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j02-before.png` | 73338 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j03-after.png` | 79712 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j03-before.png` | 313775 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j04-after.png` | 79318 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j04-before.png` | 79712 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j05-after.png` | 130329 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j05-before.png` | 79318 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j06-after.png` | 161933 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j06-before.png` | 130466 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j07-after.png` | 162055 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j07-before.png` | 161933 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j08-after.png` | 193049 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j08-before.png` | 162148 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j09-after.png` | 199337 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j09-before.png` | 193049 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j10-after.png` | 794023 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j10-before.png` | 199337 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j11-after.png` | 592738 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j11-before.png` | 775674 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j12-after.png` | 667485 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j12-before.png` | 593590 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j13-after.png` | 532860 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j13-before.png` | 672186 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j14-after.png` | 4416536 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j14-before.png` | 526174 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j15-after.png` | 2726554 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j15-before.png` | 4416536 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j16-after.png` | 2754754 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j16-before.png` | 2724586 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j17-after.png` | 3382896 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j17-before.png` | 2754754 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j18-after.png` | 3479031 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j18-before.png` | 3392178 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j19-after.png` | 352857 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j19-before.png` | 3471546 | larger than lite Git snapshot threshold |
+| `output/playwright/journeys/j20-after.png` | 474414 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j20-before.png` | 353019 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j21-after.png` | 673358 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j21-before.png` | 474414 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j22-after.png` | 689250 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j22-before.png` | 667300 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j23-after.png` | 189564 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j23-before.png` | 689272 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j24-after.png` | 306627 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/journeys/j24-before.png` | 189736 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/kb-graph-canvas.png` | 117216 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/lifeos-artifact-mvp-mobile.png` | 152396 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/lifeos-artifact-mvp.png` | 168877 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/lifeos-command-center-checked.png` | 283197 | screenshot evidence kept locally to keep GitHub snapshot small |
@@ -91,7 +103,7 @@ They are excluded here so GitHub can receive the branch without the historical 1
 | `output/playwright/lifeos-connected-cockpit-mobile.png` | 224305 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/lifeos-connected-cockpit.png` | 261017 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/lifeos-graph-workbench.png` | 227153 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/lifeos-mobile-cockpit.png` | 371791 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/lifeos-mobile-cockpit.png` | 232043 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/lifeos-v5-inbox-clean.png` | 180132 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/lifeos-v5-inbox.png` | 249288 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/lifeos-v5-today-calendar.png` | 159881 | screenshot evidence kept locally to keep GitHub snapshot small |
@@ -112,19 +124,20 @@ They are excluded here so GitHub can receive the branch without the historical 1
 | `output/playwright/market-providers.png` | 654693 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/market-reader.png` | 391204 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/market-today.png` | 369407 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/owner-after-apply.png` | 170436 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/owner-analysis.png` | 418762 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/owner-after-apply.png` | 131372 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/owner-analysis.png` | 77127 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-big-graph.png` | 470685 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-books.png` | 682937 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-calendar.png` | 185393 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-chat-agents-flow.png` | 1472683 | larger than lite Git snapshot threshold |
-| `output/playwright/owner-control.png` | 572949 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/owner-control.png` | 317623 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-finance.png` | 161978 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/owner-graph.png` | 365084 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-habits-goals.png` | 196796 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/owner-home.png` | 144992 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/owner-home.png` | 73338 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-knowledge-insights.png` | 692379 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/owner-large-vault.png` | 802209 | screenshot evidence kept locally to keep GitHub snapshot small |
-| `output/playwright/owner-mobile.png` | 417469 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/owner-large-vault.png` | 801817 | screenshot evidence kept locally to keep GitHub snapshot small |
+| `output/playwright/owner-mobile.png` | 62534 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-ollama.png` | 721961 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/owner-player-transcript.png` | 607453 | screenshot evidence kept locally to keep GitHub snapshot small |
 | `output/playwright/quality-calendar-audit.png` | 238846 | screenshot evidence kept locally to keep GitHub snapshot small |

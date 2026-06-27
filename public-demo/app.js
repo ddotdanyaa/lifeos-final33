@@ -73,7 +73,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Current Build State",
     status: "DONE",
     kind: "state",
-    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nПосле Product Brain self-check повторно прошли J01-J24, no-cockpit, visual hierarchy, workspace distinctness, semantic colors, human UX, performance и recovery audits.\n\nПаспорта провайдеров теперь покрывают Ollama, почту, локальный/внешний календарь, OCR, STT, PDF, EPUB, уведомления, PWA, потоки и плеер: статус, настройка, локальная замена, граница данных и история запусков видны владельцу.\n\nGitHub release: опубликован lite snapshot на owner-usable-nonstop-rescue; git ls-remote подтверждает remote branch. Большие ledgers и screenshot wall сохранены локально и перечислены в remote manifest docs/ops/GITHUB_RELEASE_OMITTED_FILES.md.\n\nGated честно: реальные подключения Ollama/Gmail/внешнего календаря/OCR/STT/PDF/EPUB/уведомлений требуют данных владельца, разрешений или локальных движков.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
+    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nПосле Product Brain self-check повторно прошли J01-J24, no-cockpit, visual hierarchy, workspace distinctness, semantic colors, human UX, performance и recovery audits.\n\nПаспорта провайдеров теперь покрывают Ollama, почту, локальный/внешний календарь, OCR, STT, PDF, EPUB, уведомления, PWA, потоки и плеер: статус, настройка, локальная замена, граница данных и история запусков видны владельцу.\n\nGitHub release: опубликован lite snapshot на owner-usable-nonstop-rescue; git ls-remote подтверждает remote branch. Большие ledgers и screenshot wall сохранены локально и перечислены в remote manifest release manifest.\n\nGated честно: реальные подключения Ollama/Gmail/внешнего календаря/OCR/STT/PDF/EPUB/уведомлений требуют данных владельца, разрешений или локальных движков.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
   },
   {
     id: "note-product-brain-owner-complaints",
@@ -105,7 +105,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Journey Map",
     status: "DONE",
     kind: "journeys",
-    body: "# Journey Map\n\nJ01-J24 повторно пройдены после Product Brain self-check: clean first open, fast task, mixed capture, messy capture, finance, receipt, dashboard, habits, goals/wheel, knowledge, library, reader, player, voice review, Ollama gate, chat offline, agents, flows, graph, control, providers, mobile, large vault, recovery.\n\nEvidence: output/playwright/final, output/playwright/journeys, docs/qc/JOURNEY_J01_REPORT.md..J24, output/playwright/product-brain-graph.png, product-brain-control.png, product-brain-chat.png, product-brain-library.png.\n\nСвязано с [[Feature Completeness Map]], [[Graph Quality]], [[Recovery Migration]]."
+    body: "# Journey Map\n\nJ01-J24 повторно пройдены после Product Brain self-check: clean first open, fast task, mixed capture, messy capture, finance, receipt, dashboard, habits, goals/wheel, knowledge, library, reader, player, voice review, Ollama gate, chat offline, agents, flows, graph, control, providers, mobile, large vault, recovery.\n\nEvidence: public-demo-evidence/final, public-demo-evidence/journeys, journey reports, public-demo-evidence/product-brain-graph.png, product-brain-control.png, product-brain-chat.png, product-brain-library.png.\n\nСвязано с [[Feature Completeness Map]], [[Graph Quality]], [[Recovery Migration]]."
   },
   {
     id: "note-product-brain-features",
@@ -137,7 +137,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "GitHub Release Map",
     status: "DONE",
     kind: "release",
-    body: "# GitHub Release Map\n\nAccount: ddotdanyaa.\nRepo: https://github.com/ddotdanyaa/lifeos-final33.\nBranch: owner-usable-nonstop-rescue.\nAuth: logged in through GitHub CLI.\nRemote: origin configured.\nPush: lite Git snapshot published and verified by git ls-remote. Full-history push stayed impractical because local pack history is 1.51 GiB; oversized evidence files are listed in docs/ops/GITHUB_RELEASE_OMITTED_FILES.md on the remote branch.\n\nNext exact action: keep provider setup honest and optionally publish a separate evidence archive if the owner wants the full screenshot wall outside Git.\n\nСвязано с [[Bug Ledger]]."
+    body: "# GitHub Release Map\n\nAccount: ddotdanyaa.\nRepo: https://github.com/ddotdanyaa/lifeos-final33.\nBranch: owner-usable-nonstop-rescue.\nAuth: logged in through GitHub CLI.\nRemote: origin configured.\nPush: lite Git snapshot published and verified by git ls-remote. Full-history push stayed impractical because local pack history is 1.51 GiB; oversized evidence files are listed in release manifest on the remote branch.\n\nNext exact action: keep provider setup honest and optionally publish a separate evidence archive if the owner wants the full screenshot wall outside Git.\n\nСвязано с [[Bug Ledger]]."
   },
   {
     id: "note-product-brain-providers",
@@ -169,7 +169,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Graph Quality",
     status: "DONE",
     kind: "graph",
-    body: "# Graph Quality\n\nGraph must be Obsidian-like enough: global/local, zoom/pan, filters, clickable nodes, inspector, edge reasons, search, open linked workspace.\n\nProduct Brain adds a dedicated graph filter and edge reasons.\n\nEvidence: [[Journey Map]] J19 and output/playwright/product-brain-graph.png."
+    body: "# Graph Quality\n\nGraph must be Obsidian-like enough: global/local, zoom/pan, filters, clickable nodes, inspector, edge reasons, search, open linked workspace.\n\nProduct Brain adds a dedicated graph filter and edge reasons.\n\nEvidence: [[Journey Map]] J19 and public-demo-evidence/product-brain-graph.png."
   },
   {
     id: "note-product-brain-chat-home",
@@ -3130,7 +3130,7 @@ function answerProductBrainQuestion(state, text) {
     return "Главные UX-долги из Product Brain: не допустить возврата cockpit Home, сохранить distinct workspaces, держать Graph с Product Brain filter/edge reasons, сделать Chat понятным контекстным двигателем, показывать development state в Control.";
   }
   if (q.includes("календар") || q.includes("доказател")) {
-    return "Доказательства календаря: e2e:calendar использует market-owner spec; screenshots: output/playwright/market-calendar-week.png и output/playwright/final/final-calendar-week.png; graph/control evidence создается через task/plan/reminder edges и audit events.";
+    return "Доказательства календаря: e2e:calendar использует market-owner spec; screenshots: public-demo-evidence/market-calendar-week.png и public-demo-evidence/final/final-calendar-week.png; graph/control evidence создается через task/plan/reminder edges и audit events.";
   }
   return "Product Brain: " + summary.noteCount + " узлов, DONE " + (summary.counts.DONE || 0) + ", PARTIAL " + (summary.counts.PARTIAL || 0) + ", GATED " + (summary.counts.GATED || 0) + ". Текущий пакет: " + summary.currentPackage + ". Следующий: " + summary.nextPackage + ".";
 }

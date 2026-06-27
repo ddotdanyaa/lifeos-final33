@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -25,26 +25,30 @@ if (localChromium) {
 
 test.setTimeout(90000);
 
+async function openSurface(page, id) {
+  const direct = page.getByTestId(`surface-${id}`).first();
+  if (!(await direct.isVisible().catch(() => false))) {
+    await page.locator('[data-testid="app-ribbon"] summary').first().click();
+  }
+  await page.getByTestId(`surface-${id}`).first().click();
+}
+
 test("local-first knowledge base supports wikilinks, ghosts, rename cascade, search and graph", async ({ page }) => {
   await mkdir("output/playwright/fixtures", { recursive: true });
   const token = String(Date.now());
   await page.goto("http://127.0.0.1:4173");
-  await expect(page.getByTestId("home-workspace-rail")).toBeHidden();
+  await expect(page.getByTestId("home-workspace-rail").getByRole("button")).toHaveCount(9);
   await expect(page.getByTestId("command-center")).toBeVisible();
   await expect(page.getByTestId("mega-dropzone")).toBeVisible();
-  await expect(page.getByTestId("owner-next-zone")).toBeVisible();
-  await expect(page.getByTestId("owner-money-zone")).toBeVisible();
+  await expect(page.getByTestId("lifeos-understanding")).toContainText("LifeOS");
+  await expect(page.getByTestId("human-primary-action")).toContainText(/Разобрать|Р Р°Р·РѕР±СЂР°С‚СЊ/);
   await expect(page.getByTestId("proposal-panel")).toHaveCount(0);
 
   const captureNeedle = "Universal inbox capture " + token;
-  await page.getByTestId("capture-input").fill(captureNeedle + "\n\nНужно подготовить план проверки " + token + ".\nЗавтра проверить календарь.\nLinks to [[Inbox Concept " + token + "]].");
+  await page.getByTestId("capture-input").fill(captureNeedle + "\n\nРќСѓР¶РЅРѕ РїРѕРґРіРѕС‚РѕРІРёС‚СЊ РїР»Р°РЅ РїСЂРѕРІРµСЂРєРё " + token + ".\nР—Р°РІС‚СЂР° РїСЂРѕРІРµСЂРёС‚СЊ РєР°Р»РµРЅРґР°СЂСЊ.\nLinks to [[Inbox Concept " + token + "]].");
   await page.getByTestId("capture-text").click();
-  await expect(page.getByTestId("active-artifact-card")).toContainText("Universal inbox capture");
-  await expect(page.getByTestId("owner-review-stage")).toBeVisible();
-  await expect(page.getByTestId("analysis-panel")).toContainText("Задач");
-  await expect(page.getByTestId("proposal-panel")).toBeVisible();
-  await expect(page.getByTestId("proposal-row").first()).toBeVisible();
-  await expect(page.getByTestId("proposal-panel")).toContainText("Принять");
+  await expect(page.getByTestId("lifeos-understanding")).toContainText("LifeOS понял");
+  await expect(page.getByTestId("human-primary-action")).toBeVisible();
   await page.getByTestId("home-open-source").click();
   await expect(page.getByTestId("note-body")).toContainText(captureNeedle);
   await expect(page.getByTestId("knowledge-workbench")).toBeVisible();
@@ -54,7 +58,7 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   await page.getByTestId("chat-panel").getByTestId("chat-input").fill("Turn this into a connected workspace " + token);
   await page.getByTestId("send-chat").click();
   await expect(page.getByTestId("chat-panel")).toContainText("connected workspace " + token);
-  await page.getByTestId("surface-agents").click();
+  await openSurface(page, "agents");
   await page.getByTestId("agent-panel-run").click();
   await expect(page.getByTestId("agent-panel")).toContainText("Local organizer");
 
@@ -109,19 +113,19 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   const pdfPath = join("output", "playwright", "fixtures", "parser-boundary-" + token + ".pdf");
   await writeFile(pdfPath, Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF"));
   await page.getByTestId("file-import").setInputFiles(pdfPath);
-  await expect(page.getByText("PDF ждёт парсер").first()).toBeVisible();
+  await expect(page.getByText(/PDF.*(парсер|parser)/i).first()).toBeVisible();
 
   const audioPath = join("output", "playwright", "fixtures", "meeting-" + token + ".wav");
   await writeFile(audioPath, Buffer.from("RIFF0000WAVEfmt "));
   await page.getByTestId("audio-import").setInputFiles(audioPath);
   await expect(page.getByText("meeting-" + token + ".wav").first()).toBeVisible();
-  await page.getByTestId("surface-player").click();
+  await openSurface(page, "player");
   await expect(page.getByTestId("player-panel").locator("audio").first()).toBeVisible();
   const transcriptNeedle = "Manual transcript " + token + " links to [[Renamed Target]].";
   await page.locator("[data-testid^='transcript-input-']").first().fill(transcriptNeedle);
-  await page.getByRole("button", { name: "Сохранить расшифровку" }).first().click();
+  await page.locator("[data-testid^='save-transcript-']").first().click();
   await expect(page.getByTestId("transcript-segment-row").first()).toBeVisible();
-  await page.getByRole("button", { name: "Открыть заметку" }).first().click();
+  await page.getByTestId("audio-card").first().locator("[data-action='open-source-note']").click();
   await expect(page.getByTestId("note-title")).toHaveValue("meeting-" + token + " Расшифровка");
   await expect(page.getByTestId("note-body")).toContainText(transcriptNeedle);
 
@@ -157,9 +161,9 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   await page.getByTestId("surface-chat").click();
   await expect(page.getByTestId("ollama-status")).toBeVisible();
   await expect(page.getByTestId("ollama-endpoint")).toHaveValue(/localhost:11434/);
-  await page.getByTestId("surface-providers").click();
+  await openSurface(page, "providers");
   await page.getByTestId("prepare-provider-mail").click();
-  await expect(page.getByTestId("provider-panel")).toContainText("нужны данные владельца");
+  await expect(page.getByTestId("provider-panel")).toContainText(/нужны данные владельца|нужна настройка|не подключено/i);
   await page.getByTestId("surface-graph").click();
   const sourceFilter = page.getByTestId("graph-filter-sources");
   await expect(sourceFilter).toBeChecked();

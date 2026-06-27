@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LifeOS">
+  <rect width="512" height="512" rx="96" fill="#0f3443"/>
+  <path d="M112 128h288v70H112z" fill="#2dd4bf"/>
+  <path d="M112 226h132v158H112z" fill="#f59e0b"/>
+  <path d="M274 226h126v70H274z" fill="#16a34a"/>
+  <path d="M274 314h126v70H274z" fill="#7c3aed"/>
+  <circle cx="168" cy="305" r="31" fill="#fff7ed"/>
+  <path d="M294 143h74v40h-74z" fill="#eff6ff"/>
+</svg>

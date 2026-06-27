@@ -45,7 +45,7 @@ status: PASS
 After: 11 edges, 11 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials | architecture.validation.failed: Architecture contract failed: activeSurface not declared in workspace contracts | test.seed.exact-large-vault: Exact large vault seeded: 6501 graph nodes / 12750 graph edges | control.rollback.restore: Rollback restored: Snapshot before Data Control change | control.corrupt.isolate: Fixture corrupt record failed JSON validation and was isolated. | note.create: Note created: Recovered corrupt fixture-json | control.corrupt.recover: Corrupt record recovered as safe note: fixture-json
+After: 300 audit events. Tail: provider.prepare: mail provider waiting for owner-approved credentials | architecture.validation.failed: Architecture contract failed: activeSurface not declared in workspace contracts | test.seed.exact-large-vault: Exact large vault seeded: 6501 graph nodes / 12750 graph edges | note.autosave: Graph search saved | control.rollback.restore: Rollback restored: Snapshot before Data Control change | control.corrupt.isolate: Fixture corrupt record failed JSON validation and was isolated. | note.create: Note created: Recovered corrupt fixture-json | control.corrupt.recover: Corrupt record recovered as safe note: fixture-json
 
 ## Remaining Gated
 Нет локального gate для этого journey.
