@@ -1,10 +1,13 @@
 import { execFileSync } from "node:child_process";
 
 function run(command, args, options = {}) {
-  return execFileSync(command, args, { stdio: options.stdio || "pipe", encoding: "utf8" }).trim();
+  const output = execFileSync(command, args, { stdio: options.stdio || "pipe", encoding: "utf8", shell: process.platform === "win32" });
+  return String(output || "").trim();
 }
 
-run("npm", ["run", "build:public"], { stdio: "inherit" });
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+
+run(npmCommand, ["run", "build:public"], { stdio: "inherit" });
 
 try {
   run("gh", ["auth", "status"], { stdio: "inherit" });
