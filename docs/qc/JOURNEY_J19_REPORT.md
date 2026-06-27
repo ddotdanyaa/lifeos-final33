@@ -42,10 +42,10 @@ Graph has a dedicated large canvas, local/global mode, search with match reasons
 ```
 
 ## Graph Edges
-After: 63 edges, 63 with visible reasons.
+After: 17 edges, 17 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: ollama.probe: Ollama models_found at http://localhost:11434 | chat.local: Local chat message linked to artifact | chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Flow dry-run created proposal: plan | flow.dry-run: Flow dry-run created proposal: task | graph.focus: Focused graph node note_cc0b7fb00ee6
+After: 300 audit events. Tail: ollama.probe: Ollama models_found at http://localhost:11434 | chat.local: Local chat message linked to artifact | chat.proposal: Chat message became proposal: пятерочка 1240 продукты сегодня баланс карта 15200 подписка Яндекс 399 28 июня зарплата... | provider.run: pwa boot: PWA shell checked: service-worker-ready | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Проверка сценария создала предложение: plan | flow.dry-run: Проверка сценария создала предложение: задача | graph.focus: Focused graph node note_d7892996f5ba
 
 ## Remaining Gated
 None for this local journey.

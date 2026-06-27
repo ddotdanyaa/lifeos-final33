@@ -1,27 +1,33 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, normalize } from "node:path";
 
-const app = readFileSync("app.js", "utf8");
-
-function functionBody(name) {
-  const start = app.indexOf(`function ${name}`);
-  if (start === -1) throw new Error(`Missing ${name}`);
-  const brace = app.indexOf("{", start);
-  let depth = 0;
-  for (let index = brace; index < app.length; index += 1) {
-    const char = app[index];
-    if (char === "{") depth += 1;
-    if (char === "}") depth -= 1;
-    if (depth === 0) return app.slice(brace + 1, index);
+function walk(dir) {
+  const files = [];
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    const stat = statSync(full);
+    if (stat.isDirectory()) files.push(...walk(full));
+    if (stat.isFile() && full.endsWith(".js")) files.push(full);
   }
-  throw new Error(`Could not parse ${name}`);
+  return files;
 }
 
-const primaryUi = [
-  functionBody("renderHumanChatHome"),
-  functionBody("renderHumanUnderstanding"),
-  functionBody("renderHumanNavRail"),
-  functionBody("renderChatWorkspace")
-].join("\n");
+const app = readFileSync("app.js", "utf8");
+if (!app.includes("renderNewShell(buildNewShellContext")) {
+  console.error("Primary UI is not rendered by the new public shell.");
+  process.exit(1);
+}
+
+const allowedDevFiles = new Set([
+  normalize("ui/control.js")
+]);
+
+const primaryFiles = walk("ui").filter((file) => {
+  const normalized = normalize(file);
+  if (allowedDevFiles.has(normalized)) return false;
+  if (normalized.endsWith(normalize("ui/components/shared.js"))) return false;
+  return true;
+});
 
 const banned = [
   "Product Brain",
@@ -34,25 +40,25 @@ const banned = [
   "needs-owner-credentials",
   "blocked_external",
   "blocked_external_credential",
+  "provider gate",
   "audit passed",
   "schema version",
   "architecture event bus",
-  "control architecture contract"
+  "control architecture contract",
+  "raw status"
 ];
 
-const found = banned.filter((term) => primaryUi.includes(term));
-if (found.length) {
-  console.error("Primary UI still contains label-theater terms:", found.join(", "));
-  process.exit(1);
+const hits = [];
+for (const file of primaryFiles) {
+  const text = readFileSync(file, "utf8");
+  for (const term of banned) {
+    if (text.includes(term)) hits.push(`${file}: ${term}`);
+  }
 }
 
-if (!/return renderHumanChatHome\(state\);/.test(functionBody("renderOwnerHome"))) {
-  console.error("Home does not route through renderHumanChatHome.");
-  process.exit(1);
-}
-
-if (/renderProductBrainChatContext\(state\)/.test(functionBody("renderChatWorkspace"))) {
-  console.error("Chat still renders Product Brain context in primary UI.");
+if (hits.length) {
+  console.error("Primary UI still contains label-theater terms:");
+  console.error(hits.join("\n"));
   process.exit(1);
 }
 

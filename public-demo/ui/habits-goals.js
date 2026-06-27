@@ -1,0 +1,33 @@
+import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
+import { button, emptyState, escapeHtml, money, safeList } from "./components/shared.js";
+
+function progress(goal) {
+  const current = Number(goal.currentAmount || goal.progress || 0);
+  const target = Number(goal.targetAmount || 0);
+  if (!target) return goal.status === "done" ? 100 : 0;
+  return Math.max(0, Math.min(100, Math.round((current / target) * 100)));
+}
+
+export function renderHabitsGoals(ctx) {
+  const domains = ctx.lifeDomains || [];
+  const weak = domains.slice().sort((a, b) => Number(a.score || 0) - Number(b.score || 0))[0] || domains[0] || {};
+  const domainArtifacts = [
+    ["Дом", "быт, семья, порядок"],
+    ["Здоровье", "сон, спорт, еда"],
+    ["Деньги", "расходы, резерв, бюджет"],
+    ["Работа", "проекты, фокус, календарь"],
+    ["Знания", "книги, идеи, заметки"],
+    ["Отношения", "люди, сообщения, забота"],
+    ["Путешествия", "планы, билеты, сборы"],
+    ["Восстановление", "ритм, слабый день, отдых"]
+  ];
+  const body = [
+    `<div class="habit-goal-dashboard habits-wheel" data-testid="habits-goals-panel">`,
+    `<section class="habit-checkin"><h3>Чек-ин</h3>${safeList(ctx.habits, (habit) => `<button class="habit-card" data-action="toggle-habit" data-id="${escapeHtml(habit.id)}" data-testid="habit-row"><span data-testid="habit-toggle">${habit.checkedToday ? "✓" : "○"}</span><strong>${escapeHtml(habit.title || "Привычка")}</strong><em>${escapeHtml(habit.frequency || "ежедневно")}</em></button>`, emptyState("Привычек пока нет", "Напиши: каждый день вода 2л."))}<div class="habit-form-grid"><input id="habit-title" data-testid="habit-title" placeholder="Новая привычка"><select id="habit-frequency" data-testid="habit-frequency"><option value="daily">каждый день</option><option value="weekly">еженедельно</option></select>${button("add-habit-entry", "Добавить", { kind: "primary", testId: "add-habit-entry" })}</div></section>`,
+    `<section class="goal-progress"><h3>Цели</h3>${safeList(ctx.goals, (goal) => `<article class="goal-card" data-testid="goal-row"><div><strong>${escapeHtml(goal.title || "Цель")}</strong><span>${goal.targetAmount ? money(goal.targetAmount) : goal.targetDate || "без лимита"}</span></div><progress value="${progress(goal)}" max="100"></progress><div class="goal-actions"><input id="goal-progress-${escapeHtml(goal.id)}" aria-label="Goal progress" type="number" min="0" step="0.01" placeholder="Прогресс">${button("add-goal-progress", "+Прогресс", { id: goal.id, kind: "ghost", testId: "add-goal-progress" })}${button("goal-next-task", "Следующий шаг", { id: goal.id, kind: "ghost", testId: "goal-next-task" })}${button("toggle-goal", goal.status === "done" ? "Вернуть" : "Закрыть", { id: goal.id, kind: "ghost" })}</div></article>`, emptyState("Целей пока нет", "Напиши: до 1 июля накопить 30000."))}<div class="goal-form-grid"><input id="goal-title-entry" data-testid="goal-title-entry" placeholder="Новая цель"><input id="goal-target-amount" data-testid="goal-target-amount" type="number" placeholder="Сумма"><input id="goal-target-date" data-testid="goal-target-date" type="date">${button("add-goal-entry", "Добавить", { kind: "primary", testId: "add-goal-entry" })}</div></section>`,
+    `<section class="balance-wheel" data-testid="balance-wheel"><h3>Колесо баланса</h3><div class="wheel-radar">${domains.slice(0, 6).map((domain, index) => `<span style="--i:${index};--score:${Number(domain.score || 50)}"><b>${escapeHtml(domain.title || "Домен")}</b></span>`).join("")}</div><p>${escapeHtml(domains[0]?.nextAction || "Домены жизни усиливаются через задачи, деньги, привычки и знания.")}</p>${button("refresh-insights", "Обновить инсайты", { kind: "ghost", testId: "refresh-insights" })}<div class="domain-list">${domains.slice(0, 6).map((domain) => `<div class="domain-row" data-testid="domain-row" style="--domain-color:${escapeHtml(domain.color || "#7c3aed")}"><span>${escapeHtml(domain.title || "Домен")}</span><div><i style="width:${Number(domain.score || 0)}%"></i></div><strong>${Number(domain.score || 0)}%</strong><em>${escapeHtml(domain.reason || domain.nextAction || "Нужен следующий шаг.")}</em></div>`).join("")}</div></section>`,
+    `<section class="domain-artifact-board" data-testid="domain-artifact-board"><div class="weak-domain-card" data-testid="weak-domain-card"><strong>Слабый домен: ${escapeHtml(weak.title || "домен")}</strong><span>${escapeHtml(weak.reason || weak.nextAction || "мало сигналов, нужен следующий маленький шаг")}</span></div><div class="domain-artifact-grid">${domainArtifacts.map(([title, text]) => `<article class="domain-artifact-card" data-testid="domain-artifact-card"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></article>`).join("")}</div></section>`,
+    `</div>`
+  ].join("");
+  return renderWorkspaceLayout("habits", "Привычки и цели", "Регулярное поведение, прогресс и жизненные домены без давления.", body, { testId: "workspace-habits", kicker: "Ритм" });
+}

@@ -45,7 +45,7 @@ Goals have target values, progress, next-action/insight support, domain rows, we
 After: 448 edges, 448 with visible reasons.
 
 ## Data Control Events
-After: 231 audit events. Tail: habit.create: Habit created: Сон 8 часов | habit.check: Habit check toggled: Сон 8 часов | goal.create: Goal created: Накопить резерв | goal.progress: Goal progress +25: Накопить резерв / manual | insight.create: Insight created: Привычка ждет отметки: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Insight created: Цель без прогресса: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Insight created: Цели нужен следующий шаг: Накопить резерв | insight.refresh: Deterministic insights refreshed
+After: 230 audit events. Tail: habit.create: Habit created: Сон 8 часов | habit.check: Habit check toggled: Сон 8 часов | goal.create: Goal created: Накопить резерв | goal.progress: Goal progress +25: Накопить резерв / manual | insight.create: Insight created: Привычка ждет отметки: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Insight created: Цель без прогресса: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Insight created: Цели нужен следующий шаг: Накопить резерв | insight.refresh: Deterministic insights refreshed
 
 ## Remaining Gated
 None for this local journey.

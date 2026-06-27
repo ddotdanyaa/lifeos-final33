@@ -29,18 +29,31 @@ const appUrl = process.env.LIFEOS_URL || "http://127.0.0.1:4173";
 const shotDir = join("output", "playwright", "final-human");
 
 async function reset(page) {
-  await page.goto(appUrl);
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
-  await page.waitForLoadState("networkidle");
+  await page.goto(`${appUrl}?human-public=${Date.now()}`, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => window.__lifeosKnowledgeBase?.resetForTest);
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: "networkidle" }),
+    page.evaluate(() => window.__lifeosKnowledgeBase.resetForTest())
+  ]);
+  await expect(page.locator(".lifeos-shell-v2")).toBeVisible({ timeout: 30000 });
 }
 
 async function openSurface(page, id) {
-  const direct = page.getByTestId(`surface-${id}`).first();
-  if (!(await direct.isVisible().catch(() => false))) {
+  const firstVisible = async (testId) => {
+    const locator = page.getByTestId(testId);
+    const count = await locator.count();
+    for (let index = 0; index < count; index += 1) {
+      const candidate = locator.nth(index);
+      if (await candidate.isVisible().catch(() => false)) return candidate;
+    }
+    return locator.first();
+  };
+  let target = await firstVisible(`surface-${id}`);
+  if (!(await target.isVisible().catch(() => false))) {
     await page.locator('[data-testid="app-ribbon"] summary').first().click();
+    target = await firstVisible(`surface-${id}`);
   }
-  await page.getByTestId(`surface-${id}`).first().click();
+  await target.click();
 }
 
 test("human public chat-first flow", async ({ page }) => {
@@ -61,33 +74,33 @@ test("human public chat-first flow", async ({ page }) => {
   await expect(page.getByTestId("lifeos-understanding")).toContainText("сегодня, 23:00");
   await expect(page.getByTestId("human-primary-action")).toContainText("Создать задачу сегодня в 23:00");
   await page.getByTestId("human-primary-action").click();
-  await page.getByTestId("surface-today").click();
+  await page.getByTestId("surface-today").first().click();
   await expect(page.getByTestId("workspace-today")).toContainText("заказать еду");
   await page.screenshot({ path: join(shotDir, "after-simple-task.png"), fullPage: true });
 
-  await page.getByTestId("surface-calendar").click();
+  await page.getByTestId("surface-calendar").first().click();
   await expect(page.getByTestId("workspace-calendar")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "calendar-clean.png"), fullPage: true });
 
-  await page.getByTestId("surface-inbox").click();
+  await page.getByTestId("surface-inbox").first().click();
   await page.getByTestId("capture-input").fill("пятерочка 1240 продукты сегодня, баланс карта 15200");
   await page.getByTestId("capture-text").click();
   await expect(page.getByTestId("lifeos-understanding")).toContainText("Расход: Пятёрочка, 1240 ₽");
   await expect(page.getByTestId("lifeos-understanding")).toContainText("Баланс: Карта, 15200 ₽");
   await expect(page.getByTestId("human-primary-action")).toContainText("Добавить расход и обновить баланс");
   await page.getByTestId("human-primary-action").click();
-  await page.getByTestId("surface-finance").click();
+  await page.getByTestId("surface-finance").first().click();
   await expect(page.getByTestId("workspace-finance")).toContainText("Пятёрочка");
-  await expect(page.getByTestId("workspace-finance")).toContainText("15200");
+  await expect(page.getByTestId("workspace-finance")).toContainText(/15\s*200/);
   await page.screenshot({ path: join(shotDir, "finance-dashboard.png"), fullPage: true });
 
-  await page.getByTestId("surface-inbox").click();
+  await page.getByTestId("surface-inbox").first().click();
   await page.getByTestId("capture-input").fill("идея: сделать второй мозг для книг и аудио");
   await page.getByTestId("capture-text").click();
   await expect(page.getByTestId("lifeos-understanding")).toContainText("идея / знание / проект");
   await expect(page.getByTestId("human-primary-action")).toContainText("Сохранить идею в базу знаний");
   await page.getByTestId("human-primary-action").click();
-  await page.getByTestId("surface-library").click();
+  await page.getByTestId("surface-library").first().click();
   await expect(page.getByTestId("workspace-library")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "reader-real.png"), fullPage: true });
 
@@ -106,7 +119,7 @@ test("human public chat-first flow", async ({ page }) => {
   await expect(page.getByTestId("workspace-player")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "player-transcript.png"), fullPage: true });
 
-  await page.getByTestId("surface-chat").click();
+  await page.getByTestId("surface-chat").first().click();
   await expect(page.getByTestId("workspace-chat")).toBeVisible();
   await expect(page.getByTestId("workspace-chat")).not.toContainText("LifeOS Product Brain");
   await page.getByTestId("chat-panel").getByTestId("chat-input").fill("сохрани это как мысль к активному артефакту");
@@ -115,21 +128,22 @@ test("human public chat-first flow", async ({ page }) => {
   await page.screenshot({ path: join(shotDir, "chat-local-ai.png"), fullPage: true });
 
   await openSurface(page, "agents");
-  await expect(page.getByTestId("workspace-agents")).toHaveClass(/flow-canvas/);
+  await expect(page.getByTestId("flow-canvas")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "agents-flow-canvas.png"), fullPage: true });
 
-  await page.getByTestId("surface-graph").click();
-  await expect(page.getByTestId("graph-workbench")).toHaveClass(/graph-canvas/);
+  await page.getByTestId("surface-graph").first().click();
+  await expect(page.getByTestId("graph-canvas")).toBeVisible();
   await expect(page.getByTestId("graph-filter-productBrain")).not.toBeChecked();
   await page.screenshot({ path: join(shotDir, "big-graph.png"), fullPage: true });
 
-  await page.getByTestId("surface-control").click();
+  await page.getByTestId("surface-control").first().click();
   await expect(page.getByTestId("data-control-panel")).toBeVisible();
-  await expect(page.getByTestId("dev-state")).toBeVisible();
+  await page.locator("[data-testid='dev-state'] summary").click();
+  await expect(page.getByTestId("dev-state-panel")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "control-human.png"), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByTestId("surface-inbox").click();
+  await page.locator('.mobile-bottom-nav [data-testid="mobile-surface-inbox"]').click();
   await expect(page.getByTestId("mega-dropzone")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "mobile-home.png"), fullPage: true });
 });

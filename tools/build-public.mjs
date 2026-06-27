@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
@@ -12,6 +12,21 @@ if (!outDir.startsWith(root)) {
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 await mkdir(resolve(outDir, "assets"), { recursive: true });
+
+async function copyDir(from, to) {
+  if (!existsSync(from)) return;
+  await mkdir(to, { recursive: true });
+  const entries = await readdir(from, { withFileTypes: true });
+  for (const entry of entries) {
+    const source = resolve(from, entry.name);
+    const target = resolve(to, entry.name);
+    if (entry.isDirectory()) {
+      await copyDir(source, target);
+    } else if (entry.isFile()) {
+      await copyFile(source, target);
+    }
+  }
+}
 
 const index = await readFile("index.html", "utf8");
 const publicIndex = index
@@ -41,6 +56,8 @@ for (const [from, to] of files) {
   await mkdir(dirname(resolve(outDir, to)), { recursive: true });
   await copyFile(resolve(root, from), resolve(outDir, to));
 }
+
+await copyDir(resolve(root, "ui"), resolve(outDir, "ui"));
 
 await writeFile(resolve(outDir, "README.md"), [
   "# LifeOS Public Demo",

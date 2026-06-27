@@ -1,33 +1,30 @@
 import { readFileSync } from "node:fs";
 
-const app = readFileSync("app.js", "utf8");
-
-function body(name) {
-  const start = app.indexOf(`function ${name}`);
-  if (start === -1) throw new Error(`Missing ${name}`);
-  const brace = app.indexOf("{", start);
-  let depth = 0;
-  for (let index = brace; index < app.length; index += 1) {
-    if (app[index] === "{") depth += 1;
-    if (app[index] === "}") depth -= 1;
-    if (depth === 0) return app.slice(brace + 1, index);
-  }
-  throw new Error(`Could not parse ${name}`);
-}
-
-const primary = [body("renderHumanChatHome"), body("renderHumanUnderstanding"), body("renderHumanNavRail")].join("\n");
+const primary = [
+  "ui/shell.js",
+  "ui/home.js",
+  "ui/components/AssistantInput.js",
+  "ui/components/HumanAnswerCard.js",
+  "ui/today.js",
+  "ui/calendar.js",
+  "ui/finance.js",
+  "ui/library.js",
+  "ui/chat.js"
+].map((file) => readFileSync(file, "utf8")).join("\n");
 
 const requiredRussian = [
   "Что добавить в LifeOS?",
   "Напиши, скажи, скинь файл",
   "LifeOS понял",
   "Главное действие",
-  "Дополнительно",
   "Задача",
   "Расход",
   "Файл / скрин",
   "Аудио",
-  "Книга"
+  "Книга",
+  "Сегодня",
+  "Деньги",
+  "Контроль"
 ];
 
 const missing = requiredRussian.filter((text) => !primary.includes(text));

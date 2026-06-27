@@ -45,7 +45,7 @@ Idea capture becomes a source-backed knowledge artifact with project/next-action
 After: 466 edges, 466 with visible reasons.
 
 ## Data Control Events
-After: 241 audit events. Tail: reading.create: Reading item created: Идея: сделать систему второго мозга для книг,... | review.create: Review item created: Повторить highlight: Идея: сделать систему второго мозга для книг, аудио... | highlight.create: Highlight created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку
+After: 240 audit events. Tail: reading.create: Reading item created: Идея: сделать систему второго мозга для книг,... | review.create: Review item created: Повторить highlight: Идея: сделать систему второго мозга для книг, аудио... | highlight.create: Highlight created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку
 
 ## Remaining Gated
 None for this local journey.

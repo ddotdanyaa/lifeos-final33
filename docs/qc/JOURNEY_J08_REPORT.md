@@ -45,7 +45,7 @@ Habits can be created, checked in for today, shown in Today/Goals, and written i
 After: 442 edges, 442 with visible reasons.
 
 ## Data Control Events
-After: 225 audit events. Tail: proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка | source.import: Source imported: market-home.png (image) | finance.transaction: Finance expense: Аптека 890 RUB | receipt.manual: Manual receipt expense saved from market-home.png | habit.create: Habit created: Сон 8 часов | habit.check: Habit check toggled: Сон 8 часов
+After: 224 audit events. Tail: proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка | source.import: Source imported: market-home.png (image) | finance.transaction: Finance expense: Аптека 890 RUB | receipt.manual: Manual receipt expense saved from market-home.png | habit.create: Habit created: Сон 8 часов | habit.check: Habit check toggled: Сон 8 часов
 
 ## Remaining Gated
 None for this local journey.

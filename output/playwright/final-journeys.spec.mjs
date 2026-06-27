@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { existsSync, readdirSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 function findLocalChromium() {
@@ -104,12 +104,16 @@ function diffCounts(before, after) {
 }
 
 async function beginJourney(page, id) {
-  await page.screenshot({ path: `${JOURNEY_DIR}/${id.toLowerCase()}-before.png`, fullPage: true });
+  const path = `${JOURNEY_DIR}/${id.toLowerCase()}-before.png`;
+  await rm(path, { force: true }).catch(() => {});
+  await page.screenshot({ path, fullPage: true });
   return evidence(page);
 }
 
 async function finishJourney(page, id, title, before, details) {
-  await page.screenshot({ path: `${JOURNEY_DIR}/${id.toLowerCase()}-after.png`, fullPage: true });
+  const path = `${JOURNEY_DIR}/${id.toLowerCase()}-after.png`;
+  await rm(path, { force: true }).catch(() => {});
+  await page.screenshot({ path, fullPage: true });
   const after = await evidence(page);
   const delta = diffCounts(before, after);
   const body = [
@@ -159,12 +163,30 @@ async function applyCurrent(page) {
 }
 
 async function openSurface(page, testId, visibleTestId) {
-  const direct = page.getByTestId(testId).first();
-  if (!(await direct.isVisible().catch(() => false))) {
+  const firstVisible = async (id) => {
+    const locator = page.getByTestId(id);
+    const count = await locator.count();
+    for (let index = 0; index < count; index += 1) {
+      const candidate = locator.nth(index);
+      if (await candidate.isVisible().catch(() => false)) return candidate;
+    }
+    return locator.first();
+  };
+
+  let target = await firstVisible(testId);
+  if (!(await target.isVisible().catch(() => false)) && testId.startsWith("surface-")) {
+    const mobileTestId = testId.replace("surface-", "mobile-surface-");
+    const mobile = await firstVisible(mobileTestId);
+    if (await mobile.isVisible().catch(() => false)) target = mobile;
+  }
+  if (!(await target.isVisible().catch(() => false))) {
     const more = page.locator('[data-testid="app-ribbon"] summary').first();
     if (await more.isVisible().catch(() => false)) await more.click();
+    const mobileMore = page.locator('[data-testid="mobile-more-nav"] summary').first();
+    if (await mobileMore.isVisible().catch(() => false)) await mobileMore.click();
+    target = await firstVisible(testId);
   }
-  await page.getByTestId(testId).first().click();
+  await target.click();
   await expect(page.getByTestId(visibleTestId)).toBeVisible();
 }
 
@@ -172,7 +194,7 @@ async function writeFinalScreens(page) {
   await page.setViewportSize({ width: 1440, height: 960 });
   await openSurface(page, "surface-inbox", "command-center");
   await expect(page.getByTestId("owner-next-zone")).toBeVisible();
-  await expect(page.getByTestId("command-center").getByTestId("home-workspace-rail")).toBeVisible();
+  await expect(page.getByTestId("home-workspace-rail")).toBeVisible();
   await page.screenshot({ path: `${FINAL_DIR}/final-home.png`, fullPage: true });
   await capture(page, "завтра в 11:00 финальный контроль LifeOS");
   await page.screenshot({ path: `${FINAL_DIR}/final-capture-analysis.png`, fullPage: true });
@@ -331,7 +353,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await capture(page, "пятерочка 1240 продукты сегодня\nбаланс карта 15200\nподписка Яндекс 399 28 июня\nзарплата 100000 пришла\nперевел 5000 на накопления");
   await applyCurrent(page);
   await openSurface(page, "surface-finance", "finance-panel");
-  await expect(page.getByTestId("finance-panel")).toContainText("1240");
+  await expect(page.getByTestId("finance-panel")).toContainText(/1\s*240/);
   await finishJourney(page, "J05", "Finance quick capture", before, {
     sees: "Finance text capture creates expense, account/balance, subscription/bill, income/transfer-style proposals and updates Finance after approval."
   });

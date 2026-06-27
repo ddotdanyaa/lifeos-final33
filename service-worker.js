@@ -1,4 +1,4 @@
-const LIFEOS_CACHE = "lifeos-artifact-os-v33-pwa-v2";
+const LIFEOS_CACHE = "lifeos-artifact-os-v33-public-shell-v2";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -41,6 +41,19 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => caches.match("/index.html"))
+    );
+    return;
+  }
+
+  if (url.pathname.endsWith(".js") || url.pathname.endsWith(".css")) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(LIFEOS_CACHE).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }

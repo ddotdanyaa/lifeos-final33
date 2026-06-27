@@ -32,12 +32,12 @@ Receipt screenshot shows an image/manual extraction path with an honest OCR gate
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 0,
-  "proposalsOpen": 4,
+  "proposalsOpen": 7,
   "proposalsApplied": 0,
   "auditEvents": 3,
-  "graphNodes": 6,
-  "graphEdges": 12,
-  "graphEdgeReasons": 12
+  "graphNodes": 9,
+  "graphEdges": 18,
+  "graphEdgeReasons": 18
 }
 ```
 
@@ -45,7 +45,7 @@ Receipt screenshot shows an image/manual extraction path with an honest OCR gate
 After: 441 edges, 441 with visible reasons.
 
 ## Data Control Events
-After: 223 audit events. Tail: proposal.apply: Applied proposal: Доход | finance.account: Finance account set: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка | source.import: Source imported: market-home.png (image) | finance.transaction: Finance expense: Аптека 890 RUB | receipt.manual: Manual receipt expense saved from market-home.png
+After: 222 audit events. Tail: proposal.apply: Applied proposal: Доход | finance.account: Finance account set: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка | source.import: Source imported: market-home.png (image) | finance.transaction: Finance expense: Аптека 890 RUB | receipt.manual: Manual receipt expense saved from market-home.png
 
 ## Remaining Gated
 Automatic OCR remains provider-gated; manual extraction works now.

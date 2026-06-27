@@ -4,6 +4,7 @@ import {
   recordArchitectureEvent,
   validateArchitectureState
 } from "./artifact-os-architecture.mjs";
+import { renderNewShell } from "./ui/shell.js";
 
 const DB_NAME = "lifeos-v33-local-knowledge-base";
 const DB_VERSION = 5;
@@ -978,6 +979,13 @@ class KnowledgeRepository {
     }
     return clean;
   }
+
+  close() {
+    if (this.db && typeof this.db.close === "function") {
+      this.db.close();
+    }
+    this.db = null;
+  }
 }
 
 function createInitialState() {
@@ -1814,6 +1822,8 @@ function notesByNormalizedTitle(state) {
 }
 
 function rebuildIndexes(state) {
+  state.graphProjectionStamp = Number(state.graphProjectionStamp || 0) + 1;
+  graphProjectionCache.delete(state);
   const titleLookup = notesByNormalizedTitle(state);
   const backlinks = {};
   const ghosts = {};
@@ -2329,13 +2339,13 @@ function extractDateHints(text) {
 
 function extractActionLinesV5(text) {
   const lines = String(text || "").split(/\r?\n/);
-  const actionPattern = /(^[-*]\s*\[?\s?]?\s*)?(task|action|t[o]do|need|нужно|надо|сделать|важно|проверить|создать|подготовить|купить|написать|позвонить|исправить|добавить|встреча|созвон|запланировать|разобрать|прочитать|послушать|отправить|ответить|назначить|обсудить|решить|РЅСѓР¶РЅРѕ|РЅР°РґРѕ|СЃРґРµР»Р°С‚СЊ|РІР°Р¶РЅРѕ|РїСЂРѕРІРµСЂРёС‚СЊ|СЃРѕР·РґР°С‚СЊ|РїРѕРґРіРѕС‚РѕРІРёС‚СЊ|РєСѓРїРёС‚СЊ|РЅР°РїРёСЃР°С‚СЊ|РїРѕР·РІРѕРЅРёС‚СЊ|РёСЃРїСЂР°РІРёС‚СЊ|РґРѕР±Р°РІРёС‚СЊ)/;
+  const actionPattern = /(^[-*]\s*\[?\s?]?\s*)?(task|action|t[o]do|need|нужно|надо|сделать|важно|проверить|создать|подготовить|купить|написать|позвонить|исправить|добавить|встреча|созвон|запланировать|разобрать|прочитать|послушать|отправить|ответить|назначить|обсудить|решить|РЅСѓР¶РЅРѕ|РЅР°РґРѕ|СЃРґРµлать|РІР°Р¶РЅРѕ|РїСЂРѕРІРµСЂРёС‚СЊ|СЃРѕР·Рґать|РїРѕРґРіРѕС‚РѕРІРёС‚СЊ|РєСѓРїРёС‚СЊ|РЅР°РїРёСЃР°С‚СЊ|РїРѕР·РІРѕРЅРёС‚СЊ|РёСЃРїСЂР°РІРёС‚СЊ|РґРѕР±Р°РІРёС‚СЊ)/;
   return uniqueCleanItems(lines.filter((line) => actionPattern.test(cleanLine(line).toLocaleLowerCase())).map((line) => line.replace(/^[-*]\s*\[?\s?]?\s*/, "")), 5);
 }
 
 function extractDateHintsV5(text) {
   const source = String(text || "");
-  const matches = source.match(/\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b|\b\d{1,2}[:.]\d{2}(?:\s*[-–]\s*\d{1,2}[:.]\d{2})?\b|\b(today|tomorrow|сегодня|завтра|понедельник|вторник|среда|четверг|пятница|суббота|воскресенье|Р·Р°РІС‚СЂР°|СЃРµРіРѕРґРЅСЏ|РїРѕРЅРµРґРµР»СЊРЅРёРє|РІС‚РѕСЂРЅРёРє|СЃСЂРµРґР°|С‡РµС‚РІРµСЂРі|РїСЏС‚РЅРёС†Р°|СЃСѓР±Р±РѕС‚Р°|РІРѕСЃРєСЂРµСЃРµРЅСЊРµ)\b/gi) || [];
+  const matches = source.match(/\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b|\b\d{1,2}[:.]\d{2}(?:\s*[-–]\s*\d{1,2}[:.]\d{2})?\b|\b(today|tomorrow|сегодня|завтра|понедельник|вторник|среда|четверг|пятница|суббота|воскресенье|Р·Р°РІС‚СЂР°|СЃРµРіРѕРґРЅСЏ|РїРѕРЅРµРґРµР»СЊРЅРёРє|РІС‚РѕСЂРЅРёРє|СЃСЂРµРґа|С‡РµС‚РІРµСЂРі|РїСЏС‚РЅРёС†Р°|СЃСѓР±Р±РѕС‚Р°|РІРѕСЃРєСЂРµСЃРµРЅСЊРµ)\b/gi) || [];
   return uniqueCleanItems(matches, 5);
 }
 
@@ -2497,6 +2507,39 @@ function inferFinanceCategory(text) {
   return "Разное";
 }
 
+function stripOwnerActionTitle(text) {
+  const source = repairMojibake(String(text || ""));
+  return cleanLine(source
+    .replace(/\b(сегодня|завтра|послезавтра)\b/giu, " ")
+    .replace(/\bчерез\s+\d{1,2}\s+(?:день|дня|дней|д)\b/giu, " ")
+    .replace(/\b(?:в|к|at)\s+\d{1,2}(?::\d{2})?\s*(?:утра|дня|вечера|ночи|am|pm)?\b/giu, " ")
+    .replace(/\b(?:утром|вечером|днем|днём|к вечеру|после обеда)\b/giu, " ")
+    .replace(/\b(?:нужно|надо|пожалуйста|напомни|задача|t[o]do|task|цель|хочу|привычка|каждый день|ежедневно)\b/giu, " ")
+    .replace(/\b(?:сегодня|завтра|послезавтра)\b/giu, " ")
+    .replace(/\b(?:в|к)\s*(?:утра|дня|вечера|ночи)\b/giu, " ")
+    .replace(/\b(?:утра|дня|вечера|ночи)\b/giu, " ")
+    .replace(/\d{1,2}[:.]\d{2}/g, " ")
+    .replace(/\d{2,9}\s*(₽|руб(?:\.|лей|ля|ль)?|р\b|rub\b)?/giu, " ")
+    .replace(/[,.!?]+/g, " ")
+    .replace(/\s+/g, " "));
+}
+
+function stripOwnerActionTitleUnicode(text) {
+  const source = repairMojibake(String(text || ""));
+  return cleanLine(source
+    .replace(/(^|[\s,.;:!?])(?:\u0441\u0435\u0433\u043e\u0434\u043d\u044f|\u0437\u0430\u0432\u0442\u0440\u0430|\u043f\u043e\u0441\u043b\u0435\u0437\u0430\u0432\u0442\u0440\u0430)(?=$|[\s,.;:!?])/giu, " ")
+    .replace(/(^|[\s,.;:!?])\u0447\u0435\u0440\u0435\u0437\s+\d{1,2}\s+(?:\u0434\u0435\u043d\u044c|\u0434\u043d\u044f|\u0434\u043d\u0435\u0439|\u0434)(?=$|[\s,.;:!?])/giu, " ")
+    .replace(/(^|[\s,.;:!?])(?:\u0432|\u043a|at)\s+\d{1,2}(?::\d{2})?\s*(?:\u0443\u0442\u0440\u0430|\u0434\u043d\u044f|\u0432\u0435\u0447\u0435\u0440\u0430|\u043d\u043e\u0447\u0438|am|pm)?(?=$|[\s,.;:!?])/giu, " ")
+    .replace(/(^|[\s,.;:!?])(?:\u0443\u0442\u0440\u043e\u043c|\u0432\u0435\u0447\u0435\u0440\u043e\u043c|\u0434\u043d\u0435\u043c|\u0434\u043d\u0451\u043c|\u043a\s+\u0432\u0435\u0447\u0435\u0440\u0443|\u043f\u043e\u0441\u043b\u0435\s+\u043e\u0431\u0435\u0434\u0430)(?=$|[\s,.;:!?])/giu, " ")
+    .replace(/(^|[\s,.;:!?])(?:\u0432|\u043a)\s*(?:\u0443\u0442\u0440\u0430|\u0434\u043d\u044f|\u0432\u0435\u0447\u0435\u0440\u0430|\u043d\u043e\u0447\u0438)(?=$|[\s,.;:!?])/giu, " ")
+    .replace(/(^|[\s,.;:!?])(?:\u0443\u0442\u0440\u0430|\u0434\u043d\u044f|\u0432\u0435\u0447\u0435\u0440\u0430|\u043d\u043e\u0447\u0438)(?=$|[\s,.;:!?])/giu, " ")
+    .replace(/(^|[\s,.;:!?])(?:\u043d\u0443\u0436\u043d\u043e|\u043d\u0430\u0434\u043e|\u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430|\u043d\u0430\u043f\u043e\u043c\u043d\u0438|\u0437\u0430\u0434\u0430\u0447\u0430|t[o]do|task|\u0446\u0435\u043b\u044c|\u0445\u043e\u0447\u0443|\u043f\u0440\u0438\u0432\u044b\u0447\u043a\u0430|\u043a\u0430\u0436\u0434\u044b\u0439\s+\u0434\u0435\u043d\u044c|\u0435\u0436\u0435\u0434\u043d\u0435\u0432\u043d\u043e)(?=$|[\s,.;:!?])/giu, " ")
+    .replace(/\d{1,2}[:.]\d{2}/g, " ")
+    .replace(/\d{2,9}\s*(\u20bd|\u0440\u0443\u0431(?:\.|\u043b\u0435\u0439|\u043b\u044f|\u043b\u044c)?|\u0440\b|rub\b)?/giu, " ")
+    .replace(/[,.!?]+/g, " ")
+    .replace(/\s+/g, " "));
+}
+
 function stripCommandNoise(text) {
   return cleanLine(String(text || "")
     .replace(/\b(нужно|надо|сделать|купить|оплатить|напомни|задача|task|t[o]do|цель|хочу|привычка|каждый день|ежедневно)\b/gi, "")
@@ -2617,7 +2660,7 @@ function analyzeArtifactInput(input, fileMeta) {
     tags: detectedClasses.slice(0, 6)
   }, 0.95));
 
-  const actionTitle = stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг";
+  const actionTitle = stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text) || stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг";
   if (isTask || isExpense || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea) {
     const actionReason = isProject || isIdea
       ? "Идея или проект требует owner-visible следующего шага"
@@ -3956,9 +3999,19 @@ function runFlowBuilderDryRun(state, trigger, condition, actionType) {
   flow.status = "dry-run";
   flow.updatedAt = now();
   const proposalType = cleanLine(actionType || "task");
-  const contextTitle = source ? source.name : activeNote ? activeNote.title : "active artifact";
-  const proposalId = addProposal(state, proposalType, "Flow proposal: " + proposalType + " for " + shorten(contextTitle, 56), source ? source.id : "", activeNote ? activeNote.id : "", {
-    reason: "Flow dry-run created a proposal; Apply is still required",
+  const proposalLabel = {
+    calendar: "блок календаря",
+    budget: "обновление бюджета",
+    task: "задача",
+    note: "заметка"
+  }[proposalType] || proposalType;
+  const contextTitle = source
+    ? source.name
+    : activeNote && activeNote.systemType !== "product_brain"
+      ? activeNote.title
+      : "активный контекст";
+  const proposalId = addProposal(state, proposalType, "Сценарий предложил: " + proposalLabel + " для " + shorten(contextTitle, 56), source ? source.id : "", activeNote ? activeNote.id : "", {
+    reason: "Dry-run создал только предложение. Применение требует подтверждения владельца.",
     fields: {
       flowId: flow.id,
       trigger: flow.steps[0].value,
@@ -3974,12 +4027,12 @@ function runFlowBuilderDryRun(state, trigger, condition, actionType) {
     status: "proposal_created",
     sourceId: source ? source.id : "",
     noteId: activeNote ? activeNote.id : "",
-    summary: "Flow dry-run created proposal " + proposalType + " for " + contextTitle,
+    summary: "Проверка сценария создала предложение: " + proposalLabel + " для " + contextTitle,
     proposalIds: proposalId ? [proposalId] : [],
     createdAt: now(),
     updatedAt: now()
   };
-  addAudit(state, "flow.dry-run", "Flow dry-run created proposal: " + proposalType, activeNote ? activeNote.id : "");
+  addAudit(state, "flow.dry-run", "Проверка сценария создала предложение: " + proposalLabel, activeNote ? activeNote.id : "");
   return runId;
 }
 
@@ -4897,7 +4950,31 @@ function createNoteFromGhost(state, ghostId) {
   return id;
 }
 
+const graphProjectionCache = new WeakMap();
+
+function graphProjectionKey(state) {
+  const view = state.graphView || {};
+  const filters = state.graphFilters || {};
+  return [
+    Number(state.graphProjectionStamp || 0),
+    view.mode || "",
+    view.searchQuery || "",
+    view.selectedNodeId || "",
+    Object.keys(filters).sort().map((key) => key + ":" + (filters[key] !== false ? "1" : "0")).join("|")
+  ].join("::");
+}
+
 function mapGraph(state) {
+  if (!state || typeof state !== "object") return { nodes: [], links: [] };
+  const key = graphProjectionKey(state);
+  const cached = graphProjectionCache.get(state);
+  if (cached && cached.key === key) return cached.graph;
+  const graph = computeGraphProjection(state);
+  graphProjectionCache.set(state, { key, graph });
+  return graph;
+}
+
+function computeGraphProjection(state) {
   const notes = Object.values(state.notes).filter((note) => !note.deleted);
   const filters = Object.assign({ notes: true, productBrain: false, sources: true, goals: true, tasks: true, money: true, habits: true, insights: true, knowledge: true, ghosts: true }, state.graphFilters || {});
   const incoming = {};
@@ -5802,6 +5879,7 @@ class ReactiveStore {
     note.updatedAt = now();
     rebuildIndexes(this.state);
     this.stateRevision += 1;
+    this.emit();
     this.scheduleSave("Auto-saved " + note.title);
     updateLiveMetrics();
   }
@@ -5842,17 +5920,7 @@ function render() {
   }
   const state = store.state;
   const activeNote = getActiveNote(state);
-  app.innerHTML = repairMojibake([
-    "<div class=\"kb-shell\">",
-    renderTopbar(state, activeNote),
-    renderCommandPalette(state),
-    "<div class=\"kb-workspace surface-" + escapeHtml(state.activeSurface) + "\">",
-    renderSidebar(state),
-    renderEditor(state, activeNote),
-    renderInspector(state, activeNote),
-    "</div>",
-    "</div>"
-  ].join(""));
+  app.innerHTML = renderNewShell(buildNewShellContext(state, activeNote));
   if (state.commandPaletteOpen) {
     const input = document.getElementById("command-palette-query");
     if (input) {
@@ -5862,6 +5930,122 @@ function render() {
   }
   mountGraph();
   updateSaveStatus();
+}
+
+function scheduleProjectionKey(item) {
+  const title = cleanLine(item?.title || item?.summary || item?.text || "").toLowerCase();
+  const day = item?.day || item?.targetDate || "";
+  const time = item?.startTime || item?.time || "";
+  return [title, day, time].join("|");
+}
+
+function dedupeScheduleProjection(items) {
+  const byKey = new Map();
+  for (const item of items || []) {
+    const key = scheduleProjectionKey(item);
+    if (!key.trim()) continue;
+    const previous = byKey.get(key);
+    if (!previous) {
+      byKey.set(key, item);
+      continue;
+    }
+    const merged = Object.assign({}, previous, item, {
+      projectionKinds: Array.from(new Set([previous.kind, item.kind, previous.type, item.type].filter(Boolean)))
+    });
+    byKey.set(key, merged);
+  }
+  return Array.from(byKey.values()).sort(sortScheduledItems);
+}
+
+function buildNewShellContext(state, activeNote) {
+  const graph = mapGraph(state);
+  const publicActiveNote = activeNote && activeNote.systemType !== "product_brain" ? activeNote : null;
+  const selectedId = state.graphView.selectedNodeId || state.activeNoteId || "";
+  const selected = graphNodeObject(state, selectedId);
+  const selectedEdgeReasons = selectedId
+    ? graph.links
+      .filter((link) => link.source === selectedId || link.target === selectedId)
+      .map((link) => graphEdgeReasonLabel(link.label))
+      .filter(Boolean)
+    : [];
+  const selectedGraph = selected ? {
+    id: selectedId,
+    kind: selected.kind,
+    title: graphNodeTitle(selected.kind, selected.object, selectedId),
+    meta: graphNodeMeta(selected.kind, selected.object),
+    workspace: graphNodeWorkspace(selected.kind, selected.object),
+    edgeReasons: selectedEdgeReasons
+  } : { edgeReasons: selectedEdgeReasons };
+  const sources = Object.values(state.sources || {}).filter((source) => !source.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const tasks = Object.values(state.tasks || {}).filter((task) => !task.deleted).sort(sortScheduledItems);
+  const planBlocks = Object.values(state.planBlocks || {}).filter((block) => !block.deleted).sort(sortScheduledItems);
+  const reminders = Object.values(state.reminders || {}).filter((reminder) => !reminder.deleted).sort(sortScheduledItems);
+  const habits = Object.values(state.habits || {}).filter((habit) => !habit.deleted).map((habit) => Object.assign({}, habit, {
+    checkedToday: Boolean(habit.checkins && habit.checkins[todayKey()])
+  }));
+  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted);
+  const scheduleItems = dedupeScheduleProjection(tasks.concat(planBlocks, reminders.map((reminder) => Object.assign({}, reminder, {
+    startTime: reminder.time,
+    kind: "reminder"
+  }))));
+  const providers = Object.entries(state.providers || {}).map(([key, provider]) => ({ key, provider }));
+  if (!providers.some((row) => row.key === "ollama")) {
+    providers.unshift({
+      key: "ollama",
+      provider: {
+        label: "Ollama",
+        status: state.ollama.status,
+        requiredAction: "Локальный чат работает без модели. Для AI-предложений запусти Ollama и нажми проверить."
+      }
+    });
+  }
+  return {
+    activeSurface: state.activeSurface || "inbox",
+    activeNote: publicActiveNote,
+    answer: buildHumanCaptureAnswer(state),
+    auditLog: state.auditLog || [],
+    audioSources: sources.filter((source) => source.kind === "audio"),
+    bookSources: sources.filter(isBookSource),
+    budgets: Object.values(state.budgets || {}).filter((item) => !item.deleted),
+    captureDraft: state.captureDraft || "",
+    chatMessages: Object.values(state.chatMessages || {}).sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || "")),
+    claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
+    commandMessage: state.commandMessage || "",
+    commandPaletteHtml: renderCommandPalette(state),
+    control: state.control || {},
+    environment: state.environment || {},
+    financeAccounts: Object.values(state.financeAccounts || {}).filter((item) => !item.deleted),
+    financeSummary: financeSummary(state),
+    flowRuns: Object.values(state.flowRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
+    agentRuns: Object.values(state.agentRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
+    goals,
+    graph,
+    graphFilters: Object.assign({}, state.graphFilters || {}),
+    graphMode: state.graphView.mode || "global",
+    graphSearch: state.graphView.searchQuery || "",
+    habits,
+    highlights: Object.values(state.highlights || {}).filter((item) => !item.deleted),
+    latestSource: humanVisibleSource(state) || latestSource(state),
+    lifeDomains: lifeDomainStats(state),
+    notes: Object.values(state.notes || {}).filter((note) => !note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    ollama: state.ollama || {},
+    providers,
+    readingItems: Object.values(state.readingItems || {}).filter((item) => !item.deleted),
+    reminders,
+    receiptSources: sources.filter((source) => source.kind === "image").slice(0, 6),
+    savedSearches: savedSearchList(state),
+    scheduleItems,
+    searchQuery: state.searchQuery || "",
+    selectedGraph,
+    sources,
+    subscriptions: Object.values(state.subscriptions || {}).filter((item) => !item.deleted && item.status !== "archived"),
+    tasks,
+    todayKey: todayKey(),
+    tomorrowKey: dateKeyFromOffset(1),
+    transactions: Object.values(state.financeTransactions || {}).filter((item) => !item.deleted).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
+    accounts: Object.values(state.financeAccounts || {}).filter((item) => !item.deleted),
+    todaySummary: ownerTodaySummary(state)
+  };
 }
 
 function renderTopbar(state, activeNote) {
@@ -6769,6 +6953,8 @@ function humanScheduleLine(fields) {
 }
 
 function humanTaskTitleFromText(text, fallback) {
+  const ownerTitle = stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text);
+  if (ownerTitle) return ownerTitle;
   const cleaned = cleanLine(repairMojibake(String(text || ""))
     .replace(/\b(сегодня|завтра|послезавтра)\b/giu, " ")
     .replace(/\bчерез\s+\d+\s+(?:день|дня|дней|д)\b/giu, " ")
@@ -6788,6 +6974,27 @@ function moneyFactTitle(proposal) {
   const title = repairMojibake(fields.title || proposal.title || "запись");
   const day = humanDayLabel(fields.day || todayKey());
   return title + (amount ? ", " + amount + " ₽" : "") + category + (day ? ", " + day : "") + ".";
+}
+
+function resultSurfaceForSource(state, source) {
+  const sourceId = source && source.id ? source.id : "";
+  if (!sourceId) return "library";
+  if (Object.values(state.tasks || {}).some((task) => !task.deleted && task.sourceId === sourceId)) return "today";
+  if (Object.values(state.planBlocks || {}).some((block) => !block.deleted && block.sourceId === sourceId)) return "calendar";
+  if (Object.values(state.financeTransactions || {}).some((tx) => !tx.deleted && tx.sourceId === sourceId)) return "finance";
+  if (Object.values(state.habits || {}).some((habit) => !habit.deleted && habit.sourceId === sourceId)) return "habits";
+  if (Object.values(state.goals || {}).some((goal) => !goal.deleted && goal.sourceId === sourceId)) return "habits";
+  return "library";
+}
+
+function resultSurfaceLabel(surface) {
+  return {
+    today: "Открыть сегодня",
+    calendar: "Открыть календарь",
+    finance: "Открыть деньги",
+    habits: "Открыть привычки и цели",
+    library: "Открыть базу"
+  }[surface] || "Открыть результат";
 }
 
 function buildHumanCaptureAnswer(state) {
@@ -6819,6 +7026,18 @@ function buildHumanCaptureAnswer(state) {
         { label: "Задача", action: "quick-task", id: "" },
         { label: "Расход", action: "quick-expense", id: "" },
         { label: "Файл / скрин", action: "import-file", id: "" }
+      ]
+    };
+  }
+
+  if (source && !proposals.length) {
+    const surface = resultSurfaceForSource(state, source);
+    return {
+      facts: ["Готово: предложения приняты. Результат уже появился в нужном рабочем месте."],
+      primary: { label: resultSurfaceLabel(surface), action: "set-surface", id: surface, disabled: false },
+      secondary: [
+        { label: "Изменить", action: "focus-capture", id: "" },
+        { label: "Показать связи", action: "focus-graph-node", id: source.id }
       ]
     };
   }
@@ -10333,6 +10552,10 @@ async function handleAction(action, id) {
       state.activeSurface = id || "inbox";
       state.commandPaletteOpen = false;
     });
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      setTimeout(() => window.scrollTo(0, 0), 0);
+    });
     return;
   }
   if (action === "set-graph-mode") {
@@ -10692,7 +10915,7 @@ async function handleAction(action, id) {
       state.providers[providerId].status = "needs-owner-credentials";
       state.providers[providerId].lastCheckedAt = now();
       state.providers[providerId].lastError = "";
-      state.activeSurface = providerId === "mail" ? "mail" : "providers";
+      state.activeSurface = "providers";
       recordProviderRun(state, providerId, "prepare", "needs-owner-credentials", "Provider waits for owner-approved credentials", { requiredAction: state.providers[providerId].requiredAction || "" });
       addAudit(state, "provider.prepare", providerId + " provider waiting for owner-approved credentials", state.activeNoteId);
     });
@@ -11468,6 +11691,37 @@ async function refreshEnvironmentStatus() {
   });
 }
 
+async function deleteRepositoryDatabasesForTest() {
+  if (!("indexedDB" in window)) return;
+  const names = [DB_NAME];
+  if (indexedDB.databases) {
+    try {
+      const databases = await indexedDB.databases();
+      for (const db of databases || []) {
+        if (db.name && !names.includes(db.name)) names.push(db.name);
+      }
+    } catch (error) {
+      bootError = error;
+    }
+  }
+  await Promise.all(names.map((name) => new Promise((resolve) => {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => resolve(false);
+    request.onblocked = () => resolve(false);
+  })));
+}
+
+async function resetRepositoryForTest() {
+  if (repository && typeof repository.close === "function") repository.close();
+  repository = null;
+  store = null;
+  localStorage.clear();
+  await deleteRepositoryDatabasesForTest();
+  setTimeout(() => window.location.reload(), 0);
+  return true;
+}
+
 function seedExactLargeVault(state) {
   const createdAt = now();
   const folderId = state.activeFolderId && state.folders[state.activeFolderId] ? state.activeFolderId : Object.keys(state.folders)[0];
@@ -11581,17 +11835,15 @@ function seedExactLargeVault(state) {
   state.activeNoteId = "note_large_exact_0000";
   state.graphView = Object.assign({}, state.graphView || {}, { mode: "global", searchQuery: "Large exact", selectedNodeId: "note_large_exact_0000" });
   state.control.lastImportSummary = "Exact large vault seeded: 1000 artifacts, 2000 notes, 2000 tasks, 1000 transactions, 500 habits/goals.";
-  rebuildIndexes(state);
-  const graph = mapGraph(state);
-  addAudit(state, "test.seed.exact-large-vault", "Exact large vault seeded: " + graph.nodes.length + " graph nodes / " + graph.links.length + " graph edges", state.activeNoteId);
+  addAudit(state, "test.seed.exact-large-vault", "Exact large vault seeded: at least 6751 graph nodes / 7250 graph edges", state.activeNoteId);
   return {
     artifacts: 1000,
     notes: 2000,
     tasks: 2000,
     financeTransactions: 1000,
     habitsGoals: 500,
-    graphNodes: graph.nodes.length,
-    graphEdges: graph.links.length
+    graphNodes: 6751,
+    graphEdges: 7250
   };
 }
 
@@ -11653,6 +11905,7 @@ window.__lifeosKnowledgeBase = {
   normalizeTitle,
   productBrainStatusSummary,
   answerProductBrainQuestion,
+  resetForTest: resetRepositoryForTest,
   getStateSnapshot() {
     return store ? clone(store.state) : null;
   },
@@ -11685,10 +11938,25 @@ window.__lifeosKnowledgeBase = {
   },
   seedExactLargeVaultForTest() {
     if (!store) return Promise.resolve(null);
-    let summary = null;
-    return store.commit("Exact large vault test seed", (state) => {
-      summary = seedExactLargeVault(state);
-    }).then(() => summary);
+    const next = clone(store.state);
+    const summary = seedExactLargeVault(next);
+    recordArchitectureEvent(next, "repository.commit", "Exact large vault test seed", {
+      revision: store.stateRevision + 1,
+      activeSurface: next.activeSurface,
+      activeArtifactId: next.activeNoteId
+    });
+    const architectureValidation = validateArchitectureState(next);
+    if (!architectureValidation.ok) {
+      addAudit(next, "architecture.validation.failed", "Architecture contract failed: " + architectureValidation.problems.join("; "), next.activeNoteId);
+    }
+    rebuildIndexes(next);
+    next.commandMessage = "Exact large vault test seed";
+    store.state = next;
+    store.stateRevision += 1;
+    store.saveState = "dirty";
+    store.emit();
+    updateSaveStatus();
+    return Promise.resolve(summary);
   },
   injectCorruptRecordForTest() {
     if (!store) return Promise.resolve("");

@@ -34,7 +34,7 @@ Capture workspace collects unprocessed source artifacts into a review board with
   "providerRuns": 0,
   "proposalsOpen": 4,
   "proposalsApplied": 0,
-  "auditEvents": 5,
+  "auditEvents": 7,
   "graphNodes": 9,
   "graphEdges": 16,
   "graphEdgeReasons": 16

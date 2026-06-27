@@ -79,7 +79,7 @@ test("owner chat-first capture creates real workspace objects @visual", async ({
   await page.getByTestId("human-primary-action").click();
   await page.getByTestId("surface-finance").click();
   await expect(page.getByTestId("workspace-finance")).toContainText("Пятёрочка");
-  await expect(page.getByTestId("workspace-finance")).toContainText("15200");
+  await expect(page.getByTestId("workspace-finance")).toContainText(/15\s*200/);
 
   const financeState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   expect(Object.values(financeState.financeTransactions).some((tx) => tx.amount === 1240 && String(tx.title || "").includes("Пятёрочка"))).toBe(true);
@@ -98,7 +98,7 @@ test("owner chat-first capture creates real workspace objects @visual", async ({
   await page.screenshot({ path: "output/playwright/owner-control.png", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 980 });
-  await page.getByTestId("surface-inbox").click();
+  await page.getByTestId("mobile-surface-inbox").click();
   await expect(page.getByTestId("mega-dropzone")).toBeVisible();
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(horizontalOverflow).toBe(false);
@@ -241,10 +241,10 @@ test.skip("legacy cockpit owner artifact OS capture creates proposals and applie
   await page.getByTestId("note-body").fill([
     "# РљР°СЂС‚Р° СЌРЅРµСЂРіРёРё",
     "",
-    "Р“Р»Р°РІРЅР°СЏ РјС‹СЃР»СЊ: СѓС‚СЂРµРЅРЅРёР№ СЃРѕРЅ РІР»РёСЏРµС‚ РЅР° С„РѕРєСѓСЃ Рё РЅР° С‚РµРјРї С‡С‚РµРЅРёСЏ.",
-    "РџРѕРІС‚РѕСЂСЏСЋС‰Р°СЏСЃСЏ С‚РµРјР° СЃРЅР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ СЃРІСЏР·Р°РЅР° СЃ С†РµР»СЊСЋ С‡С‚РµРЅРёСЏ.",
+    "Р“Р»Р°РІРЅР°СЏ РјС‹СЃР»СЊ: СѓС‚СЂРµРЅРЅРёР№ СЃРѕРЅ РІР»РёСЏРµт РЅР° С„РѕРєСѓСЃ и РЅР° С‚РµРјРї С‡С‚РµРЅРёСЏ.",
+    "РџРѕРІС‚РѕСЂСЏСЋС‰Р°СЏСЃСЏ С‚РµРјР° СЃРЅР° РґРѕР»Р¶РЅР° Р±С‹ть СЃРІСЏР·Р°РЅР° СЃ С†Рµлью С‡С‚РµРЅРёСЏ.",
     "РљР°Рє СЃРІСЏР·Р°С‚СЊ СЌС‚Рѕ СЃ РїСЂРёРІС‹С‡РєРѕР№ СЃРЅР°?",
-    "[[РЎРѕРЅ 8 С‡Р°СЃРѕРІ]] РїРѕРјРѕРіР°РµС‚ С†РµР»Рё С‡С‚РµРЅРёСЏ."
+    "[[РЎРѕРЅ 8 С‡Р°СЃРѕРІ]] РїРѕРјРѕРіР°Рµт С†Рµли С‡С‚РµРЅРёСЏ."
   ].join("\n"));
   await page.getByTestId("extract-knowledge").click();
   await expect(page.getByTestId("claim-row").first()).toBeVisible();
