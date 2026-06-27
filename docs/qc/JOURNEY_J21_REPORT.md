@@ -45,7 +45,7 @@ Providers list local/external capabilities with setup states, safe probes, PWA s
 After: 19 edges, 19 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: flow.dry-run: Проверка сценария создала предложение: задача | graph.focus: Focused graph node note_d7892996f5ba | vault.export: Vault export generated: notes=47, sources=29, tasks=4, finance=4, habits=2, goals=2, savedSearches=0, audit=300 | control.export.selected: Selected artifact export generated: selected note / note_d7892996f5ba | control.rollback.snapshot: Rollback snapshot created: Snapshot before Data Control change | provider.run: pwa owner-check: PWA shell checked: service-worker-ready | provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials
+After: 300 audit events. Tail: flow.dry-run: Проверка сценария создала предложение: задача | graph.focus: Focused graph node note_a2619c16ded4 | vault.export: Vault export generated: notes=47, sources=29, tasks=4, finance=4, habits=2, goals=2, savedSearches=0, audit=300 | control.export.selected: Selected artifact export generated: selected note / note_a2619c16ded4 | control.rollback.snapshot: Rollback snapshot created: Snapshot before Data Control change | provider.run: pwa owner-check: PWA shell checked: service-worker-ready | provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials
 
 ## Remaining Gated
 Gmail, external calendar, OCR, STT and parser engines remain owner/provider setup gates; PWA install prompt still depends on browser policy.
