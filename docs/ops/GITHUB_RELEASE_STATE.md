@@ -1,6 +1,6 @@
 # GitHub Release State
 
-Updated: 2026-06-26 after `P_GLOBAL_VISUAL_COHERENCE`.
+Updated: 2026-06-27 after `LIFEOS FINAL UI REPLACEMENT`.
 
 Repo path: `C:\Users\Данил\Documents\LIFEOS FINAL 33%`
 
@@ -31,31 +31,70 @@ Push status:
 LITE_SNAPSHOT_PUSHED_WITH_OMITTED_EVIDENCE
 ```
 
-Evidence:
+Current pushed commit:
 
-- `gh auth status` succeeds for account `ddotdanyaa`.
-- `git remote -v` shows origin.
-- Full-history push was impractical because the local Git pack and evidence wall are large.
-- Lite Git snapshot succeeds without force push.
-- `git ls-remote --heads origin owner-usable-nonstop-rescue` confirms the remote branch after release helper runs.
-- GitHub URL: `https://github.com/ddotdanyaa/lifeos-final33/tree/owner-usable-nonstop-rescue`.
-- Remote branch includes `docs/ops/GITHUB_RELEASE_OMITTED_FILES.md`, which lists 135 omitted large evidence files kept locally.
-- Latest visual package local commit: `d44227e fix: unify LifeOS visual language`.
-- Latest release helper push completed successfully after this package; exact remote lite commit is intentionally read from helper output / `git ls-remote` because the lite snapshot hash is generated at publish time.
+```text
+cba3645adaa9ee3cb67201f9545fa5cb9900ae3c
+```
 
-Next package:
+GitHub branch URL:
 
-`P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`: keep GitHub release state current while the owner connects real providers. The local owner/product revalidation, workspace 9+ visual polish, provider passport package and global visual coherence package have passed:
+```text
+https://github.com/ddotdanyaa/lifeos-final33/tree/owner-usable-nonstop-rescue
+```
+
+What was pushed:
+
+- Chat-first public-grade LifeOS shell.
+- Distinct workspace UI modules under `ui/`.
+- Clean `public-demo/` static build source.
+- Human UX Playwright tests and audits.
+- Product/code reports needed to continue development safely.
+
+What is intentionally not published:
+
+- Local PNG evidence screenshots are ignored by git via `.gitignore`.
+- Private/local browser storage, uploads, credentials, and generated runtime data are not published.
+
+Public demo state:
+
+- `npm run build:public` passes.
+- `npm run audit:public-build` passes.
+- `npm run deploy:pages` starts the Pages workflow, but GitHub Pages deployment is blocked by repository plan/settings.
+
+Pages external gate:
+
+```text
+GitHub API: "Your current plan does not support GitHub Pages for this repository." (HTTP 422)
+Workflow deploy step: "Ensure GitHub Pages has been enabled: https://github.com/ddotdanyaa/lifeos-final33/settings/pages"
+Workflow run: https://github.com/ddotdanyaa/lifeos-final33/actions/runs/28302207131
+```
+
+Exact owner action for public URL:
+
+1. Open `https://github.com/ddotdanyaa/lifeos-final33/settings/pages`.
+2. Enable GitHub Pages for the repository or make the repository/public plan compatible with Pages.
+3. Rerun `npm run deploy:pages`.
+
+Final local verification after push:
 
 ```powershell
+node --check app.js
 npm run verify
 npm run e2e
 npm run e2e:owner
-npm run e2e:market-owner
-npm run e2e:quality
-npm run e2e:product-brain
 npm run e2e:journeys
-npm run e2e:ai-providers
-npm run audit:human-ux-final
+npm run e2e:human-public
+npm run e2e:final-human-product
+npm run audit:no-hardcoded-sample
+npm run audit:buttons
+npm run audit:no-label-theater-hard
+npm run audit:primary-ui-language
+npm run audit:home-complexity
+npm run audit:workspace-shape
+npm run audit:public-build
+npm run audit:workspace-links
+npm run audit:release-evidence
 npm run audit:owner-final
+git diff --check
 ```
