@@ -32,12 +32,12 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 0,
-  "proposalsOpen": 0,
+  "proposalsOpen": 2,
   "proposalsApplied": 7,
   "auditEvents": 23,
-  "graphNodes": 13,
-  "graphEdges": 22,
-  "graphEdgeReasons": 22
+  "graphNodes": 15,
+  "graphEdges": 26,
+  "graphEdgeReasons": 26
 }
 ```
 

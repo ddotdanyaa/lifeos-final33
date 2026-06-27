@@ -32,17 +32,17 @@ A simple capture surfaces one primary Russian action plus Изменить and �
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 0,
-  "proposalsOpen": 2,
+  "proposalsOpen": 0,
   "proposalsApplied": 3,
   "auditEvents": 14,
-  "graphNodes": 10,
-  "graphEdges": 18,
-  "graphEdgeReasons": 18
+  "graphNodes": 8,
+  "graphEdges": 14,
+  "graphEdgeReasons": 14
 }
 ```
 
 ## Graph Edges
-After: 18 edges, 18 with visible reasons.
+After: 14 edges, 14 with visible reasons.
 
 ## Data Control Events
 After: 16 audit events. Tail: source.import: Source imported: завтра в 6 встать и приготовить завтрак.md (text) | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку | task.create: Task created: встать и приготовить завтрак | proposal.apply: Applied proposal: встать и приготовить завтрак | plan.create: Today block added: встать и приготовить завтрак | proposal.apply: Applied proposal: встать и приготовить завтрак

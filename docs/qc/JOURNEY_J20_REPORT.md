@@ -45,7 +45,7 @@ Control shows last changes, storage map, export all, selected export, rollback s
 After: 17 edges, 17 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: provider.run: pwa boot: PWA shell checked: service-worker-ready | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Проверка сценария создала предложение: plan | flow.dry-run: Проверка сценария создала предложение: задача | graph.focus: Focused graph node note_a2619c16ded4 | vault.export: Vault export generated: notes=47, sources=29, tasks=4, finance=4, habits=2, goals=2, savedSearches=0, audit=300 | control.export.selected: Selected artifact export generated: selected note / note_a2619c16ded4 | control.rollback.snapshot: Rollback snapshot created: Snapshot before Data Control change
+After: 300 audit events. Tail: provider.run: pwa boot: PWA shell checked: service-worker-ready | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Проверка сценария создала предложение: plan | flow.dry-run: Проверка сценария создала предложение: задача | graph.focus: Focused graph node note_695daddd657b | vault.export: Vault export generated: notes=47, sources=29, tasks=4, finance=4, habits=2, goals=2, savedSearches=0, audit=300 | control.export.selected: Selected artifact export generated: selected note / note_695daddd657b | control.rollback.snapshot: Rollback snapshot created: Snapshot before Data Control change
 
 ## Remaining Gated
 None for this local journey.
