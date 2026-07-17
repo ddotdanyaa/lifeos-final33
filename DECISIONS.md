@@ -105,3 +105,44 @@ system doesn't have. Documented as a known future refinement, not silently done.
 tree), G-SMOKE, `audit:architecture`, new `audit:seven-contracts`, G-E2E-CORE (13 passed/1
 skipped) and G-E2E-KB (2 passed) all green after the change. Rebuilt public-demo (app.js and
 artifact-os-architecture.mjs changed).
+
+## P1.2 RECEIPT_COVERAGE_MATRIX
+
+**Discovery: `tools/audit-ledger.mjs` (the plan's stated gate for this package) already
+exists and checks something unrelated** — the `NONSTOP_OWNER_WEAKNESS_LEDGER.csv` (W001-W420
+QC weakness rows), not receipts. Also found `state.control.receipts` was declared in
+`normalizeState` and rendered in Data Control, but **nothing anywhere ever pushed to it** —
+pure label theater, the exact failure mode `audit-no-label-theater*` exists to catch, just not
+one of the 44-collection kind so those audits didn't see it.
+Why this matters: I did not repurpose `audit-ledger.mjs` (that would silently break its actual
+job). Instead extended `tools/audit-seven-contracts.mjs` from P1.1 with a Receipt section,
+since that script already declared itself as the growing home for Object/Receipt/Capability/
+Locality checks — one canonical "Seven Contracts" audit, not a same-purpose second file.
+
+**Decision: wired receipt-writing into `addAudit()` itself (one choke point) instead of
+adding an `addReceipt(...)` call at each of the ~150 individual mutation call sites.**
+Why: `addAudit(state, type, summary, noteId)` is already called from every one of the ~150
+mutation handlers in app.js, so classifying `type` against the 14 strong-mutation kinds
+(`STRONG_MUTATION_RULES`, ordered, first-match-wins) inside `addAudit` gets every existing
+call site covered for free and automatically covers any future `addAudit` call too, matching
+the plan's own framing of the file scope as "commit-пути" (commit paths) rather than "every
+handler." A 150-site edit would have been a much larger diff for identical behavior.
+
+**Decision: `locality` defaults to `"local"` for every receipt.**
+Why: every currently-implemented mutation path in LifeOS is genuinely local-only or an
+honest permission-gated stub (Ollama is a local daemon; no BYOK/cloud call exists yet) — so
+`"local"` is the accurate label today, not an assumption. Flagged here so P5.2
+BYOK_VAULT_ROUTING (when a real external-provider call lands) must pass an explicit
+`locality: "provider:<name>"` at that call site rather than silently inheriting the default,
+which would misrepresent a cloud call as local.
+
+**Decision: `publish` and `share` mutation kinds have a classification rule but no
+matching call site yet (no `.publish`/`.share` audit type exists in app.js today).**
+Why: the plan requires all 14 kinds to be classifiable, not that all 14 must already have
+fired at least once — publish/share aren't implemented as product features yet (no
+current package covers them). Documented instead of faking a call site to make the matrix
+look more complete than the product actually is.
+
+**Verified no regression:** full audit loop (only red = expected dirty tree), G-SMOKE,
+extended `audit:seven-contracts`, G-E2E-CORE (13 passed/1 skipped) green. Rebuilt
+public-demo (app.js changed).

@@ -14,6 +14,7 @@ function fail(message, details = {}) {
   process.exit(1);
 }
 
+const app = readFileSync("app.js", "utf8");
 const problems = [];
 
 // --- Object contract: schema version bump ---
@@ -50,12 +51,27 @@ for (const collection of ARTIFACT_COLLECTIONS) {
 if (OBJECT_CONTRACT_EXEMPT_COLLECTIONS.length !== 3) problems.push("expected exactly 3 exempt collections (auditLog, control, environment)");
 
 // --- Object contract: wired into the real normalize path, not just available ---
-const app = readFileSync("app.js", "utf8");
 const occurrences = app.split("applyObjectContractToState").length - 1;
 if (occurrences < 2) problems.push("app.js must both import and call applyObjectContractToState (found " + occurrences + " occurrence(s))");
 if (!app.includes("from \"./artifact-os-architecture.mjs\"")) problems.push("app.js does not import from artifact-os-architecture.mjs");
 
-if (problems.length) fail("Seven Contracts audit failed (Object contract)", { problems });
+// --- Receipt contract: all 14 strong mutations have a classification rule ---
+const STRONG_MUTATION_KINDS = [
+  "create", "update", "delete", "export", "import", "publish", "share",
+  "model-call", "workflow-run", "permission-change", "memory-write", "merge",
+  "design-apply", "pack-install"
+];
+if (!app.includes("STRONG_MUTATION_RULES")) problems.push("app.js does not define STRONG_MUTATION_RULES");
+for (const kind of STRONG_MUTATION_KINDS) {
+  if (!app.includes(`kind: "${kind}"`)) problems.push(`STRONG_MUTATION_RULES missing kind: ${kind}`);
+}
+if (!app.includes("function classifyStrongMutation")) problems.push("app.js does not define classifyStrongMutation");
+if (!app.includes("function addReceipt")) problems.push("app.js does not define addReceipt");
+if (!app.includes("addReceipt(state, mutationKind")) problems.push("addAudit does not call addReceipt for classified mutation kinds");
+if (!app.includes("locality: cleanLine(receipt.locality")) problems.push("receipt normalization does not carry a locality field");
+if (!app.includes("locality: options.locality || \"local\"")) problems.push("addReceipt does not default locality");
+
+if (problems.length) fail("Seven Contracts audit failed", { problems });
 
 console.log(JSON.stringify({
   ok: true,
@@ -63,5 +79,6 @@ console.log(JSON.stringify({
   objectContractFields: OBJECT_CONTRACT_V4_FIELDS.length,
   exemptCollections: OBJECT_CONTRACT_EXEMPT_COLLECTIONS,
   coveredCollections: ARTIFACT_COLLECTIONS.length - OBJECT_CONTRACT_EXEMPT_COLLECTIONS.length,
-  note: "Receipt/Capability/Locality contracts land in P1.2/P1.3 and extend this script"
+  strongMutationKinds: STRONG_MUTATION_KINDS.length,
+  note: "Capability/Locality contract lands in P1.3 and extends this script"
 }, null, 2));

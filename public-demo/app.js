@@ -2050,6 +2050,7 @@ function normalizeState(input) {
     surface: cleanLine(receipt.surface || ""),
     noteId: cleanLine(receipt.noteId || ""),
     sourceId: cleanLine(receipt.sourceId || ""),
+    locality: cleanLine(receipt.locality || "local"),
     createdAt: receipt.createdAt || now()
   })) : [];
   state.control.architectureEvents = Array.isArray(state.control.architectureEvents) ? state.control.architectureEvents.slice(-80).map((event) => ({
@@ -2460,6 +2461,47 @@ function normalizeState(input) {
   return state;
 }
 
+// The 14 strong mutations (Seven Contracts, "Receipt" contract): every audit event whose
+// type matches one of these rules also gets a receipt in state.control.receipts, in
+// addition to the existing auditLog entry. Ordered list, first match wins, since some
+// types (e.g. twin.snapshot) are more precisely a memory-write than a generic create.
+const STRONG_MUTATION_RULES = [
+  { kind: "memory-write", test: (type) => type.startsWith("knowledge.extract") || type.startsWith("insight.refresh") || type.startsWith("chat.product_brain") || type.startsWith("twin.snapshot") },
+  { kind: "merge", test: (type) => type.startsWith("ghost.materialize") },
+  { kind: "design-apply", test: (type) => type.startsWith("design.profile") },
+  { kind: "pack-install", test: (type) => type.startsWith("marketplace.install") },
+  { kind: "permission-change", test: (type) => type.startsWith("provider.prepare") || type.startsWith("screen.prepare") || type.endsWith(".revoke") },
+  { kind: "model-call", test: (type) => type.startsWith("ollama.") || type.startsWith("model.route") || type.startsWith("provider.run") },
+  { kind: "workflow-run", test: (type) => type.startsWith("flow.") || type.startsWith("agent.run") },
+  { kind: "export", test: (type) => type.startsWith("vault.export") || type.startsWith("control.export") },
+  { kind: "import", test: (type) => type.startsWith("source.import") || type.startsWith("control.backup.import") },
+  { kind: "publish", test: (type) => type.endsWith(".publish") },
+  { kind: "share", test: (type) => type.endsWith(".share") },
+  { kind: "delete", test: (type) => type.endsWith(".delete") || type.endsWith(".archive") },
+  { kind: "update", test: (type) => type.endsWith(".update") || type.endsWith(".toggle") || type.endsWith(".progress") || type.endsWith(".rename") || type.endsWith(".move") || type.endsWith(".reschedule") || type.endsWith(".check") },
+  { kind: "create", test: (type) => type.endsWith(".create") || type.endsWith(".device") || type.endsWith(".row") || type.endsWith(".item") || type.endsWith(".account") || type.endsWith(".transaction") || type.endsWith(".budget") || type.endsWith(".subscription") }
+];
+
+function classifyStrongMutation(type) {
+  const rule = STRONG_MUTATION_RULES.find((entry) => entry.test(type));
+  return rule ? rule.kind : "";
+}
+
+function addReceipt(state, kind, objectId, summary, options = {}) {
+  state.control.receipts.push({
+    id: makeId("receipt"),
+    kind,
+    objectId: objectId || "",
+    summary,
+    surface: options.surface || state.activeSurface || "",
+    noteId: options.noteId || "",
+    sourceId: options.sourceId || "",
+    locality: options.locality || "local",
+    createdAt: now()
+  });
+  state.control.receipts = state.control.receipts.slice(-160);
+}
+
 function addAudit(state, type, summary, noteId) {
   state.auditLog.push({
     id: makeId("audit"),
@@ -2470,6 +2512,8 @@ function addAudit(state, type, summary, noteId) {
   });
   state.auditLog = state.auditLog.slice(-300);
   state.commandMessage = summary;
+  const mutationKind = classifyStrongMutation(type);
+  if (mutationKind) addReceipt(state, mutationKind, noteId || "", summary, { noteId: noteId || "" });
 }
 
 function parseWikiInner(inner) {
