@@ -166,7 +166,7 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 - [x] P0.3 LEDGER_TRUTH_REFRESH — 2026-07-17: 88/1449 rows moved planned→implemented with EvidencePath (P0-kernel 51/51, P1/P2 Agents 37/54); PRODUCT_BRAIN_OVERVIEW synced
 - [x] P0.4 COMMIT_BASELINE *(owner)* — 2026-07-17: owner authorized full-autonomy commit+push for this session (see DECISIONS.md); gh auth verified active, baseline committed and pushed
 - [x] P0.5 APPROVED_ENGINES_INSTALLED — 2026-07-17: 9 движков установлены, `npm audit` = 0 уязвимостей (override @xmldom/xmldom→0.9.8), гейты зелёные
-- [ ] P1.1 OBJECT_CONTRACT_V4
+- [x] P1.1 OBJECT_CONTRACT_V4 — 2026-07-18: schema v3→v4, `applyObjectContractV4`/`applyObjectContractToState` in artifact-os-architecture.mjs, wired into app.js normalizeState (idempotent), new tools/audit-seven-contracts.mjs; G-SMOKE/G-ARCH/G-E2E-CORE/G-E2E-KB green
 - [ ] P1.2 RECEIPT_COVERAGE_MATRIX
 - [ ] P1.3 CAPABILITY_LOCALITY
 - [ ] P2.1 RENDERER_REGISTRY

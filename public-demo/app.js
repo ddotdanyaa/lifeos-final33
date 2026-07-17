@@ -1,5 +1,6 @@
 import {
   ARTIFACT_SCHEMA_VERSION,
+  applyObjectContractToState,
   buildArchitectureSnapshot,
   recordArchitectureEvent,
   validateArchitectureState
@@ -2454,6 +2455,7 @@ function normalizeState(input) {
     state.activeSurface = "inbox";
     state.uiRevision = UI_REVISION;
   }
+  applyObjectContractToState(state);
   rebuildIndexes(state);
   return state;
 }

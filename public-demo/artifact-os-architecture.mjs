@@ -1,5 +1,62 @@
 export const ARTIFACT_OS_ARCHITECTURE_VERSION = "v34-platform-primitives-1";
-export const ARTIFACT_SCHEMA_VERSION = 3;
+export const ARTIFACT_SCHEMA_VERSION = 4;
+
+// Object Contract v4 (Seven Contracts, contract 1 "Object"): every record in every
+// non-exempt collection carries these fields so any artifact can be inspected, scoped
+// and traced the same way regardless of which collection it lives in. createdAt/updatedAt
+// are the project's existing camelCase fields (kept as-is, not duplicated as created_at/
+// updated_at) to match surrounding code style; the rest are new camelCase additions.
+export const OBJECT_CONTRACT_V4_FIELDS = Object.freeze([
+  "id", "type", "title", "owner", "sourceRefs", "artifactRefs", "relations",
+  "lifecycleState", "privacyScope", "accessContour", "provenance", "confidence",
+  "receipts", "createdAt", "updatedAt", "version"
+]);
+
+// auditLog/control/environment are not artifact instances: auditLog is an append-only
+// event log with its own event shape, control/environment are singleton runtime-state
+// records (one per vault), not individually-owned objects. Object Contract v4 applies to
+// the other 44 collections only.
+export const OBJECT_CONTRACT_EXEMPT_COLLECTIONS = Object.freeze(["auditLog", "control", "environment"]);
+
+export function applyObjectContractV4(record, type) {
+  const target = record && typeof record === "object" ? record : {};
+  target.type = String(target.type || type || "artifact");
+  target.title = String(target.title || target.name || "Untitled");
+  target.owner = String(target.owner || "local-owner");
+  target.sourceRefs = Array.isArray(target.sourceRefs) ? target.sourceRefs : (target.sourceId ? [String(target.sourceId)] : []);
+  target.artifactRefs = Array.isArray(target.artifactRefs) ? target.artifactRefs : (target.noteId ? [String(target.noteId)] : []);
+  target.relations = Array.isArray(target.relations) ? target.relations : [];
+  target.lifecycleState = String(target.lifecycleState || (target.deleted ? "archived" : "active"));
+  target.privacyScope = String(target.privacyScope || "private");
+  target.accessContour = String(target.accessContour || "owner-only");
+  target.provenance = target.provenance && typeof target.provenance === "object"
+    ? target.provenance
+    : { method: "manual", capturedAt: target.createdAt || new Date().toISOString() };
+  target.confidence = Number.isFinite(Number(target.confidence)) ? Number(target.confidence) : 1;
+  target.receipts = Array.isArray(target.receipts) ? target.receipts : [];
+  target.version = Number.isFinite(Number(target.version)) && Number(target.version) > 0 ? Number(target.version) : 1;
+  target.createdAt = String(target.createdAt || new Date().toISOString());
+  target.updatedAt = String(target.updatedAt || target.createdAt);
+  return target;
+}
+
+export function validateObjectContractV4(record) {
+  const missing = OBJECT_CONTRACT_V4_FIELDS.filter((field) => !(record && Object.prototype.hasOwnProperty.call(record, field)));
+  return { ok: missing.length === 0, missing };
+}
+
+export function applyObjectContractToState(state) {
+  if (!state || typeof state !== "object") return state;
+  for (const collection of ARTIFACT_COLLECTIONS) {
+    if (OBJECT_CONTRACT_EXEMPT_COLLECTIONS.includes(collection.key)) continue;
+    const bucket = state[collection.key];
+    if (!bucket || typeof bucket !== "object") continue;
+    for (const record of Object.values(bucket)) {
+      applyObjectContractV4(record, collection.ownerType);
+    }
+  }
+  return state;
+}
 
 export const ARTIFACT_COLLECTIONS = Object.freeze([
   { key: "folders", ownerType: "space", primarySurface: "library", projection: "vault tree", graph: true, audit: true },

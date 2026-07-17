@@ -57,3 +57,51 @@ test, and this looks like a spec authoring gap, not an intentional relaxed check
 unrelated `home-next-action` failure pre-exists on baseline (untouched `ui/home.js`), restored
 stash. Full G-E2E-CORE (final-human-product H01-H10, human-public, owner-rescue) + G-E2E-KB +
 G-ARCH + all 24 audits stay green after the P0.2 commit.
+
+## 2026-07-18 — Session resume (owner authorized full autonomy: commit+push after every package, incl. gh auth/repo create, no per-action confirmation needed this session)
+
+**Found P0.2/P0.3 already done but not ticked/committed from a prior session run.** Git log
+showed `af9a7568 P0.2 KB_SMOKE_RESCUE` already landed, and the working tree had uncommitted
+P0.3 LEDGER_TRUTH_REFRESH changes (ledger CSV + PRODUCT_BRAIN_OVERVIEW) sitting dirty — this
+was the sole reason `audit-owner-rescue-final` was red ("working tree is clean" check). Ticked
+P0.2/P0.3/P0.4 in the plan ledger, committed the P0.3 work, verified both previously-red audits
+went green, and pushed (`gh auth status` confirmed an active token for `ddotdanyaa`, contradicting
+stale memory that said it was expired).
+
+## P1.1 OBJECT_CONTRACT_V4
+
+**Decision: used camelCase field names (`sourceRefs`, `artifactRefs`, `lifecycleState`,
+`privacyScope`, `accessContour`) instead of the plan's literal snake_case
+(`source_refs`, `artifact_refs`, ...), and reused the existing `createdAt`/`updatedAt`
+fields instead of adding duplicate `created_at`/`updated_at`.**
+Why: CLAUDE.md §5 requires matching surrounding code style, and every existing field in
+app.js/artifact-os-architecture.mjs (id, createdAt, updatedAt, noteId, sourceId, ...) is
+camelCase; introducing snake_case fields alongside would be an inconsistent, confusing
+duplicate schema for the same two timestamp fields.
+
+**Decision: `applyObjectContractV4` also defaults `createdAt`/`updatedAt` itself (not just
+the 14 new fields), even though ~12 collections already set these via their own
+per-collection normalization loops earlier in `normalizeState`.**
+Why: making the Object Contract self-sufficient for all 16 fields, rather than depending on
+each of the 44 collections having its own bespoke loop, is what actually guarantees the
+contract holds everywhere (proven by `tools/audit-seven-contracts.mjs`'s whole-state pass,
+which found this gap immediately when tested against collections with no existing loop).
+
+**Decision: `auditLog`/`control`/`environment` are exempt from Object Contract v4
+(`OBJECT_CONTRACT_EXEMPT_COLLECTIONS`), not migrated to carry the 16 fields.**
+Why: these are not artifact instances — `auditLog` is an append-only event log with its own
+event shape (id/type/summary/createdAt), `control`/`environment` are singleton
+per-vault runtime-state records, not individually-owned objects with an owner/lifecycle/
+privacy scope of their own. Forcing the contract onto them would be label theater
+(same failure mode as [[feedback-no-oversimplify]] warns about, just the overclaiming
+direction instead of the thinning direction).
+
+**Decision: default `confidence = 1` uniformly for all migrated records, not a computed
+per-type score.** Why: P1.1's scope is the Object Contract's field *presence*, not
+confidence scoring; a fake computed-looking score would be overclaiming precision the
+system doesn't have. Documented as a known future refinement, not silently done.
+
+**Verified no regression:** ran full audit loop (only red was the expected pre-commit dirty
+tree), G-SMOKE, `audit:architecture`, new `audit:seven-contracts`, G-E2E-CORE (13 passed/1
+skipped) and G-E2E-KB (2 passed) all green after the change. Rebuilt public-demo (app.js and
+artifact-os-architecture.mjs changed).

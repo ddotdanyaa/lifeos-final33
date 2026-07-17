@@ -58,7 +58,7 @@ if (!app.includes("getArchitectureSnapshot()")) problems.push("test harness arch
 if (!sw.includes("/artifact-os-architecture.mjs")) problems.push("service worker shell cache misses architecture module");
 
 const fakeState = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   activeSurface: "inbox",
   control: {
     architectureEvents: [
