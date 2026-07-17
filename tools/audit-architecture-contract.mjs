@@ -18,6 +18,7 @@ const requiredFiles = [
   "artifact-os-architecture.mjs",
   "docs/architecture/ARTIFACT_OS_ARCHITECTURE_CONTRACT.md",
   "app.js",
+  "ui/v34-platform.js",
   "service-worker.js",
   "package.json"
 ];
@@ -29,13 +30,13 @@ const app = readFileSync("app.js", "utf8");
 const sw = readFileSync("service-worker.js", "utf8");
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 
-const requiredWorkspaces = ["inbox", "capture", "today", "calendar", "finance", "habits", "goals", "library", "reader", "player", "chat", "agents", "flows", "graph", "control", "providers"];
-const requiredCollections = ["notes", "sources", "tasks", "planBlocks", "financeTransactions", "habits", "goals", "chatMessages", "agentRuns", "flowRuns", "providerRuns", "savedSearches", "auditLog", "control", "environment"];
-const requiredModules = ["architecture-contract", "storage-kernel", "capture-analyzer", "projection-renderers", "provider-boundaries", "journey-tests"];
-const requiredAdapters = ["indexeddb-chunked", "localstorage-fallback", "service-worker-shell", "provider-passport", "test-harness"];
+const requiredWorkspaces = ["inbox", "capture", "today", "calendar", "finance", "habits", "goals", "library", "reader", "player", "chat", "agents", "flows", "feed", "systems", "builder", "projects", "models", "smart-home", "marketplace", "design", "databases", "screen", "twin", "graph", "control", "providers"];
+const requiredCollections = ["notes", "sources", "tasks", "planBlocks", "financeTransactions", "habits", "goals", "chatMessages", "agentRuns", "flowRuns", "providerRuns", "savedSearches", "channels", "systemDefinitions", "systemRecords", "projects", "projectItems", "modelProfiles", "smartHomeDevices", "smartHomeEvents", "marketplacePacks", "installedPacks", "designProfiles", "customDatabases", "databaseRows", "screenCompanionSessions", "personalTwinSnapshots", "auditLog", "control", "environment"];
+const requiredModules = ["architecture-contract", "storage-kernel", "capture-analyzer", "projection-renderers", "v34-platform-primitives", "v34-workspace-renderers", "provider-boundaries", "journey-tests"];
+const requiredAdapters = ["indexeddb-chunked", "localstorage-fallback", "service-worker-shell", "provider-passport", "v34-local-pack-registry", "screen-permission-gate", "test-harness"];
 
 const problems = [];
-if (ARTIFACT_OS_ARCHITECTURE_VERSION !== "v33-artifact-os-boundary-1") problems.push("unexpected architecture version");
+if (ARTIFACT_OS_ARCHITECTURE_VERSION !== "v34-platform-primitives-1") problems.push("unexpected architecture version");
 for (const key of requiredWorkspaces) {
   if (!WORKSPACE_CONTRACTS.some((workspace) => workspace.surface === key)) problems.push("missing workspace contract: " + key);
 }
@@ -57,7 +58,7 @@ if (!app.includes("getArchitectureSnapshot()")) problems.push("test harness arch
 if (!sw.includes("/artifact-os-architecture.mjs")) problems.push("service worker shell cache misses architecture module");
 
 const fakeState = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   activeSurface: "inbox",
   control: {
     architectureEvents: [
@@ -74,7 +75,7 @@ const validation = validateArchitectureState(fakeState);
 const snapshot = buildArchitectureSnapshot(fakeState);
 if (!validation.ok) problems.push("fake architecture state failed validation: " + validation.problems.join("; "));
 if (snapshot.eventBus.count !== 1) problems.push("architecture event bus snapshot did not preserve event count");
-if (snapshot.collections.length < 30) problems.push("architecture snapshot has too few collections");
+if (snapshot.collections.length < 45) problems.push("architecture snapshot has too few collections");
 if (snapshot.workspaces.length < requiredWorkspaces.length) problems.push("architecture snapshot has too few workspaces");
 
 if (problems.length) fail("Architecture contract audit failed", { problems });

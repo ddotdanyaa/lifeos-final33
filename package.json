@@ -1,5 +1,5 @@
 {
-  "name": "lifeos-v33-knowledge-base",
+  "name": "lifeos-v34-personal-os",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -51,9 +51,28 @@
     "build:public": "node tools/build-public.mjs",
     "preview:public": "node tools/preview-public.mjs",
     "deploy:pages": "node tools/deploy-pages.mjs",
-    "verify": "node --check app.js && node smoke.mjs"
+    "verify": "node --check app.js && node smoke.mjs",
+    "verify:browser-chat": "node tools/browser-chat-proof.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "^0.9.8",
+    "dompurify": "$dompurify"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "@toast-ui/editor": "^3.2.2",
+    "chart.js": "^4.5.1",
+    "cytoscape": "^3.34.0",
+    "dompurify": "^3.4.12",
+    "epubjs": "^0.3.93",
+    "fflate": "^0.8.3",
+    "marked": "^18.0.6",
+    "minisearch": "^7.2.0",
+    "pdfjs-dist": "^6.1.200",
+    "sortablejs": "^1.15.7",
+    "tesseract.js": "^7.0.0"
   }
 }

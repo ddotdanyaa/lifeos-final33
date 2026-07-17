@@ -33,7 +33,18 @@ const required = [
   "flow-canvas",
   "graph-canvas",
   "control-human-layout",
-  "providers-layout"
+  "providers-layout",
+  "feed-workspace",
+  "systems-workbench",
+  "builder-workspace",
+  "projects-workspace",
+  "models-workspace",
+  "smart-home-workspace",
+  "marketplace-workspace",
+  "design-workspace",
+  "databases-workspace",
+  "screen-workspace",
+  "twin-workspace"
 ];
 
 const missing = required.filter((needle) => !ui.includes(needle));

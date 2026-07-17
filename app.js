@@ -16,8 +16,8 @@ const CHUNK_SIZE = 120000;
 const AUTO_SAVE_MS = 1500;
 const SOURCE_NOTE_TEXT_LIMIT = 60000;
 const INLINE_MEDIA_LIMIT = 8 * 1024 * 1024;
-const UI_REVISION = "owner-ux-001-v1";
-const PRODUCT_BRAIN_VERSION = "2026-06-26-provider-passports";
+const UI_REVISION = "lifeos-v34-chat-hardfix-v4";
+const PRODUCT_BRAIN_VERSION = "2026-07-09-v34-platform-primitives";
 const PRODUCT_BRAIN_FOLDER_ID = "folder-product-brain";
 const PRODUCT_BRAIN_ROOT_ID = "note-product-brain-root";
 const WIKI_LINK_PATTERN = /\[\[(.*?)\]\]/g;
@@ -58,7 +58,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Product Vision",
     status: "DONE",
     kind: "vision",
-    body: "# Product Vision\n\nLifeOS строится как локальная личная OS: daily OS, second brain, планирование, деньги, чтение, аудио, local AI, agents/flows, graph и Data Control.\n\nСм. [[Artifact OS Contract]], [[Feature Completeness Map]], [[Journey Map]]."
+    body: "# Product Vision\n\nLifeOS v34 строится как локальная персональная OS: life feed, capture, second brain, планирование, деньги, системы, проекты, local AI/model routes, agents/flows, graph, marketplace, databases, screen permission gates, smart home gates, recovery twin и Data Control.\n\nСм. [[Artifact OS Contract]], [[Feature Completeness Map]], [[Journey Map]]."
   },
   {
     id: "note-product-brain-contract",
@@ -74,7 +74,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Current Build State",
     status: "DONE",
     kind: "state",
-    body: "# Current Build State\n\nЛокально работает: Home capture, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Graph, Control, Providers, recovery, PWA passport, architecture/market ledgers.\n\nПосле Product Brain self-check повторно прошли J01-J24, no-cockpit, visual hierarchy, workspace distinctness, semantic colors, human UX, performance и recovery audits.\n\nПаспорта провайдеров теперь покрывают Ollama, почту, локальный/внешний календарь, OCR, STT, PDF, EPUB, уведомления, PWA, потоки и плеер: статус, настройка, локальная замена, граница данных и история запусков видны владельцу.\n\nGitHub release: опубликован lite snapshot на owner-usable-nonstop-rescue; git ls-remote подтверждает remote branch. Большие ledgers и screenshot wall сохранены локально и перечислены в remote manifest docs/ops/GITHUB_RELEASE_OMITTED_FILES.md.\n\nGated честно: реальные подключения Ollama/Gmail/внешнего календаря/OCR/STT/PDF/EPUB/уведомлений требуют данных владельца, разрешений или локальных движков.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
+    body: "# Current Build State\n\nЛокально работает: Home capture, Life Feed, proposals/apply, Today, Calendar, Finance, Habits/Goals/Wheel, Library, Reader gates, Player transcript, Chat notes, Agents/Flows dry-runs, Systems, Builder, Projects, Model Hub, Smart Home manual map, Marketplace local packs, Design Studio, Databases, Screen Companion permission gate, Personal Twin snapshots, Graph, Control, Providers, recovery, PWA passport and architecture audits.\n\nv34-примитивы добавлены в shared state: channels, systemDefinitions, projects, modelProfiles, smartHomeDevices, marketplacePacks, designProfiles, customDatabases, screenCompanionSessions and personalTwinSnapshots.\n\nПаспорта провайдеров покрывают Ollama, Model Hub, почту, локальный/внешний календарь, OCR, STT, PDF, EPUB, уведомления, PWA, потоки, плеер, Screen Companion, Smart Home и Marketplace: статус, настройка, локальная замена, граница данных и история запусков видны владельцу.\n\nGated честно: реальные подключения Ollama/Gmail/внешнего календаря/OCR/STT/PDF/EPUB/уведомлений/экрана/умного дома требуют данных владельца, разрешений, локального hub или локальных движков.\n\nСм. [[GitHub Release Map]], [[Provider Gates Map]], [[Journey Map]]."
   },
   {
     id: "note-product-brain-owner-complaints",
@@ -114,7 +114,7 @@ const PRODUCT_BRAIN_NODE_SPECS = [
     title: "Feature Completeness Map",
     status: "DONE",
     kind: "features",
-    body: "# Feature Completeness Map\n\nWorkspaces: Home, Capture, Today, Calendar, Finance, Habits, Goals, Library, Reader, Player, Chat, Agents, Flow, Graph, Control, Providers, Product Brain.\n\nГотовность требует отдельный job, distinct layout, shared artifact repository, graph/control evidence, reload persistence, screenshot, UX score >= 9 и no dead buttons.\n\nP_WORKSPACE_9PLUS_VISUAL_POLISH обновил scorecard и доказал, что рабочие места выглядят как разные рабочие режимы, а не формы с заголовками.\n\nСм. [[Design System Map]], [[Journey Map]], [[Control]]."
+    body: "# Feature Completeness Map\n\nWorkspaces: Home, Feed, Capture, Today, Calendar, Finance, Habits, Goals, Library, Reader, Player, Chat, Agents, Flow, Systems, Builder, Projects, Models, Smart Home, Marketplace, Design, Databases, Screen, Twin, Graph, Control, Providers, Product Brain.\n\nГотовность требует отдельный job, distinct layout, shared artifact repository, graph/control evidence, reload persistence, screenshot, UX score >= 9 и no dead buttons.\n\nv34-добавления должны быть рабочими поверхностями: формы создают объекты, кнопки пишут audit/provider evidence, объекты видны в graph/control/export.\n\nСм. [[Design System Map]], [[Journey Map]], [[Control]]."
   },
   {
     id: "note-product-brain-research",
@@ -1033,8 +1033,28 @@ function createInitialState() {
     providerRuns: {},
     flowRuns: {},
     flows: {},
+    channels: {},
+    systemDefinitions: {},
+    systemRecords: {},
+    projects: {},
+    projectItems: {},
+    modelProfiles: {},
+    smartHomeDevices: {},
+    smartHomeEvents: {},
+    marketplacePacks: {},
+    installedPacks: {},
+    designProfiles: {},
+    designStudio: {
+      activeProfileId: "design-calm-os",
+      renderMode: "dashboard",
+      updatedAt: createdAt
+    },
+    customDatabases: {},
+    databaseRows: {},
+    screenCompanionSessions: {},
+    personalTwinSnapshots: {},
     providers: {
-      ollama: { status: "unchecked", label: "Ollama", endpoint: "http://localhost:11434", lastCheckedAt: "", lastProbeAt: "", lastError: "", scopes: ["active-artifact-analysis"], revokedAt: "" },
+      ollama: { status: "unchecked", label: "Ollama", endpoint: "http://127.0.0.1:11434", lastCheckedAt: "", lastProbeAt: "", lastError: "", scopes: ["active-artifact-analysis"], revokedAt: "" },
       mail: { status: "not-connected", label: "Почта", lastCheckedAt: "" },
       calendar: { status: "local-only", label: "Календарь", lastCheckedAt: "" },
       calendarSync: { status: "not-connected", label: "Внешний календарь", lastCheckedAt: "", scopes: ["calendar-read", "calendar-write"], requiredAction: "Нужны OAuth-данные владельца для синхронизации внешнего календаря; локальный календарь уже работает." },
@@ -1045,16 +1065,23 @@ function createInitialState() {
       ocr: { status: "not-configured", label: "OCR", lastCheckedAt: "", scopes: ["receipt-image-text"], requiredAction: "Подключи локальный OCR-движок; ручное извлечение данных из чека уже работает." },
       pdf: { status: "parser-required", label: "PDF-парсер", lastCheckedAt: "", scopes: ["book-source-parse"], requiredAction: "Установи PDF-парсер перед извлечением текста; хранение источника и честный gate уже работают." },
       epub: { status: "parser-required", label: "EPUB-парсер", lastCheckedAt: "", scopes: ["book-source-parse"], requiredAction: "Установи EPUB-парсер перед извлечением текста; TXT/MD reader уже работает." },
-      notifications: { status: "permission-required", label: "Уведомления", lastCheckedAt: "", scopes: ["browser-permission"], requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." }
+      notifications: { status: "permission-required", label: "Уведомления", lastCheckedAt: "", scopes: ["browser-permission"], requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." },
+      models: { status: "local-only", label: "Model Hub", lastCheckedAt: "", scopes: ["model-routes", "proposal-mode"], requiredAction: "Model Hub хранит маршруты и границы данных локально; внешний запуск требует явного действия владельца." },
+      screen: { status: "permission-required", label: "Screen Companion", lastCheckedAt: "", scopes: ["screen-capture", "active-window-context"], requiredAction: "Чтение экрана включается только явным разрешением владельца; до этого работает ручной импорт скрина/текста." },
+      smartHome: { status: "not-connected", label: "Умный дом", lastCheckedAt: "", scopes: ["home-events", "device-control"], requiredAction: "Home Assistant или другой локальный hub подключается адаптером; локальная карта устройств и события работают вручную." },
+      marketplace: { status: "local-only", label: "Marketplace систем", lastCheckedAt: "", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." }
     },
     ollama: {
-      endpoint: "http://localhost:11434",
+      endpoint: "http://127.0.0.1:11434",
       status: "unchecked",
       models: [],
       selectedModel: "",
       lastError: "",
       lastCheckedAt: "",
       lastProbeAt: "",
+      lastGenerationStatus: "",
+      lastGenerationSample: "",
+      lastLatencyMs: 0,
       scopes: ["active-artifact-analysis"],
       revokedAt: ""
     },
@@ -1071,6 +1098,7 @@ function createInitialState() {
     control: {
       lastExportSummary: "",
       lastImportSummary: "",
+      receipts: [],
       rollbackSnapshots: [],
       corruptRecords: [],
       architectureEvents: [],
@@ -1090,6 +1118,10 @@ function createInitialState() {
       habits: true,
       insights: true,
       knowledge: true,
+      systems: true,
+      channels: true,
+      models: true,
+      home: true,
       ghosts: true
     },
     environment: {
@@ -1236,6 +1268,618 @@ function productBrainStatusSummary(state) {
   };
 }
 
+const V34_PLATFORM_VERSION = "v34-platform-primitives-2026-07-09";
+
+const V34_DEFAULT_CHANNELS = [
+  {
+    id: "channel-life-feed",
+    title: "Личная лента",
+    kind: "life-feed",
+    view: "timeline",
+    description: "Поток источников, решений, действий, подключений и системных изменений."
+  },
+  {
+    id: "channel-today-focus",
+    title: "Фокус дня",
+    kind: "today",
+    view: "dashboard",
+    description: "Задачи, планы, привычки и напоминания, которые требуют внимания сейчас."
+  },
+  {
+    id: "channel-security-control",
+    title: "Приватность и контроль",
+    kind: "security",
+    view: "audit",
+    description: "Provider gates, exports, rollback snapshots, screen permissions and package receipts."
+  },
+  {
+    id: "channel-systems-builder",
+    title: "Системы и конструктор",
+    kind: "systems",
+    view: "kanban",
+    description: "Пользовательские системы, database schemas, marketplace packs and workflows."
+  }
+];
+
+const V34_MARKETPLACE_PACKS = [
+  {
+    id: "pack-crm-lite",
+    title: "CRM / клиенты",
+    kind: "crm",
+    description: "Локальная система клиентов: entities, сделки, follow-ups, заметки и graph links.",
+    entities: ["Контакт", "Сделка", "Follow-up"],
+    fields: ["имя", "статус", "следующий шаг", "связанный проект"],
+    views: ["таблица", "timeline", "карточки"],
+    actions: ["добавить клиента", "создать follow-up", "экспорт"]
+  },
+  {
+    id: "pack-learning-hub",
+    title: "Учебный центр",
+    kind: "learning",
+    description: "Курсы, книги, лекции, транскрипты, цитаты, повторение и проекты.",
+    entities: ["Курс", "Урок", "Конспект", "Повторение"],
+    fields: ["источник", "прогресс", "следующее повторение", "проект"],
+    views: ["reader", "граф", "повторение"],
+    actions: ["добавить источник", "вытащить цитаты", "создать задачу"]
+  },
+  {
+    id: "pack-smart-home-dashboard",
+    title: "Smart-home dashboard",
+    kind: "smart-home",
+    description: "Комнаты, устройства, события и сценарии без скрытого управления устройствами.",
+    entities: ["Комната", "Устройство", "Событие", "Сценарий"],
+    fields: ["комната", "статус", "последнее событие", "разрешение"],
+    views: ["dashboard", "timeline", "safety"],
+    actions: ["записать событие", "подготовить адаптер", "экспорт"]
+  },
+  {
+    id: "pack-project-cockpit",
+    title: "Проектный cockpit",
+    kind: "project",
+    description: "Проекты, решения, задачи, документы, риски и agent dry-runs в одной системе.",
+    entities: ["Проект", "Решение", "Риск", "Задача"],
+    fields: ["статус", "дедлайн", "owner", "следующий шаг"],
+    views: ["dashboard", "таблица", "graph"],
+    actions: ["добавить проект", "создать решение", "запустить agent dry-run"]
+  }
+];
+
+const V34_DESIGN_PROFILES = [
+  {
+    id: "design-calm-os",
+    title: "Calm OS",
+    mode: "dashboard",
+    accent: "#0f766e",
+    description: "Спокойная операционная панель для жизни и контроля."
+  },
+  {
+    id: "design-graph-first",
+    title: "Graph-first",
+    mode: "graph",
+    accent: "#4f46e5",
+    description: "Фокус на связях, инспекторе и причинности."
+  },
+  {
+    id: "design-feed-first",
+    title: "Feed-first",
+    mode: "timeline",
+    accent: "#b45309",
+    description: "Поток событий как главный вход, похожий на личный интернет."
+  }
+];
+
+const V34_MODEL_PROFILES = [
+  {
+    id: "model-ollama-local",
+    title: "Ollama local",
+    kind: "local-llm",
+    endpoint: "http://127.0.0.1:11434",
+    status: "unchecked",
+    boundary: "Активный артефакт отправляется только после явного запуска."
+  },
+  {
+    id: "model-owner-api-key",
+    title: "Свои API-ключи",
+    kind: "owner-key",
+    endpoint: "",
+    status: "needs-owner-credentials",
+    boundary: "Ключ не хранится демонстрационно; подключение требует явного ввода владельца."
+  }
+];
+
+function ensureMap(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function ensureV34ArtifactNote(state, key, title, body, tags) {
+  const existing = Object.values(state.notes || {}).find((note) => !note.deleted && note.systemType === "v34_platform" && note.v34Key === key);
+  const nowValue = now();
+  if (existing) {
+    existing.title = title;
+    existing.body = body;
+    existing.tags = Array.from(new Set([...(Array.isArray(existing.tags) ? existing.tags : []), ...(tags || []), "v34"]));
+    existing.updatedAt = nowValue;
+    return existing.id;
+  }
+  const noteId = createNote(state, title, state.activeFolderId, body);
+  if (state.notes[noteId]) {
+    state.notes[noteId].systemType = "v34_platform";
+    state.notes[noteId].v34Key = key;
+    state.notes[noteId].tags = Array.from(new Set([...(state.notes[noteId].tags || []), ...(tags || []), "v34"]));
+  }
+  return noteId;
+}
+
+function ensureV34Platform(state) {
+  const createdAt = now();
+  state.channels = ensureMap(state.channels);
+  state.systemDefinitions = ensureMap(state.systemDefinitions);
+  state.systemRecords = ensureMap(state.systemRecords);
+  state.projects = ensureMap(state.projects);
+  state.projectItems = ensureMap(state.projectItems);
+  state.modelProfiles = ensureMap(state.modelProfiles);
+  state.smartHomeDevices = ensureMap(state.smartHomeDevices);
+  state.smartHomeEvents = ensureMap(state.smartHomeEvents);
+  state.marketplacePacks = ensureMap(state.marketplacePacks);
+  state.installedPacks = ensureMap(state.installedPacks);
+  state.designProfiles = ensureMap(state.designProfiles);
+  state.designStudio = Object.assign({ activeProfileId: "design-calm-os", renderMode: "dashboard", updatedAt: createdAt }, state.designStudio || {});
+  state.customDatabases = ensureMap(state.customDatabases);
+  state.databaseRows = ensureMap(state.databaseRows);
+  state.screenCompanionSessions = ensureMap(state.screenCompanionSessions);
+  state.personalTwinSnapshots = ensureMap(state.personalTwinSnapshots);
+
+  for (const spec of V34_DEFAULT_CHANNELS) {
+    const current = state.channels[spec.id] || {};
+    const noteId = current.noteId || ensureV34ArtifactNote(state, "channel:" + spec.id, spec.title, [
+      "# " + spec.title,
+      "",
+      spec.description,
+      "",
+      "Channel type: " + spec.kind,
+      "Default view: " + spec.view
+    ].join("\n"), ["channel", spec.kind]);
+    state.channels[spec.id] = Object.assign({}, current, spec, {
+      noteId,
+      status: current.status || "active",
+      deleted: Boolean(current.deleted),
+      createdAt: current.createdAt || createdAt,
+      updatedAt: current.updatedAt || createdAt
+    });
+  }
+
+  const coreSystemId = "system-personal-os-core";
+  if (!state.systemDefinitions[coreSystemId]) {
+    const noteId = ensureV34ArtifactNote(state, "system:" + coreSystemId, "LifeOS personal OS core", [
+      "# LifeOS personal OS core",
+      "",
+      "Core v34 system built from primitives: sources, artifacts, events, channels, views, actions, workflows, agents, rights, adapters, export and rollback.",
+      "",
+      "[[Artifact OS Contract]]"
+    ].join("\n"), ["system", "platform"]);
+    state.systemDefinitions[coreSystemId] = {
+      id: coreSystemId,
+      title: "LifeOS personal OS core",
+      kind: "platform",
+      entities: ["Источник", "Артефакт", "Событие", "Канал", "Отображение", "Действие"],
+      fields: ["source", "status", "rights", "history", "links"],
+      views: ["feed", "dashboard", "graph", "control"],
+      actions: ["capture", "search", "export", "rollback"],
+      workflows: ["input-to-artifact-to-action"],
+      policies: ["local-first", "approval-before-mutation", "provider-gated"],
+      adapters: ["files", "ollama", "pwa"],
+      health: "ok",
+      status: "active",
+      noteId,
+      installedPackId: "",
+      deleted: false,
+      createdAt,
+      updatedAt: createdAt
+    };
+  }
+
+  for (const pack of V34_MARKETPLACE_PACKS) {
+    const current = state.marketplacePacks[pack.id] || {};
+    const noteId = current.noteId || ensureV34ArtifactNote(state, "pack:" + pack.id, pack.title, [
+      "# " + pack.title,
+      "",
+      pack.description,
+      "",
+      "Entities: " + pack.entities.join(", "),
+      "Fields: " + pack.fields.join(", "),
+      "Views: " + pack.views.join(", "),
+      "Actions: " + pack.actions.join(", "),
+      "",
+      "Install mode: local system definition, no vendor code execution."
+    ].join("\n"), ["marketplace", pack.kind]);
+    state.marketplacePacks[pack.id] = Object.assign({}, current, pack, {
+      noteId,
+      status: current.status || "available",
+      installMode: "local-definition",
+      deleted: Boolean(current.deleted),
+      createdAt: current.createdAt || createdAt,
+      updatedAt: current.updatedAt || createdAt
+    });
+  }
+
+  for (const profile of V34_DESIGN_PROFILES) {
+    const current = state.designProfiles[profile.id] || {};
+    state.designProfiles[profile.id] = Object.assign({}, current, profile, {
+      status: current.status || (profile.id === state.designStudio.activeProfileId ? "active" : "available"),
+      deleted: Boolean(current.deleted),
+      createdAt: current.createdAt || createdAt,
+      updatedAt: current.updatedAt || createdAt
+    });
+  }
+
+  for (const profile of V34_MODEL_PROFILES) {
+    const current = state.modelProfiles[profile.id] || {};
+    const noteId = current.noteId || ensureV34ArtifactNote(state, "model:" + profile.id, profile.title, [
+      "# " + profile.title,
+      "",
+      "Model route kind: " + profile.kind,
+      "Endpoint: " + (profile.endpoint || "owner-provided"),
+      "",
+      profile.boundary
+    ].join("\n"), ["model", profile.kind]);
+    state.modelProfiles[profile.id] = Object.assign({}, current, profile, {
+      noteId,
+      deleted: Boolean(current.deleted),
+      createdAt: current.createdAt || createdAt,
+      updatedAt: current.updatedAt || createdAt
+    });
+  }
+
+  const providerDefaults = {
+    models: { status: "local-only", label: "Model Hub", scopes: ["model-routes", "proposal-mode"], requiredAction: "Model Hub хранит маршруты и границы данных локально; внешний запуск требует явного действия владельца." },
+    screen: { status: "permission-required", label: "Screen Companion", scopes: ["screen-capture", "active-window-context"], requiredAction: "Чтение экрана включается только явным разрешением владельца; до этого работает ручной импорт скрина/текста." },
+    smartHome: { status: "not-connected", label: "Умный дом", scopes: ["home-events", "device-control"], requiredAction: "Home Assistant или другой локальный hub подключается адаптером; локальная карта устройств и события работают вручную." },
+    marketplace: { status: "local-only", label: "Marketplace систем", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." }
+  };
+  for (const [key, provider] of Object.entries(providerDefaults)) {
+    state.providers[key] = Object.assign({}, provider, state.providers[key] || {});
+  }
+
+  if (!state.control.v34Platform || state.control.v34Platform.version !== V34_PLATFORM_VERSION) {
+    state.control.v34Platform = {
+      version: V34_PLATFORM_VERSION,
+      primitives: ["sources", "artifacts", "events", "channels", "views", "actions", "workflows", "agents", "rights", "adapters", "marketplace"],
+      updatedAt: createdAt
+    };
+    addAudit(state, "v34.platform.seed", "LifeOS v34 platform primitives seeded", state.activeNoteId);
+  }
+}
+
+function createSystemDefinition(state, options) {
+  const data = options && typeof options === "object" ? options : {};
+  const title = cleanLine(data.title || "Новая система");
+  if (!title) return "";
+  const id = makeId("system");
+  const createdAt = now();
+  const entities = Array.isArray(data.entities) && data.entities.length ? data.entities.map(cleanLine).filter(Boolean) : ["Сущность", "Событие", "Действие"];
+  const fields = Array.isArray(data.fields) && data.fields.length ? data.fields.map(cleanLine).filter(Boolean) : ["статус", "источник", "следующий шаг"];
+  const views = Array.isArray(data.views) && data.views.length ? data.views.map(cleanLine).filter(Boolean) : ["dashboard", "table", "timeline", "graph"];
+  const actions = Array.isArray(data.actions) && data.actions.length ? data.actions.map(cleanLine).filter(Boolean) : ["добавить запись", "создать задачу", "экспорт"];
+  const noteId = ensureV34ArtifactNote(state, "system:" + id, title, [
+    "# " + title,
+    "",
+    "Система построена внутри LifeOS v34 primitives.",
+    "",
+    "Entities: " + entities.join(", "),
+    "Fields: " + fields.join(", "),
+    "Views: " + views.join(", "),
+    "Actions: " + actions.join(", "),
+    "Policies: local-first, approval-before-mutation, exportable."
+  ].join("\n"), ["system", cleanLine(data.kind || "custom")]);
+  state.systemDefinitions[id] = {
+    id,
+    title,
+    kind: cleanLine(data.kind || "custom"),
+    entities,
+    fields,
+    views,
+    actions,
+    workflows: Array.isArray(data.workflows) ? data.workflows.map(cleanLine).filter(Boolean) : [],
+    policies: ["local-first", "approval-before-mutation", "exportable"].concat(Array.isArray(data.policies) ? data.policies.map(cleanLine).filter(Boolean) : []),
+    adapters: Array.isArray(data.adapters) ? data.adapters.map(cleanLine).filter(Boolean) : [],
+    health: "ok",
+    status: "active",
+    noteId,
+    installedPackId: cleanLine(data.installedPackId || ""),
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "system.create", "System definition created: " + title, noteId);
+  return id;
+}
+
+function installMarketplacePack(state, packId) {
+  const pack = state.marketplacePacks[packId];
+  if (!pack || pack.deleted) return "";
+  const existing = Object.values(state.installedPacks || {}).find((item) => item.packId === packId && !item.deleted);
+  if (existing) return existing.systemId || "";
+  const installId = makeId("install");
+  const systemId = createSystemDefinition(state, {
+    title: pack.title,
+    kind: pack.kind,
+    entities: pack.entities,
+    fields: pack.fields,
+    views: pack.views,
+    actions: pack.actions,
+    installedPackId: installId,
+    adapters: ["local-definition"]
+  });
+  const createdAt = now();
+  state.installedPacks[installId] = {
+    id: installId,
+    packId,
+    title: pack.title,
+    systemId,
+    noteId: state.systemDefinitions[systemId] ? state.systemDefinitions[systemId].noteId : pack.noteId,
+    status: "installed",
+    installMode: "local-definition",
+    vendorCodeExecuted: false,
+    createdAt,
+    updatedAt: createdAt,
+    deleted: false
+  };
+  recordProviderRun(state, "marketplace", "install", "installed", "Installed local system pack without vendor code: " + pack.title, { packId, systemId });
+  addAudit(state, "marketplace.install", "Installed local system pack: " + pack.title, state.installedPacks[installId].noteId);
+  return systemId;
+}
+
+function createProject(state, title) {
+  const cleanTitle = cleanLine(title || "Новый проект");
+  if (!cleanTitle) return "";
+  const id = makeId("project");
+  const createdAt = now();
+  const noteId = ensureV34ArtifactNote(state, "project:" + id, cleanTitle, [
+    "# " + cleanTitle,
+    "",
+    "Project hub: задачи, решения, документы, риски и артефакты в одной связанной системе."
+  ].join("\n"), ["project"]);
+  state.projects[id] = {
+    id,
+    title: cleanTitle,
+    status: "active",
+    noteId,
+    nextAction: "Добавить первое решение или задачу",
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "project.create", "Project created: " + cleanTitle, noteId);
+  return id;
+}
+
+function addProjectItem(state, projectId, text, kind) {
+  const project = state.projects[projectId] || Object.values(state.projects || {}).find((item) => !item.deleted);
+  const title = cleanLine(text || "Новый пункт проекта");
+  if (!project || !title) return "";
+  const id = makeId("projectitem");
+  const createdAt = now();
+  state.projectItems[id] = {
+    id,
+    projectId: project.id,
+    title,
+    kind: cleanLine(kind || "decision"),
+    status: "open",
+    noteId: project.noteId,
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "project.item", "Project item added: " + title, project.noteId);
+  return id;
+}
+
+function createCustomDatabase(state, title) {
+  const cleanTitle = cleanLine(title || "Новая база");
+  if (!cleanTitle) return "";
+  const id = makeId("database");
+  const createdAt = now();
+  const noteId = ensureV34ArtifactNote(state, "database:" + id, cleanTitle, [
+    "# " + cleanTitle,
+    "",
+    "Custom database built from LifeOS primitives: entities, fields, rows, views, graph and export."
+  ].join("\n"), ["database"]);
+  state.customDatabases[id] = {
+    id,
+    title: cleanTitle,
+    fields: ["Название", "Статус", "Источник", "Следующий шаг"],
+    views: ["table", "cards", "timeline", "graph"],
+    noteId,
+    status: "active",
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "database.create", "Database created: " + cleanTitle, noteId);
+  return id;
+}
+
+function addDatabaseRow(state, databaseId, title, status) {
+  const database = state.customDatabases[databaseId] || Object.values(state.customDatabases || {}).find((item) => !item.deleted);
+  const cleanTitle = cleanLine(title || "Новая запись");
+  if (!database || !cleanTitle) return "";
+  const id = makeId("dbrow");
+  const createdAt = now();
+  state.databaseRows[id] = {
+    id,
+    databaseId: database.id,
+    title: cleanTitle,
+    status: cleanLine(status || "open"),
+    fields: {
+      "Название": cleanTitle,
+      "Статус": cleanLine(status || "open")
+    },
+    noteId: database.noteId,
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "database.row", "Database row added: " + cleanTitle, database.noteId);
+  return id;
+}
+
+function saveDesignProfile(state, profileId, renderMode) {
+  const id = state.designProfiles[profileId] ? profileId : "design-calm-os";
+  const mode = cleanLine(renderMode || (state.designProfiles[id] ? state.designProfiles[id].mode : "dashboard"));
+  state.designStudio.activeProfileId = id;
+  state.designStudio.renderMode = mode;
+  state.designStudio.updatedAt = now();
+  for (const profile of Object.values(state.designProfiles || {})) {
+    profile.status = profile.id === id ? "active" : "available";
+    profile.updatedAt = now();
+  }
+  addAudit(state, "design.profile", "Design profile selected: " + id + " / " + mode, state.activeNoteId);
+}
+
+function addModelProfile(state, title, endpoint, kind) {
+  const cleanTitle = cleanLine(title || "Новая модель");
+  if (!cleanTitle) return "";
+  const id = makeId("model");
+  const createdAt = now();
+  const noteId = ensureV34ArtifactNote(state, "model:" + id, cleanTitle, [
+    "# " + cleanTitle,
+    "",
+    "Owner-controlled model route.",
+    "Kind: " + cleanLine(kind || "owner-key"),
+    "Endpoint: " + cleanLine(endpoint || "owner-provided"),
+    "",
+    "No private artifact leaves LifeOS without explicit owner action."
+  ].join("\n"), ["model", cleanLine(kind || "owner-key")]);
+  state.modelProfiles[id] = {
+    id,
+    title: cleanTitle,
+    kind: cleanLine(kind || "owner-key"),
+    endpoint: cleanLine(endpoint || ""),
+    status: endpoint ? "unchecked" : "needs-owner-credentials",
+    boundary: "Explicit owner run only; proposal mode before mutation.",
+    noteId,
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "model.profile", "Model profile added: " + cleanTitle, noteId);
+  return id;
+}
+
+function verifyModelRoute(state, modelId) {
+  const model = state.modelProfiles[modelId] || Object.values(state.modelProfiles || {}).find((item) => !item.deleted);
+  if (!model) return "";
+  model.status = model.endpoint ? "unchecked" : "needs-owner-credentials";
+  model.updatedAt = now();
+  recordProviderRun(state, "models", "route-check", model.status, "Model route checked without sending private data: " + model.title, { modelId: model.id, endpoint: model.endpoint || "" });
+  addAudit(state, "model.route", "Model route checked: " + model.title + " / " + model.status, model.noteId || state.activeNoteId);
+  return model.id;
+}
+
+function addSmartHomeDevice(state, title, room) {
+  const cleanTitle = cleanLine(title || "Устройство");
+  if (!cleanTitle) return "";
+  const id = makeId("device");
+  const createdAt = now();
+  const noteId = ensureV34ArtifactNote(state, "device:" + id, cleanTitle, [
+    "# " + cleanTitle,
+    "",
+    "Smart-home device artifact. Control is gated until owner connects a local hub."
+  ].join("\n"), ["smart-home"]);
+  state.smartHomeDevices[id] = {
+    id,
+    title: cleanTitle,
+    room: cleanLine(room || "Дом"),
+    status: "manual",
+    provider: "manual",
+    noteId,
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "home.device", "Smart-home device added: " + cleanTitle, noteId);
+  return id;
+}
+
+function recordSmartHomeEvent(state, deviceId, text) {
+  const device = state.smartHomeDevices[deviceId] || Object.values(state.smartHomeDevices || {}).find((item) => !item.deleted);
+  if (!device) return "";
+  const id = makeId("homeevent");
+  const createdAt = now();
+  const title = cleanLine(text || "Ручное событие устройства");
+  state.smartHomeEvents[id] = {
+    id,
+    deviceId: device.id,
+    title,
+    status: "recorded",
+    noteId: device.noteId,
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "home.event", "Smart-home event recorded: " + title, device.noteId);
+  return id;
+}
+
+function prepareScreenCompanionSession(state) {
+  const id = makeId("screen");
+  const createdAt = now();
+  state.screenCompanionSessions[id] = {
+    id,
+    title: "Screen Companion permission gate",
+    status: "permission-required",
+    scope: "screen-capture",
+    summary: "LifeOS will not read the screen until the owner explicitly grants browser permission.",
+    noteId: state.activeNoteId,
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  state.providers.screen = Object.assign({}, state.providers.screen || {}, {
+    status: "permission-required",
+    label: "Screen Companion",
+    lastCheckedAt: createdAt,
+    scopes: ["screen-capture", "active-window-context"],
+    requiredAction: "Grant browser screen permission explicitly; otherwise use manual screenshot import."
+  });
+  recordProviderRun(state, "screen", "prepare", "permission-required", "Screen Companion prepared without reading the screen", { sessionId: id });
+  addAudit(state, "screen.prepare", "Screen Companion permission gate prepared", state.activeNoteId);
+  return id;
+}
+
+function createPersonalTwinSnapshot(state) {
+  const id = makeId("twin");
+  const createdAt = now();
+  const summary = [
+    Object.values(state.notes || {}).filter((item) => !item.deleted).length + " notes",
+    Object.values(state.sources || {}).filter((item) => !item.deleted).length + " sources",
+    Object.values(state.tasks || {}).filter((item) => !item.deleted).length + " tasks",
+    Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted).length + " systems",
+    state.auditLog.length + " audit events"
+  ].join(" / ");
+  const noteId = ensureV34ArtifactNote(state, "twin:" + id, "Personal Twin snapshot", [
+    "# Personal Twin snapshot",
+    "",
+    "Recovery-oriented memory snapshot.",
+    "",
+    summary,
+    "",
+    "This is a local summary artifact, not an external identity clone."
+  ].join("\n"), ["twin", "recovery"]);
+  state.personalTwinSnapshots[id] = {
+    id,
+    title: "Personal Twin snapshot",
+    summary,
+    noteId,
+    status: "local-snapshot",
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "twin.snapshot", "Personal Twin snapshot created: " + summary, noteId);
+  return id;
+}
+
 function productBrainEdgeReason(key) {
   const reasons = {
     "product-brain-root-vision": "Product Brain раскрывает продуктовую цель",
@@ -1299,8 +1943,28 @@ function normalizeState(input) {
     providerRuns: base.providerRuns || {},
     flowRuns: base.flowRuns || {},
     flows: base.flows || {},
+    channels: base.channels || {},
+    systemDefinitions: base.systemDefinitions || {},
+    systemRecords: base.systemRecords || {},
+    projects: base.projects || {},
+    projectItems: base.projectItems || {},
+    modelProfiles: base.modelProfiles || {},
+    smartHomeDevices: base.smartHomeDevices || {},
+    smartHomeEvents: base.smartHomeEvents || {},
+    marketplacePacks: base.marketplacePacks || {},
+    installedPacks: base.installedPacks || {},
+    designProfiles: base.designProfiles || {},
+    designStudio: Object.assign({
+      activeProfileId: "design-calm-os",
+      renderMode: "dashboard",
+      updatedAt: ""
+    }, base.designStudio || {}),
+    customDatabases: base.customDatabases || {},
+    databaseRows: base.databaseRows || {},
+    screenCompanionSessions: base.screenCompanionSessions || {},
+    personalTwinSnapshots: base.personalTwinSnapshots || {},
     providers: Object.assign({
-      ollama: { status: "unchecked", label: "Ollama", endpoint: "http://localhost:11434", lastCheckedAt: "", lastProbeAt: "", lastError: "", scopes: ["active-artifact-analysis"], revokedAt: "" },
+      ollama: { status: "unchecked", label: "Ollama", endpoint: "http://127.0.0.1:11434", lastCheckedAt: "", lastProbeAt: "", lastError: "", scopes: ["active-artifact-analysis"], revokedAt: "" },
       mail: { status: "not-connected", label: "Почта", lastCheckedAt: "" },
       calendar: { status: "local-only", label: "Календарь", lastCheckedAt: "" },
       calendarSync: { status: "not-connected", label: "Внешний календарь", lastCheckedAt: "", scopes: ["calendar-read", "calendar-write"], requiredAction: "Нужны OAuth-данные владельца для синхронизации внешнего календаря; локальный календарь уже работает." },
@@ -1311,16 +1975,23 @@ function normalizeState(input) {
       ocr: { status: "not-configured", label: "OCR", lastCheckedAt: "", scopes: ["receipt-image-text"], requiredAction: "Подключи локальный OCR-движок; ручное извлечение данных из чека уже работает." },
       pdf: { status: "parser-required", label: "PDF-парсер", lastCheckedAt: "", scopes: ["book-source-parse"], requiredAction: "Установи PDF-парсер перед извлечением текста; хранение источника и честный gate уже работают." },
       epub: { status: "parser-required", label: "EPUB-парсер", lastCheckedAt: "", scopes: ["book-source-parse"], requiredAction: "Установи EPUB-парсер перед извлечением текста; TXT/MD reader уже работает." },
-      notifications: { status: "permission-required", label: "Уведомления", lastCheckedAt: "", scopes: ["browser-permission"], requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." }
+      notifications: { status: "permission-required", label: "Уведомления", lastCheckedAt: "", scopes: ["browser-permission"], requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." },
+      models: { status: "local-only", label: "Model Hub", lastCheckedAt: "", scopes: ["model-routes", "proposal-mode"], requiredAction: "Model Hub хранит маршруты и границы данных локально; внешний запуск требует явного действия владельца." },
+      screen: { status: "permission-required", label: "Screen Companion", lastCheckedAt: "", scopes: ["screen-capture", "active-window-context"], requiredAction: "Чтение экрана включается только явным разрешением владельца; до этого работает ручной импорт скрина/текста." },
+      smartHome: { status: "not-connected", label: "Умный дом", lastCheckedAt: "", scopes: ["home-events", "device-control"], requiredAction: "Home Assistant или другой локальный hub подключается адаптером; локальная карта устройств и события работают вручную." },
+      marketplace: { status: "local-only", label: "Marketplace систем", lastCheckedAt: "", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." }
     }, base.providers || {}),
     ollama: Object.assign({
-      endpoint: "http://localhost:11434",
+      endpoint: "http://127.0.0.1:11434",
       status: "unchecked",
       models: [],
       selectedModel: "",
       lastError: "",
       lastCheckedAt: "",
       lastProbeAt: "",
+      lastGenerationStatus: "",
+      lastGenerationSample: "",
+      lastLatencyMs: 0,
       scopes: ["active-artifact-analysis"],
       revokedAt: ""
     }, base.ollama || {}),
@@ -1330,6 +2001,7 @@ function normalizeState(input) {
     control: Object.assign({
       lastExportSummary: "",
       lastImportSummary: "",
+      receipts: [],
       rollbackSnapshots: [],
       corruptRecords: [],
       architectureEvents: [],
@@ -1339,7 +2011,7 @@ function normalizeState(input) {
         privateMedia: "manual"
       }
     }, base.control || {}),
-    graphFilters: Object.assign({ notes: true, productBrain: false, sources: true, goals: true, tasks: true, money: true, habits: true, insights: true, knowledge: true, ghosts: true }, base.graphFilters || {}),
+    graphFilters: Object.assign({ notes: true, productBrain: false, sources: true, goals: true, tasks: true, money: true, habits: true, insights: true, knowledge: true, chat: true, systems: true, channels: true, models: true, home: true, ghosts: true }, base.graphFilters || {}),
     environment: Object.assign({
       online: true,
       persisted: false,
@@ -1368,6 +2040,16 @@ function normalizeState(input) {
     recoveredNoteId: cleanLine(record.recoveredNoteId || ""),
     createdAt: record.createdAt || now(),
     updatedAt: record.updatedAt || record.createdAt || now()
+  })) : [];
+  state.control.receipts = Array.isArray(state.control.receipts) ? state.control.receipts.slice(-160).map((receipt) => ({
+    id: cleanLine(receipt.id || makeId("receipt")),
+    kind: cleanLine(receipt.kind || "receipt"),
+    objectId: cleanLine(receipt.objectId || ""),
+    summary: cleanLine(receipt.summary || ""),
+    surface: cleanLine(receipt.surface || ""),
+    noteId: cleanLine(receipt.noteId || ""),
+    sourceId: cleanLine(receipt.sourceId || ""),
+    createdAt: receipt.createdAt || now()
   })) : [];
   state.control.architectureEvents = Array.isArray(state.control.architectureEvents) ? state.control.architectureEvents.slice(-80).map((event) => ({
     id: cleanLine(event.id || makeId("arch")),
@@ -1657,6 +2339,11 @@ function normalizeState(input) {
     message.text = String(message.text || "");
     message.noteId = state.notes[message.noteId] && !state.notes[message.noteId].deleted ? message.noteId : "";
     message.sourceId = state.sources[message.sourceId] && !state.sources[message.sourceId].deleted ? message.sourceId : "";
+    message.entityType = cleanLine(message.entityType || "chat-message");
+    message.artifactKind = cleanLine(message.artifactKind || "chat");
+    message.searchText = cleanLine(message.searchText || [message.role, message.text].join(" "));
+    message.receiptId = cleanLine(message.receiptId || "");
+    message.deleted = Boolean(message.deleted) || (message.role === "assistant" && isLegacyChatStubText(message.text || message.content || ""));
     message.createdAt = message.createdAt || now();
   }
   for (const run of Object.values(state.agentRuns)) {
@@ -1710,7 +2397,11 @@ function normalizeState(input) {
     ocr: { label: "OCR", requiredAction: "Подключи локальный OCR-движок; ручное извлечение данных из чека уже работает." },
     pdf: { label: "PDF-парсер", requiredAction: "Установи PDF-парсер перед извлечением текста; хранение источника и честный gate уже работают." },
     epub: { label: "EPUB-парсер", requiredAction: "Установи EPUB-парсер перед извлечением текста; TXT/MD reader уже работает." },
-    notifications: { label: "Уведомления", requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." }
+    notifications: { label: "Уведомления", requiredAction: "Разрешение браузерных уведомлений запрашивается только явно; напоминания видны в Today/Calendar." },
+    models: { label: "Model Hub", requiredAction: "Model Hub хранит маршруты и границы данных локально; внешний запуск требует явного действия владельца." },
+    screen: { label: "Screen Companion", requiredAction: "Чтение экрана включается только явным разрешением владельца; до этого работает ручной импорт скрина/текста." },
+    smartHome: { label: "Умный дом", requiredAction: "Home Assistant или другой локальный hub подключается адаптером; локальная карта устройств и события работают вручную." },
+    marketplace: { label: "Marketplace систем", requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." }
   };
   for (const [providerKey, provider] of Object.entries(state.providers)) {
     provider.status = cleanLine(provider.status || "not-connected");
@@ -1730,6 +2421,7 @@ function normalizeState(input) {
     }
   }
   ensureProductBrain(state);
+  ensureV34Platform(state);
   for (const key of Object.keys(state.graphFilters)) {
     state.graphFilters[key] = state.graphFilters[key] !== false;
   }
@@ -1746,13 +2438,16 @@ function normalizeState(input) {
   state.environment.displayMode = cleanLine(state.environment.displayMode || "browser");
   state.environment.pwaLastError = String(state.environment.pwaLastError || "");
   state.environment.updatedAt = String(state.environment.updatedAt || "");
-  if (!/^https?:\/\//.test(state.ollama.endpoint || "")) state.ollama.endpoint = "http://localhost:11434";
+  if (!/^https?:\/\//.test(state.ollama.endpoint || "")) state.ollama.endpoint = "http://127.0.0.1:11434";
   if (!Array.isArray(state.ollama.models)) state.ollama.models = [];
   state.ollama.status = cleanLine(state.ollama.status || "unchecked");
   state.ollama.selectedModel = cleanLine(state.ollama.selectedModel || state.ollama.models[0] || "");
   state.ollama.lastError = String(state.ollama.lastError || "");
   state.ollama.lastCheckedAt = String(state.ollama.lastCheckedAt || "");
   state.ollama.lastProbeAt = String(state.ollama.lastProbeAt || state.ollama.lastCheckedAt || "");
+  state.ollama.lastGenerationStatus = cleanLine(state.ollama.lastGenerationStatus || "");
+  state.ollama.lastGenerationSample = String(state.ollama.lastGenerationSample || "");
+  state.ollama.lastLatencyMs = Number.isFinite(Number(state.ollama.lastLatencyMs)) ? Number(state.ollama.lastLatencyMs) : 0;
   state.ollama.scopes = Array.isArray(state.ollama.scopes) ? state.ollama.scopes.map(cleanLine).filter(Boolean) : ["active-artifact-analysis"];
   state.ollama.revokedAt = String(state.ollama.revokedAt || "");
   if (state.uiRevision !== UI_REVISION) {
@@ -2017,6 +2712,9 @@ function searchNotes(state, query) {
   for (const block of Object.values(state.planBlocks || {}).filter((item) => !item.deleted)) {
     addArtifactScore(block.noteId, [block.title, block.day, block.status].join(" "), 4);
   }
+  for (const message of visibleChatMessages(state)) {
+    addArtifactScore(message.noteId, [message.role, message.text || message.content || ""].join(" "), 3);
+  }
   for (const entry of scored) {
     entry.score = scoreByNoteId.get(entry.note.id) || entry.score;
   }
@@ -2056,6 +2754,17 @@ function commandPaletteItems(state) {
     { id: "surface:graph", group: "Рабочие места", title: "Большой граф", hint: "Общий и локальный граф, фильтры, инспектор, причины связей", shortcut: "G G" },
     { id: "surface:control", group: "Рабочие места", title: "Контроль данных", hint: "Аудит, экспорт, архив и откат", shortcut: "G X" },
     { id: "surface:providers", group: "Рабочие места", title: "Подключения", hint: "Ollama, OCR, STT, парсеры и честные статусы", shortcut: "G V" },
+    { id: "surface:feed", group: "LifeOS v34", title: "Лента", hint: "Поток источников, действий, системных событий и проверок", shortcut: "G E" },
+    { id: "surface:systems", group: "LifeOS v34", title: "Системы", hint: "Личные системы как артефакты, граф и экспорт", shortcut: "G S" },
+    { id: "surface:builder", group: "LifeOS v34", title: "Builder", hint: "Сборка систем из source, artifact, event, channel, view, action", shortcut: "G U" },
+    { id: "surface:projects", group: "LifeOS v34", title: "Проекты", hint: "Проектные решения, риски, задачи и документы", shortcut: "G J" },
+    { id: "surface:models", group: "LifeOS v34", title: "Model Hub", hint: "Маршруты локальных и owner-key моделей без скрытой отправки", shortcut: "G M" },
+    { id: "surface:smart-home", group: "LifeOS v34", title: "Умный дом", hint: "Устройства и события с явным подключением hub", shortcut: "G D" },
+    { id: "surface:marketplace", group: "LifeOS v34", title: "Marketplace", hint: "Локальные паки систем без запуска чужого кода", shortcut: "G P" },
+    { id: "surface:design", group: "LifeOS v34", title: "Design Studio", hint: "Профили отображения отдельно от данных", shortcut: "G Y" },
+    { id: "surface:databases", group: "LifeOS v34", title: "Базы", hint: "Реляционные личные системы, строки, виды и граф", shortcut: "G B" },
+    { id: "surface:screen", group: "LifeOS v34", title: "Screen Companion", hint: "Permission gate для контекста экрана", shortcut: "G N" },
+    { id: "surface:twin", group: "LifeOS v34", title: "Personal Twin", hint: "Локальные снимки памяти и восстановления", shortcut: "G R" },
     { id: "quick:task", group: "Быстрое действие", title: "Новая задача из захвата", hint: "Откроет capture-first шаблон задачи", shortcut: "N T" },
     { id: "quick:expense", group: "Быстрое действие", title: "Новый расход", hint: "Откроет шаблон расхода и финансы", shortcut: "N F" },
     { id: "quick:habit", group: "Быстрое действие", title: "Новая привычка", hint: "Откроет шаблон привычки", shortcut: "N H" },
@@ -3119,17 +3828,50 @@ function quickTaskFromCapture(state, text) {
   return sourceId;
 }
 
-function addChatMessage(state, role, text, sourceId, noteId) {
-  const id = makeId("message");
-  state.chatMessages[id] = {
-    id,
-    role: role === "assistant" ? "assistant" : "owner",
-    text: String(text || ""),
-    sourceId: sourceId || "",
-    noteId: noteId || "",
-    proposalId: "",
+function addControlReceipt(state, kind, objectId, summary, options) {
+  state.control = state.control && typeof state.control === "object" ? state.control : {};
+  const receipt = {
+    id: makeId("receipt"),
+    kind: cleanLine(kind || "receipt"),
+    objectId: cleanLine(objectId || ""),
+    summary: cleanLine(summary || ""),
+    surface: cleanLine((options && options.surface) || state.activeSurface || ""),
+    noteId: cleanLine((options && options.noteId) || ""),
+    sourceId: cleanLine((options && options.sourceId) || ""),
     createdAt: now()
   };
+  state.control.receipts = [receipt].concat(Array.isArray(state.control.receipts) ? state.control.receipts : []).slice(0, 160);
+  return receipt.id;
+}
+
+function addChatMessage(state, role, text, sourceId, noteId) {
+  const id = makeId("message");
+  const createdAt = now();
+  const cleanRole = role === "assistant" ? "assistant" : "owner";
+  const cleanText = String(text || "");
+  const resolvedNoteId = noteId || state.activeNoteId || "";
+  const resolvedSourceId = sourceId || "";
+  const receiptId = addControlReceipt(state, "chat.message", id, cleanRole + ": " + shorten(cleanText, 110), {
+    noteId: resolvedNoteId,
+    sourceId: resolvedSourceId,
+    surface: "chat"
+  });
+  state.chatMessages[id] = {
+    id,
+    role: cleanRole,
+    text: cleanText,
+    entityType: "chat-message",
+    artifactKind: "chat",
+    searchText: [cleanRole, cleanText].join(" "),
+    sourceId: resolvedSourceId,
+    noteId: resolvedNoteId,
+    proposalId: "",
+    receiptId,
+    deleted: false,
+    createdAt
+  };
+  addAudit(state, cleanRole === "owner" ? "chat.input.artifact" : "chat.answer.artifact", cleanRole + " chat artifact recorded: " + shorten(cleanText, 120), resolvedNoteId);
+  state.graphProjectionStamp = Number(state.graphProjectionStamp || 0) + 1;
   return id;
 }
 
@@ -3153,6 +3895,383 @@ function chatMessageToProposal(state, messageId, type) {
 
 function latestOwnerChatMessage(state) {
   return Object.values(state.chatMessages || {}).filter((message) => message.role === "owner").sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] || null;
+}
+
+function isLegacyChatStubText(text) {
+  const value = normalizeRuText(repairMojibake(String(text || ""))).toLocaleLowerCase();
+  return [
+    value.includes("сообщение привязано к активному артефакту") && (value.includes("flow") || value.includes("agent")),
+    value.includes("артефакт связан с библиотекой") && value.includes("графом"),
+    value.startsWith("я понял") && value.includes("мой локальный вывод"),
+    value.startsWith("я понял") && value.includes("без твоего подтверждения"),
+    value.includes("прямого факта по этому вопросу") && value.includes("запрос по базе")
+  ].some(Boolean);
+}
+
+function visibleChatMessages(state) {
+  return Object.values(state.chatMessages || {})
+    .filter((message) => !message.deleted && !(message.role === "assistant" && isLegacyChatStubText(message.text || message.content || "")))
+    .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+}
+
+function activeChatContext(state) {
+  const note = getActiveNote(state);
+  const source = humanVisibleSource(state) || latestSource(state);
+  const selected = graphNodeObject(state, state.graphView && state.graphView.selectedNodeId ? state.graphView.selectedNodeId : "");
+  const selectedTitle = selected ? graphNodeTitle(selected.kind, selected.object, selected.object ? selected.object.id : "") : "";
+  const sourceText = source ? cleanLine(source.text || source.transcriptText || source.name || "") : "";
+  const noteText = note ? cleanLine(note.body || note.title || "") : "";
+  const title = selectedTitle || (source ? source.name : "") || (note ? note.title : "") || "активный контекст";
+  const text = sourceText || noteText || title;
+  return {
+    note,
+    source,
+    selected,
+    title: repairMojibake(title),
+    text: repairMojibake(shorten(text, 420))
+  };
+}
+
+function localChatSearchLines(state, query) {
+  const cleanQuery = cleanLine(query).replace(/^(найди|поиск|искать|search)\s*/i, "").trim();
+  if (!cleanQuery) return [];
+  return searchNotes(state, cleanQuery)
+    .filter((note) => note.systemType !== "product_brain")
+    .slice(0, 3)
+    .map((note) => note.title);
+}
+
+function chatHasAny(text, needles) {
+  return needles.some((needle) => text.includes(needle));
+}
+
+function chatContextSentence(context) {
+  const title = shorten(context.title || "активный контекст", 96);
+  const text = context.text && context.text !== context.title ? shorten(context.text, 260) : "";
+  return text ? "В фокусе «" + title + "»: " + text + "." : "В фокусе «" + title + "».";
+}
+
+function chatLocalEngineSummaryLegacy(state) {
+  const status = state.ollama && state.ollama.status ? state.ollama.status : "unchecked";
+  if (status === "models_found") return "Ollama найдена, но чат всё равно не отправляет данные наружу без явного действия.";
+  if (status === "reachable") return "Ollama доступна, модель выбирается отдельно; локальный чат уже работает без неё.";
+  return "Ollama сейчас не нужна для этого ответа: он собран локально из состояния LifeOS в браузере.";
+}
+
+function buildLocalChatAnswerLegacy(state, text) {
+  const raw = cleanLine(repairMojibake(text));
+  if (!raw) return "Напиши сообщение, и я отвечу по текущему контексту LifeOS.";
+  const q = normalizeRuText(raw).toLocaleLowerCase();
+  const context = activeChatContext(state);
+  const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done");
+  const openProposals = Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open");
+  const systemsCount = Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted).length;
+  const databasesCount = Object.values(state.customDatabases || {}).filter((item) => !item.deleted).length;
+  const modelsCount = Object.values(state.modelProfiles || {}).filter((item) => !item.deleted).length;
+  const contextLine = chatContextSentence(context);
+  const found = localChatSearchLines(state, raw).filter(Boolean);
+
+  if (/\b(привет|hello|hi|здравствуй|здарова)\b/i.test(q)) {
+    return "Привет. Я на месте: сообщение сохранено в локальном чате и ответ строится прямо внутри LifeOS. " + contextLine;
+  }
+
+  if (chatHasAny(q, ["enter", "энтер", "клавиш", "отправить нужно", "только кнопкой", "shift+enter"])) {
+    return "Enter должен отправлять сообщение, Shift+Enter оставляет перенос строки. Если после обновления страницы это не так, значит открыт старый кэш сборки, а не текущий код. Я не меняю данные молча: сообщение сохраняется, ответ добавляется, затем чат прокручивается к последнему сообщению.";
+  }
+
+  if (chatHasAny(q, ["шаблон", "заглушк", "будешь отвечать", "только шаблон", "не рабоч", "нерабоч", "тупо", "не отвеч", "ответишь", "ответь", "чат работает"])) {
+    return [
+      "Да, буду отвечать на вопросы, а не повторять одну фразу.",
+      "Текущий режим честный: это локальный контекстный движок, не свободный LLM, поэтому я распознаю намерение, беру активный артефакт, задачи, предложения, системы, граф и отвечаю по тому, что реально есть в хранилище.",
+      chatLocalEngineSummary(state),
+      contextLine
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["локально", "желез", "компьютер", "браузер", "за счет", "за сч", "работаеш", "работаешь", "ollama", "оллама", "модель", "ai", "ии"])) {
+    return [
+      "Сейчас ответ работает локально: браузер читает состояние LifeOS из IndexedDB/localStorage и строит ответ без отправки твоих данных во внешний сервис.",
+      chatLocalEngineSummary(state),
+      "Когда Ollama будет реально поднята и проверена, её можно использовать как отдельный локальный LLM-слой, но отсутствие Ollama больше не должно превращать чат в мёртвую заглушку."
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["что умеешь", "что можешь", "как работает", "функц", "возможн", "сценар"])) {
+    return [
+      "Могу объяснить активный артефакт, найти связанные заметки, предложить следующий шаг, посчитать открытые задачи/предложения, связать сообщение с графом и превратить твоё сообщение в задачу или план через явную кнопку.",
+      "Сейчас в системе: открытых задач " + openTasks.length + ", открытых предложений " + openProposals.length + ", систем " + systemsCount + ", баз " + databasesCount + ".",
+      "Никаких скрытых действий: сначала ответ или предложение, потом твоё подтверждение."
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["что это", "что за", "контекст", "артефакт", "ввод", "связано"])) {
+    return contextLine + " В LifeOS это не просто поле ввода: сообщение хранится локально, получает связь с активным артефактом и может стать задачей, планом или предложением, но без твоего явного действия я ничего не меняю.";
+  }
+
+  if (chatHasAny(q, ["что делать", "дальше", "следующ", "план", "next", "порядок"])) {
+    const next = [];
+    if (openProposals.length) next.push("разобрать " + openProposals.length + " открытых предложений во Входящих");
+    if (openTasks.length) next.push("закрыть или запланировать " + openTasks.length + " открытых задач");
+    if (context.source) next.push("превратить активный источник в задачу или календарный блок");
+    if (!next.length) next.push("захватить новый источник или создать систему под текущий процесс");
+    return contextLine + " Следующий практичный порядок: " + next.slice(0, 3).join("; ") + ". Быстрый путь: кнопка «Сделать задачей» рядом с твоим сообщением или раздел «Входящие» для применения предложений.";
+  }
+
+  if (chatHasAny(q, ["задач", "напомин", "календар"])) {
+    return "По текущему контексту можно создать задачу или календарный шаг. Я не создаю его молча: нажми «Сделать задачей» у своего сообщения, либо перейди во «Входящие» и примени предложение. Открытых задач сейчас: " + openTasks.length + ".";
+  }
+
+  if (chatHasAny(q, ["найди", "поиск", "искать", "search"])) {
+    return found.length
+      ? "Нашёл в локальной базе: " + found.join("; ") + ". Открой «База» или «Граф», чтобы перейти к связанным артефактам."
+      : "В локальной базе по этому запросу явных совпадений не нашёл. Можно сохранить запрос через «Команды» или добавить источник во «Входящие».";
+  }
+
+  if (chatHasAny(q, ["деньг", "финанс", "расход", "баланс"])) {
+    const summary = financeSummary(state);
+    return "По финансам сейчас: баланс " + Math.round(summary.balance || 0).toLocaleString("ru-RU") + " ₽, расходы сегодня " + Math.round(summary.todaySpend || 0).toLocaleString("ru-RU") + " ₽. Для записи расхода открой «Деньги» или введи во «Входящие»: Расход: название сумма.";
+  }
+
+  if (chatHasAny(q, ["систем", "v34", "маркет", "пак", "баз"])) {
+    return "В v34 уже есть " + systemsCount + " систем, " + databasesCount + " баз и " + modelsCount + " маршрутов моделей. Системы и базы создаются как локальные артефакты: они видны в Графе, Контроле и экспорте. Marketplace ставит только local-definition пакеты без запуска чужого кода.";
+  }
+
+  if (found.length) {
+    return "Похоже, это связано с локальными артефактами: " + found.join("; ") + ". " + contextLine + " Я бы сначала открыл связь в «Графе», а действие оформил как предложение, чтобы ничего не поменять без подтверждения.";
+  }
+
+  return "Прямого факта по этому вопросу в локальном контексте не вижу. " + contextLine + " Могу безопасно сделать следующее: оставить это как сообщение, превратить в задачу/план через кнопку рядом с сообщением или использовать текст как запрос по Базе и Графу. Данные сам не меняю.";
+}
+
+function chatSurfaceLabel(surface) {
+  const labels = {
+    inbox: "Дом",
+    capture: "Ввод",
+    feed: "Лента",
+    today: "Сегодня",
+    calendar: "Календарь",
+    finance: "Деньги",
+    habits: "Привычки",
+    goals: "Цели",
+    library: "База",
+    reader: "Чтение",
+    player: "Аудио",
+    chat: "Чат",
+    agents: "Сценарии",
+    flows: "Flow",
+    systems: "Системы",
+    builder: "Builder",
+    projects: "Проекты",
+    models: "Model Hub",
+    "smart-home": "Умный дом",
+    marketplace: "Marketplace",
+    design: "Дизайн",
+    databases: "Базы данных",
+    screen: "Экран",
+    twin: "Twin",
+    graph: "Граф",
+    control: "Data Control",
+    providers: "Подключения"
+  };
+  return labels[String(surface || "")] || String(surface || "текущий экран");
+}
+
+function chatOllamaStatusLine(state) {
+  const ollama = state.ollama || {};
+  const status = cleanLine(ollama.status || "unchecked");
+  const endpoint = cleanLine(ollama.endpoint || "http://127.0.0.1:11434");
+  const models = Array.isArray(ollama.models) ? ollama.models.filter(Boolean) : [];
+  const selectedModel = cleanLine(ollama.selectedModel || models[0] || "");
+  const checkedAt = cleanLine(ollama.lastProbeAt || ollama.lastCheckedAt || "");
+  const generationStatus = cleanLine(ollama.lastGenerationStatus || "not-run");
+  const latency = Number(ollama.lastLatencyMs || 0);
+  const error = cleanLine(ollama.lastError || "");
+  const statusText = status === "models_found"
+    ? "модели найдены, генерация отдельно не подтверждена"
+    : status === "reachable"
+      ? "endpoint доступен, но модель не выбрана"
+      : status === "generation_ok"
+        ? "тест генерации прошёл"
+        : status === "degraded"
+          ? "probe был, но тест генерации не прошёл"
+          : status === "blocked_by_browser_or_cors"
+            ? "браузерный запрос заблокирован или CORS не разрешён"
+            : status === "offline"
+              ? "endpoint не отвечает"
+              : status === "revoked"
+                ? "отключено владельцем"
+                : "ещё не проверено";
+  return [
+    "Ollama provider: status=" + status + " (" + statusText + ")",
+    "endpoint=" + endpoint,
+    selectedModel ? "model=" + selectedModel : "model=не выбрана",
+    models.length ? "models=" + models.length : "models=0",
+    "generation=" + generationStatus,
+    "connected=" + (generationStatus === "generation_ok" ? "true" : "false"),
+    checkedAt ? "lastProbe=" + checkedAt : "probe=ещё не запускался",
+    latency ? "latency=" + latency + "ms" : "",
+    error ? "lastError=" + shorten(error, 140) : "",
+    "fallback=Local Rules"
+  ].filter(Boolean).join(", ") + ".";
+}
+
+function chatLocalEngineSummary(state) {
+  return chatOllamaStatusLine(state);
+}
+
+function chatRuntimeSnapshot(state, context) {
+  const surface = chatSurfaceLabel(state.activeSurface || "inbox");
+  const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done").length;
+  const openProposals = Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open").length;
+  const systemsCount = Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted).length;
+  const databasesCount = Object.values(state.customDatabases || {}).filter((item) => !item.deleted).length;
+  const modelsCount = Object.values(state.modelProfiles || {}).filter((item) => !item.deleted).length;
+  const channelsCount = Object.values(state.channels || {}).filter((item) => !item.deleted).length;
+  const graph = mapGraph(state);
+  const events = (state.auditLog || []).slice(-3).map((event) => auditTypeLabel(event.type) + ": " + shorten(event.summary || event.type || "", 60));
+  return {
+    surface,
+    openTasks,
+    openProposals,
+    systemsCount,
+    databasesCount,
+    modelsCount,
+    channelsCount,
+    graphNodes: graph.nodes.length,
+    graphLinks: graph.links.length,
+    contextLine: chatContextSentence(context),
+    dataLine: "Экран: " + surface + "; задач=" + openTasks + "; предложений=" + openProposals + "; систем=" + systemsCount + "; баз=" + databasesCount + "; моделей=" + modelsCount + "; каналов=" + channelsCount + "; граф=" + graph.nodes.length + "/" + graph.links.length + ".",
+    eventLine: events.length ? "Последние следы: " + events.join("; ") + "." : "Следы появятся в audit после действий владельца."
+  };
+}
+
+function buildLocalChatAnswer(state, text) {
+  const raw = cleanLine(repairMojibake(text));
+  if (!raw) return "Напиши сообщение, и я отвечу по текущему локальному контексту LifeOS.";
+  const q = normalizeRuText(raw).toLocaleLowerCase();
+  const context = activeChatContext(state);
+  const runtime = chatRuntimeSnapshot(state, context);
+  const found = localChatSearchLines(state, raw).filter(Boolean);
+  const ollamaLine = chatOllamaStatusLine(state);
+  const irritated = chatHasAny(q, ["нихрена", "нихуя", "бесит", "тупо", "тупой", "не работает", "нерабоч", "шаблон", "заглушк", "дублирован", "не отвечает"]);
+
+  if (chatHasAny(q, ["привет", "hello", "hi", "здравствуй", "здарова", "добрый день"])) {
+    return "Привет. Я отвечаю не шаблоном, а по локальному состоянию LifeOS: " + runtime.dataLine + " " + runtime.contextLine;
+  }
+
+  if (chatHasAny(q, ["enter", "энтер", "клавиш", "shift+enter", "только кнопкой", "отправить нужно", "отправляется"])) {
+    return "В чате ожидаемое поведение такое: Enter отправляет сообщение, Shift+Enter оставляет перенос строки, пустое сообщение не отправляется, после отправки поле очищается и лента прокручивается вниз. Если видишь другое, это уже баг интерфейса или старый кэш сборки, а не задуманный режим.";
+  }
+
+  if (irritated || chatHasAny(q, ["ты будешь отвечать", "только шаблоны", "почему чат", "чат не работает", "это ввод что ли"])) {
+    return [
+      "Да, это должен быть рабочий чат, а не поле, которое просто привязывает текст.",
+      "Сейчас я работаю как локальный intent-движок: читаю активный артефакт, задачи, предложения, системы, граф, Data Control и статус провайдера, потом отвечаю по этому состоянию.",
+      runtime.dataLine,
+      ollamaLine,
+      "Сообщение сохраняется как chat message, рядом можно явно сделать задачу; без твоего действия я не меняю задачи, календарь или данные."
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["что с ollama", "оллама", "ollama", "локальная модель", "подключить модель", "как подключить локальную модель", "модель подключена"])) {
+    return [
+      ollamaLine,
+      "Подключение считается настоящим только после явной проверки /api/tags и, отдельно, теста генерации /api/generate.",
+      "Если endpoint не отвечает или браузер блокирует запрос, интерфейс обязан показывать failed/degraded, а ответы продолжают работать через Local Rules."
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["ты работаешь", "почему не отвечает", "как ты работаешь", "локально", "за счет железа", "за счёт железа", "браузер"])) {
+    return [
+      "Сейчас отвечаю локально в браузере: состояние LifeOS берётся из локального хранилища, а ответ собирается правилами Local Rules.",
+      "Это не внешний облачный чат и не скрытая отправка данных.",
+      ollamaLine,
+      runtime.contextLine
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["что такое lifeos", "что это за lifeos", "объясни lifeos", "для чего lifeos"])) {
+    return [
+      "LifeOS здесь устроен как локальная операционная система для личных артефактов: ввод, заметки, задачи, календарь, финансы, база знаний, системы, проекты, модели, граф и Data Control живут в одном состоянии.",
+      "Главный принцип: сначала локальный артефакт и след, потом явное действие владельца, потом receipt/audit, графовая связь и возможность контроля или экспорта.",
+      runtime.dataLine
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["что есть в v34", "v34", "покажи системы", "системы", "model hub", "модельный хаб", "маркет", "marketplace"])) {
+    return [
+      "В v34 видны рабочие поверхности: Системы, База, Граф, Data Control, Model Hub, Marketplace, Проекты, Базы данных, Экран/Twin и локальные подключения.",
+      "По текущему состоянию: систем " + runtime.systemsCount + ", баз " + runtime.databasesCount + ", маршрутов моделей " + runtime.modelsCount + ", каналов " + runtime.channelsCount + ".",
+      "Артефакты и действия должны проходить через локальное состояние, графовые связи, audit/receipts и экспорт, а не через декоративные заглушки."
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["объясни граф", "граф", "связи", "graph", "узлы", "ребра", "рёбра"])) {
+    return [
+      "Граф показывает реальные связи между артефактами: источники, заметки, задачи, предложения, провайдер-прогоны, системы и чат-сообщения.",
+      "Сейчас в проекции " + runtime.graphNodes + " узлов и " + runtime.graphLinks + " связей.",
+      "Через граф можно проверить, откуда появилось действие и с чем оно связано, вместо того чтобы верить тексту на экране."
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["data control", "контроль", "дата контрол", "экспорт", "удалить", "восстановить", "rollback", "данные"])) {
+    return [
+      "Data Control нужен для честного управления данными: увидеть типы объектов, выбранный артефакт, провайдеры, следы, экспорт, восстановление и rollback-снимки.",
+      "Чат-сообщения теперь входят в локальные данные, экспорт и графовую проекцию, поэтому их можно проверить как обычный след системы.",
+      runtime.eventLine
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["что можно сделать с текущим экраном", "текущий экран", "что делать на этом экране", "что доступно здесь"])) {
+    return [
+      "Сейчас открыт экран " + runtime.surface + ".",
+      runtime.contextLine,
+      "Практические действия: спросить по активному артефакту, найти связанные заметки, открыть Граф/Data Control, превратить своё сообщение в задачу через кнопку рядом с сообщением или проверить Ollama отдельной кнопкой."
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["это задача или ввод", "задача или ввод", "просто ввод", "сделай задачу", "создай задачу", "напоминание", "календарь"])) {
+    return [
+      "Само сообщение в чате сначала является вводом и локальным артефактом.",
+      "Задачей оно становится только после явного действия: кнопка рядом с твоим сообщением создаёт proposal/task-flow, а затем это видно во Входящих, Графе и Data Control.",
+      "Открытых задач сейчас: " + runtime.openTasks + "; открытых предложений: " + runtime.openProposals + "."
+    ].join(" ");
+  }
+
+  if (chatHasAny(q, ["что делать дальше", "дальше", "следующий шаг", "план", "порядок"])) {
+    const next = [];
+    if (runtime.openProposals) next.push("разобрать открытые предложения во Входящих");
+    if (runtime.openTasks) next.push("закрыть, перенести или связать открытые задачи");
+    if (context.source) next.push("превратить активный источник в задачу или календарный блок");
+    if (!next.length) next.push("добавить новый источник во Входящие или открыть Граф для проверки связей");
+    return runtime.contextLine + " Следующий практический порядок: " + next.slice(0, 3).join("; ") + ".";
+  }
+
+  if (chatHasAny(q, ["найди", "поиск", "искать", "search"])) {
+    return found.length
+      ? "Нашёл в локальной базе: " + found.join("; ") + ". Открой Базу или Граф, чтобы перейти к связанным артефактам."
+      : "По этому запросу в локальной базе явных совпадений не вижу. Можно оставить запрос в чате как след, создать задачу на разбор или добавить источник во Входящие.";
+  }
+
+  if (chatHasAny(q, ["деньг", "финанс", "расход", "баланс"])) {
+    const summary = financeSummary(state);
+    return "По финансам сейчас: баланс " + Math.round(summary.balance || 0).toLocaleString("ru-RU") + " руб., расходы сегодня " + Math.round(summary.todaySpend || 0).toLocaleString("ru-RU") + " руб. Для записи расхода открой Деньги или добавь источник во Входящие.";
+  }
+
+  if (chatHasAny(q, ["что это", "что за", "контекст", "артефакт", "связано"])) {
+    return runtime.contextLine + " Это локальный артефактный контекст: сообщение хранится в чате, связывается с активной заметкой/источником и может стать задачей или планом только после явного действия.";
+  }
+
+  if (found.length) {
+    return "Похоже, это связано с локальными артефактами: " + found.join("; ") + ". " + runtime.contextLine + " Без подтверждения я ничего не меняю: можно открыть связь в Графе или сделать из сообщения задачу.";
+  }
+
+  return [
+    "Я не нашёл точного совпадения в заметках по этому тексту, поэтому опираюсь на текущие локальные следы.",
+    runtime.contextLine,
+    runtime.dataLine,
+    "Могу продолжить по одному из проверяемых направлений: поиск по Базе, связь в Графе, статус Ollama или Data Control для этого сообщения."
+  ].join(" ");
 }
 
 function answerProductBrainQuestion(state, text) {
@@ -4713,6 +5832,7 @@ function recoverCorruptRecord(state, recordId) {
 
 async function probeOllama(endpoint) {
   const base = String(endpoint || "").replace(/\/+$/, "");
+  const startedAt = Date.now();
   const response = await fetch(base + "/api/tags", { method: "GET" });
   if (!response.ok) throw new Error("Ollama responded with HTTP " + response.status);
   const payload = await response.json();
@@ -4725,7 +5845,42 @@ async function probeOllama(endpoint) {
     lastError: "",
     lastCheckedAt: now(),
     lastProbeAt: now(),
+    lastLatencyMs: Math.max(1, Date.now() - startedAt),
     revokedAt: ""
+  };
+}
+
+function classifyOllamaFetchError(error) {
+  const message = error && error.message ? String(error.message) : String(error || "");
+  const normalized = message.toLocaleLowerCase();
+  if (normalized.includes("failed to fetch") || normalized.includes("cors") || normalized.includes("blocked")) return "blocked_by_browser_or_cors";
+  if (normalized.includes("network") || normalized.includes("connection") || normalized.includes("refused") || normalized.includes("timeout")) return "offline";
+  return "error";
+}
+
+async function testOllamaGeneration(endpoint, model) {
+  const base = String(endpoint || "").replace(/\/+$/, "");
+  const selectedModel = cleanLine(model || "");
+  if (!selectedModel) throw new Error("No Ollama model selected for /api/generate test.");
+  const startedAt = Date.now();
+  const response = await fetch(base + "/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: selectedModel,
+      prompt: "LifeOS local provider check. Reply with OK.",
+      stream: false,
+      options: { num_predict: 16 }
+    })
+  });
+  if (!response.ok) throw new Error("Ollama generation responded with HTTP " + response.status);
+  const payload = await response.json();
+  return {
+    endpoint: base,
+    model: selectedModel,
+    status: "generation_ok",
+    latencyMs: Math.max(1, Date.now() - startedAt),
+    sample: cleanLine(payload.response || payload.message || payload.done_reason || "")
   };
 }
 
@@ -4849,16 +6004,29 @@ async function requestPwaInstallPrompt() {
 }
 
 function syncOllamaProviderState(state) {
+  const status = state.ollama.status || "unchecked";
+  const generationStatus = state.ollama.lastGenerationStatus || "";
+  let requiredAction = "";
+  if (status === "generation_ok" || generationStatus === "generation_ok") {
+    requiredAction = "Генерация проверена локально. Каждый запуск модели остаётся явным действием владельца.";
+  } else if (status === "models_found") {
+    requiredAction = "Модели найдены, но генерация ещё не проверена. Нажми Тест генерации перед использованием модели.";
+  } else if (status === "reachable") {
+    requiredAction = "Endpoint доступен, но моделей нет. Установи модель Ollama и повтори проверку.";
+  } else {
+    requiredAction = "Запусти Ollama локально на 127.0.0.1:11434, разреши browser-origin при необходимости, затем нажми Проверить и Тест генерации.";
+  }
   state.providers.ollama = Object.assign({}, state.providers.ollama || {}, {
     label: "Ollama",
-    status: state.ollama.status,
+    status,
     endpoint: state.ollama.endpoint,
     lastCheckedAt: state.ollama.lastCheckedAt || "",
     lastProbeAt: state.ollama.lastProbeAt || "",
     lastError: state.ollama.lastError || "",
     scopes: state.ollama.scopes || ["active-artifact-analysis"],
+    lastGenerationStatus: generationStatus,
     revokedAt: state.ollama.revokedAt || "",
-    requiredAction: state.ollama.status === "offline" || state.ollama.status === "error" ? "Start Ollama locally, then Probe. No data is sent before clicking Probe/Run." : ""
+    requiredAction
   });
 }
 
@@ -4885,7 +6053,7 @@ function createOllamaProposalDryRun(state, promptText) {
   const source = Object.values(state.sources || {}).filter((item) => !item.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null;
   const contextTitle = source ? source.name : activeNote ? activeNote.title : "active artifact";
   const prompt = cleanLine(promptText || "Analyze active LifeOS artifact");
-  if (state.ollama.status !== "models_found" && state.ollama.status !== "reachable") {
+  if (state.ollama.status !== "generation_ok" && state.ollama.lastGenerationStatus !== "generation_ok") {
     const summary = "Ollama is " + state.ollama.status + ". Probe/start local Ollama before model analysis.";
     recordProviderRun(state, "ollama", "dry-run", "blocked", summary, { prompt });
     addProposal(state, "provider_connection_request", "Подключить Ollama перед AI-разбором", source ? source.id : "", activeNote ? activeNote.id : "", {
@@ -4976,7 +6144,7 @@ function mapGraph(state) {
 
 function computeGraphProjection(state) {
   const notes = Object.values(state.notes).filter((note) => !note.deleted);
-  const filters = Object.assign({ notes: true, productBrain: false, sources: true, goals: true, tasks: true, money: true, habits: true, insights: true, knowledge: true, ghosts: true }, state.graphFilters || {});
+  const filters = Object.assign({ notes: true, productBrain: false, sources: true, goals: true, tasks: true, money: true, habits: true, insights: true, knowledge: true, chat: true, systems: true, channels: true, models: true, home: true, ghosts: true }, state.graphFilters || {});
   const incoming = {};
   const outgoing = {};
   const nodes = [];
@@ -5148,6 +6316,13 @@ function computeGraphProjection(state) {
     if (proposal.sourceId && state.sources[proposal.sourceId] && !state.sources[proposal.sourceId].deleted) addGraphEdge(proposal.id, proposal.sourceId, "proposal-source");
     if (proposal.noteId && state.notes[proposal.noteId] && !state.notes[proposal.noteId].deleted) addGraphEdge(proposal.id, proposal.noteId, "proposal-note");
   }
+  for (const message of visibleChatMessages(state)) {
+    incoming[message.id] = incoming[message.id] || 0;
+    outgoing[message.id] = outgoing[message.id] || 0;
+    if (message.noteId && state.notes[message.noteId] && !state.notes[message.noteId].deleted) addGraphEdge(message.id, message.noteId, "chat-note");
+    if (message.sourceId && state.sources[message.sourceId] && !state.sources[message.sourceId].deleted) addGraphEdge(message.id, message.sourceId, "chat-source");
+    if (message.proposalId && state.proposals[message.proposalId]) addGraphEdge(message.id, message.proposalId, "chat-proposal");
+  }
   for (const run of Object.values(state.agentRuns || {})) {
     incoming[run.id] = incoming[run.id] || 0;
     outgoing[run.id] = outgoing[run.id] || 0;
@@ -5168,6 +6343,87 @@ function computeGraphProjection(state) {
     for (const proposalId of run.proposalIds || []) {
       if (state.proposals[proposalId]) addGraphEdge(run.id, proposalId, "flow-proposal");
     }
+  }
+  for (const channel of Object.values(state.channels || {}).filter((item) => !item.deleted)) {
+    incoming[channel.id] = incoming[channel.id] || 0;
+    outgoing[channel.id] = outgoing[channel.id] || 0;
+    if (channel.noteId && state.notes[channel.noteId] && !state.notes[channel.noteId].deleted) addGraphEdge(channel.id, channel.noteId, "channel-note");
+  }
+  for (const system of Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted)) {
+    incoming[system.id] = incoming[system.id] || 0;
+    outgoing[system.id] = outgoing[system.id] || 0;
+    if (system.noteId && state.notes[system.noteId] && !state.notes[system.noteId].deleted) addGraphEdge(system.id, system.noteId, "system-note");
+    if (system.installedPackId && state.installedPacks[system.installedPackId]) addGraphEdge(system.id, system.installedPackId, "system-installed-pack");
+  }
+  for (const record of Object.values(state.systemRecords || {}).filter((item) => !item.deleted)) {
+    incoming[record.id] = incoming[record.id] || 0;
+    outgoing[record.id] = outgoing[record.id] || 0;
+    if (record.systemId && state.systemDefinitions[record.systemId]) addGraphEdge(record.id, record.systemId, "record-system");
+    if (record.noteId && state.notes[record.noteId] && !state.notes[record.noteId].deleted) addGraphEdge(record.id, record.noteId, "record-note");
+  }
+  for (const project of Object.values(state.projects || {}).filter((item) => !item.deleted)) {
+    incoming[project.id] = incoming[project.id] || 0;
+    outgoing[project.id] = outgoing[project.id] || 0;
+    if (project.noteId && state.notes[project.noteId] && !state.notes[project.noteId].deleted) addGraphEdge(project.id, project.noteId, "project-note");
+  }
+  for (const item of Object.values(state.projectItems || {}).filter((row) => !row.deleted)) {
+    incoming[item.id] = incoming[item.id] || 0;
+    outgoing[item.id] = outgoing[item.id] || 0;
+    if (item.projectId && state.projects[item.projectId]) addGraphEdge(item.id, item.projectId, "project-item-project");
+    if (item.noteId && state.notes[item.noteId] && !state.notes[item.noteId].deleted) addGraphEdge(item.id, item.noteId, "project-item-note");
+  }
+  for (const pack of Object.values(state.marketplacePacks || {}).filter((item) => !item.deleted)) {
+    incoming[pack.id] = incoming[pack.id] || 0;
+    outgoing[pack.id] = outgoing[pack.id] || 0;
+    if (pack.noteId && state.notes[pack.noteId] && !state.notes[pack.noteId].deleted) addGraphEdge(pack.id, pack.noteId, "pack-note");
+  }
+  for (const install of Object.values(state.installedPacks || {}).filter((item) => !item.deleted)) {
+    incoming[install.id] = incoming[install.id] || 0;
+    outgoing[install.id] = outgoing[install.id] || 0;
+    if (install.packId && state.marketplacePacks[install.packId]) addGraphEdge(install.id, install.packId, "install-pack");
+    if (install.systemId && state.systemDefinitions[install.systemId]) addGraphEdge(install.id, install.systemId, "install-system");
+    if (install.noteId && state.notes[install.noteId] && !state.notes[install.noteId].deleted) addGraphEdge(install.id, install.noteId, "install-note");
+  }
+  for (const database of Object.values(state.customDatabases || {}).filter((item) => !item.deleted)) {
+    incoming[database.id] = incoming[database.id] || 0;
+    outgoing[database.id] = outgoing[database.id] || 0;
+    if (database.noteId && state.notes[database.noteId] && !state.notes[database.noteId].deleted) addGraphEdge(database.id, database.noteId, "database-note");
+  }
+  for (const row of Object.values(state.databaseRows || {}).filter((item) => !item.deleted)) {
+    incoming[row.id] = incoming[row.id] || 0;
+    outgoing[row.id] = outgoing[row.id] || 0;
+    if (row.databaseId && state.customDatabases[row.databaseId]) addGraphEdge(row.id, row.databaseId, "database-row-database");
+    if (row.noteId && state.notes[row.noteId] && !state.notes[row.noteId].deleted) addGraphEdge(row.id, row.noteId, "database-row-note");
+  }
+  for (const model of Object.values(state.modelProfiles || {}).filter((item) => !item.deleted)) {
+    incoming[model.id] = incoming[model.id] || 0;
+    outgoing[model.id] = outgoing[model.id] || 0;
+    if (model.noteId && state.notes[model.noteId] && !state.notes[model.noteId].deleted) addGraphEdge(model.id, model.noteId, "model-note");
+  }
+  for (const device of Object.values(state.smartHomeDevices || {}).filter((item) => !item.deleted)) {
+    incoming[device.id] = incoming[device.id] || 0;
+    outgoing[device.id] = outgoing[device.id] || 0;
+    if (device.noteId && state.notes[device.noteId] && !state.notes[device.noteId].deleted) addGraphEdge(device.id, device.noteId, "device-note");
+  }
+  for (const event of Object.values(state.smartHomeEvents || {}).filter((item) => !item.deleted)) {
+    incoming[event.id] = incoming[event.id] || 0;
+    outgoing[event.id] = outgoing[event.id] || 0;
+    if (event.deviceId && state.smartHomeDevices[event.deviceId]) addGraphEdge(event.id, event.deviceId, "home-event-device");
+    if (event.noteId && state.notes[event.noteId] && !state.notes[event.noteId].deleted) addGraphEdge(event.id, event.noteId, "home-event-note");
+  }
+  for (const profile of Object.values(state.designProfiles || {}).filter((item) => !item.deleted)) {
+    incoming[profile.id] = incoming[profile.id] || 0;
+    outgoing[profile.id] = outgoing[profile.id] || 0;
+  }
+  for (const session of Object.values(state.screenCompanionSessions || {}).filter((item) => !item.deleted)) {
+    incoming[session.id] = incoming[session.id] || 0;
+    outgoing[session.id] = outgoing[session.id] || 0;
+    if (session.noteId && state.notes[session.noteId] && !state.notes[session.noteId].deleted) addGraphEdge(session.id, session.noteId, "screen-note");
+  }
+  for (const snapshot of Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted)) {
+    incoming[snapshot.id] = incoming[snapshot.id] || 0;
+    outgoing[snapshot.id] = outgoing[snapshot.id] || 0;
+    if (snapshot.noteId && state.notes[snapshot.noteId] && !state.notes[snapshot.noteId].deleted) addGraphEdge(snapshot.id, snapshot.noteId, "twin-note");
   }
   if (filters.notes) {
     for (const note of notes) {
@@ -5290,6 +6546,17 @@ function computeGraphProjection(state) {
       });
     }
   }
+  if (filters.chat) {
+    for (const message of visibleChatMessages(state).slice(-40)) {
+      nodes.push({
+        id: message.id,
+        label: (message.role === "assistant" ? "LifeOS: " : "Ты: ") + shorten(message.text || message.content || "", 60),
+        val: message.role === "assistant" ? 6 : 7,
+        type: message.role === "assistant" ? "chat-assistant" : "chat-owner",
+        folderId: ""
+      });
+    }
+  }
   if (filters.money) {
     for (const account of Object.values(state.financeAccounts || {}).filter((item) => !item.deleted)) {
       nodes.push({ id: account.id, label: account.name + " " + Math.round(account.balance), val: 8, type: "finance-account", folderId: "" });
@@ -5344,6 +6611,59 @@ function computeGraphProjection(state) {
     }
     for (const search of savedSearchList(state)) {
       nodes.push({ id: search.id, label: search.title, val: Math.max(6, Math.min(12, 6 + Math.round(Math.sqrt(search.resultCount || 0)))), type: "saved-search", folderId: "" });
+    }
+  }
+  if (filters.channels) {
+    for (const channel of Object.values(state.channels || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: channel.id, label: channel.title, val: channel.status === "active" ? 8 : 6, type: "channel", folderId: "" });
+    }
+  }
+  if (filters.systems) {
+    for (const system of Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: system.id, label: system.title, val: system.health === "ok" ? 10 : 7, type: "system", folderId: "" });
+    }
+    for (const record of Object.values(state.systemRecords || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: record.id, label: record.title, val: 6, type: "system-record", folderId: "" });
+    }
+    for (const project of Object.values(state.projects || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: project.id, label: project.title, val: project.status === "active" ? 9 : 6, type: "project", folderId: "" });
+    }
+    for (const item of Object.values(state.projectItems || {}).filter((row) => !row.deleted)) {
+      nodes.push({ id: item.id, label: item.title, val: 6, type: "project-item", folderId: "" });
+    }
+    for (const pack of Object.values(state.marketplacePacks || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: pack.id, label: pack.title, val: pack.status === "available" ? 7 : 6, type: "marketplace-pack", folderId: "" });
+    }
+    for (const install of Object.values(state.installedPacks || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: install.id, label: install.title, val: install.status === "installed" ? 8 : 6, type: "installed-pack", folderId: "" });
+    }
+    for (const database of Object.values(state.customDatabases || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: database.id, label: database.title, val: 8, type: "database", folderId: "" });
+    }
+    for (const row of Object.values(state.databaseRows || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: row.id, label: row.title, val: 5, type: "database-row", folderId: "" });
+    }
+    for (const profile of Object.values(state.designProfiles || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: profile.id, label: profile.title, val: profile.status === "active" ? 8 : 5, type: "design-profile", folderId: "" });
+    }
+    for (const snapshot of Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: snapshot.id, label: snapshot.title, val: 7, type: "twin-snapshot", folderId: "" });
+    }
+    for (const session of Object.values(state.screenCompanionSessions || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: session.id, label: session.title, val: 6, type: "screen-session", folderId: "" });
+    }
+  }
+  if (filters.models) {
+    for (const model of Object.values(state.modelProfiles || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: model.id, label: model.title, val: model.status === "models_found" || model.status === "reachable" ? 8 : 6, type: "model-profile", folderId: "" });
+    }
+  }
+  if (filters.home) {
+    for (const device of Object.values(state.smartHomeDevices || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: device.id, label: device.title, val: device.status === "manual" ? 7 : 8, type: "smart-home-device", folderId: "" });
+    }
+    for (const event of Object.values(state.smartHomeEvents || {}).filter((item) => !item.deleted)) {
+      nodes.push({ id: event.id, label: event.title, val: 5, type: "smart-home-event", folderId: "" });
     }
   }
   nodes.sort((a, b) => a.label.localeCompare(b.label));
@@ -5761,7 +7081,13 @@ class GraphCanvas {
                   : node.type === "habit" ? "#14b8a6"
                     : node.type === "claim" || node.type === "question" || node.type === "review" || node.type === "reading" || node.type === "highlight" ? "#4f46e5"
                       : node.type === "saved-search" ? "#0369a1"
+                        : node.type === "channel" ? "#0f766e"
+                          : node.type === "system" || node.type === "system-record" || node.type === "marketplace-pack" || node.type === "installed-pack" || node.type === "database" || node.type === "database-row" || node.type === "design-profile" ? "#7c3aed"
+                            : node.type === "model-profile" || node.type === "screen-session" ? "#0891b2"
+                              : node.type === "smart-home-device" || node.type === "smart-home-event" ? "#059669"
+                                : node.type === "project" || node.type === "project-item" || node.type === "twin-snapshot" ? "#be123c"
                         : node.type === "transcript-segment" || node.type === "audio-checkpoint" || node.type === "player-note" ? "#db2777"
+                        : node.type === "chat-owner" || node.type === "chat-assistant" ? "#0f172a"
                         : node.type === "task" || node.type === "plan" || node.type === "proposal" || node.type === "reminder" ? "#f59e0b"
                           : node.type === "agent" || node.type === "provider-run" || node.type === "flow-run" ? "#64748b"
                             : node.type.endsWith("-done") ? "#64748b"
@@ -5912,6 +7238,11 @@ class ReactiveStore {
   }
 }
 
+function scrollChatThreadToLatest() {
+  const thread = document.querySelector("[data-testid=\"chat-thread\"], .chat-log");
+  if (thread) thread.scrollTop = thread.scrollHeight;
+}
+
 function render() {
   if (!store) return;
   if (graphEngine) {
@@ -5929,6 +7260,7 @@ function render() {
     }
   }
   mountGraph();
+  scrollChatThreadToLatest();
   updateSaveStatus();
 }
 
@@ -5955,6 +7287,94 @@ function dedupeScheduleProjection(items) {
     byKey.set(key, merged);
   }
   return Array.from(byKey.values()).sort(sortScheduledItems);
+}
+
+function lifeFeedEvents(state) {
+  const events = [];
+  for (const event of (state.auditLog || []).slice(-40)) {
+    events.push({
+      id: event.id || "audit-" + events.length,
+      kind: "audit",
+      channel: "audit",
+      title: auditTypeLabel(event.type),
+      summary: event.summary || "",
+      createdAt: event.createdAt || event.at || ""
+    });
+  }
+  for (const message of visibleChatMessages(state).slice(-30)) {
+    events.push({
+      id: message.id,
+      kind: "chat",
+      channel: "chat",
+      title: message.role === "assistant" ? "Ответ LifeOS" : "Ввод владельца",
+      summary: shorten(message.text || message.content || "", 160),
+      createdAt: message.createdAt || ""
+    });
+  }
+  for (const source of Object.values(state.sources || {}).filter((item) => !item.deleted).slice(-20)) {
+    events.push({
+      id: source.id,
+      kind: "source",
+      channel: "capture",
+      title: source.name || "Source",
+      summary: [source.kind, source.status, source.parserStatus].filter(Boolean).join(" / "),
+      createdAt: source.updatedAt || source.createdAt || ""
+    });
+  }
+  for (const run of Object.values(state.providerRuns || {}).slice(-20)) {
+    events.push({
+      id: run.id,
+      kind: "provider",
+      channel: run.providerId || "provider",
+      title: (run.providerId || "provider") + " / " + (run.kind || "run"),
+      summary: run.summary || run.status || "",
+      createdAt: run.updatedAt || run.createdAt || ""
+    });
+  }
+  for (const install of Object.values(state.installedPacks || {}).filter((item) => !item.deleted).slice(-12)) {
+    events.push({
+      id: install.id,
+      kind: "system",
+      channel: "marketplace",
+      title: install.title || "Installed pack",
+      summary: [install.status, install.installMode, install.vendorCodeExecuted ? "vendor code executed" : "no vendor code"].filter(Boolean).join(" / "),
+      createdAt: install.updatedAt || install.createdAt || ""
+    });
+  }
+  for (const event of Object.values(state.smartHomeEvents || {}).filter((item) => !item.deleted).slice(-12)) {
+    events.push({
+      id: event.id,
+      kind: "home",
+      channel: "smart-home",
+      title: event.title || "Home event",
+      summary: event.status || "",
+      createdAt: event.updatedAt || event.createdAt || ""
+    });
+  }
+  for (const session of Object.values(state.screenCompanionSessions || {}).filter((item) => !item.deleted).slice(-8)) {
+    events.push({
+      id: session.id,
+      kind: "screen",
+      channel: "permission",
+      title: session.title || "Screen session",
+      summary: session.summary || session.status || "",
+      createdAt: session.updatedAt || session.createdAt || ""
+    });
+  }
+  for (const snapshot of Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted).slice(-8)) {
+    events.push({
+      id: snapshot.id,
+      kind: "twin",
+      channel: "recovery",
+      title: snapshot.title || "Twin snapshot",
+      summary: snapshot.summary || snapshot.status || "",
+      createdAt: snapshot.updatedAt || snapshot.createdAt || ""
+    });
+  }
+  return events
+    .filter((event) => event.createdAt || event.summary || event.title)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 80);
 }
 
 function buildNewShellContext(state, activeNote) {
@@ -6008,16 +7428,22 @@ function buildNewShellContext(state, activeNote) {
     bookSources: sources.filter(isBookSource),
     budgets: Object.values(state.budgets || {}).filter((item) => !item.deleted),
     captureDraft: state.captureDraft || "",
-    chatMessages: Object.values(state.chatMessages || {}).sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || "")),
+    chatMessages: visibleChatMessages(state),
     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
     commandMessage: state.commandMessage || "",
     commandPaletteHtml: renderCommandPalette(state),
     control: state.control || {},
+    channels: Object.values(state.channels || {}).filter((item) => !item.deleted),
+    customDatabases: Object.values(state.customDatabases || {}).filter((item) => !item.deleted),
+    databaseRows: Object.values(state.databaseRows || {}).filter((item) => !item.deleted),
+    designProfiles: Object.values(state.designProfiles || {}).filter((item) => !item.deleted),
+    designStudio: state.designStudio || {},
     environment: state.environment || {},
     financeAccounts: Object.values(state.financeAccounts || {}).filter((item) => !item.deleted),
     financeSummary: financeSummary(state),
     flowRuns: Object.values(state.flowRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     agentRuns: Object.values(state.agentRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
+    feedEvents: lifeFeedEvents(state),
     goals,
     graph,
     graphFilters: Object.assign({}, state.graphFilters || {}),
@@ -6029,7 +7455,14 @@ function buildNewShellContext(state, activeNote) {
     lifeDomains: lifeDomainStats(state),
     notes: Object.values(state.notes || {}).filter((note) => !note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     ollama: state.ollama || {},
+    installedPacks: Object.values(state.installedPacks || {}).filter((item) => !item.deleted),
+    marketplacePacks: Object.values(state.marketplacePacks || {}).filter((item) => !item.deleted),
+    modelProfiles: Object.values(state.modelProfiles || {}).filter((item) => !item.deleted),
+    personalTwinSnapshots: Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted),
+    projectItems: Object.values(state.projectItems || {}).filter((item) => !item.deleted),
+    projects: Object.values(state.projects || {}).filter((item) => !item.deleted),
     providers,
+    providerRuns: Object.values(state.providerRuns || {}).sort((a, b) => (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || "")),
     readingItems: Object.values(state.readingItems || {}).filter((item) => !item.deleted),
     reminders,
     receiptSources: sources.filter((source) => source.kind === "image").slice(0, 6),
@@ -6037,8 +7470,13 @@ function buildNewShellContext(state, activeNote) {
     scheduleItems,
     searchQuery: state.searchQuery || "",
     selectedGraph,
+    screenCompanionSessions: Object.values(state.screenCompanionSessions || {}).filter((item) => !item.deleted),
+    smartHomeDevices: Object.values(state.smartHomeDevices || {}).filter((item) => !item.deleted),
+    smartHomeEvents: Object.values(state.smartHomeEvents || {}).filter((item) => !item.deleted),
     sources,
     subscriptions: Object.values(state.subscriptions || {}).filter((item) => !item.deleted && item.status !== "archived"),
+    systemDefinitions: Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted),
+    systemRecords: Object.values(state.systemRecords || {}).filter((item) => !item.deleted),
     tasks,
     todayKey: todayKey(),
     tomorrowKey: dateKeyFromOffset(1),
@@ -7664,10 +9102,26 @@ function graphNodeObject(state, nodeId) {
     ["audio-checkpoint", state.audioCheckpoints],
     ["player-note", state.playerNotes],
     ["saved-search", state.savedSearches],
+    ["chat-message", state.chatMessages],
     ["proposal", state.proposals],
     ["agent", state.agentRuns],
     ["provider-run", state.providerRuns],
-    ["flow-run", state.flowRuns]
+    ["flow-run", state.flowRuns],
+    ["channel", state.channels],
+    ["system", state.systemDefinitions],
+    ["system-record", state.systemRecords],
+    ["project", state.projects],
+    ["project-item", state.projectItems],
+    ["model-profile", state.modelProfiles],
+    ["smart-home-device", state.smartHomeDevices],
+    ["smart-home-event", state.smartHomeEvents],
+    ["marketplace-pack", state.marketplacePacks],
+    ["installed-pack", state.installedPacks],
+    ["design-profile", state.designProfiles],
+    ["database", state.customDatabases],
+    ["database-row", state.databaseRows],
+    ["screen-session", state.screenCompanionSessions],
+    ["twin-snapshot", state.personalTwinSnapshots]
   ];
   for (const bucket of buckets) {
     const collection = bucket[1] || {};
@@ -7680,12 +9134,23 @@ function graphNodeWorkspace(kind, object) {
   if (kind === "note" || kind === "ghost" || kind === "claim" || kind === "question" || kind === "review" || kind === "reading" || kind === "highlight") return "library";
   if (kind === "source") return object && object.kind === "audio" ? "player" : "library";
   if (kind === "saved-search") return object && object.surface ? object.surface : "library";
+  if (kind === "chat-message") return "chat";
   if (kind === "task" || kind === "plan" || kind === "reminder") return "calendar";
   if (kind === "habit" || kind === "goal" || kind === "insight") return "habits";
   if (kind === "finance-account" || kind === "finance" || kind === "budget" || kind === "subscription") return "finance";
   if (kind === "transcript-segment" || kind === "audio-checkpoint" || kind === "player-note") return "player";
   if (kind === "agent" || kind === "flow-run") return "agents";
   if (kind === "provider-run") return "providers";
+  if (kind === "channel") return "feed";
+  if (kind === "system" || kind === "system-record") return "systems";
+  if (kind === "project" || kind === "project-item") return "projects";
+  if (kind === "model-profile") return "models";
+  if (kind === "smart-home-device" || kind === "smart-home-event") return "smart-home";
+  if (kind === "marketplace-pack" || kind === "installed-pack") return "marketplace";
+  if (kind === "design-profile") return "design";
+  if (kind === "database" || kind === "database-row") return "databases";
+  if (kind === "screen-session") return "screen";
+  if (kind === "twin-snapshot") return "twin";
   if (kind === "proposal") return "inbox";
   return "control";
 }
@@ -7749,8 +9214,19 @@ function graphNodeMeta(kind, object) {
   if (kind === "goal") return [object.status || "active", object.targetDate || ""].filter(Boolean).join(" / ");
   if (kind === "habit") return [object.frequency || "daily", object.checkins && object.checkins[todayKey()] ? "checked today" : "open today"].join(" / ");
   if (kind === "saved-search") return ["saved search", object.query || "", (object.resultCount || 0) + " matches"].join(" / ");
+  if (kind === "chat-message") return [object.role || "owner", object.createdAt || "", object.proposalId ? "proposal-linked" : ""].filter(Boolean).join(" / ");
   if (kind === "provider-run") return [object.kind || "run", object.status || ""].filter(Boolean).join(" / ");
   if (kind === "flow-run" || kind === "agent") return [object.status || "dry-run", object.updatedAt || object.createdAt || ""].filter(Boolean).join(" / ");
+  if (kind === "channel") return [object.kind || "channel", object.view || "", object.status || ""].filter(Boolean).join(" / ");
+  if (kind === "system") return [object.kind || "system", object.health || "", (object.entities || []).length + " entities"].filter(Boolean).join(" / ");
+  if (kind === "project") return [object.status || "active", object.nextAction || ""].filter(Boolean).join(" / ");
+  if (kind === "model-profile") return [object.kind || "model", object.status || "", object.endpoint || "owner-provided"].filter(Boolean).join(" / ");
+  if (kind === "smart-home-device") return [object.room || "home", object.status || "manual", object.provider || "manual"].filter(Boolean).join(" / ");
+  if (kind === "marketplace-pack" || kind === "installed-pack") return [object.kind || object.installMode || "pack", object.status || ""].filter(Boolean).join(" / ");
+  if (kind === "design-profile") return [object.mode || "dashboard", object.status || ""].filter(Boolean).join(" / ");
+  if (kind === "database") return [(object.fields || []).length + " fields", (object.views || []).join(", ")].filter(Boolean).join(" / ");
+  if (kind === "screen-session") return [object.status || "permission-required", object.scope || "screen"].filter(Boolean).join(" / ");
+  if (kind === "twin-snapshot") return [object.status || "local-snapshot", object.summary || ""].filter(Boolean).join(" / ");
   return [object.status || "", object.updatedAt || object.createdAt || ""].filter(Boolean).join(" / ") || kind;
 }
 
@@ -7762,6 +9238,9 @@ function graphEdgeReasonLabel(label) {
   if (key === "saved-search-match") return "Сохраненный поиск нашел этот артефакт по запросу";
   const dictionary = {
     "source-note": "Источник породил заметку в библиотеке",
+    "chat-note": "Сообщение чата связано с активным артефактом",
+    "chat-source": "Сообщение чата связано с источником",
+    "chat-proposal": "Сообщение чата стало предложением действия",
     "task-source": "Задача создана из этого источника",
     "task-note": "Задача привязана к заметке артефакта",
     "task-goal": "Задача двигает связанную цель",
@@ -7807,7 +9286,28 @@ function graphEdgeReasonLabel(label) {
     "checkpoint-note": "Checkpoint связан с заметкой",
     "player-note-source": "Заметка плеера создана из аудио-источника",
     "player-note-note": "Заметка плеера связана с основной заметкой",
-    "player-note-segment": "Заметка плеера основана на фрагменте transcript"
+    "player-note-segment": "Заметка плеера основана на фрагменте transcript",
+    "channel-note": "Канал описан как артефакт и виден в базе",
+    "system-note": "Система имеет контракт-артефакт",
+    "system-installed-pack": "Система создана из установленного local pack",
+    "record-system": "Запись принадлежит пользовательской системе",
+    "record-note": "Запись связана с заметкой артефакта",
+    "project-note": "Проект имеет рабочий артефакт",
+    "project-item-project": "Пункт принадлежит проекту",
+    "project-item-note": "Пункт проекта привязан к артефакту проекта",
+    "pack-note": "Marketplace pack описан локальным артефактом",
+    "install-pack": "Install receipt связан с исходным pack",
+    "install-system": "Install receipt создал system definition",
+    "install-note": "Install receipt связан с артефактом системы",
+    "database-note": "База данных описана артефактом",
+    "database-row-database": "Строка принадлежит пользовательской базе",
+    "database-row-note": "Строка связана с артефактом базы",
+    "model-note": "Model route имеет прозрачный паспорт",
+    "device-note": "Устройство умного дома описано артефактом",
+    "home-event-device": "Событие пришло от устройства",
+    "home-event-note": "Событие связано с артефактом устройства",
+    "screen-note": "Screen session привязан к активному артефакту",
+    "twin-note": "Twin snapshot сохранён как локальный recovery artifact"
   };
   return dictionary[key] || ("Явная ссылка или wikilink: " + key);
 }
@@ -7822,6 +9322,9 @@ function graphNodeTypeLabel(type) {
   if (key.includes("habit")) return "привычка";
   if (key.includes("goal")) return "цель";
   if (["claim", "question", "review", "reading", "highlight", "insight"].includes(key)) return "знание";
+  if (["channel", "system", "system-record", "project", "project-item", "marketplace-pack", "installed-pack", "database", "database-row", "design-profile", "twin-snapshot"].includes(key)) return "система";
+  if (key.includes("model") || key.includes("screen")) return "ИИ / permission gate";
+  if (key.includes("smart-home")) return "умный дом";
   if (key.includes("agent") || key.includes("flow") || key.includes("provider")) return "dry-run";
   if (key.includes("audio") || key.includes("transcript") || key.includes("player")) return "медиа";
   if (key === "ghost") return "ghost link";
@@ -9254,7 +10757,7 @@ function renderChatPanel(state) {
     }).join("") : "<div class=\"empty compact\">Локальный чат готов к активному артефакту.</div>",
     "</div>",
     "<div class=\"compact-form\">",
-    "<input id=\"chat-input\" data-testid=\"chat-input\" autocomplete=\"off\" aria-label=\"Chat message\" value=\"\">",
+    "<textarea id=\"chat-input\" data-testid=\"chat-input\" rows=\"2\" autocomplete=\"off\" aria-label=\"Chat message\"></textarea>",
     "<button data-action=\"send-chat\" data-testid=\"send-chat\">Отправить</button>",
     "</div>",
     "</section>"
@@ -9544,8 +11047,13 @@ function providerStatusLabel(status) {
     "parser-required": "нужен парсер",
     "needs-owner-credentials": "нужны данные владельца",
     "unchecked": "не проверено",
+    "reachable": "endpoint доступен",
     "offline": "офлайн",
     "models_found": "модели найдены",
+    "not-run": "не запускалось",
+    "blocked_by_browser_or_cors": "заблокировано браузером/CORS",
+    "degraded": "частично работает",
+    "generation_ok": "генерация прошла",
     "service-worker-ready": "готово локально",
     "revoked": "отключено"
   };
@@ -9560,7 +11068,7 @@ function renderProviderPassport(state, key, provider) {
   const canProbe = key === "ollama" || key === "pwa";
   const setupAction = canPrepare ? "<button data-action=\"prepare-provider\" data-id=\"" + escapeHtml(key) + "\" data-testid=\"prepare-provider-" + escapeHtml(key) + "\">Подготовить</button>" : "";
   const probeAction = key === "ollama"
-    ? "<button data-action=\"probe-ollama\" data-testid=\"probe-provider-ollama\">Проверить Ollama</button>"
+    ? "<button data-action=\"probe-ollama\" data-testid=\"probe-provider-ollama\">Проверить Ollama</button><button data-action=\"test-ollama-generation\" data-testid=\"test-provider-ollama-generation\">Тест генерации</button>"
     : key === "pwa"
       ? "<button data-action=\"check-pwa\" data-testid=\"probe-provider-pwa\">Проверить PWA</button>"
       : "";
@@ -9621,6 +11129,56 @@ function renderPwaPanel(state) {
   ].join("");
 }
 
+const V34_CONTROL_COLLECTIONS = Object.freeze({
+  channel: "channels",
+  system: "systemDefinitions",
+  "system-record": "systemRecords",
+  project: "projects",
+  "project-item": "projectItems",
+  "model-profile": "modelProfiles",
+  "smart-home-device": "smartHomeDevices",
+  "smart-home-event": "smartHomeEvents",
+  "marketplace-pack": "marketplacePacks",
+  "installed-pack": "installedPacks",
+  "design-profile": "designProfiles",
+  database: "customDatabases",
+  "database-row": "databaseRows",
+  "screen-session": "screenCompanionSessions",
+  "twin-snapshot": "personalTwinSnapshots"
+});
+
+function pushDeletedControlRows(rows, state, kind) {
+  const collection = state[V34_CONTROL_COLLECTIONS[kind]] || {};
+  for (const item of Object.values(collection).filter((row) => row && row.deleted)) {
+    rows.push({
+      kind,
+      id: item.id,
+      title: item.title || item.name || item.id,
+      updatedAt: item.updatedAt || item.createdAt || ""
+    });
+  }
+}
+
+function archiveV34ControlObject(state, kind, object) {
+  const collectionKey = V34_CONTROL_COLLECTIONS[kind];
+  if (!collectionKey || !object || !object.id || !state[collectionKey] || !state[collectionKey][object.id]) return false;
+  state[collectionKey][object.id].deleted = true;
+  state[collectionKey][object.id].updatedAt = now();
+  return true;
+}
+
+function restoreV34ControlObject(state, kind, id) {
+  const collectionKey = V34_CONTROL_COLLECTIONS[kind];
+  const object = collectionKey && state[collectionKey] ? state[collectionKey][id] : null;
+  if (!object) return false;
+  object.deleted = false;
+  object.updatedAt = now();
+  state.graphView.selectedNodeId = id;
+  state.activeSurface = graphNodeWorkspace(kind, object);
+  addAudit(state, "control.restore", "Restored " + kind + ": " + graphNodeTitle(kind, object, id), object.noteId || state.activeNoteId);
+  return true;
+}
+
 function recoveryItems(state) {
   const rows = [];
   for (const note of Object.values(state.notes || {}).filter((item) => item.deleted)) rows.push({ kind: "note", id: note.id, title: note.title, updatedAt: note.updatedAt });
@@ -9630,7 +11188,8 @@ function recoveryItems(state) {
   for (const habit of Object.values(state.habits || {}).filter((item) => item.deleted)) rows.push({ kind: "habit", id: habit.id, title: habit.title, updatedAt: habit.updatedAt });
   for (const goal of Object.values(state.goals || {}).filter((item) => item.deleted)) rows.push({ kind: "goal", id: goal.id, title: goal.title, updatedAt: goal.updatedAt });
   for (const block of Object.values(state.planBlocks || {}).filter((item) => item.deleted)) rows.push({ kind: "plan", id: block.id, title: block.title, updatedAt: block.updatedAt });
-  return rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 8);
+  for (const kind of Object.keys(V34_CONTROL_COLLECTIONS)) pushDeletedControlRows(rows, state, kind);
+  return rows.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 12);
 }
 
 function controlObjectCounts(state) {
@@ -9649,9 +11208,19 @@ function controlObjectCounts(state) {
     ["transcript", Object.values(state.transcriptSegments || {}).filter((item) => !item.deleted).length],
     ["audio checkpoints", Object.values(state.audioCheckpoints || {}).filter((item) => !item.deleted).length],
     ["player notes", Object.values(state.playerNotes || {}).filter((item) => !item.deleted).length],
+    ["chat messages", visibleChatMessages(state).length],
+    ["receipts", Array.isArray(state.control && state.control.receipts) ? state.control.receipts.length : 0],
     ["saved searches", savedSearchList(state).length],
     ["provider runs", Object.values(state.providerRuns || {}).length],
-    ["flow runs", Object.values(state.flowRuns || {}).length]
+    ["flow runs", Object.values(state.flowRuns || {}).length],
+    ["channels", Object.values(state.channels || {}).filter((item) => !item.deleted).length],
+    ["systems", Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted).length],
+    ["projects", Object.values(state.projects || {}).filter((item) => !item.deleted).length],
+    ["models", Object.values(state.modelProfiles || {}).filter((item) => !item.deleted).length],
+    ["home devices", Object.values(state.smartHomeDevices || {}).filter((item) => !item.deleted).length],
+    ["marketplace packs", Object.values(state.marketplacePacks || {}).filter((item) => !item.deleted).length],
+    ["databases", Object.values(state.customDatabases || {}).filter((item) => !item.deleted).length],
+    ["twin snapshots", Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted).length]
   ];
 }
 
@@ -9662,6 +11231,7 @@ function ownerReadinessRows(state) {
   const liveFinance = Object.values(state.financeTransactions || {}).filter((item) => !item.deleted);
   const liveHabits = Object.values(state.habits || {}).filter((item) => !item.deleted);
   const liveGoals = Object.values(state.goals || {}).filter((item) => !item.deleted);
+  const liveChatMessages = visibleChatMessages(state);
   const liveKnowledge = [
     Object.values(state.claims || {}).filter((item) => !item.deleted).length,
     Object.values(state.questions || {}).filter((item) => !item.deleted).length,
@@ -9670,7 +11240,16 @@ function ownerReadinessRows(state) {
   ].reduce((sum, value) => sum + value, 0);
   const providerStatuses = Object.values(state.providers || {}).map((provider) => provider.status || "unknown");
   const fakeReadyProvider = providerStatuses.some((status) => ["ready", "connected"].includes(status));
-  const appliedObjectCount = liveTasks.length + liveFinance.length + liveHabits.length + liveGoals.length + liveKnowledge;
+  const appliedObjectCount = liveTasks.length + liveFinance.length + liveHabits.length + liveGoals.length + liveKnowledge + liveChatMessages.length;
+  const v34Count = [
+    Object.values(state.channels || {}).filter((item) => !item.deleted).length,
+    Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted).length,
+    Object.values(state.marketplacePacks || {}).filter((item) => !item.deleted).length,
+    Object.values(state.modelProfiles || {}).filter((item) => !item.deleted).length,
+    Object.values(state.customDatabases || {}).filter((item) => !item.deleted).length,
+    Object.values(state.screenCompanionSessions || {}).filter((item) => !item.deleted).length,
+    Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted).length
+  ].reduce((sum, value) => sum + value, 0);
   return [
     {
       id: "artifact-chain",
@@ -9689,6 +11268,12 @@ function ownerReadinessRows(state) {
       label: "Связи и Контроль",
       status: graph.nodes.length && graph.links.length && state.auditLog.length ? "ok" : "needs-data",
       detail: graph.nodes.length + " узлов · " + graph.links.length + " связей · " + state.auditLog.length + " следов"
+    },
+    {
+      id: "v34-platform",
+      label: "Платформа v34",
+      status: v34Count >= 10 && state.providers.screen && state.providers.smartHome && state.providers.marketplace ? "ok" : "needs-data",
+      detail: v34Count + " v34 объектов · каналы/системы/паки/модели/базы/разрешения"
     },
     {
       id: "offline",
@@ -9761,6 +11346,22 @@ function buildVaultExportPayload(state) {
     providerRuns: Object.values(state.providerRuns || {}),
     flowRuns: Object.values(state.flowRuns || {}),
     flows: Object.values(state.flows || {}),
+    channels: Object.values(state.channels || {}),
+    systemDefinitions: Object.values(state.systemDefinitions || {}),
+    systemRecords: Object.values(state.systemRecords || {}),
+    projects: Object.values(state.projects || {}),
+    projectItems: Object.values(state.projectItems || {}),
+    modelProfiles: Object.values(state.modelProfiles || {}),
+    smartHomeDevices: Object.values(state.smartHomeDevices || {}),
+    smartHomeEvents: Object.values(state.smartHomeEvents || {}),
+    marketplacePacks: Object.values(state.marketplacePacks || {}),
+    installedPacks: Object.values(state.installedPacks || {}),
+    designProfiles: Object.values(state.designProfiles || {}),
+    designStudio: state.designStudio || {},
+    customDatabases: Object.values(state.customDatabases || {}),
+    databaseRows: Object.values(state.databaseRows || {}),
+    screenCompanionSessions: Object.values(state.screenCompanionSessions || {}),
+    personalTwinSnapshots: Object.values(state.personalTwinSnapshots || {}),
     providers: state.providers,
     environment: state.environment,
     ollama: state.ollama,
@@ -9815,6 +11416,10 @@ function backupSummary(payload) {
     ["finance", Array.isArray(payload.financeTransactions) ? payload.financeTransactions.length : 0],
     ["habits", Array.isArray(payload.habits) ? payload.habits.length : 0],
     ["goals", Array.isArray(payload.goals) ? payload.goals.length : 0],
+    ["systems", Array.isArray(payload.systemDefinitions) ? payload.systemDefinitions.length : 0],
+    ["projects", Array.isArray(payload.projects) ? payload.projects.length : 0],
+    ["databases", Array.isArray(payload.customDatabases) ? payload.customDatabases.length : 0],
+    ["chatMessages", Array.isArray(payload.chatMessages) ? payload.chatMessages.length : 0],
     ["savedSearches", Array.isArray(payload.savedSearches) ? payload.savedSearches.length : 0],
     ["audit", Array.isArray(payload.auditLog) ? payload.auditLog.length : 0]
   ];
@@ -9899,6 +11504,9 @@ function archiveSelectedControlObject(state) {
   else if (resolved.kind === "habit") archiveHabit(state, resolved.object.id);
   else if (resolved.kind === "plan") archivePlanBlock(state, resolved.object.id);
   else if (resolved.kind === "reminder") archiveReminder(state, resolved.object.id);
+  else if (archiveV34ControlObject(state, resolved.kind, resolved.object)) {
+    // v34 objects share the same soft-delete control contract.
+  }
   else {
     addAudit(state, "control.archive.unsupported", "Archive is not implemented for " + resolved.kind, state.activeNoteId);
     return false;
@@ -9937,6 +11545,7 @@ function renderDataControlPanelV2(state) {
   const selectedTitle = selected ? graphNodeTitle(selected.kind, selected.object, selectedId) : (getActiveNote(state) ? getActiveNote(state).title : "none");
   const snapshots = Array.isArray(state.control.rollbackSnapshots) ? state.control.rollbackSnapshots : [];
   const corruptRecords = Array.isArray(state.control.corruptRecords) ? state.control.corruptRecords : [];
+  const receipts = Array.isArray(state.control.receipts) ? state.control.receipts.slice(0, 8) : [];
   const corruptStatusLabel = (status) => status === "recovered" ? "восстановлено" : "изолировано";
   const providerRows = Object.entries(state.providers || {}).map(([, provider]) => "<span>" + escapeHtml(provider.label || "Подключение") + " <strong>" + escapeHtml(humanStatus(provider.status || "unknown")) + "</strong></span>").join("");
   const privacyZones = Object.entries(state.control.privacyZones || {}).map(([key, value]) => "<span>" + escapeHtml(humanObjectLabel(key)) + " <strong>" + escapeHtml(humanStatus(value) || value) + "</strong></span>").join("");
@@ -9983,6 +11592,8 @@ function renderDataControlPanelV2(state) {
     snapshots.length ? snapshots.map((snapshot) => "<div class=\"recovery-row rollback-row\" data-testid=\"rollback-row\"><span>" + escapeHtml(snapshot.title + " / " + snapshot.summary) + "</span><button data-action=\"restore-rollback-snapshot\" data-id=\"" + escapeHtml(snapshot.id) + "\" data-testid=\"restore-rollback-snapshot\">Восстановить</button></div>").join("") : "<div class=\"empty compact\" data-testid=\"rollback-empty\">Снимков отката пока нет.</div>",
     "<div class=\"provider-row\"><span>Повреждённые записи</span><strong data-testid=\"corrupt-record-count\">" + corruptRecords.length + "</strong></div>",
     corruptRecords.length ? corruptRecords.map((record) => "<div class=\"recovery-row corrupt-row\" data-testid=\"corrupt-record-row\"><span>" + escapeHtml(corruptStatusLabel(record.status) + " / " + record.kind + ": " + record.reason) + "</span><button data-action=\"recover-corrupt-record\" data-id=\"" + escapeHtml(record.id) + "\" data-testid=\"recover-corrupt-record\"" + (record.status === "recovered" ? " disabled" : "") + ">Восстановить</button></div>").join("") : "<div class=\"empty compact\" data-testid=\"corrupt-record-empty\">Изолированных поврежденных записей нет.</div>",
+    "<div class=\"provider-row\"><span>Receipts</span><strong data-testid=\"receipt-count\">" + (Array.isArray(state.control.receipts) ? state.control.receipts.length : 0) + "</strong></div>",
+    receipts.length ? receipts.map((receipt) => "<div class=\"recovery-row receipt-row\" data-testid=\"receipt-row\"><span>" + escapeHtml(receipt.kind + " / " + receipt.summary) + "</span><button data-action=\"focus-graph-node\" data-id=\"" + escapeHtml(receipt.objectId) + "\" data-testid=\"receipt-open-object\">Открыть след</button></div>").join("") : "<div class=\"empty compact\" data-testid=\"receipt-empty\">Receipts появятся после действий владельца.</div>",
     "<div class=\"provider-row\"><span>Архив</span><strong>" + rows.length + "</strong></div>",
     rows.length ? rows.map((row) => "<div class=\"recovery-row\" data-testid=\"recovery-row\"><span>" + escapeHtml(humanObjectLabel(row.kind) + ": " + row.title) + "</span><button data-action=\"restore-" + row.kind + "\" data-id=\"" + escapeHtml(row.id) + "\">Вернуть</button></div>").join("") : "<div class=\"empty compact\">Архив пуст.</div>",
     "</section>"
@@ -10051,7 +11662,22 @@ function humanObjectLabel(kind) {
     book: "Книга",
     text: "Текст",
     mail: "Письмо",
-    file: "Файл"
+    file: "Файл",
+    channel: "Канал",
+    system: "Система",
+    "system-record": "Запись системы",
+    project: "Проект",
+    "project-item": "Пункт проекта",
+    "model-profile": "Маршрут модели",
+    "smart-home-device": "Устройство дома",
+    "smart-home-event": "Событие дома",
+    "marketplace-pack": "Пакет системы",
+    "installed-pack": "Установка пакета",
+    "design-profile": "Профиль дизайна",
+    database: "База",
+    "database-row": "Строка базы",
+    "screen-session": "Screen Companion",
+    "twin-snapshot": "Снимок памяти"
   };
   return labels[String(kind || "")] || String(kind || "Объект");
 }
@@ -10083,9 +11709,13 @@ function humanStatus(value) {
     active: "активно",
     revoked: "отключено",
     unchecked: "не проверено",
+    reachable: "endpoint доступен",
     "models_found": "модели найдены",
+    "blocked_by_browser_or_cors": "заблокировано браузером/CORS",
+    degraded: "частично работает",
     offline: "офлайн",
     online: "онлайн",
+    blocked: "заблокировано",
     "service-worker-ready": "офлайн-оболочка готова",
     supported: "поддерживается",
     unsupported: "не поддерживается",
@@ -10103,6 +11733,9 @@ function humanStatus(value) {
     "local-only": "локально",
     "proposal_created": "предложение создано",
     "dry-run": "черновой прогон",
+    "test-generation": "тест генерации",
+    "generation_ok": "генерация прошла",
+    "not-run": "не запускалось",
     "needs-data": "нужно действие",
     "offline-ready": "готово офлайн",
     ready: "готово",
@@ -10134,6 +11767,7 @@ function providerRunLabel(run) {
     revoke: "отключение",
     "dry-run": "черновой прогон",
     "proposal-dry-run": "предложения",
+    "test-generation": "тест генерации",
     "model-select": "модель",
     "service-worker-check": "проверка PWA",
     "owner-check": "проверка владельца",
@@ -10158,9 +11792,18 @@ function controlCountLabel(key) {
     transcript: "расшифровка",
     "audio checkpoints": "аудио-закладки",
     "player notes": "заметки плеера",
+    "chat messages": "сообщения чата",
     "saved searches": "поиски",
     "provider runs": "проверки провайдеров",
-    "flow runs": "прогоны потоков"
+    "flow runs": "прогоны потоков",
+    channels: "каналы",
+    systems: "системы",
+    projects: "проекты",
+    models: "модели",
+    "home devices": "устройства дома",
+    "marketplace packs": "пакеты систем",
+    databases: "базы",
+    "twin snapshots": "снимки памяти"
   };
   return labels[key] || key;
 }
@@ -10355,10 +11998,13 @@ function renderOllamaPanel(state) {
     "<div class=\"section-title\">Локальный AI / Ollama</div>",
     "<div class=\"provider-row\"><span>Статус</span><strong data-testid=\"ollama-status\" data-raw-status=\"" + escapeHtml(state.ollama.status) + "\">" + escapeHtml(humanStatus(state.ollama.status)) + "</strong></div>",
     "<input id=\"ollama-endpoint\" data-testid=\"ollama-endpoint\" autocomplete=\"off\" aria-label=\"Ollama endpoint\" value=\"" + escapeHtml(state.ollama.endpoint) + "\">",
-    "<div class=\"provider-actions\"><button data-action=\"probe-ollama\" data-testid=\"probe-ollama\">Проверить Ollama</button><button data-action=\"ollama-dry-run\" data-testid=\"ollama-dry-run\">Создать предложения</button><button data-action=\"revoke-provider\" data-id=\"ollama\" data-testid=\"revoke-ollama\">Отключить</button></div>",
+    "<div class=\"provider-actions\"><button data-action=\"probe-ollama\" data-testid=\"probe-ollama\">Проверить Ollama</button><button data-action=\"test-ollama-generation\" data-testid=\"test-ollama-generation\">Тест генерации</button><button data-action=\"ollama-dry-run\" data-testid=\"ollama-dry-run\">Создать предложения</button><button data-action=\"revoke-provider\" data-id=\"ollama\" data-testid=\"revoke-ollama\">Отключить</button></div>",
     state.ollama.models.length ? "<label class=\"provider-select\">Модель<select id=\"ollama-model\" data-testid=\"ollama-model\" aria-label=\"Ollama model\">" + modelOptions + "</select><button data-action=\"save-ollama-model\" data-testid=\"save-ollama-model\">Сохранить модель</button></label>" : "",
     "<div class=\"provider-row\"><span>Модели</span><strong>" + escapeHtml(models) + "</strong></div>",
     "<div class=\"provider-row\"><span>Выбрана</span><strong data-testid=\"ollama-selected-model\">" + escapeHtml(state.ollama.selectedModel || "не выбрана") + "</strong></div>",
+    "<div class=\"provider-row\"><span>Тест генерации</span><strong data-testid=\"ollama-generation-status\">" + escapeHtml(humanStatus(state.ollama.lastGenerationStatus || (state.ollama.status === "models_found" ? "not-run" : state.ollama.status))) + "</strong></div>",
+    state.ollama.lastLatencyMs ? "<div class=\"provider-row\"><span>Latency</span><strong data-testid=\"ollama-latency\">" + escapeHtml(String(state.ollama.lastLatencyMs)) + "ms</strong></div>" : "",
+    state.ollama.lastGenerationSample ? "<div class=\"provider-row\"><span>Ответ модели</span><strong data-testid=\"ollama-generation-sample\">" + escapeHtml(shorten(state.ollama.lastGenerationSample, 120)) + "</strong></div>" : "",
     "<div class=\"provider-row\"><span>Доступ</span><strong>" + escapeHtml((state.ollama.scopes || []).map((scope) => scope.replace(/[-_]/g, " ")).join(", ") || "активный артефакт") + "</strong></div>",
     "<div class=\"provider-send-box\" data-testid=\"ollama-send-preview\"><strong>Что будет отправлено после явного запуска</strong><span>" + escapeHtml(activeNote ? activeNote.title : "Нет активной заметки") + " · только предложения · без скрытых изменений</span></div>",
     state.ollama.lastCheckedAt ? "<div class=\"provider-row\"><span>Проверено</span><strong>" + escapeHtml(state.ollama.lastCheckedAt) + "</strong></div>" : "",
@@ -10555,6 +12201,156 @@ async function handleAction(action, id) {
     requestAnimationFrame(() => {
       window.scrollTo(0, 0);
       setTimeout(() => window.scrollTo(0, 0), 0);
+    });
+    return;
+  }
+  if (action === "create-system") {
+    const titleInput = document.querySelector("#system-title");
+    const kindInput = document.querySelector("#system-kind");
+    await store.commit("V34 system created", (state) => {
+      const systemId = createSystemDefinition(state, {
+        title: titleInput ? titleInput.value : "",
+        kind: kindInput ? kindInput.value : "custom"
+      });
+      if (systemId) {
+        state.graphView.selectedNodeId = systemId;
+        state.activeSurface = "systems";
+      }
+    });
+    return;
+  }
+  if (action === "install-pack") {
+    await store.commit("V34 local pack installed", (state) => {
+      const systemId = installMarketplacePack(state, id);
+      if (systemId) {
+        state.graphView.selectedNodeId = systemId;
+        state.activeSurface = "systems";
+      }
+    });
+    return;
+  }
+  if (action === "create-project") {
+    const input = document.querySelector("#project-title");
+    await store.commit("V34 project created", (state) => {
+      const projectId = createProject(state, input ? input.value : "");
+      if (projectId) {
+        state.graphView.selectedNodeId = projectId;
+        state.activeSurface = "projects";
+      }
+    });
+    return;
+  }
+  if (action === "add-project-item") {
+    const projectInput = document.querySelector("#project-select");
+    const titleInput = document.querySelector("#project-item-title");
+    const kindInput = document.querySelector("#project-item-kind");
+    await store.commit("V34 project item added", (state) => {
+      const itemId = addProjectItem(state, projectInput ? projectInput.value : "", titleInput ? titleInput.value : "", kindInput ? kindInput.value : "decision");
+      if (itemId) {
+        state.graphView.selectedNodeId = itemId;
+        state.activeSurface = "projects";
+      }
+    });
+    return;
+  }
+  if (action === "add-database") {
+    const input = document.querySelector("#database-title");
+    await store.commit("V34 database created", (state) => {
+      const databaseId = createCustomDatabase(state, input ? input.value : "");
+      if (databaseId) {
+        state.graphView.selectedNodeId = databaseId;
+        state.activeSurface = "databases";
+      }
+    });
+    return;
+  }
+  if (action === "add-database-row") {
+    const databaseInput = document.querySelector("#database-select");
+    const titleInput = document.querySelector("#database-row-title");
+    const statusInput = document.querySelector("#database-row-status");
+    await store.commit("V34 database row added", (state) => {
+      const rowId = addDatabaseRow(state, databaseInput ? databaseInput.value : "", titleInput ? titleInput.value : "", statusInput ? statusInput.value : "open");
+      if (rowId) {
+        state.graphView.selectedNodeId = rowId;
+        state.activeSurface = "databases";
+      }
+    });
+    return;
+  }
+  if (action === "save-design-profile") {
+    const profileInput = document.querySelector("#design-profile-select");
+    const modeInput = document.querySelector("#design-render-mode");
+    await store.commit("V34 design profile selected", (state) => {
+      saveDesignProfile(state, profileInput ? profileInput.value : "", modeInput ? modeInput.value : "");
+      state.graphView.selectedNodeId = profileInput ? profileInput.value : state.designStudio.activeProfileId;
+      state.activeSurface = "design";
+    });
+    return;
+  }
+  if (action === "add-model-profile") {
+    const titleInput = document.querySelector("#model-title");
+    const endpointInput = document.querySelector("#model-endpoint");
+    const kindInput = document.querySelector("#model-kind");
+    await store.commit("V34 model route added", (state) => {
+      const modelId = addModelProfile(state, titleInput ? titleInput.value : "", endpointInput ? endpointInput.value : "", kindInput ? kindInput.value : "owner-key");
+      if (modelId) {
+        state.graphView.selectedNodeId = modelId;
+        state.activeSurface = "models";
+      }
+    });
+    return;
+  }
+  if (action === "verify-model-route") {
+    await store.commit("V34 model route checked", (state) => {
+      const modelId = verifyModelRoute(state, id);
+      if (modelId) {
+        state.graphView.selectedNodeId = modelId;
+        state.activeSurface = "models";
+      }
+    });
+    return;
+  }
+  if (action === "add-smart-home-device") {
+    const titleInput = document.querySelector("#home-device-title");
+    const roomInput = document.querySelector("#home-device-room");
+    await store.commit("V34 smart home device added", (state) => {
+      const deviceId = addSmartHomeDevice(state, titleInput ? titleInput.value : "", roomInput ? roomInput.value : "");
+      if (deviceId) {
+        state.graphView.selectedNodeId = deviceId;
+        state.activeSurface = "smart-home";
+      }
+    });
+    return;
+  }
+  if (action === "record-smart-home-event") {
+    const deviceInput = document.querySelector("#home-device-select");
+    const textInput = document.querySelector("#home-event-text");
+    await store.commit("V34 smart home event recorded", (state) => {
+      const eventId = recordSmartHomeEvent(state, deviceInput ? deviceInput.value : "", textInput ? textInput.value : "");
+      if (eventId) {
+        state.graphView.selectedNodeId = eventId;
+        state.activeSurface = "smart-home";
+      }
+    });
+    return;
+  }
+  if (action === "prepare-screen-companion") {
+    await store.commit("V34 screen companion prepared", (state) => {
+      const sessionId = prepareScreenCompanionSession(state);
+      if (sessionId) {
+        state.graphView.selectedNodeId = sessionId;
+        state.activeSurface = "screen";
+      }
+    });
+    return;
+  }
+  if (action === "create-twin-snapshot") {
+    await store.commit("V34 personal twin snapshot created", (state) => {
+      const snapshotId = createPersonalTwinSnapshot(state);
+      if (snapshotId) {
+        state.graphView.selectedNodeId = snapshotId;
+        state.activeSurface = "twin";
+      }
     });
     return;
   }
@@ -10785,8 +12581,8 @@ async function handleAction(action, id) {
         return;
       }
       addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
-      addChatMessage(state, "assistant", "Сообщение привязано к активному артефакту. Запусти Flow или Agent, чтобы превратить его в действия.", "", state.activeNoteId);
-      addAudit(state, "chat.local", "Local chat message linked to artifact", state.activeNoteId);
+      addChatMessage(state, "assistant", buildLocalChatAnswer(state, cleanText), "", state.activeNoteId);
+      addAudit(state, "chat.local.answer", "Local chat answered: " + shorten(cleanText, 90), state.activeNoteId);
     });
     return;
   }
@@ -10904,6 +12700,11 @@ async function handleAction(action, id) {
   }
   if (action === "restore-habit") {
     await store.commit("Habit restored", (state) => restoreHabit(state, id));
+    return;
+  }
+  if (action.startsWith("restore-") && Object.prototype.hasOwnProperty.call(V34_CONTROL_COLLECTIONS, action.slice("restore-".length))) {
+    const kind = action.slice("restore-".length);
+    await store.commit("V34 object restored", (state) => restoreV34ControlObject(state, kind, id));
     return;
   }
   if (action === "prepare-provider") {
@@ -11396,15 +13197,16 @@ async function handleAction(action, id) {
       });
     } catch (error) {
       await store.commit("Ollama probe failed", (state) => {
-        state.ollama.endpoint = String(endpoint || "http://localhost:11434").replace(/\/+$/, "");
-        state.ollama.status = "offline";
+        state.ollama.endpoint = String(endpoint || "http://127.0.0.1:11434").replace(/\/+$/, "");
+        const status = classifyOllamaFetchError(error);
+        state.ollama.status = status;
         state.ollama.models = [];
         state.ollama.selectedModel = "";
         state.ollama.lastError = error && error.message ? error.message : String(error);
         state.ollama.lastCheckedAt = now();
         state.ollama.lastProbeAt = state.ollama.lastCheckedAt;
         syncOllamaProviderState(state);
-        recordProviderRun(state, "ollama", "probe", "offline", "Ollama offline at " + state.ollama.endpoint, { error: state.ollama.lastError });
+        recordProviderRun(state, "ollama", "probe", status, "Ollama probe failed at " + state.ollama.endpoint + ": " + status, { error: state.ollama.lastError });
         addAudit(state, "ollama.probe", "Ollama unreachable at " + state.ollama.endpoint, state.activeNoteId);
       });
     }
@@ -11420,6 +13222,57 @@ async function handleAction(action, id) {
         recordProviderRun(state, "ollama", "model-select", "selected", "Selected model " + selected, { selected });
       }
     });
+    return;
+  }
+  if (action === "test-ollama-generation") {
+    const endpointInput = document.querySelector("#ollama-endpoint");
+    const modelInput = document.querySelector("#ollama-model");
+    const endpoint = endpointInput ? cleanLine(endpointInput.value) : store.state.ollama.endpoint;
+    const model = modelInput && cleanLine(modelInput.value) ? cleanLine(modelInput.value) : (store.state.ollama.selectedModel || (store.state.ollama.models || [])[0] || "");
+    if (!model) {
+      await store.commit("Ollama generation test blocked", (state) => {
+        state.ollama.endpoint = String(endpoint || "http://127.0.0.1:11434").replace(/\/+$/, "");
+        state.ollama.status = "degraded";
+        state.ollama.lastGenerationStatus = "blocked";
+        state.ollama.lastError = "No Ollama model selected for /api/generate test.";
+        state.ollama.lastCheckedAt = now();
+        syncOllamaProviderState(state);
+        recordProviderRun(state, "ollama", "test-generation", "blocked", "Ollama generation test blocked: no model selected", { endpoint: state.ollama.endpoint });
+      });
+      return;
+    }
+    const confirmed = window.confirm("Run local Ollama /api/generate test on " + model + " at " + endpoint + "?");
+    if (!confirmed) return;
+    try {
+      const result = await testOllamaGeneration(endpoint, model);
+      await store.commit("Ollama generation test completed", (state) => {
+        state.ollama.endpoint = result.endpoint;
+        state.ollama.selectedModel = result.model;
+        state.ollama.models = Array.isArray(state.ollama.models) ? state.ollama.models : [];
+        if (result.model && !state.ollama.models.includes(result.model)) state.ollama.models.unshift(result.model);
+        state.ollama.status = "generation_ok";
+        state.ollama.lastGenerationStatus = result.status;
+        state.ollama.lastGenerationSample = result.sample;
+        state.ollama.lastLatencyMs = result.latencyMs;
+        state.ollama.lastError = "";
+        state.ollama.lastCheckedAt = now();
+        syncOllamaProviderState(state);
+        recordProviderRun(state, "ollama", "test-generation", result.status, "Ollama /api/generate ok on " + result.model + " in " + result.latencyMs + "ms", result);
+        addAudit(state, "ollama.generate.test", "Ollama /api/generate test ok on " + result.model, state.activeNoteId);
+      });
+    } catch (error) {
+      await store.commit("Ollama generation test failed", (state) => {
+        const status = classifyOllamaFetchError(error);
+        state.ollama.endpoint = String(endpoint || "http://127.0.0.1:11434").replace(/\/+$/, "");
+        state.ollama.status = status === "offline" ? "offline" : "degraded";
+        state.ollama.lastGenerationStatus = status;
+        state.ollama.lastError = error && error.message ? error.message : String(error);
+        state.ollama.lastCheckedAt = now();
+        syncOllamaProviderState(state);
+        recordProviderRun(state, "ollama", "test-generation", state.ollama.status, "Ollama /api/generate failed: " + state.ollama.lastError, { endpoint: state.ollama.endpoint, model, status });
+        addAudit(state, "ollama.generate.test", "Ollama /api/generate failed: " + state.ollama.status, state.activeNoteId);
+      });
+    }
     return;
   }
   if (action === "ollama-dry-run") {
@@ -11636,6 +13489,14 @@ function bindGlobalEvents() {
   });
   window.addEventListener("keydown", (event) => {
     if (!store) return;
+    if (event.target instanceof HTMLElement && event.target.id === "chat-input" && event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && !event.isComposing) {
+      event.preventDefault();
+      handleAction("send-chat", "").catch((error) => {
+        bootError = error;
+        renderError(error);
+      });
+      return;
+    }
     const key = String(event.key || "").toLowerCase();
     if ((event.ctrlKey || event.metaKey) && key === "k") {
       event.preventDefault();

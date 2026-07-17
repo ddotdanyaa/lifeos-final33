@@ -19,6 +19,10 @@ export function renderGraphCanvas(ctx) {
     ["habits", "Привычки"],
     ["goals", "Цели"],
     ["knowledge", "Знания"],
+    ["channels", "Каналы"],
+    ["systems", "Системы"],
+    ["models", "Модели"],
+    ["home", "Дом"],
     ["productBrain", "Разработка"]
   ];
   return [

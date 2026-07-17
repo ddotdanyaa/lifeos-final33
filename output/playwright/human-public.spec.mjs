@@ -74,33 +74,33 @@ test("human public chat-first flow", async ({ page }) => {
   await expect(page.getByTestId("lifeos-understanding")).toContainText("сегодня, 23:00");
   await expect(page.getByTestId("human-primary-action")).toContainText("Создать задачу сегодня в 23:00");
   await page.getByTestId("human-primary-action").click();
-  await page.getByTestId("surface-today").first().click();
+  await openSurface(page, "today");
   await expect(page.getByTestId("workspace-today")).toContainText("заказать еду");
   await page.screenshot({ path: join(shotDir, "after-simple-task.png"), fullPage: true });
 
-  await page.getByTestId("surface-calendar").first().click();
+  await openSurface(page, "calendar");
   await expect(page.getByTestId("workspace-calendar")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "calendar-clean.png"), fullPage: true });
 
-  await page.getByTestId("surface-inbox").first().click();
+  await openSurface(page, "inbox");
   await page.getByTestId("capture-input").fill("пятерочка 1240 продукты сегодня, баланс карта 15200");
   await page.getByTestId("capture-text").click();
   await expect(page.getByTestId("lifeos-understanding")).toContainText("Расход: Пятёрочка, 1240 ₽");
   await expect(page.getByTestId("lifeos-understanding")).toContainText("Баланс: Карта, 15200 ₽");
   await expect(page.getByTestId("human-primary-action")).toContainText("Добавить расход и обновить баланс");
   await page.getByTestId("human-primary-action").click();
-  await page.getByTestId("surface-finance").first().click();
+  await openSurface(page, "finance");
   await expect(page.getByTestId("workspace-finance")).toContainText("Пятёрочка");
   await expect(page.getByTestId("workspace-finance")).toContainText(/15\s*200/);
   await page.screenshot({ path: join(shotDir, "finance-dashboard.png"), fullPage: true });
 
-  await page.getByTestId("surface-inbox").first().click();
+  await openSurface(page, "inbox");
   await page.getByTestId("capture-input").fill("идея: сделать второй мозг для книг и аудио");
   await page.getByTestId("capture-text").click();
   await expect(page.getByTestId("lifeos-understanding")).toContainText("идея / знание / проект");
   await expect(page.getByTestId("human-primary-action")).toContainText("Сохранить идею в базу знаний");
   await page.getByTestId("human-primary-action").click();
-  await page.getByTestId("surface-library").first().click();
+  await openSurface(page, "library");
   await expect(page.getByTestId("workspace-library")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "reader-real.png"), fullPage: true });
 
@@ -119,7 +119,7 @@ test("human public chat-first flow", async ({ page }) => {
   await expect(page.getByTestId("workspace-player")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "player-transcript.png"), fullPage: true });
 
-  await page.getByTestId("surface-chat").first().click();
+  await openSurface(page, "chat");
   await expect(page.getByTestId("workspace-chat")).toBeVisible();
   await expect(page.getByTestId("workspace-chat")).not.toContainText("LifeOS Product Brain");
   await page.getByTestId("chat-panel").getByTestId("chat-input").fill("сохрани это как мысль к активному артефакту");
@@ -131,12 +131,12 @@ test("human public chat-first flow", async ({ page }) => {
   await expect(page.getByTestId("flow-canvas")).toBeVisible();
   await page.screenshot({ path: join(shotDir, "agents-flow-canvas.png"), fullPage: true });
 
-  await page.getByTestId("surface-graph").first().click();
+  await openSurface(page, "graph");
   await expect(page.getByTestId("graph-canvas")).toBeVisible();
   await expect(page.getByTestId("graph-filter-productBrain")).not.toBeChecked();
   await page.screenshot({ path: join(shotDir, "big-graph.png"), fullPage: true });
 
-  await page.getByTestId("surface-control").first().click();
+  await openSurface(page, "control");
   await expect(page.getByTestId("data-control-panel")).toBeVisible();
   await page.locator("[data-testid='dev-state'] summary").click();
   await expect(page.getByTestId("dev-state-panel")).toBeVisible();

@@ -11,26 +11,49 @@ import { renderPlayer } from "./player.js";
 import { renderProviders } from "./providers.js";
 import { renderReader } from "./reader.js";
 import { renderToday } from "./today.js";
+import {
+  renderDatabases,
+  renderDesignStudio,
+  renderFeed,
+  renderMarketplace,
+  renderModelHub,
+  renderProjects,
+  renderScreenCompanion,
+  renderSmartHome,
+  renderSystems,
+  renderTwin
+} from "./v34-platform.js";
 import { button, escapeHtml } from "./components/shared.js";
 
 const primaryNav = [
   ["inbox", "Дом"],
   ["today", "Сегодня"],
-  ["capture", "Входящие"],
   ["calendar", "Календарь"],
   ["finance", "Деньги"],
+  ["feed", "Лента"],
+  ["systems", "Системы"],
   ["library", "База"],
-  ["chat", "Чат"],
   ["graph", "Граф"],
   ["control", "Контроль"]
 ];
 
 const secondaryNav = [
+  ["capture", "Входящие"],
+  ["projects", "Проекты"],
+  ["chat", "Чат"],
+  ["agents", "Сценарии"],
+  ["models", "Модели"],
+  ["smart-home", "Умный дом"],
+  ["marketplace", "Паки"],
+  ["builder", "Конструктор"],
+  ["design", "Дизайн"],
+  ["databases", "Таблицы"],
+  ["screen", "Экран"],
+  ["twin", "Двойник"],
   ["goals", "Цели"],
   ["habits", "Привычки"],
   ["reader", "Чтение"],
   ["player", "Аудио"],
-  ["agents", "Сценарии"],
   ["providers", "Подключения"]
 ];
 
@@ -52,7 +75,7 @@ function renderNav(ctx) {
 }
 
 function renderMobileNav(ctx) {
-  const items = [["inbox", "Дом"], ["today", "Сегодня"], ["finance", "Деньги"], ["chat", "Чат"], ["capture", "Ввод"]];
+  const items = [["inbox", "Дом"], ["feed", "Лента"], ["today", "Сегодня"], ["systems", "Системы"], ["capture", "Ввод"]];
   return [
     `<nav class="mobile-bottom-nav">${items.map((row) => navButton(ctx, row, "mobile-surface")).join("")}</nav>`,
     `<details class="mobile-more-nav" data-testid="mobile-more-nav"><summary>Ещё</summary><div>${secondaryNav.map((row) => navButton(ctx, row)).join("")}</div></details>`
@@ -61,6 +84,8 @@ function renderMobileNav(ctx) {
 
 function renderSurface(ctx) {
   switch (ctx.activeSurface) {
+    case "feed":
+      return renderFeed(ctx);
     case "today":
       return renderToday(ctx);
     case "calendar":
@@ -83,6 +108,26 @@ function renderSurface(ctx) {
     case "agents":
     case "flows":
       return renderAgentsFlows(ctx);
+    case "systems":
+      return renderSystems(ctx);
+    case "builder":
+      return renderSystems(ctx, "builder");
+    case "projects":
+      return renderProjects(ctx);
+    case "models":
+      return renderModelHub(ctx);
+    case "smart-home":
+      return renderSmartHome(ctx);
+    case "marketplace":
+      return renderMarketplace(ctx);
+    case "design":
+      return renderDesignStudio(ctx);
+    case "databases":
+      return renderDatabases(ctx);
+    case "screen":
+      return renderScreenCompanion(ctx);
+    case "twin":
+      return renderTwin(ctx);
     case "graph":
       return renderGraph(ctx);
     case "control":
@@ -104,7 +149,7 @@ export function renderNewShell(ctx) {
     `<input id="audio-import" data-testid="audio-import" type="file" accept="audio/*" multiple hidden>`,
     `<input id="backup-import" data-testid="backup-import" type="file" accept="application/json,.json" hidden>`,
     `<header class="lifeos-public-header">`,
-    `<div><strong>LifeOS</strong><span>Локальная ОС для дня, знаний и контроля</span></div>`,
+    `<div><strong>LifeOS v34</strong><span>Локальная персональная ОС для жизни, данных, знаний и действий</span></div>`,
     `<label class="global-search-v2"><span>Найти</span><input id="global-search" data-testid="global-search" value="${escapeHtml(ctx.searchQuery || "")}" autocomplete="off" aria-label="Поиск"></label>`,
     `<button class="top-capture-v2" data-action="set-surface" data-id="capture" data-testid="top-capture">Ввод</button>`,
     `<span id="save-status" class="save-status-v2" role="status" aria-live="polite">сохранено</span>`,

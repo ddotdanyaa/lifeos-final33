@@ -30,7 +30,7 @@ async function copyDir(from, to) {
 
 const index = await readFile("index.html", "utf8");
 const publicIndex = index
-  .replace("<title>LifeOS v33 Artifact OS</title>", "<title>LifeOS Public Demo</title>")
+  .replace("<title>LifeOS v34 Personal OS</title>", "<title>LifeOS v34 Public Demo</title>")
   .replace("<script src=\"./app.js\" type=\"module\"></script>", "<script>window.LIFEOS_PUBLIC_DEMO = true;</script>\n    <script src=\"./app.js\" type=\"module\"></script>");
 
 await writeFile(resolve(outDir, "index.html"), publicIndex, "utf8");
@@ -60,7 +60,7 @@ for (const [from, to] of files) {
 await copyDir(resolve(root, "ui"), resolve(outDir, "ui"));
 
 await writeFile(resolve(outDir, "README.md"), [
-  "# LifeOS Public Demo",
+  "# LifeOS v34 Public Demo",
   "",
   "Чистая статическая сборка для GitHub Pages.",
   "В сборку не копируются локальные отчеты, evidence screenshots или приватные файлы.",

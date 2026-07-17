@@ -1,7 +1,7 @@
 {
-  "name": "LifeOS Artifact OS",
+  "name": "LifeOS v34 Personal OS",
   "short_name": "LifeOS",
-  "description": "Local-first daily Artifact OS for capture, planning, knowledge, finance, habits, local AI and data control.",
+  "description": "Local-first personal OS for life feed, capture, systems, planning, knowledge, finance, local AI and data control.",
   "id": "/",
   "start_url": "/?source=pwa",
   "scope": "/",
@@ -43,6 +43,32 @@
       "short_name": "Today",
       "description": "Open LifeOS daily planning workspace.",
       "url": "/?surface=today",
+      "icons": [
+        {
+          "src": "/assets/lifeos-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Life Feed",
+      "short_name": "Feed",
+      "description": "Open the LifeOS v34 event feed.",
+      "url": "/?surface=feed",
+      "icons": [
+        {
+          "src": "/assets/lifeos-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Systems",
+      "short_name": "Systems",
+      "description": "Open LifeOS v34 systems builder.",
+      "url": "/?surface=systems",
       "icons": [
         {
           "src": "/assets/lifeos-icon.svg",

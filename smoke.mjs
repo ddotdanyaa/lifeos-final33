@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 const files = {
   html: await readFile("index.html", "utf8"),
   js: await readFile("app.js", "utf8"),
-  css: await readFile("styles.css", "utf8")
+  css: await readFile("styles.css", "utf8"),
+  chat: await readFile("ui/chat.js", "utf8"),
+  v34: await readFile("ui/v34-platform.js", "utf8")
 };
 
 const required = [
@@ -40,6 +42,33 @@ const required = [
   "function renderConnectedAppNetwork",
   "function renderCalendarPanel",
   "function renderDataControlPanel",
+  "function buildLocalChatAnswer",
+  "function visibleChatMessages",
+  "function chatLocalEngineSummary",
+  "function classifyOllamaFetchError",
+  "async function testOllamaGeneration",
+  "function scrollChatThreadToLatest",
+  "event.target.id === \"chat-input\"",
+  "<textarea id=\"chat-input\"",
+  "data-testid=\"chat-mode\"",
+  "data-testid=\"local-model-status\"",
+  "testId: \"test-ollama-generation\"",
+  "\"chat-message\", state.chatMessages",
+  "[\"chat messages\", visibleChatMessages(state).length]",
+  "function ensureV34Platform",
+  "function createSystemDefinition",
+  "function installMarketplacePack",
+  "function createProject",
+  "function addModelProfile",
+  "function prepareScreenCompanionSession",
+  "function createPersonalTwinSnapshot",
+  "renderFeed",
+  "renderSystems",
+  "renderModelHub",
+  "renderSmartHome",
+  "systems-workbench",
+  "marketplace-workspace",
+  "screen-workspace",
   "async function refreshEnvironmentStatus",
   "async function probeOllama",
   "addEventListener(\"wheel\"",
@@ -79,7 +108,7 @@ const forbidden = [
   "place" + "holder card"
 ];
 
-const joined = files.html + "\n" + files.js + "\n" + files.css;
+const joined = Object.values(files).join("\n");
 const missing = required.filter((item) => !joined.includes(item));
 const blocked = forbidden.filter((item) => joined.toLowerCase().includes(item.toLowerCase()));
 

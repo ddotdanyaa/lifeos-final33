@@ -1,5 +1,5 @@
-export const ARTIFACT_OS_ARCHITECTURE_VERSION = "v33-artifact-os-boundary-1";
-export const ARTIFACT_SCHEMA_VERSION = 2;
+export const ARTIFACT_OS_ARCHITECTURE_VERSION = "v34-platform-primitives-1";
+export const ARTIFACT_SCHEMA_VERSION = 3;
 
 export const ARTIFACT_COLLECTIONS = Object.freeze([
   { key: "folders", ownerType: "space", primarySurface: "library", projection: "vault tree", graph: true, audit: true },
@@ -31,6 +31,21 @@ export const ARTIFACT_COLLECTIONS = Object.freeze([
   { key: "providerRuns", ownerType: "provider-run", primarySurface: "providers", projection: "provider receipt", graph: false, audit: true },
   { key: "providers", ownerType: "provider-state", primarySurface: "providers", projection: "provider passport", graph: false, audit: true },
   { key: "savedSearches", ownerType: "saved-search", primarySurface: "library", projection: "search lens", graph: true, audit: true },
+  { key: "channels", ownerType: "event-channel", primarySurface: "feed", projection: "life event lane", graph: true, audit: true },
+  { key: "systemDefinitions", ownerType: "system-definition", primarySurface: "systems", projection: "system contract", graph: true, audit: true },
+  { key: "systemRecords", ownerType: "system-record", primarySurface: "systems", projection: "custom system object", graph: true, audit: true },
+  { key: "projects", ownerType: "project", primarySurface: "projects", projection: "work/project hub", graph: true, audit: true },
+  { key: "projectItems", ownerType: "project-item", primarySurface: "projects", projection: "project action/decision", graph: true, audit: true },
+  { key: "modelProfiles", ownerType: "model-profile", primarySurface: "models", projection: "model route passport", graph: true, audit: true },
+  { key: "smartHomeDevices", ownerType: "smart-home-device", primarySurface: "smart-home", projection: "device row", graph: true, audit: true },
+  { key: "smartHomeEvents", ownerType: "smart-home-event", primarySurface: "smart-home", projection: "device event", graph: true, audit: true },
+  { key: "marketplacePacks", ownerType: "marketplace-pack", primarySurface: "marketplace", projection: "installable pack", graph: true, audit: true },
+  { key: "installedPacks", ownerType: "installed-pack", primarySurface: "marketplace", projection: "local package receipt", graph: true, audit: true },
+  { key: "designProfiles", ownerType: "design-profile", primarySurface: "design", projection: "render mode/theme", graph: true, audit: true },
+  { key: "customDatabases", ownerType: "database-definition", primarySurface: "databases", projection: "relational system", graph: true, audit: true },
+  { key: "databaseRows", ownerType: "database-row", primarySurface: "databases", projection: "record row", graph: true, audit: true },
+  { key: "screenCompanionSessions", ownerType: "screen-companion-session", primarySurface: "screen", projection: "permission-gated screen receipt", graph: true, audit: true },
+  { key: "personalTwinSnapshots", ownerType: "personal-twin-snapshot", primarySurface: "twin", projection: "recovery memory snapshot", graph: true, audit: true },
   { key: "auditLog", ownerType: "audit-event", primarySurface: "control", projection: "human receipt", graph: false, audit: true },
   { key: "control", ownerType: "control-state", primarySurface: "control", projection: "export/recover map", graph: false, audit: true },
   { key: "environment", ownerType: "environment-state", primarySurface: "providers", projection: "local runtime", graph: false, audit: true }
@@ -50,6 +65,17 @@ export const WORKSPACE_CONTRACTS = Object.freeze([
   { surface: "chat", job: "artifact conversation", primaryAction: "send-message", collections: ["chatMessages", "proposals", "providerRuns"] },
   { surface: "agents", job: "agent dry-run", primaryAction: "run-dry-run", collections: ["agentRuns", "flowRuns", "proposals"] },
   { surface: "flows", job: "automation dry-run", primaryAction: "run-flow", collections: ["flows", "flowRuns", "proposals"] },
+  { surface: "feed", job: "show life event stream", primaryAction: "inspect-event", collections: ["channels", "auditLog", "sources", "proposals", "providerRuns"] },
+  { surface: "systems", job: "create any personal system", primaryAction: "create-system", collections: ["systemDefinitions", "systemRecords", "installedPacks"] },
+  { surface: "builder", job: "define system primitives", primaryAction: "materialize-system-contract", collections: ["systemDefinitions", "systemRecords", "flows", "agentRuns"] },
+  { surface: "projects", job: "operate work/projects", primaryAction: "add-project-item", collections: ["projects", "projectItems", "tasks", "planBlocks", "notes"] },
+  { surface: "models", job: "route local and owner-key AI", primaryAction: "verify-model-route", collections: ["modelProfiles", "providers", "providerRuns"] },
+  { surface: "smart-home", job: "track local home devices safely", primaryAction: "record-device-event", collections: ["smartHomeDevices", "smartHomeEvents", "providers"] },
+  { surface: "marketplace", job: "install local system packs", primaryAction: "install-pack", collections: ["marketplacePacks", "installedPacks", "systemDefinitions"] },
+  { surface: "design", job: "choose render modes and themes", primaryAction: "save-design-profile", collections: ["designProfiles", "systemDefinitions"] },
+  { surface: "databases", job: "build relational personal systems", primaryAction: "add-database-row", collections: ["customDatabases", "databaseRows", "systemDefinitions"] },
+  { surface: "screen", job: "prepare permission-gated screen companion", primaryAction: "prepare-screen-session", collections: ["screenCompanionSessions", "providers", "providerRuns"] },
+  { surface: "twin", job: "recover context and personal memory", primaryAction: "create-twin-snapshot", collections: ["personalTwinSnapshots", "auditLog", "notes", "sources"] },
   { surface: "graph", job: "explain relationships", primaryAction: "inspect-node", collections: ["notes", "sources", "tasks", "financeTransactions", "habits", "goals"] },
   { surface: "control", job: "trust and recover", primaryAction: "export-or-recover", collections: ["auditLog", "control", "providerRuns"] },
   { surface: "providers", job: "connect safely", primaryAction: "probe-provider", collections: ["providers", "providerRuns", "environment"] }
@@ -60,6 +86,8 @@ export const MODULE_BOUNDARIES = Object.freeze([
   { key: "architecture-contract", file: "artifact-os-architecture.mjs", owns: ["collections", "workspaces", "event bus", "module boundaries"], proves: ["code splitting", "module boundaries", "schema docs"] },
   { key: "capture-analyzer", file: "app.js", owns: ["analyzeArtifactInput", "analyzeSourceArtifact"], proves: ["input -> Artifact -> proposals"] },
   { key: "projection-renderers", file: "app.js", owns: ["workspace renderers", "Data Control", "Graph"], proves: ["workspace lenses"] },
+  { key: "v34-platform-primitives", file: "app.js", owns: ["channels", "systems", "projects", "models", "smart-home", "marketplace"], proves: ["system builder", "event feed", "local pack install"] },
+  { key: "v34-workspace-renderers", file: "ui/v34-platform.js", owns: ["feed", "systems", "builder", "models", "smart-home", "marketplace", "design", "databases", "screen", "twin"], proves: ["no route shell", "owner-visible controls"] },
   { key: "provider-boundaries", file: "app.js", owns: ["Ollama", "PWA", "STT/OCR gates"], proves: ["honest provider gates"] },
   { key: "journey-tests", file: "output/playwright", owns: ["market-owner", "final journeys", "owner rescue"], proves: ["visual/e2e proof"] }
 ]);
@@ -69,6 +97,8 @@ export const STATE_ADAPTERS = Object.freeze([
   { key: "localstorage-fallback", storage: "localStorage", boundary: "FALLBACK_PREFIX chunks", fallback: "Data Control export" },
   { key: "service-worker-shell", storage: "Cache API", boundary: "service-worker.js", fallback: "network navigation" },
   { key: "provider-passport", storage: "repository state", boundary: "providers/providerRuns", fallback: "honest blocked state" },
+  { key: "v34-local-pack-registry", storage: "repository state", boundary: "marketplacePacks/installedPacks", fallback: "systemDefinitions without external code" },
+  { key: "screen-permission-gate", storage: "repository state", boundary: "screenCompanionSessions/providerRuns", fallback: "manual source import" },
   { key: "test-harness", storage: "window.__lifeosKnowledgeBase", boundary: "read-only snapshots + explicit test commits", fallback: "audits fail closed" }
 ]);
 
@@ -78,7 +108,9 @@ export const ARCHITECTURE_INVARIANTS = Object.freeze([
   "mutations go through repository commits or audited test helpers",
   "every accepted proposal writes audit/control evidence",
   "provider actions are explicit and never fake readiness",
-  "architecture events are persisted in Data Control"
+  "architecture events are persisted in Data Control",
+  "v34 systems are built from shared primitives, not route-only pages",
+  "screen and smart-home capabilities stay permission-gated until the owner explicitly connects them"
 ]);
 
 export function architectureCollectionKeys() {

@@ -1,4 +1,4 @@
-const LIFEOS_CACHE = "lifeos-artifact-os-v33-public-shell-v2";
+const LIFEOS_CACHE = "lifeos-v34-personal-os-chat-hardfix-v4";
 const SHELL_ASSETS = [
   "/",
   "/index.html",

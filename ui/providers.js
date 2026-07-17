@@ -1,13 +1,14 @@
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
 import { button, escapeHtml, providerLabel, safeList } from "./components/shared.js";
 
-const PREPARABLE_PROVIDERS = new Set(["mail", "calendarSync", "ocr", "stt", "pdf", "epub", "notifications"]);
+const PREPARABLE_PROVIDERS = new Set(["mail", "calendarSync", "ocr", "stt", "pdf", "epub", "notifications", "smartHome"]);
 
 function providerAction(key, provider) {
   const actions = [];
 
   if (key === "ollama") {
     actions.push(button("probe-ollama", "Проверить подключение", { kind: "primary", testId: "probe-provider-ollama" }));
+    actions.push(button("test-ollama-generation", "Тест генерации", { kind: "ghost", testId: "test-provider-ollama-generation" }));
   }
 
   if (key === "pwa") {
