@@ -170,7 +170,7 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 - [x] P1.2 RECEIPT_COVERAGE_MATRIX — 2026-07-18: addReceipt()/STRONG_MUTATION_RULES wired into addAudit() (single choke point, all ~150 call sites covered automatically), locality field added; extended tools/audit-seven-contracts.mjs (audit:ledger already meant something else, see DECISIONS.md); G-SMOKE/G-E2E-CORE green
 - [x] P1.3 CAPABILITY_LOCALITY — 2026-07-18: capability grants (resource/action/scope/locality/approval/budget) in state.control.capabilities; ensureCapabilityGrant() wired into recordProviderRun() (single choke point, covers every provider action); Control surface section + revoke action; extended audit:seven-contracts; G-SMOKE/G-ARCH/G-E2E-CORE green
 - [x] P2.1 RENDERER_REGISTRY — 2026-07-18: RENDERER_REGISTRY/presentArtifact/ViewPreset in artifact-os-architecture.mjs; 4 render-mode functions in ui/components/shared.js; M0 proof (note/agent_report/import_receipt × 4 modes) + ViewPreset controls in Design Studio; found+fixed Design Studio was fully dead (never reachable in the live shell); browser-verified end-to-end; G-ARCH/G-E2E-CORE/G-PUBLIC green
-- [ ] P2.2 ARTIFACT_INSPECTOR_UNIVERSAL
+- [x] P2.2 ARTIFACT_INSPECTOR_UNIVERSAL — 2026-07-18: ui/components/InspectorDrawer.js (contract fields/receipt trail/relations/renderer switch/export-rollback), embedded in Graph + Control (search/feed route to it via existing focus-graph-node); new output/playwright/presentation-runtime.spec.mjs (M0 3x4 + integration) green; found+fixed a real mobile horizontal-overflow bug via manual+e2e testing; health integration deferred (P9.1 not built yet)
 - [ ] P3.1 SYSTEM_FIELDS_TYPED
 - [ ] P3.2 SYSTEM_VIEWS_ACTIONS
 - [ ] P3.3 SYSTEM_TRIGGERS_LITE

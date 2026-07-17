@@ -6970,3 +6970,56 @@ audio {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.graph-workspace-split {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.inspector-drawer {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+
+.inspector-field-row,
+.inspector-receipt-row,
+.inspector-relation-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inspector-field-row span,
+.inspector-field-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.inspector-renderer-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inspector-preview {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.inspector-preview table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 920px) {
+  .graph-workspace-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,5 +1,6 @@
 import {
   ARTIFACT_SCHEMA_VERSION,
+  RENDERER_MODES,
   applyObjectContractToState,
   buildArchitectureSnapshot,
   normalizeViewPreset,
@@ -2086,6 +2087,7 @@ function normalizeState(input) {
   for (const surface of Object.keys(state.designStudio.viewPresets)) {
     state.designStudio.viewPresets[surface] = normalizeViewPreset(state.designStudio.viewPresets[surface]);
   }
+  state.control.inspectorRenderer = RENDERER_MODES.includes(state.control.inspectorRenderer) ? state.control.inspectorRenderer : "card";
   if (!state.control.devGraphFilterMigrated) {
     state.graphFilters.productBrain = false;
     state.control.devGraphFilterMigrated = true;
@@ -7495,8 +7497,10 @@ function buildNewShellContext(state, activeNote) {
     title: graphNodeTitle(selected.kind, selected.object, selectedId),
     meta: graphNodeMeta(selected.kind, selected.object),
     workspace: graphNodeWorkspace(selected.kind, selected.object),
-    edgeReasons: selectedEdgeReasons
-  } : { edgeReasons: selectedEdgeReasons };
+    edgeReasons: selectedEdgeReasons,
+    record: selected.object,
+    receipts: (state.control.receipts || []).filter((receipt) => receipt.objectId === selectedId).slice(-20).reverse()
+  } : { edgeReasons: selectedEdgeReasons, receipts: [] };
   const sources = Object.values(state.sources || {}).filter((source) => !source.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const tasks = Object.values(state.tasks || {}).filter((task) => !task.deleted).sort(sortScheduledItems);
   const planBlocks = Object.values(state.planBlocks || {}).filter((block) => !block.deleted).sort(sortScheduledItems);
@@ -12475,6 +12479,12 @@ async function handleAction(action, id) {
         state.graphView.selectedNodeId = snapshotId;
         state.activeSurface = "twin";
       }
+    });
+    return;
+  }
+  if (action === "set-inspector-renderer") {
+    await store.commit("Inspector renderer changed", (state) => {
+      state.control.inspectorRenderer = RENDERER_MODES.includes(id) ? id : "card";
     });
     return;
   }

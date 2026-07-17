@@ -1,3 +1,4 @@
+import { renderInspectorDrawer } from "./components/InspectorDrawer.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
 import { button, compactText, escapeHtml, publicText, safeList } from "./components/shared.js";
 
@@ -121,6 +122,7 @@ export function renderControl(ctx) {
     `<section class="recovery-list" data-testid="deleted-note-list"><h4>Удалённые заметки</h4>${deletedNoteRows(ctx.deletedNotes || [])}</section>`,
     `<section class="recovery-list" data-testid="corrupt-record-list"><h4>Повреждённые записи</h4><strong data-testid="corrupt-record-count">${corruptRecords.length}</strong>${corruptRows(corruptRecords)}</section>`,
     `<section class="recovery-list" data-testid="capability-list"><h4>Способности провайдеров</h4><strong data-testid="capability-count">${capabilities.length}</strong>${capabilityRows(capabilities)}</section>`,
+    renderInspectorDrawer(ctx),
     `<details class="dev-state-panel" data-testid="dev-state"><summary>Состояние разработки</summary><div data-testid="dev-state-panel"><div data-testid="architecture-contract"><strong>Product Brain</strong><span>Доступен только здесь, в графе через фильтр разработки и в чате через /dev. Artifact OS contract: ввод -> артефакт -> проекции -> граф -> контроль.</span><mark data-testid="architecture-validation">ок</mark>${button("set-surface", "Открыть граф разработки", { id: "graph", kind: "ghost" })}</div></div></details>`,
     `</aside>`,
     `</div>`

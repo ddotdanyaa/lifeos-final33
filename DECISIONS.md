@@ -227,3 +227,59 @@ reloaded the page fully, and confirmed it round-tripped through IndexedDB, not j
 state. Full audit loop (only red = expected dirty tree), G-ARCH (`audit:architecture`,
 `audit:workspace-links`, `audit:workspace-shape`), G-PUBLIC (`audit:public-build`),
 G-E2E-CORE (13 passed/1 skipped) all green. Rebuilt public-demo.
+
+## P2.2 ARTIFACT_INSPECTOR_UNIVERSAL
+
+**Reused `graphNodeObject(state, id)` (already used internally by Graph focus and Control
+archive/restore) instead of building a second any-collection-lookup mechanism.** It already
+returns `{kind, object}` for any of the ~41 typed collections. Combined with P1.1's Object
+Contract guaranteeing every record already carries `.type` (the real `ownerType`, not the
+lookup's own `kind` shorthand), `presentArtifact(record, record.type)` from P2.1 works
+directly on the raw record with no new mapping layer needed - P1.1/P2.1 make P2.2
+meaningfully smaller than it would have been standalone.
+
+**Extended the existing `ctx.selectedGraph` (buildNewShellContext) with `record` and a
+receipts trail, rather than adding a separate `ctx.inspector*` context tree.** Why: this
+object was already "the currently focused artifact of any kind" used by Graph and Control's
+archive/restore - the inspector is exactly the same concept with more fields shown, not a
+different one. One `state.control.inspectorRenderer` field (default "card") plus a
+`set-inspector-renderer` action was the only new state needed for the renderer switch.
+
+**Found and fixed the (pre-existing, but only I) `ui/components/InspectorDrawer.js` file
+was dead code with a different, incompatible signature** (`renderInspectorDrawer(title,
+rows, actions)`, testid `workspace-inspector`, never imported anywhere) - confirmed via
+grep that nothing called it, then replaced it outright with the real universal-inspector
+implementation the plan asked for, rather than adding a second file.
+
+**Embedded the same `renderInspectorDrawer(ctx)` call in both Graph and Control** (not a
+route/drawer overlay) - this is what makes "any object opened from Feed/search/Control
+reaches the same inspector" true: those surfaces already route through
+`focus-graph-node`/`open-graph-node` → `state.graphView.selectedNodeId`, which both
+Graph's and Control's copy of the inspector already read from the same `ctx.selectedGraph`.
+No new routing was needed, only reusing the existing one.
+
+**"health" integration named in the plan's P2.2 wording is honestly NOT done** - the Health
+Registry panel is P9.1 HEALTH_REGISTRY_PANEL, not built yet, so there is nothing real to
+connect the inspector to. Documented in the new e2e spec's header comment and here rather
+than faking a connection or silently dropping the requirement.
+
+**Found and fixed a real mobile horizontal-overflow regression via manual + e2e testing,
+not caught by any other gate.** Adding the fully-populated inspector drawer (16 contract
+field rows + a 4-button renderer switch) into Control's existing `.control-actions` grid
+cell pushed `kb-smoke.spec.mjs`'s mobile overflow check from passing to failing by ~9px -
+confirmed by binary-search removal of the drawer in a live browser at 390px width before
+touching CSS. Root cause wasn't one single element blowing out (no single node's own width
+was dramatically large) but the drawer having zero CSS at all, so its flex-free
+field-row/button-row layout wasn't guaranteed to wrap. Fixed with explicit `min-width: 0`,
+`flex-wrap: wrap`, `overflow-wrap: anywhere` and a scrollable fallback for the (currently
+unused-by-default) `<table>` preview - same defensive pattern as P0.2's `.control-human-layout`
+fix, extended to the new component rather than only patched at the one call site that
+happened to fail.
+
+**Verified end-to-end:** ran the new `presentation-runtime.spec.mjs` (M0 3×4 matrix,
+ViewPreset persistence, graph search → inspector, renderer-switch live-swap, feed → graph →
+inspector, control embeds the same inspector, export/rollback buttons present) plus the full
+G-E2E-CORE + kb-smoke suite together (17 tests, 16 passed/1 skipped) after the CSS fix, and
+manually confirmed `scrollWidth === clientWidth` at 390px on the Control surface with the
+drawer populated. Full audit loop (only red = expected dirty tree) stayed green. Rebuilt
+public-demo.
