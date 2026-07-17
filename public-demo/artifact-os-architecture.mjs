@@ -58,6 +58,63 @@ export function applyObjectContractToState(state) {
   return state;
 }
 
+// System Factory typed fields (P3.1): a system's entities carry typed fields so
+// Builder validates data instead of storing free-form strings. relation fields point
+// at another entity name within the same or another systemDefinition.
+export const SYSTEM_FIELD_TYPES = Object.freeze(["text", "number", "date", "select", "relation"]);
+
+export function normalizeSystemField(input) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    name: String(source.name || "Поле").trim() || "Поле",
+    type: SYSTEM_FIELD_TYPES.includes(source.type) ? source.type : "text",
+    options: Array.isArray(source.options) ? source.options.map((option) => String(option).trim()).filter(Boolean) : [],
+    required: Boolean(source.required)
+  };
+}
+
+export function normalizeSystemEntity(input) {
+  if (typeof input === "string") return { name: input.trim() || "Сущность", fields: [] };
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    name: String(source.name || "Сущность").trim() || "Сущность",
+    fields: Array.isArray(source.fields) ? source.fields.map(normalizeSystemField) : []
+  };
+}
+
+export function validateSystemFieldValue(field, rawValue) {
+  const value = rawValue === undefined || rawValue === null ? "" : rawValue;
+  if (field.required && String(value).trim() === "") {
+    return { ok: false, value: "", error: `Поле "${field.name}" обязательно` };
+  }
+  if (String(value).trim() === "") return { ok: true, value: "" };
+  if (field.type === "number") {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return { ok: false, value: "", error: `Поле "${field.name}" должно быть числом` };
+    return { ok: true, value: parsed };
+  }
+  if (field.type === "date") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return { ok: false, value: "", error: `Поле "${field.name}" должно быть датой YYYY-MM-DD` };
+    return { ok: true, value: String(value) };
+  }
+  if (field.type === "select") {
+    if (field.options.length && !field.options.includes(String(value))) return { ok: false, value: "", error: `Поле "${field.name}": значение не входит в список вариантов` };
+    return { ok: true, value: String(value) };
+  }
+  return { ok: true, value: String(value) };
+}
+
+export function validateSystemRecordFields(entity, rawValues = {}) {
+  const errors = [];
+  const values = {};
+  for (const field of entity.fields) {
+    const result = validateSystemFieldValue(field, rawValues[field.name]);
+    if (!result.ok) errors.push(result.error);
+    else values[field.name] = result.value;
+  }
+  return { ok: errors.length === 0, values, errors };
+}
+
 export const ARTIFACT_COLLECTIONS = Object.freeze([
   { key: "folders", ownerType: "space", primarySurface: "library", projection: "vault tree", graph: true, audit: true },
   { key: "notes", ownerType: "artifact", primarySurface: "library", projection: "markdown note", graph: true, audit: true },

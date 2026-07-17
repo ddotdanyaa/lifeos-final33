@@ -1,6 +1,6 @@
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
 import { button, compactText, escapeHtml, providerLabel, renderArtifactByMode, safeList } from "./components/shared.js";
-import { RENDERER_MODES, VIEW_PRESET_DENSITIES, VIEW_PRESET_GROUPINGS, presentArtifact } from "../artifact-os-architecture.mjs";
+import { RENDERER_MODES, SYSTEM_FIELD_TYPES, VIEW_PRESET_DENSITIES, VIEW_PRESET_GROUPINGS, presentArtifact } from "../artifact-os-architecture.mjs";
 
 function live(values) {
   return Object.values(values || {}).filter((item) => !item.deleted);
@@ -88,6 +88,53 @@ function systemRow(system) {
   ].join("");
 }
 
+function entityFieldBadges(entity) {
+  return entity.fields.length
+    ? entity.fields.map((field) => `<span class="entity-field-badge" data-testid="entity-field-badge">${escapeHtml(field.name)}: ${escapeHtml(field.type)}${field.required ? "*" : ""}</span>`).join("")
+    : `<span class="entity-field-badge empty">без полей</span>`;
+}
+
+function systemEntityFieldForm(system) {
+  const entityOptions = system.entities.map((entity) => `<option value="${escapeHtml(entity.name)}">${escapeHtml(entity.name)}</option>`).join("");
+  return [
+    `<div class="v34-form" data-testid="system-field-form">`,
+    `<input type="hidden" id="builder-field-system" value="${escapeHtml(system.id)}">`,
+    `<label><span>Сущность</span><select id="builder-field-entity">${entityOptions}</select></label>`,
+    `<label><span>Название поля</span><input id="builder-field-name" autocomplete="off" value=""></label>`,
+    `<label><span>Тип</span><select id="builder-field-type">${SYSTEM_FIELD_TYPES.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join("")}</select></label>`,
+    `<label><span>Варианты (для select, через запятую)</span><input id="builder-field-options" autocomplete="off" value=""></label>`,
+    `<label class="checkbox-field"><input type="checkbox" id="builder-field-required"><span>Обязательное</span></label>`,
+    button("add-system-entity-field", "Добавить поле", { kind: "primary", testId: "add-system-entity-field", disabled: !system.entities.length }),
+    `</div>`
+  ].join("");
+}
+
+function systemRecordForm(system, entity, records, entityIndex) {
+  // ids are index-based, not name-based: entity/field names are free-form (often
+  // Cyrillic-only), and stripping non-ASCII chars for an id slug would collapse
+  // multiple distinct names to the same id - index is always unique and stable
+  // for the duration of one render.
+  const fieldInputs = entity.fields.map((field, fieldIndex) => {
+    const inputId = "builder-record-field-" + entityIndex + "-" + fieldIndex;
+    if (field.type === "select") {
+      return `<label><span>${escapeHtml(field.name)}</span><select id="${inputId}">${field.options.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}</select></label>`;
+    }
+    const inputType = field.type === "number" ? "number" : field.type === "date" ? "date" : "text";
+    return `<label><span>${escapeHtml(field.name)}${field.required ? " *" : ""}</span><input id="${inputId}" type="${inputType}" autocomplete="off" value=""></label>`;
+  }).join("");
+  return [
+    `<div class="v34-form" data-testid="system-record-form">`,
+    `<h5>${escapeHtml(entity.name)}</h5>`,
+    `<input type="hidden" id="builder-record-system-${entityIndex}" value="${escapeHtml(system.id)}">`,
+    `<input type="hidden" id="builder-record-entity-${entityIndex}" value="${escapeHtml(entity.name)}">`,
+    `<label><span>Название записи</span><input id="builder-record-title-${entityIndex}" autocomplete="off" value=""></label>`,
+    fieldInputs,
+    button("create-system-record", "Добавить запись", { id: String(entityIndex), kind: "primary", testId: "create-system-record-" + entityIndex }),
+    safeList(records, (record) => `<article class="v34-object-row" data-testid="system-record-row"><div><strong>${escapeHtml(record.title)}</strong><span>${meta(Object.entries(record.fields || {}).map(([key, value]) => key + "=" + value))}</span></div></article>`, `<div class="empty-inline">Записей пока нет.</div>`),
+    `</div>`
+  ].join("");
+}
+
 function installedPackRow(pack) {
   return [
     `<article class="v34-object-row" data-testid="installed-pack-row">`,
@@ -101,6 +148,8 @@ export function renderSystems(ctx, variant = "systems") {
   const systems = sortRecent(live(ctx.systemDefinitions));
   const installed = sortRecent(live(ctx.installedPacks));
   const isBuilder = variant === "builder";
+  const focusedSystem = (ctx.selectedGraph?.kind === "system" ? systems.find((system) => system.id === ctx.selectedGraph.id) : null) || systems[0] || null;
+  const records = live(ctx.systemRecords || []);
   const body = [
     `<div class="v34-workspace ${isBuilder ? "v34-builder-workspace" : "v34-systems-workbench"}" data-testid="${isBuilder ? "builder-workspace" : "systems-workbench"}">`,
     `<section class="v34-overview">`,
@@ -125,6 +174,17 @@ export function renderSystems(ctx, variant = "systems") {
     safeList(installed, installedPackRow, `<div class="empty-inline">Установленные локальные пакеты будут видны здесь как receipts.</div>`),
     `</aside>`,
     `</div>`,
+    isBuilder && focusedSystem ? [
+      `<section class="v34-panel" data-testid="system-entity-fields-panel">`,
+      `<header><h3>Типизированные поля: ${escapeHtml(focusedSystem.title)}</h3></header>`,
+      safeList(focusedSystem.entities, (entity) => `<div class="entity-fields-row" data-testid="entity-fields-row"><strong>${escapeHtml(entity.name)}</strong>${entityFieldBadges(entity)}</div>`, `<div class="empty-inline">У системы пока нет сущностей.</div>`),
+      systemEntityFieldForm(focusedSystem),
+      `</section>`,
+      `<section class="v34-panel" data-testid="system-records-panel">`,
+      `<header><h3>Записи</h3></header>`,
+      focusedSystem.entities.map((entity, entityIndex) => systemRecordForm(focusedSystem, entity, records.filter((record) => record.systemId === focusedSystem.id && record.entityName === entity.name), entityIndex)).join(""),
+      `</section>`
+    ].join("") : "",
     `</div>`
   ].join("");
   return renderWorkspaceLayout(

@@ -3,9 +3,12 @@ import {
   RENDERER_MODES,
   applyObjectContractToState,
   buildArchitectureSnapshot,
+  normalizeSystemEntity,
+  normalizeSystemField,
   normalizeViewPreset,
   recordArchitectureEvent,
-  validateArchitectureState
+  validateArchitectureState,
+  validateSystemRecordFields
 } from "./artifact-os-architecture.mjs";
 import { renderNewShell } from "./ui/shell.js";
 
@@ -1597,6 +1600,53 @@ function createSystemDefinition(state, options) {
   return id;
 }
 
+function addSystemEntityField(state, systemId, entityName, fieldInput) {
+  const system = state.systemDefinitions[systemId];
+  if (!system || system.deleted) return { ok: false, errors: ["Система не найдена"] };
+  const entity = system.entities.find((item) => item.name === entityName);
+  if (!entity) return { ok: false, errors: ["Сущность не найдена"] };
+  const field = normalizeSystemField(fieldInput);
+  if (!field.name) return { ok: false, errors: ["Укажи название поля"] };
+  const existingIndex = entity.fields.findIndex((item) => item.name === field.name);
+  if (existingIndex >= 0) entity.fields[existingIndex] = field;
+  else entity.fields.push(field);
+  system.updatedAt = now();
+  addAudit(state, "system.field.update", "Поле \"" + field.name + "\" (" + field.type + ") для " + entity.name + " в " + system.title, system.noteId);
+  return { ok: true, errors: [] };
+}
+
+function createSystemRecord(state, systemId, entityName, rawValues) {
+  const system = state.systemDefinitions[systemId];
+  if (!system || system.deleted) return { ok: false, id: "", errors: ["Система не найдена"] };
+  const entity = system.entities.find((item) => item.name === entityName);
+  if (!entity) return { ok: false, id: "", errors: ["Сущность не найдена"] };
+  const validation = validateSystemRecordFields(entity, rawValues || {});
+  if (!validation.ok) return { ok: false, id: "", errors: validation.errors };
+  const id = makeId("sysrecord");
+  const createdAt = now();
+  const title = cleanLine(rawValues && rawValues.title ? rawValues.title : entity.name + " " + shorten(id, 6));
+  const noteId = ensureV34ArtifactNote(state, "sysrecord:" + id, title, [
+    "# " + title,
+    "",
+    "Запись сущности \"" + entity.name + "\" системы " + system.title + ".",
+    "",
+    Object.entries(validation.values).map(([key, value]) => key + ": " + value).join("\n")
+  ].join("\n"), ["system-record", cleanLine(system.kind || "custom")]);
+  state.systemRecords[id] = {
+    id,
+    title,
+    systemId,
+    entityName: entity.name,
+    fields: validation.values,
+    noteId,
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "system.record.create", "Запись создана: " + title + " (" + entity.name + ")", noteId);
+  return { ok: true, id, errors: [] };
+}
+
 function installMarketplacePack(state, packId) {
   const pack = state.marketplacePacks[packId];
   if (!pack || pack.deleted) return "";
@@ -2088,6 +2138,18 @@ function normalizeState(input) {
     state.designStudio.viewPresets[surface] = normalizeViewPreset(state.designStudio.viewPresets[surface]);
   }
   state.control.inspectorRenderer = RENDERER_MODES.includes(state.control.inspectorRenderer) ? state.control.inspectorRenderer : "card";
+  for (const system of Object.values(state.systemDefinitions || {})) {
+    system.entities = Array.isArray(system.entities) ? system.entities.map(normalizeSystemEntity) : [];
+  }
+  for (const record of Object.values(state.systemRecords || {})) {
+    record.title = cleanLine(record.title || record.entityName || "Запись");
+    record.systemId = cleanLine(record.systemId || "");
+    record.entityName = cleanLine(record.entityName || "");
+    record.fields = record.fields && typeof record.fields === "object" ? record.fields : {};
+    record.deleted = Boolean(record.deleted);
+    record.createdAt = record.createdAt || now();
+    record.updatedAt = record.updatedAt || record.createdAt;
+  }
   if (!state.control.devGraphFilterMigrated) {
     state.graphFilters.productBrain = false;
     state.control.devGraphFilterMigrated = true;
@@ -12325,6 +12387,48 @@ async function handleAction(action, id) {
       if (systemId) {
         state.graphView.selectedNodeId = systemId;
         state.activeSurface = "systems";
+      }
+    });
+    return;
+  }
+  if (action === "add-system-entity-field") {
+    const systemInput = document.querySelector("#builder-field-system");
+    const entityInput = document.querySelector("#builder-field-entity");
+    const nameInput = document.querySelector("#builder-field-name");
+    const typeInput = document.querySelector("#builder-field-type");
+    const optionsInput = document.querySelector("#builder-field-options");
+    const requiredInput = document.querySelector("#builder-field-required");
+    await store.commit("Typed field added to system entity", (state) => {
+      const result = addSystemEntityField(state, systemInput ? systemInput.value : "", entityInput ? entityInput.value : "", {
+        name: nameInput ? nameInput.value : "",
+        type: typeInput ? typeInput.value : "text",
+        options: optionsInput && optionsInput.value ? optionsInput.value.split(",").map((item) => item.trim()).filter(Boolean) : [],
+        required: requiredInput ? requiredInput.checked : false
+      });
+      state.commandMessage = result.ok ? state.commandMessage : result.errors.join("; ");
+    });
+    return;
+  }
+  if (action === "create-system-record") {
+    const systemInput = document.querySelector("#builder-record-system-" + id);
+    const entityInput = document.querySelector("#builder-record-entity-" + id);
+    const titleInput = document.querySelector("#builder-record-title-" + id);
+    await store.commit("System record created", (state) => {
+      const system = state.systemDefinitions[systemInput ? systemInput.value : ""];
+      const entityName = entityInput ? entityInput.value : "";
+      const entity = system ? system.entities.find((item) => item.name === entityName) : null;
+      const rawValues = { title: titleInput ? titleInput.value : "" };
+      if (entity) {
+        entity.fields.forEach((field, fieldIndex) => {
+          const fieldInput = document.querySelector("#builder-record-field-" + id + "-" + fieldIndex);
+          if (fieldInput) rawValues[field.name] = fieldInput.value;
+        });
+      }
+      const result = createSystemRecord(state, systemInput ? systemInput.value : "", entityName, rawValues);
+      if (result.ok) {
+        state.graphView.selectedNodeId = result.id;
+      } else {
+        state.commandMessage = result.errors.join("; ");
       }
     });
     return;
