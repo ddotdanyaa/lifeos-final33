@@ -1,7 +1,11 @@
 # Nonstop Until Done Report
 
-status: CONTINUATION_REQUIRED
-updated_at: 2026-06-26T13:50:55+03:00
+status: BLOCKED_EXTERNAL_CREDENTIAL_ONLY
+updated_at: 2026-07-17T00:00:00+03:00
+
+Note: the N01-N021 legacy ledger this report covers is fully closed (0 OPEN rows); remaining
+items are external-only. Current product scope is tracked by
+`docs/LIFEOS_V1_MASTER_BUILD_PLAN.md` (see repo-root `PROGRESS.md`).
 
 ## Current Package
 

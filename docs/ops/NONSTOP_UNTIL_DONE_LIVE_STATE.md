@@ -1,7 +1,7 @@
 # Nonstop Until Done Live State
 
-status: CONTINUATION_REQUIRED
-updated_at: 2026-06-26T14:18:00+03:00
+status: BLOCKED_EXTERNAL_CREDENTIAL_ONLY
+updated_at: 2026-07-17T00:00:00+03:00
 
 ## Runtime
 
@@ -94,3 +94,10 @@ updated_at: 2026-06-26T14:18:00+03:00
 - package id: `P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`
 - package name: real owner/provider connections
 - status: blocked externally until owner supplies credentials, permissions or local engines.
+
+## Superseded By
+
+- The N01-N021 legacy ledger tracked here is fully closed (0 OPEN rows). All further product
+  scope is now tracked by `docs/LIFEOS_V1_MASTER_BUILD_PLAN.md` (v1.1, phases P0-P11), which is
+  the current single source of truth for build order. See `PROGRESS.md` at repo root for the
+  live package ledger of that plan.
