@@ -152,6 +152,8 @@ export function renderNewShell(ctx) {
     `<div><strong>LifeOS v34</strong><span>Локальная персональная ОС для жизни, данных, знаний и действий</span></div>`,
     `<label class="global-search-v2"><span>Найти</span><input id="global-search" data-testid="global-search" value="${escapeHtml(ctx.searchQuery || "")}" autocomplete="off" aria-label="Поиск"></label>`,
     `<button class="top-capture-v2" data-action="set-surface" data-id="capture" data-testid="top-capture">Ввод</button>`,
+    `<button class="top-capture-v2 top-control-v2" data-action="set-surface" data-id="control" data-testid="top-control">Контроль</button>`,
+    ctx.activeSurface && ctx.activeSurface !== "inbox" && ctx.activeSurface !== "library" ? `<button class="top-capture-v2 top-new-note-v2" data-action="new-note" data-testid="new-note">Заметка</button>` : "",
     `<span id="save-status" class="save-status-v2" role="status" aria-live="polite">сохранено</span>`,
     `</header>`,
     `<div class="lifeos-frame-v2">`,

@@ -6961,4 +6961,12 @@ audio {
   .graph-canvas {
     height: 420px;
   }
+
+  .control-human-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .control-event {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

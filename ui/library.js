@@ -1,3 +1,4 @@
+import { renderBookWorkbenchPanel } from "./components/ReaderSurface.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
 import { button, compactText, emptyState, escapeHtml, safeList } from "./components/shared.js";
 
@@ -11,17 +12,72 @@ function wikiLinks(text) {
   return links;
 }
 
+function renderClaimEntry(claim) {
+  return `<div class="knowledge-card" data-testid="claim-row"><strong>${escapeHtml(compactText(claim.title || claim.text, 80))}</strong>${button("claim-to-task", "В задачу", { id: claim.id, kind: "ghost", testId: "claim-to-task" })}</div>`;
+}
+
+function renderQuestionEntry(question) {
+  return `<div class="knowledge-card" data-testid="question-row"><strong>${escapeHtml(compactText(question.title || question.text, 80))}</strong></div>`;
+}
+
+function renderReviewEntry(reviewItem) {
+  const done = reviewItem.status === "done";
+  return `<div class="knowledge-card${done ? " done" : ""}" data-testid="review-row"><strong>${escapeHtml(compactText(reviewItem.title, 80))}</strong><span>${escapeHtml(reviewItem.day || "")}</span>${button("toggle-review-item", done ? "Вернуть" : "Готово", { id: reviewItem.id, kind: "ghost", testId: "toggle-review-item" })}</div>`;
+}
+
+function renderControlTrail(ctx, noteId) {
+  const forNote = (list) => (list || []).filter((item) => item.noteId === noteId);
+  const rows = [
+    ["Выводы", forNote(ctx.claims).length],
+    ["Вопросы", forNote(ctx.questions).length],
+    ["Повторение", forNote(ctx.reviewItems).length],
+    ["Источники", (ctx.sources || []).filter((item) => item.noteId === noteId).length]
+  ];
+  return [
+    `<section class="info-panel library-control-trail" data-testid="library-control-trail">`,
+    `<div class="section-title">Контроль базы</div>`,
+    `<div class="control-trail-counts">${rows.map(([label, value]) => `<span class="control-trail-row"><em>${escapeHtml(label)}</em><strong>${value}</strong></span>`).join("")}</div>`,
+    `<div class="control-trail-actions">${button("set-surface", "Открыть контроль", { id: "control", kind: "ghost" })}</div>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderLibrary(ctx) {
   const notes = (ctx.notes || []).filter((note) => note.systemType !== "product_brain").slice(0, 20);
   const active = ctx.activeNote && ctx.activeNote.systemType !== "product_brain" ? ctx.activeNote : notes[0];
-  const claims = ctx.claims || [];
+  const claims = (ctx.claims || []).filter((item) => !active || item.noteId === active.id);
+  const questions = (ctx.questions || []).filter((item) => !active || item.noteId === active.id);
+  const reviewItems = (ctx.reviewItems || []).filter((item) => !active || item.noteId === active.id);
   const links = wikiLinks(active?.body || "");
+
+  const noteHeader = active ? [
+    `<div class="note-header">`,
+    `<div><label for="note-title">Название</label><input id="note-title" data-testid="note-title" value="${escapeHtml(active.title || "")}" autocomplete="off"></div>`,
+    button("delete-note", "Удалить", { id: active.id, kind: "danger", testId: "delete-note" }),
+    `</div>`
+  ].join("") : "";
+
+  const knowledgeForms = active ? [
+    `<div class="knowledge-forms">`,
+    `<label>Вывод<input id="claim-title" data-testid="claim-title" autocomplete="off" aria-label="Вывод"></label>`,
+    button("add-claim-entry", "Добавить", { id: active.id, testId: "add-claim-entry" }),
+    `<label>Вопрос<input id="question-title" data-testid="question-title" autocomplete="off" aria-label="Вопрос"></label>`,
+    button("add-question-entry", "Добавить", { id: active.id, testId: "add-question-entry" }),
+    `</div>`
+  ].join("") : "";
+
   const body = [
     `<div class="knowledge-layout library-layout" data-testid="knowledge-workbench">`,
     `<aside class="knowledge-sidebar"><input id="library-search" placeholder="Поиск по базе" aria-label="Поиск по базе"><h3>Заметки</h3>${safeList(notes, (note) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(note.id)}" data-testid="note-row"><strong>${escapeHtml(note.title || "Заметка")}</strong><span>${wikiLinks(note.body || "").length} связей</span></button>`, emptyState("База пустая", "Сохрани идею или импортируй текст."))}${button("new-note", "Новая заметка", { kind: "primary", testId: "new-note" })}</aside>`,
-    `<article class="markdown-editor-surface"><header><span>Markdown</span><h3>${escapeHtml(active?.title || "Заметка")}</h3></header>${active ? `<textarea id="note-body" data-testid="note-body">${escapeHtml(active.body || "")}</textarea><div class="wikilink-preview" data-testid="wikilink-preview"><strong>Связи</strong>${safeList(links, (link) => `<button data-action="focus-graph-node" data-id="${escapeHtml(link)}">${escapeHtml(link)}</button>`, `<span>Wikilinks появятся как [[Название]].</span>`)}</div>` : `<div class="empty-inline">Выбери заметку.</div>`}</article>`,
-    `<aside class="knowledge-cards"><h3>Карточки знания</h3>${safeList(claims.slice(0, 8), (claim) => `<div class="knowledge-card" data-testid="claim-row"><strong>${escapeHtml(compactText(claim.title || claim.text, 80))}</strong>${button("claim-to-task", "В задачу", { id: claim.id, kind: "ghost", testId: "claim-to-task" })}</div>`, `<div class="empty-inline">Инсайты появятся из чтения, аудио и заметок.</div>`)}</aside>`,
-    `</div>`
+    `<article class="markdown-editor-surface">`,
+    noteHeader,
+    active ? `<header><span>Markdown</span><h3>${escapeHtml(active?.title || "Заметка")}</h3></header><textarea id="note-body" data-testid="note-body">${escapeHtml(active.body || "")}</textarea><div class="wikilink-preview" data-testid="wikilink-preview"><strong>Связи</strong>${safeList(links, (link) => `<button data-action="focus-graph-node" data-id="${escapeHtml(link)}">${escapeHtml(link)}</button>`, `<span>Wikilinks появятся как [[Название]].</span>`)}</div>` : `<div class="empty-inline">Выбери заметку.</div>`,
+    knowledgeForms,
+    `</article>`,
+    `<aside class="knowledge-cards"><h3>Выводы</h3>${safeList(claims.slice(0, 8), renderClaimEntry, `<div class="empty-inline">Инсайты появятся из чтения, аудио и заметок.</div>`)}<h3>Вопросы</h3>${safeList(questions.slice(0, 6), renderQuestionEntry, `<div class="empty-inline">Вопросы станут задачами без потери источника.</div>`)}<h3>Повторение</h3>${safeList(reviewItems.slice(0, 6), renderReviewEntry, `<div class="empty-inline">Карточка повторения появится после извлечения смысла.</div>`)}</aside>`,
+    `</div>`,
+    renderBookWorkbenchPanel(ctx),
+    active ? renderControlTrail(ctx, active.id) : ""
   ].join("");
   return renderWorkspaceLayout("library", "База знаний", "Заметки, wikilinks, backlinks, источники и карточки знания.", body, { testId: "workspace-library", kicker: "Знания" });
 }

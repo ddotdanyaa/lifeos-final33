@@ -54,7 +54,7 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   await expect(page.getByTestId("knowledge-workbench")).toBeVisible();
   await expect(page.getByTestId("book-workbench")).toBeVisible();
   await expect(page.getByTestId("library-control-trail")).toBeVisible();
-  await page.getByTestId("surface-chat").click();
+  await openSurface(page, "chat");
   await page.getByTestId("chat-panel").getByTestId("chat-input").fill("Turn this into a connected workspace " + token);
   await page.getByTestId("send-chat").click();
   await expect(page.getByTestId("chat-panel")).toContainText("connected workspace " + token);
@@ -104,7 +104,7 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
     const file = new File(["# " + value + "\n\nDropped into [[Inbox Drop]]."], "drop-" + value + ".txt", { type: "text/plain" });
     const dataTransfer = new DataTransfer();
     dataTransfer.items.add(file);
-    const target = document.querySelector(".kb-shell");
+    const target = document.querySelector("#app");
     target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
     target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
   }, "artifact-" + token);
@@ -158,9 +158,9 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   await planRow.getByTestId("plan-toggle").click();
   await expect(planRow).toContainText("Готово");
 
-  await page.getByTestId("surface-chat").click();
+  await openSurface(page, "chat");
   await expect(page.getByTestId("ollama-status")).toBeVisible();
-  await expect(page.getByTestId("ollama-endpoint")).toHaveValue(/localhost:11434/);
+  await expect(page.getByTestId("ollama-endpoint")).toHaveValue(/(localhost|127\.0\.0\.1):11434/);
   await openSurface(page, "providers");
   await page.getByTestId("prepare-provider-mail").click();
   await expect(page.getByTestId("provider-panel")).toContainText(/нужны данные владельца|нужна настройка|не подключено/i);
@@ -186,8 +186,9 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   await page.getByTestId("global-search").fill("meeting-" + token);
   await expect(page.getByRole("button", { name: new RegExp("meeting-" + token) }).first()).toBeVisible();
 
+  await page.getByTestId("surface-graph").click();
   const countsText = await page.getByTestId("graph-counts").textContent();
-  expect(countsText || "").toMatch(/[0-9]+ nodes/);
+  expect(countsText || "").toMatch(/[0-9]+ узлов/);
   const image = await page.getByTestId("graph-canvas").screenshot({
     path: "output/playwright/kb-graph-canvas.png"
   });

@@ -10,11 +10,21 @@ function sourceStatus(source) {
   return "сохранено";
 }
 
-export function renderReaderSurface(ctx) {
+export function renderBookWorkbenchPanel(ctx) {
   const books = ctx.bookSources || [];
   const active = books[0] || null;
   const activeReading = active ? readingFor(ctx, active.id) : null;
   const body = active ? compactText(active.text || active.transcriptText || active.name || "", 1800) : "";
+  return [
+    `<article class="reading-page" data-testid="book-workbench">`,
+    active ? `<header><span>Прогресс ${Math.round(activeReading?.progress || 0)}%</span><h3>${escapeHtml(active.name || "Материал")}</h3></header><p>${escapeHtml(body || "Текст сохранён как источник. Для PDF/EPUB нужен парсер или ручная выдержка.")}</p>` : `<header><span>Reader</span><h3>Текст появится здесь</h3></header><p>TXT/MD читаются сразу. PDF и EPUB сохраняются как источник и честно просят парсер.</p>`,
+    `<div class="reader-actions">${button("import-file", "Импорт", { testId: "reader-import" })}${button("set-surface", "В базу знаний", { id: "library", kind: "ghost" })}</div>`,
+    `</article>`
+  ].join("");
+}
+
+export function renderReaderSurface(ctx) {
+  const books = ctx.bookSources || [];
   return [
     `<div class="reader-surface" data-testid="reader-surface">`,
     `<aside class="reader-list">`,
@@ -25,10 +35,7 @@ export function renderReaderSurface(ctx) {
     }, `<div class="empty-inline">Импортируй TXT или MD.</div>`),
     button("import-file", "Добавить текст", { kind: "primary", testId: "book-import" }),
     `</aside>`,
-    `<article class="reading-page" data-testid="book-workbench">`,
-    active ? `<header><span>Прогресс ${Math.round(activeReading?.progress || 0)}%</span><h3>${escapeHtml(active.name || "Материал")}</h3></header><p>${escapeHtml(body || "Текст сохранён как источник. Для PDF/EPUB нужен парсер или ручная выдержка.")}</p>` : `<header><span>Reader</span><h3>Текст появится здесь</h3></header><p>TXT/MD читаются сразу. PDF и EPUB сохраняются как источник и честно просят парсер.</p>`,
-    `<div class="reader-actions">${button("import-file", "Импорт", { testId: "reader-import" })}${button("set-surface", "В базу знаний", { id: "library", kind: "ghost" })}</div>`,
-    `</article>`,
+    renderBookWorkbenchPanel(ctx),
     `<aside class="reader-notes"><h3>Выделения</h3>${safeList(ctx.highlights?.slice(0, 5) || [], (item) => `<div class="highlight-row" data-testid="highlight-row"><strong>${escapeHtml(compactText(item.text || item.title, 80))}</strong></div>`, `<div class="empty-inline">Выделение можно превратить в знание или задачу.</div>`)}</aside>`,
     `</div>`
   ].join("");

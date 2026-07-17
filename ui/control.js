@@ -43,6 +43,19 @@ function rollbackRows(snapshots) {
   );
 }
 
+function deletedNoteRows(notes) {
+  return safeList(
+    notes,
+    (note) => [
+      `<div class="recovery-row" data-testid="recovery-row">`,
+      `<span>${escapeHtml(note.title || "Заметка")}</span>`,
+      button("restore-note", "Восстановить", { id: note.id, kind: "ghost", testId: "restore-note" }),
+      `</div>`
+    ].join(""),
+    `<div class="empty-inline" data-testid="recovery-empty">Удалённых заметок нет.</div>`
+  );
+}
+
 function corruptStatusLabel(status) {
   return status === "recovered" ? "восстановлено" : "изолировано";
 }
@@ -89,6 +102,7 @@ export function renderControl(ctx) {
     button("create-rollback-snapshot", "Снимок отката", { kind: "ghost", testId: "create-rollback-snapshot" }),
     button("archive-selected-artifact", "В архив", { kind: "danger", testId: "archive-selected-artifact" }),
     `<section class="recovery-list" data-testid="rollback-list"><h4>Rollback snapshots</h4>${rollbackRows(snapshots)}</section>`,
+    `<section class="recovery-list" data-testid="deleted-note-list"><h4>Удалённые заметки</h4>${deletedNoteRows(ctx.deletedNotes || [])}</section>`,
     `<section class="recovery-list" data-testid="corrupt-record-list"><h4>Повреждённые записи</h4><strong data-testid="corrupt-record-count">${corruptRecords.length}</strong>${corruptRows(corruptRecords)}</section>`,
     `<details class="dev-state-panel" data-testid="dev-state"><summary>Состояние разработки</summary><div data-testid="dev-state-panel"><div data-testid="architecture-contract"><strong>Product Brain</strong><span>Доступен только здесь, в графе через фильтр разработки и в чате через /dev. Artifact OS contract: ввод -> артефакт -> проекции -> граф -> контроль.</span><mark data-testid="architecture-validation">ок</mark>${button("set-surface", "Открыть граф разработки", { id: "graph", kind: "ghost" })}</div></div></details>`,
     `</aside>`,

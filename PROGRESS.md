@@ -20,7 +20,7 @@ Gate commands:
 - [x] P0.1 CONTEXT_CANON_INTO_REPO — done in prior session
 - [x] P0.4 COMMIT_BASELINE — baseline commit done this session (owner authorized via session-start instructions; see DECISIONS.md)
 - [x] P0.5 APPROVED_ENGINES_INSTALLED — done in prior session
-- [ ] P0.2 KB_SMOKE_RESCUE — in progress
+- [x] P0.2 KB_SMOKE_RESCUE — 2026-07-17: kb-smoke.spec.mjs fully green (both tests); wired dead app.js render logic (book-workbench, knowledge second-brain, control trail, transcript segments, today goal/task/plan forms, note recovery) into the live ui/*.js shell; see DECISIONS.md for full file list
 - [ ] P0.3 LEDGER_TRUTH_REFRESH
 - [ ] P1.1 OBJECT_CONTRACT_V4
 - [ ] P1.2 RECEIPT_COVERAGE_MATRIX
