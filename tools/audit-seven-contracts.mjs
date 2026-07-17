@@ -71,6 +71,19 @@ if (!app.includes("addReceipt(state, mutationKind")) problems.push("addAudit doe
 if (!app.includes("locality: cleanLine(receipt.locality")) problems.push("receipt normalization does not carry a locality field");
 if (!app.includes("locality: options.locality || \"local\"")) problems.push("addReceipt does not default locality");
 
+// --- Capability/Locality contract: grants are resource+action+scope+locality+approval+budget ---
+const CAPABILITY_GRANT_FIELDS = ["resource", "action", "scope", "locality", "approval", "budget"];
+if (!app.includes("function ensureCapabilityGrant")) problems.push("app.js does not define ensureCapabilityGrant");
+if (!app.includes("function findActiveCapability")) problems.push("app.js does not define findActiveCapability");
+if (!app.includes("function revokeCapability")) problems.push("app.js does not define revokeCapability");
+for (const field of CAPABILITY_GRANT_FIELDS) {
+  if (!app.includes(`grant.${field}`)) problems.push(`capability grant missing field: ${field}`);
+}
+if (!app.includes("ensureCapabilityGrant(state, providerId, kind")) problems.push("recordProviderRun does not check/ensure a capability grant before recording a provider action");
+const control = readFileSync("ui/control.js", "utf8");
+if (!control.includes("capability-row") || !control.includes("capability-list")) problems.push("ui/control.js does not render a capability section");
+if (!app.includes("\"revoke-capability\"")) problems.push("app.js does not handle the revoke-capability action");
+
 if (problems.length) fail("Seven Contracts audit failed", { problems });
 
 console.log(JSON.stringify({
@@ -80,5 +93,6 @@ console.log(JSON.stringify({
   exemptCollections: OBJECT_CONTRACT_EXEMPT_COLLECTIONS,
   coveredCollections: ARTIFACT_COLLECTIONS.length - OBJECT_CONTRACT_EXEMPT_COLLECTIONS.length,
   strongMutationKinds: STRONG_MUTATION_KINDS.length,
-  note: "Capability/Locality contract lands in P1.3 and extends this script"
+  capabilityGrantFields: CAPABILITY_GRANT_FIELDS.length,
+  note: "Object (P1.1) + Receipt (P1.2) + Capability/Locality (P1.3) contracts all covered"
 }, null, 2));

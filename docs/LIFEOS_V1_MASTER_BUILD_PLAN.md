@@ -168,7 +168,7 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 - [x] P0.5 APPROVED_ENGINES_INSTALLED — 2026-07-17: 9 движков установлены, `npm audit` = 0 уязвимостей (override @xmldom/xmldom→0.9.8), гейты зелёные
 - [x] P1.1 OBJECT_CONTRACT_V4 — 2026-07-18: schema v3→v4, `applyObjectContractV4`/`applyObjectContractToState` in artifact-os-architecture.mjs, wired into app.js normalizeState (idempotent), new tools/audit-seven-contracts.mjs; G-SMOKE/G-ARCH/G-E2E-CORE/G-E2E-KB green
 - [x] P1.2 RECEIPT_COVERAGE_MATRIX — 2026-07-18: addReceipt()/STRONG_MUTATION_RULES wired into addAudit() (single choke point, all ~150 call sites covered automatically), locality field added; extended tools/audit-seven-contracts.mjs (audit:ledger already meant something else, see DECISIONS.md); G-SMOKE/G-E2E-CORE green
-- [ ] P1.3 CAPABILITY_LOCALITY
+- [x] P1.3 CAPABILITY_LOCALITY — 2026-07-18: capability grants (resource/action/scope/locality/approval/budget) in state.control.capabilities; ensureCapabilityGrant() wired into recordProviderRun() (single choke point, covers every provider action); Control surface section + revoke action; extended audit:seven-contracts; G-SMOKE/G-ARCH/G-E2E-CORE green
 - [ ] P2.1 RENDERER_REGISTRY
 - [ ] P2.2 ARTIFACT_INSPECTOR_UNIVERSAL
 - [ ] P3.1 SYSTEM_FIELDS_TYPED

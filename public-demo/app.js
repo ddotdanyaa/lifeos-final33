@@ -2006,6 +2006,7 @@ function normalizeState(input) {
       rollbackSnapshots: [],
       corruptRecords: [],
       architectureEvents: [],
+      capabilities: {},
       privacyZones: {
         local: "active",
         providers: "gated",
@@ -2067,6 +2068,18 @@ function normalizeState(input) {
     providers: "gated",
     privateMedia: "manual"
   }, state.control.privacyZones || {});
+  state.control.capabilities = state.control.capabilities && typeof state.control.capabilities === "object" ? state.control.capabilities : {};
+  for (const grant of Object.values(state.control.capabilities)) {
+    grant.id = cleanLine(grant.id || makeId("capability"));
+    grant.resource = cleanLine(grant.resource || "provider");
+    grant.action = cleanLine(grant.action || "run");
+    grant.scope = cleanLine(grant.scope || "provider-action");
+    grant.locality = cleanLine(grant.locality || "local");
+    grant.approval = cleanLine(grant.approval || "explicit-user-action");
+    grant.budget = grant.budget && typeof grant.budget === "object" ? grant.budget : { limit: 0, spent: 0, unit: "unmetered-local" };
+    grant.grantedAt = grant.grantedAt || now();
+    grant.revokedAt = String(grant.revokedAt || "");
+  }
   if (!state.control.devGraphFilterMigrated) {
     state.graphFilters.productBrain = false;
     state.control.devGraphFilterMigrated = true;
@@ -2470,7 +2483,7 @@ const STRONG_MUTATION_RULES = [
   { kind: "merge", test: (type) => type.startsWith("ghost.materialize") },
   { kind: "design-apply", test: (type) => type.startsWith("design.profile") },
   { kind: "pack-install", test: (type) => type.startsWith("marketplace.install") },
-  { kind: "permission-change", test: (type) => type.startsWith("provider.prepare") || type.startsWith("screen.prepare") || type.endsWith(".revoke") },
+  { kind: "permission-change", test: (type) => type.startsWith("provider.prepare") || type.startsWith("screen.prepare") || type.startsWith("capability.") || type.endsWith(".revoke") },
   { kind: "model-call", test: (type) => type.startsWith("ollama.") || type.startsWith("model.route") || type.startsWith("provider.run") },
   { kind: "workflow-run", test: (type) => type.startsWith("flow.") || type.startsWith("agent.run") },
   { kind: "export", test: (type) => type.startsWith("vault.export") || type.startsWith("control.export") },
@@ -5930,7 +5943,43 @@ async function testOllamaGeneration(endpoint, model) {
   };
 }
 
+// Capability Contract (Seven Contracts, "Capability/Locality"): a grant is
+// resource+action+scope+locality+approval+budget, per P1.3. Every provider action
+// checks/ensures a grant exists before the run is recorded - see recordProviderRun below.
+function findActiveCapability(state, resource, action) {
+  return Object.values(state.control.capabilities).find((grant) => grant.resource === resource && grant.action === action && !grant.revokedAt) || null;
+}
+
+function ensureCapabilityGrant(state, resource, action, options = {}) {
+  const existing = findActiveCapability(state, resource, action);
+  if (existing) return existing;
+  const id = makeId("capability");
+  const createdAt = now();
+  const grant = {
+    id,
+    resource: cleanLine(resource || "provider"),
+    action: cleanLine(action || "run"),
+    scope: cleanLine(options.scope || "provider-action"),
+    locality: cleanLine(options.locality || "local"),
+    approval: cleanLine(options.approval || "explicit-user-action"),
+    budget: options.budget && typeof options.budget === "object" ? options.budget : { limit: 0, spent: 0, unit: "unmetered-local" },
+    grantedAt: createdAt,
+    revokedAt: ""
+  };
+  state.control.capabilities[id] = grant;
+  addAudit(state, "capability.grant", "Capability granted: " + grant.resource + "/" + grant.action + " (" + grant.locality + ")", state.activeNoteId);
+  return grant;
+}
+
+function revokeCapability(state, id) {
+  const grant = state.control.capabilities[id];
+  if (!grant || grant.revokedAt) return;
+  grant.revokedAt = now();
+  addAudit(state, "capability.revoke", "Capability revoked: " + grant.resource + "/" + grant.action, state.activeNoteId);
+}
+
 function recordProviderRun(state, providerId, kind, status, summary, details) {
+  ensureCapabilityGrant(state, providerId, kind, { locality: "local" });
   const id = makeId("providerrun");
   const activeNote = getActiveNote(state);
   const source = Object.values(state.sources || {}).filter((item) => !item.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null;
@@ -13381,6 +13430,10 @@ async function handleAction(action, id) {
   }
   if (action === "recover-corrupt-record") {
     await store.commit("Corrupt record recovered", (state) => recoverCorruptRecord(state, id));
+    return;
+  }
+  if (action === "revoke-capability") {
+    await store.commit("Capability revoked", (state) => revokeCapability(state, id));
     return;
   }
   if (action === "archive-selected-artifact") {

@@ -146,3 +146,36 @@ look more complete than the product actually is.
 **Verified no regression:** full audit loop (only red = expected dirty tree), G-SMOKE,
 extended `audit:seven-contracts`, G-E2E-CORE (13 passed/1 skipped) green. Rebuilt
 public-demo (app.js changed).
+
+## P1.3 CAPABILITY_LOCALITY
+
+**Decision: wired `ensureCapabilityGrant()` into `recordProviderRun()` (one choke point)
+instead of each `probe-ollama`/`test-ollama-generation`/etc. action handler.**
+Why: same reasoning as P1.2's receipt wiring — `recordProviderRun(state, providerId, kind,
+status, summary, details)` is already the single function every provider action calls
+(probe, test-generation, model-select, and any future provider), so checking/creating the
+grant there covers all of them for free and automatically covers new provider actions later.
+
+**Decision: grants auto-create on first use with `approval: "explicit-user-action"` rather
+than blocking the action behind a new confirmation UI.**
+Why: every provider action that reaches `recordProviderRun` already required the user to
+click a button and, for probe/generation, confirm a `window.confirm` dialog first — that
+click **is** the explicit approval event per the architecture invariant "provider actions are
+explicit and never fake readiness". Recording that fact in the grant (with a receipt via the
+existing `capability.grant` → permission-change classification from P1.2) is honest audit
+trail, not a second approval gate for the same click. A real blocking-approval flow (grant
+requested but not yet approved) is a bigger feature with its own UI — not scoped here.
+
+**Decision: `budget` defaults to `{ limit: 0, spent: 0, unit: "unmetered-local" }` for every
+grant.** Why: identical reasoning to P1.2's locality default — no metered/costed provider path
+exists yet (Ollama is a free local daemon), so claiming a computed budget would be fake
+precision. P5.2 BYOK_VAULT_ROUTING must set a real budget when wiring paid external models.
+
+**Added a Control surface section** (`ui/control.js`: `capability-list`/`capability-row`,
+a `revoke-capability` action) so grants are owner-visible and revocable, not just internal
+state — matches the plan's "секция в Контроле" requirement and the project's rule that every
+interactive element needs a `data-testid`.
+
+**Verified no regression:** full audit loop (only red = expected dirty tree), G-SMOKE,
+`audit:architecture`, `audit:no-label-theater-hard`, extended `audit:seven-contracts`,
+G-E2E-CORE (13 passed/1 skipped) all green. Rebuilt public-demo.
