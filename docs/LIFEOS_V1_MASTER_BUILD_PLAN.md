@@ -169,7 +169,7 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 - [x] P1.1 OBJECT_CONTRACT_V4 — 2026-07-18: schema v3→v4, `applyObjectContractV4`/`applyObjectContractToState` in artifact-os-architecture.mjs, wired into app.js normalizeState (idempotent), new tools/audit-seven-contracts.mjs; G-SMOKE/G-ARCH/G-E2E-CORE/G-E2E-KB green
 - [x] P1.2 RECEIPT_COVERAGE_MATRIX — 2026-07-18: addReceipt()/STRONG_MUTATION_RULES wired into addAudit() (single choke point, all ~150 call sites covered automatically), locality field added; extended tools/audit-seven-contracts.mjs (audit:ledger already meant something else, see DECISIONS.md); G-SMOKE/G-E2E-CORE green
 - [x] P1.3 CAPABILITY_LOCALITY — 2026-07-18: capability grants (resource/action/scope/locality/approval/budget) in state.control.capabilities; ensureCapabilityGrant() wired into recordProviderRun() (single choke point, covers every provider action); Control surface section + revoke action; extended audit:seven-contracts; G-SMOKE/G-ARCH/G-E2E-CORE green
-- [ ] P2.1 RENDERER_REGISTRY
+- [x] P2.1 RENDERER_REGISTRY — 2026-07-18: RENDERER_REGISTRY/presentArtifact/ViewPreset in artifact-os-architecture.mjs; 4 render-mode functions in ui/components/shared.js; M0 proof (note/agent_report/import_receipt × 4 modes) + ViewPreset controls in Design Studio; found+fixed Design Studio was fully dead (never reachable in the live shell); browser-verified end-to-end; G-ARCH/G-E2E-CORE/G-PUBLIC green
 - [ ] P2.2 ARTIFACT_INSPECTOR_UNIVERSAL
 - [ ] P3.1 SYSTEM_FIELDS_TYPED
 - [ ] P3.2 SYSTEM_VIEWS_ACTIONS

@@ -1,5 +1,6 @@
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, compactText, escapeHtml, providerLabel, safeList } from "./components/shared.js";
+import { button, compactText, escapeHtml, providerLabel, renderArtifactByMode, safeList } from "./components/shared.js";
+import { RENDERER_MODES, VIEW_PRESET_DENSITIES, VIEW_PRESET_GROUPINGS, presentArtifact } from "../artifact-os-architecture.mjs";
 
 function live(values) {
   return Object.values(values || {}).filter((item) => !item.deleted);
@@ -291,6 +292,43 @@ export function renderMarketplace(ctx) {
   return renderWorkspaceLayout("marketplace", "Marketplace", "Паки устанавливаются как локальные system definitions без запуска чужого кода.", body, { testId: "workspace-marketplace", kicker: "Системы" });
 }
 
+const M0_PROOF_SOURCES = [
+  { type: "artifact", label: "note", pick: (ctx) => ctx.notes },
+  { type: "agent-run", label: "agent_report", pick: (ctx) => ctx.agentRuns },
+  { type: "installed-pack", label: "import_receipt", pick: (ctx) => ctx.installedPacks }
+];
+
+function m0ProofSection(ctx) {
+  const groups = M0_PROOF_SOURCES.map(({ type, label, pick }) => {
+    const record = (pick(ctx) || [])[0] || null;
+    const item = presentArtifact(record || { title: `Нет данных: ${label}` }, type);
+    const previews = RENDERER_MODES.map((mode) => {
+      const markup = mode === "table-row"
+        ? `<table><tbody>${renderArtifactByMode(item, mode)}</tbody></table>`
+        : mode === "timeline"
+          ? `<ul>${renderArtifactByMode(item, mode)}</ul>`
+          : renderArtifactByMode(item, mode);
+      return `<div class="renderer-preview" data-testid="renderer-preview-${escapeHtml(mode)}"><span>${escapeHtml(mode)}</span>${markup}</div>`;
+    }).join("");
+    return `<div class="m0-proof-group" data-testid="m0-proof-group" data-m0-type="${escapeHtml(type)}"><h4>${escapeHtml(label)} (M0)</h4><div class="m0-proof-grid">${previews}</div></div>`;
+  }).join("");
+  return `<section class="v34-panel m0-proof" data-testid="m0-proof-section"><header><h3>Доказательство M0: 3 типа × 4 рендера</h3></header>${groups}</section>`;
+}
+
+function viewPresetControls(ctx) {
+  const surface = ctx.activeSurface || "inbox";
+  const preset = (ctx.designStudio?.viewPresets || {})[surface] || { renderer: "card", density: "normal", grouping: "none" };
+  return [
+    `<div class="v34-form" data-testid="view-preset-form">`,
+    `<label><span>Поверхность</span><input id="view-preset-surface" autocomplete="off" value="${escapeHtml(surface)}" readonly></label>`,
+    `<label><span>Рендер</span><select id="view-preset-renderer">${RENDERER_MODES.map((mode) => `<option value="${escapeHtml(mode)}"${mode === preset.renderer ? " selected" : ""}>${escapeHtml(mode)}</option>`).join("")}</select></label>`,
+    `<label><span>Плотность</span><select id="view-preset-density">${VIEW_PRESET_DENSITIES.map((density) => `<option value="${escapeHtml(density)}"${density === preset.density ? " selected" : ""}>${escapeHtml(density)}</option>`).join("")}</select></label>`,
+    `<label><span>Группировка</span><select id="view-preset-grouping">${VIEW_PRESET_GROUPINGS.map((grouping) => `<option value="${escapeHtml(grouping)}"${grouping === preset.grouping ? " selected" : ""}>${escapeHtml(grouping)}</option>`).join("")}</select></label>`,
+    button("save-view-preset", "Сохранить вид", { kind: "primary", testId: "save-view-preset" }),
+    `</div>`
+  ].join("");
+}
+
 export function renderDesignStudio(ctx) {
   const profiles = sortRecent(live(ctx.designProfiles));
   const activeId = ctx.designStudio?.activeProfileId || profiles[0]?.id || "";
@@ -310,12 +348,15 @@ export function renderDesignStudio(ctx) {
     `<label><span>Режим</span><select id="design-render-mode"><option value="dashboard"${mode === "dashboard" ? " selected" : ""}>dashboard</option><option value="graph"${mode === "graph" ? " selected" : ""}>graph</option><option value="timeline"${mode === "timeline" ? " selected" : ""}>timeline</option><option value="dense"${mode === "dense" ? " selected" : ""}>dense</option></select></label>`,
     button("save-design-profile", "Сохранить профиль", { kind: "primary", testId: "save-design-profile", disabled: !profiles.length }),
     `</div>`,
+    `<header><h3>Вид поверхности (renderer/density/grouping)</h3></header>`,
+    viewPresetControls(ctx),
     `</section>`,
     `<aside class="v34-panel">`,
     `<header><h3>Профили отображения</h3></header>`,
     safeList(profiles, (profile) => `<article class="v34-object-row" data-testid="design-profile-row"><div><strong>${escapeHtml(profile.title)}</strong><span>${meta([profile.mode, statusLabel(profile.status), profile.description])}</span></div><span class="v34-color-swatch" style="--swatch:${escapeHtml(profile.accent || "#0f766e")}"></span></article>`, `<div class="empty-inline">Профили дизайна будут доступны после инициализации.</div>`),
     `</aside>`,
     `</div>`,
+    m0ProofSection(ctx),
     `</div>`
   ].join("");
   return renderWorkspaceLayout("design", "Design Studio", "Данные и оформление разделены: можно менять режимы отображения без миграции базы.", body, { testId: "workspace-design", kicker: "Вид" });

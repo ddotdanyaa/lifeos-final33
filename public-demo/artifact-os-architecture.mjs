@@ -215,6 +215,55 @@ export function recordArchitectureEvent(state, type, summary, details = {}) {
   return event;
 }
 
+// Renderer Registry (Presentation Runtime, P2.1): every artifact type can be projected
+// into any of these 4 render modes, plus a graph node (declared per-collection already
+// via ARTIFACT_COLLECTIONS[].graph). M0 proof types are the 3 concrete types the plan
+// requires to be demonstrated end-to-end: note, agent_report (from agentRuns) and
+// import_receipt (from installedPacks - already the collection whose own projection is
+// "local package receipt").
+export const RENDERER_MODES = Object.freeze(["feed-bubble", "card", "table-row", "timeline"]);
+
+export const RENDERER_REGISTRY = Object.freeze(
+  ARTIFACT_COLLECTIONS.reduce((registry, collection) => {
+    registry[collection.ownerType] = { modes: RENDERER_MODES, graphNode: Boolean(collection.graph) };
+    return registry;
+  }, {})
+);
+
+export const M0_PROOF_TYPES = Object.freeze(["artifact", "agent-run", "installed-pack"]);
+
+export const VIEW_PRESET_DENSITIES = Object.freeze(["compact", "normal", "comfortable"]);
+export const VIEW_PRESET_GROUPINGS = Object.freeze(["none", "day", "type", "status"]);
+
+export function defaultViewPreset() {
+  return { renderer: "card", density: "normal", grouping: "none" };
+}
+
+export function normalizeViewPreset(preset) {
+  const base = defaultViewPreset();
+  const input = preset && typeof preset === "object" ? preset : {};
+  return {
+    renderer: RENDERER_MODES.includes(input.renderer) ? input.renderer : base.renderer,
+    density: VIEW_PRESET_DENSITIES.includes(input.density) ? input.density : base.density,
+    grouping: VIEW_PRESET_GROUPINGS.includes(input.grouping) ? input.grouping : base.grouping
+  };
+}
+
+// Projects any artifact record (regardless of collection) into the shape every renderer
+// mode needs, so ui/components/shared.js's 4 render functions don't need per-type branches.
+export function presentArtifact(record, type) {
+  const source = record && typeof record === "object" ? record : {};
+  return {
+    id: String(source.id || ""),
+    type: String(source.type || type || "artifact"),
+    title: String(source.title || source.name || "Untitled"),
+    summary: String(source.summary || source.text || source.body || source.reason || ""),
+    status: String(source.status || source.lifecycleState || "active"),
+    createdAt: String(source.createdAt || ""),
+    updatedAt: String(source.updatedAt || source.createdAt || "")
+  };
+}
+
 export function validateArchitectureState(state) {
   const problems = [];
   if (!state || typeof state !== "object") problems.push("state missing");

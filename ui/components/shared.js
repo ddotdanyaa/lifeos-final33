@@ -99,3 +99,57 @@ export function objectChip(label, value, accent = "") {
 export function safeList(items, renderer, fallback) {
   return items && items.length ? items.map(renderer).join("") : fallback;
 }
+
+// Renderer Registry (P2.1): one artifact -> any of RENDERER_MODES, driven by a
+// presentArtifact() shape (see artifact-os-architecture.mjs) rather than per-type markup.
+export function renderArtifactAsFeedBubble(item) {
+  return [
+    `<article class="renderer-feed-bubble" data-testid="renderer-feed-bubble" data-render-type="${escapeHtml(item.type)}">`,
+    `<time>${escapeHtml(item.createdAt.slice(0, 16))}</time>`,
+    `<strong>${escapeHtml(item.title)}</strong>`,
+    `<span>${escapeHtml(compactText(item.summary, 140))}</span>`,
+    `</article>`
+  ].join("");
+}
+
+export function renderArtifactAsCard(item) {
+  return [
+    `<article class="renderer-card" data-testid="renderer-card" data-render-type="${escapeHtml(item.type)}">`,
+    `<header><strong>${escapeHtml(item.title)}</strong><mark>${escapeHtml(item.status)}</mark></header>`,
+    `<p>${escapeHtml(compactText(item.summary, 180))}</p>`,
+    `<footer>${escapeHtml(item.type)} · ${escapeHtml(item.updatedAt.slice(0, 16))}</footer>`,
+    `</article>`
+  ].join("");
+}
+
+export function renderArtifactAsTableRow(item) {
+  return [
+    `<tr class="renderer-table-row" data-testid="renderer-table-row" data-render-type="${escapeHtml(item.type)}">`,
+    `<td>${escapeHtml(item.title)}</td>`,
+    `<td>${escapeHtml(item.type)}</td>`,
+    `<td>${escapeHtml(item.status)}</td>`,
+    `<td>${escapeHtml(item.updatedAt.slice(0, 10))}</td>`,
+    `</tr>`
+  ].join("");
+}
+
+export function renderArtifactAsTimeline(item) {
+  return [
+    `<li class="renderer-timeline-entry" data-testid="renderer-timeline-entry" data-render-type="${escapeHtml(item.type)}">`,
+    `<time>${escapeHtml(item.createdAt.slice(0, 16))}</time>`,
+    `<div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(compactText(item.summary, 120))}</span></div>`,
+    `</li>`
+  ].join("");
+}
+
+export const RENDERER_MODE_FUNCTIONS = {
+  "feed-bubble": renderArtifactAsFeedBubble,
+  card: renderArtifactAsCard,
+  "table-row": renderArtifactAsTableRow,
+  timeline: renderArtifactAsTimeline
+};
+
+export function renderArtifactByMode(item, mode) {
+  const renderFn = RENDERER_MODE_FUNCTIONS[mode] || renderArtifactAsCard;
+  return renderFn(item);
+}

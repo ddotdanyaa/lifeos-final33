@@ -179,3 +179,51 @@ interactive element needs a `data-testid`.
 **Verified no regression:** full audit loop (only red = expected dirty tree), G-SMOKE,
 `audit:architecture`, `audit:no-label-theater-hard`, extended `audit:seven-contracts`,
 G-E2E-CORE (13 passed/1 skipped) all green. Rebuilt public-demo.
+
+## P2.1 RENDERER_REGISTRY
+
+**Discovery: Design Studio (`renderDesignStudio`, the exact surface this package needed to
+extend) was completely unreachable in the live product** — wired into `ui/shell.js`'s
+dispatcher (`case "design"`) and already present in `ui/shell.js`'s own `secondaryNav` list,
+but I initially edited the wrong, dead list (`secondaryOwnerSurfaces()` in app.js, part of
+old `renderHomeQuickRibbon`/`renderHumanNavRail` which the live shell doesn't call at all —
+reverted that edit once I found the real one). No fix was actually needed: `design` was
+already in `ui/shell.js`'s live `secondaryNav`, just not something I'd exercised yet. Logged
+here because it cost real time and is worth remembering: **app.js still contains a second,
+fully dead copy of nav/surface-list logic from before the chat-first shell rewrite** —
+same root cause as the P0.2 discovery, just a different corner of it. Don't trust app.js
+nav-related functions without confirming ui/shell.js actually calls them.
+
+**Found and fixed a real rendering bug via manual browser verification, not just gates:**
+the `table-row` renderer mode produced 0 visible rows in the M0 proof grid even though the
+function ran without error — bare `<tr>` markup assigned via `innerHTML` outside a
+`<table>` is silently dropped by the HTML parser (a well-known gotcha). None of the
+automated gates (G-SMOKE, G-ARCH, G-E2E-CORE) caught this since they don't inspect DOM
+child counts inside Design Studio specifically. Caught by opening the actual surface in a
+browser and counting rendered `data-testid` elements per mode (3/3/**0**/3), per CLAUDE.md's
+rule to actually exercise UI changes in a browser, not just trust green tests. Fixed by
+wrapping the `table-row` preview in `<table><tbody>` (and `timeline` in `<ul>` for
+correctness, though that one worked either way).
+
+**Decision: `presentArtifact()` is a single generic projection (title/summary/status/
+createdAt/updatedAt) used by all 4 renderer functions, rather than per-type templates.**
+Why: the plan's M0 proof is about demonstrating the *registry* mechanism (any type -> any
+of 4 modes) works end-to-end on 3 concrete types, not about bespoke visual design per type
+- that's Design Studio's whole pitch ("data and presentation are separate; you can change
+render modes without a data migration"). Bespoke per-type card designs are a legitimate
+follow-up, not part of proving the registry itself works.
+
+**Decision: `import_receipt`'s M0 source is `installedPacks`, not `sources`.** Why: the
+plan says "from installedPacks/sources" (either), and `installedPacks`' own
+`ARTIFACT_COLLECTIONS` projection is already literally `"local package receipt"` - the
+closest honest match, vs. treating arbitrary `sources` records (files/audio/screens) as
+a fake "receipt".
+
+**Verified end-to-end in a real browser (not just gates):** navigated to Design Studio,
+confirmed all 12 previews (3 types × 4 modes) render with real seeded data for `note` and
+honest "Нет данных" empty states for `agent_report`/`import_receipt` (this fresh vault has
+no agent runs or installed packs yet - not faked). Saved a ViewPreset (timeline/compact),
+reloaded the page fully, and confirmed it round-tripped through IndexedDB, not just DOM
+state. Full audit loop (only red = expected dirty tree), G-ARCH (`audit:architecture`,
+`audit:workspace-links`, `audit:workspace-shape`), G-PUBLIC (`audit:public-build`),
+G-E2E-CORE (13 passed/1 skipped) all green. Rebuilt public-demo.

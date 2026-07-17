@@ -2,6 +2,7 @@ import {
   ARTIFACT_SCHEMA_VERSION,
   applyObjectContractToState,
   buildArchitectureSnapshot,
+  normalizeViewPreset,
   recordArchitectureEvent,
   validateArchitectureState
 } from "./artifact-os-architecture.mjs";
@@ -1958,6 +1959,7 @@ function normalizeState(input) {
     designStudio: Object.assign({
       activeProfileId: "design-calm-os",
       renderMode: "dashboard",
+      viewPresets: {},
       updatedAt: ""
     }, base.designStudio || {}),
     customDatabases: base.customDatabases || {},
@@ -2079,6 +2081,10 @@ function normalizeState(input) {
     grant.budget = grant.budget && typeof grant.budget === "object" ? grant.budget : { limit: 0, spent: 0, unit: "unmetered-local" };
     grant.grantedAt = grant.grantedAt || now();
     grant.revokedAt = String(grant.revokedAt || "");
+  }
+  state.designStudio.viewPresets = state.designStudio.viewPresets && typeof state.designStudio.viewPresets === "object" ? state.designStudio.viewPresets : {};
+  for (const surface of Object.keys(state.designStudio.viewPresets)) {
+    state.designStudio.viewPresets[surface] = normalizeViewPreset(state.designStudio.viewPresets[surface]);
   }
   if (!state.control.devGraphFilterMigrated) {
     state.graphFilters.productBrain = false;
@@ -12384,6 +12390,24 @@ async function handleAction(action, id) {
       saveDesignProfile(state, profileInput ? profileInput.value : "", modeInput ? modeInput.value : "");
       state.graphView.selectedNodeId = profileInput ? profileInput.value : state.designStudio.activeProfileId;
       state.activeSurface = "design";
+    });
+    return;
+  }
+  if (action === "save-view-preset") {
+    const surfaceInput = document.querySelector("#view-preset-surface");
+    const rendererInput = document.querySelector("#view-preset-renderer");
+    const densityInput = document.querySelector("#view-preset-density");
+    const groupingInput = document.querySelector("#view-preset-grouping");
+    await store.commit("View preset saved", (state) => {
+      const surface = surfaceInput ? cleanLine(surfaceInput.value) : state.activeSurface;
+      const preset = normalizeViewPreset({
+        renderer: rendererInput ? rendererInput.value : "",
+        density: densityInput ? densityInput.value : "",
+        grouping: groupingInput ? groupingInput.value : ""
+      });
+      state.designStudio.viewPresets[surface] = preset;
+      state.designStudio.updatedAt = now();
+      addAudit(state, "design.profile", "View preset saved for " + surface + ": " + preset.renderer + "/" + preset.density + "/" + preset.grouping, state.activeNoteId);
     });
     return;
   }
