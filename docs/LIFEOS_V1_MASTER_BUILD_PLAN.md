@@ -162,9 +162,9 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 ## 9. Прогресс-леджер (сессии отмечают [x] и дату)
 
 - [x] P0.1 CONTEXT_CANON_INTO_REPO — 2026-07-17: канон в `context/` (00/01/02 + v33 6.6МБ + v34 TXT/PDF)
-- [ ] P0.2 KB_SMOKE_RESCUE
-- [ ] P0.3 LEDGER_TRUTH_REFRESH
-- [ ] P0.4 COMMIT_BASELINE *(owner)*
+- [x] P0.2 KB_SMOKE_RESCUE — 2026-07-17: book-workbench/top-control restored in ui/*.js, kb-smoke + G-E2E-CORE + G-ARCH + audits verified green (commit af9a7568)
+- [x] P0.3 LEDGER_TRUTH_REFRESH — 2026-07-17: 88/1449 rows moved planned→implemented with EvidencePath (P0-kernel 51/51, P1/P2 Agents 37/54); PRODUCT_BRAIN_OVERVIEW synced
+- [x] P0.4 COMMIT_BASELINE *(owner)* — 2026-07-17: owner authorized full-autonomy commit+push for this session (see DECISIONS.md); gh auth verified active, baseline committed and pushed
 - [x] P0.5 APPROVED_ENGINES_INSTALLED — 2026-07-17: 9 движков установлены, `npm audit` = 0 уязвимостей (override @xmldom/xmldom→0.9.8), гейты зелёные
 - [ ] P1.1 OBJECT_CONTRACT_V4
 - [ ] P1.2 RECEIPT_COVERAGE_MATRIX
