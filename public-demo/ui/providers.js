@@ -15,6 +15,7 @@ function providerAction(key, provider) {
 
   if (key === "pwa") {
     actions.push(button("check-pwa", "Проверить", { kind: "primary", testId: "check-pwa" }));
+    actions.push(button("show-pwa-install", "Установить", { kind: "ghost", testId: "show-pwa-install" }));
   }
 
   if (PREPARABLE_PROVIDERS.has(key)) {
@@ -41,15 +42,29 @@ function pwaStatusText(raw) {
   return "не поддерживается";
 }
 
-function pwaPassport(provider) {
+function pwaInstallStatusText(status) {
+  const map = {
+    "not-seen": "браузер ещё не предложил установку",
+    available: "доступна установка",
+    accepted: "установлено",
+    dismissed: "предложение отклонено",
+    prompted: "предложение показано",
+    "browser-menu-required": "используй меню браузера «Установить»"
+  };
+  return map[String(status || "not-seen")] || String(status || "");
+}
+
+function pwaPassport(provider, environment) {
   const raw = normalizePwaStatus(provider);
   const manifest = provider.manifest || "manifest.webmanifest";
   const scope = provider.scope || provider.serviceWorkerScope || "проверится после запуска";
+  const installStatus = (environment || {}).installPromptStatus || "not-seen";
   return [
     `<div class="provider-mini-passport" data-testid="pwa-panel">`,
     `<div><span>Файл приложения</span><strong data-testid="pwa-manifest">${escapeHtml(manifest)}</strong></div>`,
     `<div><span>Офлайн-оболочка</span><strong data-testid="pwa-service-worker-status" data-raw-status="${escapeHtml(raw)}">${escapeHtml(pwaStatusText(raw))}</strong></div>`,
     `<div><span>Область</span><strong data-testid="pwa-service-worker-scope">${escapeHtml(scope)}</strong></div>`,
+    `<div><span>Установка</span><strong data-testid="pwa-install-status" data-raw-status="${escapeHtml(installStatus)}">${escapeHtml(pwaInstallStatusText(installStatus))}</strong></div>`,
     `</div>`
   ].join("");
 }
@@ -78,7 +93,7 @@ function providerCard(key, provider = {}, ctx) {
     `<mark>${escapeHtml(status)}</mark>`,
     `</header>`,
     `<p>${escapeHtml(summary)}</p>`,
-    key === "pwa" ? pwaPassport(provider) : "",
+    key === "pwa" ? pwaPassport(provider, (ctx || {}).environment) : "",
     key === "ollama" ? semanticIndexPassport(ctx || {}) : "",
     `<div class="provider-boundary"><span>Что остаётся локально</span><strong>${escapeHtml(localBoundary)}</strong></div>`,
     `<div class="provider-actions">${providerAction(key, provider)}</div>`,

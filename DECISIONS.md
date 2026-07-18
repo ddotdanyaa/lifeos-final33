@@ -1103,3 +1103,38 @@ that the resulting task genuinely appears in Today - proving continuity across t
 nav, not just isolated surfaces. Full audit loop (only red = expected dirty tree), G-E2E-CORE
 (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all green. No app.js/ui changes this
 package (audit-only + new e2e), so no public-demo rebuild was needed.
+
+## P10.2 MOBILE_PWA_CONTINUITY
+
+**Decision:** Cross-checked `ui/shell.js`'s nav source of truth (`primaryNav`, 9 items;
+`secondaryNav`, 17 items) against what's actually reachable on a mobile viewport, rather
+than assuming the existing mobile bottom-nav (5 slots) plus "Ещё" (secondaryNav only) was
+complete. Found a real gap: calendar, finance, library, graph, and control - 5 of the 9
+primary surfaces - had *no* mobile-visible path at all, since the desktop nav rail
+(`.lifeos-nav-v2`, containing all 9 primary items) is CSS-hidden below 920px and the mobile
+"Ещё" panel only ever included `secondaryNav`. Fixed `renderMobileNav()` to fold
+`primaryNav` items not already in the 5-slot bottom bar into the same "Ещё" panel.
+
+**Found:** Making that fix exposed a second, latent bug: the "Ещё" panel's items reused the
+default `navButton` testid prefix ("surface-"), identical to the desktop nav rail's testid
+for the same ids - a pre-existing collision for all 17 `secondaryNav` items that had gone
+undetected because no test happened to bare-click one of those without `.first()`. Adding
+calendar/graph (previously-unique primary ids) into the same panel immediately broke 3
+existing tests with Playwright strict-mode violations (`getByTestId('surface-calendar')
+resolved to 2 elements`). Fixed properly by giving the whole "Ещё" panel its own distinct
+`mobile-more-` prefix (matching the bottom bar's existing `mobile-surface-` convention)
+instead of patching around the collision - this also retroactively de-risks the 17
+previously-ambiguous secondary-nav ids, not just the 5 new ones.
+
+**Verified end-to-end:** `output/playwright/mobile-pwa-continuity.spec.mjs` reads the same
+26-surface list the nav renders (9 primary + 17 secondary) and, at a 390px viewport, reaches
+every single one via either the bottom bar or the "Ещё" panel, asserting no horizontal
+overflow on any of them - not a curated subset. A second test proves the PWA install flow
+against a real `beforeinstallprompt` event (real `prompt()`/`userChoice` handling, a real
+`providerRuns` receipt) and a genuine offline-smoke: setting the browser context to real
+network-level offline and reloading still renders the full shell, served from the real
+service-worker cache already shipped in `service-worker.js` - not a mocked network call.
+Also added the previously-missing "Установить" button + install-status row to the live
+Providers surface's PWA passport (`ui/providers.js`), which only existed in the legacy
+renderer before. Full audit loop (only red = expected dirty tree), H10 + full G-E2E-CORE +
+`kb-smoke.spec.mjs` (2 passed) all green after the prefix fix. Rebuilt public-demo.

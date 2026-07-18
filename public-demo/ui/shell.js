@@ -76,9 +76,11 @@ function renderNav(ctx) {
 
 function renderMobileNav(ctx) {
   const items = [["inbox", "Дом"], ["feed", "Лента"], ["today", "Сегодня"], ["systems", "Системы"], ["capture", "Ввод"]];
+  const remainingPrimary = primaryNav.filter(([id]) => !items.some(([itemId]) => itemId === id));
+  const mobileMoreItems = remainingPrimary.concat(secondaryNav);
   return [
     `<nav class="mobile-bottom-nav">${items.map((row) => navButton(ctx, row, "mobile-surface")).join("")}</nav>`,
-    `<details class="mobile-more-nav" data-testid="mobile-more-nav"><summary>Ещё</summary><div>${secondaryNav.map((row) => navButton(ctx, row)).join("")}</div></details>`
+    `<details class="mobile-more-nav" data-testid="mobile-more-nav"><summary>Ещё</summary><div>${mobileMoreItems.map((row) => navButton(ctx, row, "mobile-more")).join("")}</div></details>`
   ].join("");
 }
 
