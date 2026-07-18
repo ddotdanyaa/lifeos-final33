@@ -90,6 +90,39 @@ if (!app.includes("function approveAgentRun")) problems.push("app.js does not de
 if (!app.includes("findActiveCapability(state, \"agent\", \"run\")")) problems.push("approveAgentRun does not verify the capability grant before applying");
 if (!app.includes("\"approve-agent-run\"")) problems.push("app.js does not handle the approve-agent-run action");
 
+// --- AI Memory Gate (P5.3): any AI-derived content can only reach notes/graph/claims/
+// insights through a proposal (preview + explicit apply) - never written directly ---
+function extractFunctionBody(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  if (start === -1) return "";
+  let depth = 0;
+  let bodyStart = -1;
+  for (let index = start; index < source.length; index += 1) {
+    if (source[index] === "{") {
+      if (depth === 0) bodyStart = index;
+      depth += 1;
+    } else if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(bodyStart, index + 1);
+    }
+  }
+  return "";
+}
+
+const chatMessageToProposalBody = extractFunctionBody(app, "chatMessageToProposal");
+if (!chatMessageToProposalBody) problems.push("app.js does not define chatMessageToProposal");
+if (chatMessageToProposalBody.includes("applyProposal(")) problems.push("chatMessageToProposal must not auto-apply - AI/chat content should only ever create an open proposal");
+
+const generateOllamaChatAnswerBody = extractFunctionBody(app, "generateOllamaChatAnswer");
+const callModelRouteBody = extractFunctionBody(app, "callModelRoute");
+for (const [name, body] of [["generateOllamaChatAnswer", generateOllamaChatAnswerBody], ["callModelRoute", callModelRouteBody]]) {
+  if (!body) { problems.push(`app.js does not define ${name}`); continue; }
+  for (const forbidden of ["state.notes[", "state.claims[", "state.insights[", "addGraphEdge(", "applyProposal("]) {
+    if (body.includes(forbidden)) problems.push(`${name} must be a pure model-call wrapper - found "${forbidden}" (AI output must flow through a proposal, not write memory/graph directly)`);
+  }
+}
+if (!app.includes("addChatMessage(state, \"assistant\", liveAnswer.text")) problems.push("live Ollama answers must be written via addChatMessage, not directly into notes/claims/insights");
+
 if (problems.length) fail("Seven Contracts audit failed", { problems });
 
 console.log(JSON.stringify({
@@ -100,5 +133,6 @@ console.log(JSON.stringify({
   coveredCollections: ARTIFACT_COLLECTIONS.length - OBJECT_CONTRACT_EXEMPT_COLLECTIONS.length,
   strongMutationKinds: STRONG_MUTATION_KINDS.length,
   capabilityGrantFields: CAPABILITY_GRANT_FIELDS.length,
+  aiMemoryGate: "generateOllamaChatAnswer/callModelRoute are pure model-call wrappers; AI content only reaches memory/graph via an open proposal",
   note: "Object (P1.1) + Receipt (P1.2) + Capability/Locality (P1.3) contracts all covered"
 }, null, 2));

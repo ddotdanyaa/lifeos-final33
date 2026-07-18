@@ -586,3 +586,41 @@ export JSON contains neither the raw key string anywhere nor any entries under
 `control.byokVault`. Full audit loop (only red = expected dirty tree),
 `audit:no-label-theater-hard`, G-E2E-CORE + byok + ollama-live specs together (15 passed/1
 skipped) all green. Rebuilt public-demo.
+
+## P5.3 AI_MEMORY_GATE
+
+**Investigated whether P5.1/P5.2's new AI code paths (`generateOllamaChatAnswer`,
+`callModelRoute`) violate "AI writes only via proposals" - they don't.** Both are pure
+fetch wrappers that return `{text, latencyMs}`; the only place their result is consumed is
+`addChatMessage` (a visible, immediate chat reply - not a silent memory/graph write) and
+`recordProviderRun` (a receipt). Neither ever touches `state.notes`/`claims`/`insights` or
+calls `applyProposal`. `chatMessageToProposal` (the only path from a chat message, AI-
+generated or not, toward becoming a task/note) only ever calls `addProposal` - it was
+already correctly gated before this package; P5.3's job was proving and locking that in,
+not fixing a violation.
+
+**Decision: extended `tools/audit-seven-contracts.mjs` with a static-analysis check**
+(`extractFunctionBody` - a small brace-counting helper, not a full parser, but sufficient
+for this codebase's function-per-declaration style) that greps the *body* of
+`generateOllamaChatAnswer`/`callModelRoute`/`chatMessageToProposal` for forbidden patterns
+(`state.notes[`, `state.claims[`, `state.insights[`, `addGraphEdge(`, `applyProposal(`).
+Why a static check in addition to the e2e test: this makes the invariant self-enforcing for
+*future* AI code paths too - if someone later adds a new AI-calling function and it
+accidentally writes memory directly, this audit fails immediately rather than relying on
+someone remembering to write a new e2e case for it.
+
+**Found (not caused by this package) that the legacy `apply-proposal`/`proposal-panel` UI
+lives only inside `owner-rescue.spec.mjs`'s already-`test.skip()`-ed legacy test** -
+confirming the BLOCKED.md note from P3.3 (proposals have no live UI to apply them from) is
+accurate and durable. That skipped test also still asserts `agentRuns` status `"dry-run"`,
+which P4.2 renamed to `"preview"` - harmless since the test never runs, but noted here so a
+future un-skip doesn't get a confusing failure blamed on the wrong package.
+
+**Verified end-to-end** with a new `output/playwright/ai-memory-gate.spec.mjs`: mocked a
+live Ollama answer, confirmed sending it does not change `notes`/`claims`/`insights`/`tasks`
+counts at all, then used the one proposal-creation path that *is* live
+(`chat-to-proposal`) and confirmed it produces only an open proposal
+(`mutationMode: "proposal-only"`) with tasks/notes still unchanged - never attempting to
+click a live "apply" button, since none exists yet (out of scope here, tracked separately).
+Full audit loop (only red = expected dirty tree), extended `audit:seven-contracts`,
+G-E2E-CORE + the new spec (14 passed/1 skipped) all green. Rebuilt public-demo.
