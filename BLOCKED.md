@@ -22,3 +22,14 @@ fixed in styles.css P0.2 commit). The same class-reuse pattern (`.knowledge-layo
 one base grid rule that could be overridden unconditionally elsewhere) should be swept in
 P10.2 MOBILE_PWA_CONTINUITY to make sure no other surface has a similar latent overflow bug.
 Not blocked on anything external — just deferred to stay in scope for P0.2.
+
+## Proposals (state.proposals) are not rendered anywhere in the live chat-first shell
+
+Found while wiring P3.3 System Factory triggers (which create dry-run proposals): the
+`proposal-panel`/`apply-proposal` UI only exists in app.js's dead `renderCaptureCockpit`-
+family functions, never called by the live `ui/*.js` shell. `apply-proposal`/`dismiss-
+proposal` action handlers still work (app.js:12901 area), so proposals created by triggers,
+flow dry-runs, chat-to-proposal etc. are real and appliable, just invisible until the owner
+opens dev tools or a future package wires a live UI for them. Not owner-credential-blocked,
+same class of gap as `home-next-action` above — good candidate for an early package (Phase
+4 Agents/Flows work touches this area already) rather than a standalone fix.

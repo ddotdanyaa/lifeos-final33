@@ -173,7 +173,7 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 - [x] P2.2 ARTIFACT_INSPECTOR_UNIVERSAL — 2026-07-18: ui/components/InspectorDrawer.js (contract fields/receipt trail/relations/renderer switch/export-rollback), embedded in Graph + Control (search/feed route to it via existing focus-graph-node); new output/playwright/presentation-runtime.spec.mjs (M0 3x4 + integration) green; found+fixed a real mobile horizontal-overflow bug via manual+e2e testing; health integration deferred (P9.1 not built yet)
 - [x] P3.1 SYSTEM_FIELDS_TYPED — 2026-07-18: entities are now {name, fields:[{name,type,options,required}]} (text/number/date/select/relation) with validateSystemRecordFields(); createSystemRecord() writes real systemRecords for the first time; Builder UI edits fields + creates records; found+fixed a Cyrillic-name id-collision bug via e2e verification; G-SMOKE/G-ARCH/G-E2E-CORE green
 - [x] P3.2 SYSTEM_VIEWS_ACTIONS — 2026-07-18: list/table/card views via P2.1 registry (per-system ViewPreset reuse), update/state-change actions with receipts (updateSystemRecord/toggleSystemRecordState), date-typed fields project into Today/Calendar; new output/playwright/system-factory.spec.mjs green
-- [ ] P3.3 SYSTEM_TRIGGERS_LITE
+- [x] P3.3 SYSTEM_TRIGGERS_LITE — 2026-07-18: declarative on-create/on-field-change/daily triggers fire dry-run proposals via the existing proposal-apply flow, never mutate directly; new tools/audit-system-factory.mjs (completeness formula); found+documented pre-existing gap (proposals not rendered in live shell, see BLOCKED.md); e2e proves trigger fires without direct mutation
 - [ ] P4.1 FLOW_EXEC_REAL
 - [ ] P4.2 AGENT_GUARDED_RUNS
 - [ ] P5.1 OLLAMA_LIVE

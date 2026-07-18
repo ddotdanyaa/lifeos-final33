@@ -76,3 +76,41 @@ test("system factory: typed fields, record actions, views, date projection", asy
   await openSurface(page, "calendar");
   await expect(page.getByTestId("calendar-system-schedule-row").first()).toBeVisible();
 });
+
+// P3.3 SYSTEM_TRIGGERS_LITE: declarative on-create/on-field-change/daily triggers fire
+// a dry-run (flowRun + proposal) only - nothing applies without owner confirmation.
+// Proposals aren't rendered in the live chat-first shell yet (a separate, pre-existing
+// gap - see BLOCKED.md), so this verifies the dry-run mechanism through state directly,
+// same technique the app's own test harness (getStateSnapshot) is designed for.
+test("system factory: on-create trigger fires a dry-run proposal, not a direct mutation", async ({ page }) => {
+  await page.goto("http://127.0.0.1:4173");
+  await openSurface(page, "builder");
+  await expect(page.getByTestId("builder-workspace")).toBeVisible();
+
+  const before = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+  const systemId = Object.keys(before.systemDefinitions)[0];
+  const entityName = before.systemDefinitions[systemId].entities[0].name;
+  const proposalCountBefore = Object.keys(before.proposals).length;
+  const flowRunCountBefore = Object.keys(before.flowRuns).length;
+
+  await page.selectOption("#builder-trigger-kind", "on-create");
+  await page.selectOption("#builder-trigger-entity", entityName);
+  await page.getByTestId("add-system-trigger").click();
+  await expect(page.getByTestId("system-trigger-row").first()).toContainText("on-create");
+
+  const recordForm = page.getByTestId("system-record-form").first();
+  await recordForm.locator('[id^="builder-record-title"]').fill("Запись под триггер");
+  await recordForm.locator('[data-testid^="create-system-record-"]').first().click();
+  await expect(page.getByTestId("system-record-row").first()).toBeVisible();
+
+  const after = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+  expect(Object.keys(after.proposals).length).toBeGreaterThan(proposalCountBefore);
+  expect(Object.keys(after.flowRuns).length).toBeGreaterThan(flowRunCountBefore);
+  const newProposal = Object.values(after.proposals).find((proposal) => proposal.fields?.triggerId);
+  expect(newProposal).toBeTruthy();
+  expect(newProposal.status).toBe("open");
+  expect(newProposal.fields.mutationMode).toBe("proposal-only");
+  // the trigger must NOT have mutated anything by itself - the record it fired on
+  // stays exactly as created, no extra task/note/calendar block appears yet
+  expect(Object.values(after.tasks).length).toBe(Object.values(before.tasks).length);
+});

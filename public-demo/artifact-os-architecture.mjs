@@ -104,6 +104,24 @@ export function validateSystemFieldValue(field, rawValue) {
   return { ok: true, value: String(value) };
 }
 
+// System Factory triggers (P3.3): declarative, not code - a trigger just names a
+// condition (on-create/on-field-change/daily) and an action type. Firing always
+// produces a dry-run proposal first (see app.js fireSystemTriggerDryRun); nothing
+// applies without the owner confirming the proposal, same as every other proposal.
+export const SYSTEM_TRIGGER_KINDS = Object.freeze(["on-create", "on-field-change", "daily"]);
+
+export function normalizeSystemTrigger(input) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    id: String(source.id || ""),
+    kind: SYSTEM_TRIGGER_KINDS.includes(source.kind) ? source.kind : "on-create",
+    entityName: String(source.entityName || "").trim(),
+    fieldName: String(source.fieldName || "").trim(),
+    actionType: String(source.actionType || "task").trim() || "task",
+    lastFiredDay: String(source.lastFiredDay || "")
+  };
+}
+
 export function validateSystemRecordFields(entity, rawValues = {}) {
   const errors = [];
   const values = {};

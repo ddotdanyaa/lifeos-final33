@@ -38,6 +38,7 @@
     "audit:nonstop-until-done": "node tools/audit-nonstop-until-done.mjs",
     "audit:architecture": "node tools/audit-architecture-contract.mjs",
     "audit:seven-contracts": "node tools/audit-seven-contracts.mjs",
+    "audit:system-factory": "node tools/audit-system-factory.mjs",
     "audit:owner-final": "node tools/audit-owner-rescue-final.mjs",
     "audit:product-brain": "node tools/audit-product-brain.mjs",
     "audit:no-label-theater": "node tools/audit-no-label-theater.mjs",

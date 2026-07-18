@@ -5,6 +5,7 @@ import {
   buildArchitectureSnapshot,
   normalizeSystemEntity,
   normalizeSystemField,
+  normalizeSystemTrigger,
   normalizeViewPreset,
   recordArchitectureEvent,
   validateArchitectureState,
@@ -1644,6 +1645,7 @@ function createSystemRecord(state, systemId, entityName, rawValues) {
     updatedAt: createdAt
   };
   addAudit(state, "system.record.create", "Запись создана: " + title + " (" + entity.name + ")", noteId);
+  evaluateSystemTriggers(state, systemId, entity.name, { kind: "create", recordId: id });
   return { ok: true, id, errors: [] };
 }
 
@@ -1653,6 +1655,7 @@ function updateSystemRecord(state, recordId, rawValues) {
   const system = state.systemDefinitions[record.systemId];
   const entity = system ? system.entities.find((item) => item.name === record.entityName) : null;
   if (!entity) return { ok: false, errors: ["Сущность не найдена"] };
+  const previousFields = Object.assign({}, record.fields);
   const merged = Object.assign({}, record.fields, rawValues);
   const validation = validateSystemRecordFields(entity, merged);
   if (!validation.ok) return { ok: false, errors: validation.errors };
@@ -1660,6 +1663,11 @@ function updateSystemRecord(state, recordId, rawValues) {
   if (rawValues.title) record.title = cleanLine(rawValues.title);
   record.updatedAt = now();
   addAudit(state, "system.record.update", "Запись обновлена: " + record.title, record.noteId);
+  for (const field of entity.fields) {
+    if (String(previousFields[field.name] ?? "") !== String(validation.values[field.name] ?? "")) {
+      evaluateSystemTriggers(state, record.systemId, entity.name, { kind: "update", recordId: record.id }, field.name);
+    }
+  }
   return { ok: true, errors: [] };
 }
 
@@ -1695,6 +1703,84 @@ function systemRecordDateEntries(state) {
     }
   }
   return entries.sort((a, b) => a.day.localeCompare(b.day));
+}
+
+function addSystemTrigger(state, systemId, triggerInput) {
+  const system = state.systemDefinitions[systemId];
+  if (!system || system.deleted) return { ok: false, errors: ["Система не найдена"] };
+  const entity = system.entities.find((item) => item.name === triggerInput.entityName);
+  if (!entity) return { ok: false, errors: ["Сущность не найдена"] };
+  if (triggerInput.kind === "on-field-change" && !entity.fields.some((field) => field.name === triggerInput.fieldName)) {
+    return { ok: false, errors: ["Поле не найдено в сущности"] };
+  }
+  const trigger = Object.assign(normalizeSystemTrigger(triggerInput), { id: makeId("trigger") });
+  system.triggers.push(trigger);
+  system.updatedAt = now();
+  addAudit(state, "system.trigger.update", "Триггер добавлен: " + trigger.kind + " для " + trigger.entityName + " в " + system.title, system.noteId);
+  return { ok: true, errors: [] };
+}
+
+// Every trigger fires as a dry-run proposal only - apply happens through the existing
+// proposal-apply flow (proposal.apply), never automatically. Matches runFlowBuilderDryRun's
+// established pattern (flow + proposal + flowRun), generalized to any system trigger.
+function fireSystemTriggerDryRun(state, system, trigger, record) {
+  let flow = Object.values(state.flows || {}).find((item) => item.systemTriggerId === trigger.id);
+  const createdAt = now();
+  if (!flow) {
+    const flowId = makeId("flow");
+    flow = { id: flowId, systemTriggerId: trigger.id, name: "Триггер: " + system.title + " / " + trigger.kind, steps: [], status: "ready", runCount: 0, createdAt, updatedAt: createdAt };
+    state.flows[flowId] = flow;
+  }
+  flow.steps = [
+    { kind: "trigger", value: trigger.kind + " (" + trigger.entityName + (trigger.fieldName ? "." + trigger.fieldName : "") + ")" },
+    { kind: "condition", value: record ? "record " + record.id : "daily check" },
+    { kind: "proposal_action", value: trigger.actionType }
+  ];
+  flow.runCount += 1;
+  flow.status = "dry-run";
+  flow.updatedAt = now();
+  const contextTitle = record ? record.title : system.title;
+  const proposalId = addProposal(state, trigger.actionType, "Триггер \"" + trigger.kind + "\" системы " + system.title + ": " + trigger.actionType + " для " + shorten(contextTitle, 56), "", record ? record.noteId : system.noteId, {
+    reason: "System Factory триггер создал предложение. Применение требует подтверждения владельца.",
+    fields: { systemId: system.id, triggerId: trigger.id, kind: trigger.kind, recordId: record ? record.id : "", mutationMode: "proposal-only" }
+  });
+  const runId = makeId("flowrun");
+  state.flowRuns[runId] = {
+    id: runId,
+    flowId: flow.id,
+    status: "proposal_created",
+    sourceId: "",
+    noteId: record ? record.noteId : system.noteId,
+    summary: "Триггер \"" + trigger.kind + "\" создал предложение: " + trigger.actionType + " для " + contextTitle,
+    proposalIds: proposalId ? [proposalId] : [],
+    createdAt: now(),
+    updatedAt: now()
+  };
+  addAudit(state, "flow.dry-run", "Триггер \"" + trigger.kind + "\" системы " + system.title + " создал предложение", record ? record.noteId : system.noteId);
+  return runId;
+}
+
+function evaluateSystemTriggers(state, systemId, entityName, event, changedFieldName) {
+  const system = state.systemDefinitions[systemId];
+  if (!system) return;
+  const record = event.recordId ? state.systemRecords[event.recordId] : null;
+  for (const trigger of system.triggers) {
+    if (trigger.entityName !== entityName) continue;
+    if (trigger.kind === "on-create" && event.kind === "create") fireSystemTriggerDryRun(state, system, trigger, record);
+    if (trigger.kind === "on-field-change" && event.kind === "update" && trigger.fieldName === changedFieldName) fireSystemTriggerDryRun(state, system, trigger, record);
+  }
+}
+
+function evaluateDailySystemTriggers(state) {
+  const today = todayKey();
+  for (const system of Object.values(state.systemDefinitions || {})) {
+    if (system.deleted) continue;
+    for (const trigger of system.triggers) {
+      if (trigger.kind !== "daily" || trigger.lastFiredDay === today) continue;
+      trigger.lastFiredDay = today;
+      fireSystemTriggerDryRun(state, system, trigger, null);
+    }
+  }
 }
 
 function installMarketplacePack(state, packId) {
@@ -2190,7 +2276,9 @@ function normalizeState(input) {
   state.control.inspectorRenderer = RENDERER_MODES.includes(state.control.inspectorRenderer) ? state.control.inspectorRenderer : "card";
   for (const system of Object.values(state.systemDefinitions || {})) {
     system.entities = Array.isArray(system.entities) ? system.entities.map(normalizeSystemEntity) : [];
+    system.triggers = Array.isArray(system.triggers) ? system.triggers.map((trigger) => Object.assign(normalizeSystemTrigger(trigger), { id: trigger.id || makeId("trigger") })) : [];
   }
+  evaluateDailySystemTriggers(state);
   for (const record of Object.values(state.systemRecords || {})) {
     record.title = cleanLine(record.title || record.entityName || "Запись");
     record.systemId = cleanLine(record.systemId || "");
@@ -12500,6 +12588,23 @@ async function handleAction(action, id) {
     }
     await store.commit("System record edited", (state) => {
       const result = updateSystemRecord(state, id, rawValues);
+      if (!result.ok) state.commandMessage = result.errors.join("; ");
+    });
+    return;
+  }
+  if (action === "add-system-trigger") {
+    const systemInput = document.querySelector("#builder-trigger-system");
+    const kindInput = document.querySelector("#builder-trigger-kind");
+    const entityInput = document.querySelector("#builder-trigger-entity");
+    const fieldInput = document.querySelector("#builder-trigger-field");
+    const actionInput = document.querySelector("#builder-trigger-action");
+    await store.commit("System trigger added", (state) => {
+      const result = addSystemTrigger(state, systemInput ? systemInput.value : "", {
+        kind: kindInput ? kindInput.value : "on-create",
+        entityName: entityInput ? entityInput.value : "",
+        fieldName: fieldInput ? fieldInput.value : "",
+        actionType: actionInput ? actionInput.value : "task"
+      });
       if (!result.ok) state.commandMessage = result.errors.join("; ");
     });
     return;

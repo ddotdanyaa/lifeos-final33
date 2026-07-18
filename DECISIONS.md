@@ -363,3 +363,47 @@ prompt chain -> state-change toggle -> the date value appears in both Today's an
 Calendar's new system-schedule sections without becoming a task. Full audit loop (only red
 = expected dirty tree) and G-E2E-CORE + the new spec together (14 passed/1 skipped) green.
 Rebuilt public-demo.
+
+## P3.3 SYSTEM_TRIGGERS_LITE
+
+**Decision: every trigger fires through the exact same dry-run-proposal pipeline as the
+existing manual "flow dry-run" feature (`runFlowBuilderDryRun`), not a new apply path.**
+Why: the plan explicitly requires "сперва dry-run, apply после подтверждения" - the
+proposal-apply system (open/apply/dismiss, already fully built) already IS that
+confirmation gate. Building a second confirm-then-apply mechanism for triggers would
+duplicate the one that already exists and is already tested.
+
+**Decision: on-field-change detection compares old vs. new field values as strings after
+validation**, in `updateSystemRecord`, rather than trusting which keys the caller passed in
+`rawValues`. Why: the Builder's edit flow (native prompts) always re-supplies every field
+whether or not the owner actually changed it, so "was a key present in rawValues" would
+fire the trigger on every edit regardless of whether anything changed - comparing resolved
+values is what "on-field-change" actually means.
+
+**Decision: daily triggers are evaluated inside `normalizeState`** (guarded by a
+`lastFiredDay` string compared to `todayKey()`, so it only actually creates a proposal once
+per system+trigger+calendar day no matter how many times normalizeState runs that day).
+Why: this app has no background scheduler/cron - normalizeState already runs on every load
+and every commit, so it's the only hook that reliably observes a day boundary during
+normal use. The result is still an ordinary, visible proposal requiring owner confirmation,
+not a hidden action - matches the "explicit and never hidden" architecture invariant even
+though it fires without an explicit user click.
+
+**Found and documented a pre-existing gap while building this, not something P3.3 caused:**
+`state.proposals` (and the flowRuns/proposals created by both the old manual flow dry-run
+and now by triggers) are not rendered anywhere in the live chat-first shell - the
+`proposal-panel`/`apply-proposal` UI only exists in app.js's dead `renderCaptureCockpit`
+functions. `apply-proposal` the *action* still works fine; there's just no visible way to
+see or click it yet. Out of scope for this package (Files list didn't include a proposal
+UI); documented in BLOCKED.md as a good candidate for the Phase 4 Agents/Flows work, which
+already touches this area.
+
+**Verified end-to-end:** extended `system-factory.spec.mjs` with a second test - added an
+on-create trigger via Builder, created a matching record, and confirmed via
+`getStateSnapshot()` that a new proposal (status "open", `mutationMode: "proposal-only"`)
+and flowRun appeared, while `state.tasks` stayed exactly unchanged - proving the trigger
+truly only proposes, never mutates directly. New `tools/audit-system-factory.mjs` checks
+the "completeness formula" (a demo entity with two typed fields correctly validates good
+data and rejects bad data; a trigger normalizes correctly) plus static wiring checks. Full
+audit loop (only red = expected dirty tree), G-E2E-CORE + both system-factory tests (15
+passed/1 skipped) all green. Rebuilt public-demo.

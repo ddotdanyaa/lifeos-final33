@@ -1,6 +1,6 @@
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
 import { button, compactText, escapeHtml, providerLabel, renderArtifactByMode, safeList } from "./components/shared.js";
-import { RENDERER_MODES, SYSTEM_FIELD_TYPES, VIEW_PRESET_DENSITIES, VIEW_PRESET_GROUPINGS, presentArtifact } from "../artifact-os-architecture.mjs";
+import { RENDERER_MODES, SYSTEM_FIELD_TYPES, SYSTEM_TRIGGER_KINDS, VIEW_PRESET_DENSITIES, VIEW_PRESET_GROUPINGS, presentArtifact } from "../artifact-os-architecture.mjs";
 
 function live(values) {
   return Object.values(values || {}).filter((item) => !item.deleted);
@@ -162,6 +162,21 @@ function systemRecordForm(system, entity, records, entityIndex, viewRenderer) {
   ].join("");
 }
 
+function systemTriggerForm(system) {
+  const entityOptions = system.entities.map((entity) => `<option value="${escapeHtml(entity.name)}">${escapeHtml(entity.name)}</option>`).join("");
+  return [
+    `<div class="v34-form" data-testid="system-trigger-form">`,
+    `<input type="hidden" id="builder-trigger-system" value="${escapeHtml(system.id)}">`,
+    `<label><span>Условие</span><select id="builder-trigger-kind">${SYSTEM_TRIGGER_KINDS.map((kind) => `<option value="${escapeHtml(kind)}">${escapeHtml(kind)}</option>`).join("")}</select></label>`,
+    `<label><span>Сущность</span><select id="builder-trigger-entity">${entityOptions}</select></label>`,
+    `<label><span>Поле (для on-field-change)</span><input id="builder-trigger-field" autocomplete="off" value=""></label>`,
+    `<label><span>Действие</span><select id="builder-trigger-action"><option value="task">задача</option><option value="note">заметка</option><option value="calendar">блок календаря</option></select></label>`,
+    button("add-system-trigger", "Добавить триггер", { kind: "primary", testId: "add-system-trigger", disabled: !system.entities.length }),
+    safeList(system.triggers, (trigger) => `<div class="trigger-row" data-testid="system-trigger-row"><strong>${escapeHtml(trigger.kind)}</strong><span>${escapeHtml(trigger.entityName + (trigger.fieldName ? "." + trigger.fieldName : "") + " -> " + trigger.actionType)}</span></div>`, `<div class="empty-inline">Триггеров пока нет.</div>`),
+    `</div>`
+  ].join("");
+}
+
 function installedPackRow(pack) {
   return [
     `<article class="v34-object-row" data-testid="installed-pack-row">`,
@@ -210,6 +225,10 @@ export function renderSystems(ctx, variant = "systems") {
       `<section class="v34-panel" data-testid="system-records-panel">`,
       `<header><h3>Записи</h3>${systemViewSwitch(focusedSystem.id, (ctx.designStudio?.viewPresets?.["system:" + focusedSystem.id]?.renderer) || "table-row")}</header>`,
       focusedSystem.entities.map((entity, entityIndex) => systemRecordForm(focusedSystem, entity, records.filter((record) => record.systemId === focusedSystem.id && record.entityName === entity.name), entityIndex, (ctx.designStudio?.viewPresets?.["system:" + focusedSystem.id]?.renderer) || "table-row")).join(""),
+      `</section>`,
+      `<section class="v34-panel" data-testid="system-triggers-panel">`,
+      `<header><h3>Триггеры (dry-run -> предложение)</h3></header>`,
+      systemTriggerForm(focusedSystem),
       `</section>`
     ].join("") : "",
     `</div>`
