@@ -1728,7 +1728,7 @@ function fireSystemTriggerDryRun(state, system, trigger, record) {
   const createdAt = now();
   if (!flow) {
     const flowId = makeId("flow");
-    flow = { id: flowId, systemTriggerId: trigger.id, name: "Триггер: " + system.title + " / " + trigger.kind, steps: [], status: "ready", runCount: 0, createdAt, updatedAt: createdAt };
+    flow = { id: flowId, systemTriggerId: trigger.id, name: "Триггер: " + system.title + " / " + trigger.kind, steps: [], status: "ready", runCount: 0, budget: { limit: 20, used: 0 }, killSwitch: false, createdAt, updatedAt: createdAt };
     state.flows[flowId] = flow;
   }
   flow.steps = [
@@ -2596,6 +2596,10 @@ function normalizeState(input) {
     flow.steps = Array.isArray(flow.steps) ? flow.steps : [];
     flow.status = cleanLine(flow.status || "ready");
     flow.runCount = Number.isFinite(Number(flow.runCount)) ? Number(flow.runCount) : 0;
+    flow.budget = flow.budget && typeof flow.budget === "object" ? flow.budget : {};
+    flow.budget.limit = Number.isFinite(Number(flow.budget.limit)) && Number(flow.budget.limit) > 0 ? Number(flow.budget.limit) : 20;
+    flow.budget.used = Number.isFinite(Number(flow.budget.used)) ? Number(flow.budget.used) : 0;
+    flow.killSwitch = Boolean(flow.killSwitch);
     flow.createdAt = flow.createdAt || now();
     flow.updatedAt = flow.updatedAt || flow.createdAt;
   }
@@ -2606,6 +2610,8 @@ function normalizeState(input) {
     run.noteId = state.notes[run.noteId] && !state.notes[run.noteId].deleted ? run.noteId : "";
     run.summary = String(run.summary || "");
     run.proposalIds = Array.isArray(run.proposalIds) ? run.proposalIds.filter((proposalId) => state.proposals[proposalId]) : [];
+    run.stepResults = Array.isArray(run.stepResults) ? run.stepResults : [];
+    run.health = ["alive", "degraded", "failed"].includes(run.health) ? run.health : "alive";
     run.createdAt = run.createdAt || now();
     run.updatedAt = run.updatedAt || run.createdAt;
   }
@@ -5288,6 +5294,59 @@ function applyProposal(state, proposalId) {
   rebuildIndexes(state);
 }
 
+// Real flow execution (P4.1): a flowRun's pending proposals are applied for real,
+// step by step, against the repository - not just "created as a proposal" like the
+// dry-run stage. Each step is isolated (a failing step cannot crash the commit or
+// block the remaining steps) and counted against the flow's budget; a kill switch
+// blocks execution entirely without deleting anything.
+function executeFlowRun(state, runId) {
+  const run = state.flowRuns[runId];
+  if (!run) return { ok: false, errors: ["Запуск не найден"] };
+  const flow = state.flows[run.flowId];
+  if (!flow) return { ok: false, errors: ["Сценарий не найден"] };
+  if (flow.killSwitch) {
+    run.status = "killed";
+    addAudit(state, "flow.run", "Сценарий \"" + flow.name + "\" остановлен kill switch", run.noteId);
+    return { ok: false, errors: ["Сценарий остановлен через kill switch"] };
+  }
+  if (flow.budget.used >= flow.budget.limit) {
+    run.status = "budget_exceeded";
+    addAudit(state, "flow.run", "Бюджет сценария \"" + flow.name + "\" исчерпан", run.noteId);
+    return { ok: false, errors: ["Бюджет сценария исчерпан (" + flow.budget.limit + " запусков)"] };
+  }
+  flow.budget.used += 1;
+  const stepResults = [];
+  for (const proposalId of run.proposalIds) {
+    try {
+      const proposal = state.proposals[proposalId];
+      if (!proposal || proposal.status !== "open") {
+        stepResults.push({ proposalId, status: "skipped", error: "" });
+        continue;
+      }
+      applyProposal(state, proposalId);
+      const applied = state.proposals[proposalId];
+      stepResults.push({ proposalId, status: applied && applied.status === "applied" ? "ok" : "skipped", error: "" });
+    } catch (error) {
+      stepResults.push({ proposalId, status: "failed", error: error && error.message ? error.message : String(error) });
+    }
+  }
+  run.stepResults = stepResults;
+  const failedCount = stepResults.filter((step) => step.status === "failed").length;
+  run.health = failedCount === 0 ? "alive" : failedCount === stepResults.length ? "failed" : "degraded";
+  run.status = "executed";
+  run.updatedAt = now();
+  addAudit(state, "flow.run", "Сценарий \"" + flow.name + "\" выполнен: " + (stepResults.length - failedCount) + "/" + stepResults.length + " шагов ок" + (failedCount ? ", " + failedCount + " с ошибкой (изолировано)" : ""), run.noteId);
+  return { ok: true, errors: [], health: run.health };
+}
+
+function toggleFlowKillSwitch(state, flowId) {
+  const flow = state.flows[flowId];
+  if (!flow) return;
+  flow.killSwitch = !flow.killSwitch;
+  flow.updatedAt = now();
+  addAudit(state, "flow.kill-switch", "Kill switch сценария \"" + flow.name + "\": " + (flow.killSwitch ? "включен" : "выключен"), "");
+}
+
 function applyAllProposals(state) {
   const ids = Object.values(state.proposals || {})
     .filter((proposal) => proposal.status === "open")
@@ -5371,6 +5430,8 @@ function runFlowBuilderDryRun(state, trigger, condition, actionType) {
       steps: [],
       status: "ready",
       runCount: 0,
+      budget: { limit: 20, used: 0 },
+      killSwitch: false,
       createdAt,
       updatedAt: createdAt
     };
@@ -7747,6 +7808,7 @@ function buildNewShellContext(state, activeNote) {
     financeAccounts: Object.values(state.financeAccounts || {}).filter((item) => !item.deleted),
     financeSummary: financeSummary(state),
     flowRuns: Object.values(state.flowRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
+    flows: Object.values(state.flows || {}),
     agentRuns: Object.values(state.agentRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     feedEvents: lifeFeedEvents(state),
     goals,
@@ -12877,6 +12939,19 @@ async function handleAction(action, id) {
     const flowAction = document.querySelector("#flow-action");
     await store.commit("Flow dry run completed", (state) => {
       runFlowBuilderDryRun(state, trigger ? trigger.value : "", condition ? condition.value : "", flowAction ? flowAction.value : "task");
+    });
+    return;
+  }
+  if (action === "execute-flow-run") {
+    await store.commit("Flow run executed", (state) => {
+      const result = executeFlowRun(state, id);
+      if (!result.ok) state.commandMessage = result.errors.join("; ");
+    });
+    return;
+  }
+  if (action === "toggle-flow-kill-switch") {
+    await store.commit("Flow kill switch toggled", (state) => {
+      toggleFlowKillSwitch(state, id);
     });
     return;
   }

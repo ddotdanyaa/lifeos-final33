@@ -174,7 +174,7 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 - [x] P3.1 SYSTEM_FIELDS_TYPED — 2026-07-18: entities are now {name, fields:[{name,type,options,required}]} (text/number/date/select/relation) with validateSystemRecordFields(); createSystemRecord() writes real systemRecords for the first time; Builder UI edits fields + creates records; found+fixed a Cyrillic-name id-collision bug via e2e verification; G-SMOKE/G-ARCH/G-E2E-CORE green
 - [x] P3.2 SYSTEM_VIEWS_ACTIONS — 2026-07-18: list/table/card views via P2.1 registry (per-system ViewPreset reuse), update/state-change actions with receipts (updateSystemRecord/toggleSystemRecordState), date-typed fields project into Today/Calendar; new output/playwright/system-factory.spec.mjs green
 - [x] P3.3 SYSTEM_TRIGGERS_LITE — 2026-07-18: declarative on-create/on-field-change/daily triggers fire dry-run proposals via the existing proposal-apply flow, never mutate directly; new tools/audit-system-factory.mjs (completeness formula); found+documented pre-existing gap (proposals not rendered in live shell, see BLOCKED.md); e2e proves trigger fires without direct mutation
-- [ ] P4.1 FLOW_EXEC_REAL
+- [x] P4.1 FLOW_EXEC_REAL — 2026-07-18: executeFlowRun() applies a flowRun's proposals for real against the repository, isolated per-step (try/catch -> health alive/degraded/failed), budget counter + kill switch; found+fixed a real crash bug (flow.budget undefined on same-render new flows, since normalizeState only re-runs on reload not per-commit); new output/playwright/flow-execution.spec.mjs green; G-E2E-J's one failure (Ollama probe) confirmed pre-existing/environmental (no local daemon), not caused by this package
 - [ ] P4.2 AGENT_GUARDED_RUNS
 - [ ] P5.1 OLLAMA_LIVE
 - [ ] P5.2 BYOK_VAULT_ROUTING

@@ -1,7 +1,18 @@
 import { button, escapeHtml, publicText } from "./shared.js";
 
+function flowBudgetRow(flow) {
+  return [
+    `<div class="flow-budget-row" data-testid="flow-budget-row">`,
+    `<strong>${escapeHtml(flow.name)}</strong>`,
+    `<span data-testid="flow-budget">${flow.budget.used}/${flow.budget.limit} запусков</span>`,
+    button("toggle-flow-kill-switch", flow.killSwitch ? "Включить сценарий" : "Kill switch", { id: flow.id, kind: flow.killSwitch ? "primary" : "danger", testId: "toggle-flow-kill-switch" }),
+    `</div>`
+  ].join("");
+}
+
 export function renderFlowCanvas(ctx) {
   const runs = ctx.flowRuns || [];
+  const flows = ctx.flows || [];
   const stages = [
     ["Trigger", "Новое событие"],
     ["Condition", "Условие"],
@@ -30,8 +41,20 @@ export function renderFlowCanvas(ctx) {
     `<div class="flow-builder" data-testid="flow-builder">`,
     button("run-flow-builder", "Проверить сценарий", { kind: "primary", testId: "run-flow-builder" }),
     `</div>`,
+    `<div class="flow-budget-list" data-testid="flow-budget-list">${flows.map(flowBudgetRow).join("") || ""}</div>`,
     `<div class="execution-history" data-testid="execution-history">`,
-    runs.slice(0, 5).map((run) => `<div data-testid="flow-run-row"><strong>${escapeHtml(publicText(run.title || run.kind || "Проверка"))}</strong><span>предложение создано · ${escapeHtml(publicText(run.summary || run.status || "ожидает подтверждения"))}</span><em data-testid="approval-row">ожидает подтверждения</em></div>`).join("") || `<div><strong>Пока нет запусков</strong><span>Dry-run создаст запись перед любым действием.</span></div>`,
+    runs.slice(0, 5).map((run) => [
+      `<div data-testid="flow-run-row">`,
+      `<strong>${escapeHtml(publicText(run.title || run.kind || "Проверка"))}</strong>`,
+      `<span>предложение создано · ${escapeHtml(publicText(run.summary || run.status || "ожидает подтверждения"))}</span>`,
+      `<mark data-testid="flow-run-health" data-health="${escapeHtml(run.health || "alive")}">${escapeHtml(run.health || "alive")}</mark>`,
+      run.status === "executed"
+        ? `<em data-testid="approval-row">выполнено</em>`
+        : (run.proposalIds || []).length
+          ? button("execute-flow-run", "Выполнить", { id: run.id, kind: "primary", testId: "execute-flow-run" })
+          : `<em data-testid="approval-row">ожидает подтверждения</em>`,
+      `</div>`
+    ].join("")).join("") || `<div><strong>Пока нет запусков</strong><span>Dry-run создаст запись перед любым действием.</span></div>`,
     `</div>`
   ].join("");
 }

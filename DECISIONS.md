@@ -407,3 +407,45 @@ the "completeness formula" (a demo entity with two typed fields correctly valida
 data and rejects bad data; a trigger normalizes correctly) plus static wiring checks. Full
 audit loop (only red = expected dirty tree), G-E2E-CORE + both system-factory tests (15
 passed/1 skipped) all green. Rebuilt public-demo.
+
+## P4.1 FLOW_EXEC_REAL
+
+**Decision: "execution" reuses the existing `applyProposal()` dispatcher (task/note/plan/
+finance/etc, already exhaustive) applied to a flowRun's `proposalIds` in sequence, rather
+than inventing new executable step types.** Why: applying a proposal already IS "a flow
+step executing against the repository for real" (it calls the real `addTask`/
+`addPlanBlock`/etc creation functions, which already write their own receipts via P1.2's
+classifier) - the only genuinely new things P4.1 needed were: doing it as an explicit,
+owner-triggered batch action per flowRun, isolating failures per step, and adding
+budget/kill-switch gates in front of it.
+
+**Found and fixed a real crash bug via e2e testing, not caught by manual review:**
+`ReactiveStore.commit()` does NOT call `normalizeState()` on every commit - it clones the
+current (already-normalized) state, runs the mutator, and renders immediately with that
+raw result; `normalizeState()` only runs again later, asynchronously, inside `repo.save()`.
+This meant a brand-new flow object created by `runFlowBuilderDryRun`/
+`fireSystemTriggerDryRun` in the SAME commit that's about to render did NOT yet have the
+`budget`/`killSwitch` fields I'd only added to normalizeState's migration loop - the very
+first synchronous render after creating a flow crashed with "Cannot read properties of
+undefined (reading 'used')", caught by the app's own repository-boundary error screen (not
+a silent bug - the app's isolation actually worked as designed and stopped a crash from
+propagating, but the feature itself was broken). Fixed by adding `budget`/`killSwitch`
+directly to both flow-creation object literals, matching this codebase's established
+pattern (every `add*`/`create*` function sets all of its own object's fields at creation
+time rather than depending on a later normalize pass) - the normalizeState migration stays
+as the correct safety net for old persisted flows only.
+
+**Confirmed G-E2E-J's one failing case (J15, Ollama probe expecting `models_found`) is
+pre-existing and environmental, not caused by this package**: verified by `git stash`-ing
+all P4.1 changes and re-running - it fails identically on the untouched P3.3 baseline
+(this machine has no local Ollama daemon running with models loaded). P5.1
+OLLAMA_LIVE is the package that actually addresses this gate's real coverage.
+
+**Verified end-to-end** with a new `output/playwright/flow-execution.spec.mjs`: run a flow
+dry-run -> execute it for real (task count increases, `flow.budget.used` becomes 1,
+`flowRun.health` is "alive") -> flip the kill switch -> a second dry-run+execute attempt on
+the same flow creates no new task (blocked, not silently ignored) -> confirmed the rest of
+the app (Today surface) stays fully usable afterward, proving a blocked/failed flow never
+takes down the product. Full audit loop (only red = expected dirty tree), G-E2E-CORE +
+system-factory + flow-execution together (16 passed/1 skipped) all green. Rebuilt
+public-demo.
