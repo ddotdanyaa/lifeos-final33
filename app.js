@@ -8670,6 +8670,8 @@ function buildNewShellContext(state, activeNote) {
     semanticSearchReport: state.control.semanticSearchReport || null,
     backupRestoreReport: state.control.backupRestoreReport ? { filename: state.control.backupRestoreReport.filename, summary: state.control.backupRestoreReport.summary } : null,
     packInstallPreview: state.control.packInstallPreview || null,
+    healthRegistry: computeHealthRegistry(state),
+    healthAlerts: healthRegistryAlerts(state),
     mergeReview: Object.values(state.control.mergeReview || {}).map((entry) => ({
       id: entry.id,
       sourceId: entry.sourceId,
@@ -12471,6 +12473,92 @@ function undoLastTrashAction(state) {
   restoreTrashItem(state, mostRecent.kind, mostRecent.id);
   addAudit(state, "control.undo", "Отменено последнее удаление: " + mostRecent.title, "");
   return true;
+}
+
+// Health Registry (P9.1): every subsystem's real signal (provider status, embeddings test
+// result, semantic index freshness, storage headroom) normalized into one canonical
+// vocabulary, so Control can show the whole picture and Feed can surface genuine
+// degradations - never a fabricated or duplicated health source, always a derived view
+// over state that already exists.
+const HEALTH_STATES = ["alive", "starting", "degraded", "failed", "disabled", "updating", "requires_config", "permission_blocked", "provider_unavailable", "index_stale"];
+
+const PROVIDER_STATUS_HEALTH_MAP = {
+  unchecked: "starting",
+  "not-connected": "provider_unavailable",
+  "not-configured": "requires_config",
+  "permission-required": "permission_blocked",
+  "parser-required": "requires_config",
+  "needs-owner-credentials": "requires_config",
+  "local-only": "alive",
+  reachable: "starting",
+  models_found: "starting",
+  generation_ok: "alive",
+  offline: "provider_unavailable",
+  blocked: "provider_unavailable",
+  blocked_by_browser_or_cors: "provider_unavailable",
+  degraded: "degraded",
+  error: "failed",
+  revoked: "disabled",
+  "service-worker-ready": "alive",
+  "service-worker-error": "failed",
+  unsupported: "disabled",
+  embeddings_ok: "alive",
+  provider_unavailable: "provider_unavailable"
+};
+
+function mapProviderStatusToHealth(status) {
+  return PROVIDER_STATUS_HEALTH_MAP[String(status || "")] || "starting";
+}
+
+// Only these states represent a genuine regression worth interrupting Feed for - baseline
+// "not yet configured" states (provider_unavailable/requires_config/permission_blocked/
+// starting/index_stale/disabled) are expected on a fresh local-first install and must not
+// turn the first screen into a cockpit of checks.
+const HEALTH_FEED_ALERT_STATES = new Set(["degraded", "failed"]);
+
+function computeHealthRegistry(state) {
+  const rows = [];
+  for (const [key, provider] of Object.entries(state.providers || {})) {
+    rows.push({
+      key: "provider:" + key,
+      label: provider.label || key,
+      health: provider.revokedAt ? "disabled" : mapProviderStatusToHealth(provider.status),
+      detail: provider.requiredAction || provider.lastError || "",
+      updatedAt: provider.lastCheckedAt || ""
+    });
+  }
+  rows.push({
+    key: "ollama-embeddings",
+    label: "Ollama эмбеддинги",
+    health: state.ollama.embeddingsStatus === "embeddings_ok" ? "alive" : state.ollama.embeddingsStatus === "provider_unavailable" ? "provider_unavailable" : "starting",
+    detail: state.ollama.lastEmbeddingsError || "",
+    updatedAt: state.ollama.lastEmbeddingsCheckedAt || ""
+  });
+  const index = state.control.semanticIndex || {};
+  const vectorCount = Object.keys(index.vectors || {}).length;
+  const liveNoteCount = Object.values(state.notes || {}).filter((note) => !note.deleted).length;
+  rows.push({
+    key: "semantic-index",
+    label: "Семантический индекс",
+    health: !vectorCount ? "disabled" : vectorCount < liveNoteCount ? "index_stale" : "alive",
+    detail: vectorCount + "/" + liveNoteCount + " заметок проиндексировано",
+    updatedAt: index.updatedAt || ""
+  });
+  const storageQuota = Number(state.environment.storageQuota || 0);
+  const storageUsage = Number(state.environment.storageUsage || 0);
+  const storageRatio = storageQuota ? storageUsage / storageQuota : 0;
+  rows.push({
+    key: "storage",
+    label: "Storage / IndexedDB",
+    health: storageRatio > 0.95 ? "failed" : storageRatio > 0.8 ? "degraded" : "alive",
+    detail: Math.round(storageUsage / 1024) + " KB из " + (storageQuota ? Math.round(storageQuota / 1024 / 1024) + " MB" : "неизвестного объёма"),
+    updatedAt: state.environment.updatedAt || ""
+  });
+  return rows;
+}
+
+function healthRegistryAlerts(state) {
+  return computeHealthRegistry(state).filter((row) => HEALTH_FEED_ALERT_STATES.has(row.health));
 }
 
 function controlObjectCounts(state) {

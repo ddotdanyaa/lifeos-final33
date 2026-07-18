@@ -1005,3 +1005,37 @@ and verifies every one reverts (system soft-deleted, pack back to "available"). 
 loop (only red = expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs`
 (2 passed), `pack-manifest-enforce.spec.mjs` (still green after the roster grew) all green.
 Rebuilt public-demo.
+
+## P9.1 HEALTH_REGISTRY_PANEL
+
+**Decision:** `state.providers` already tracks a real per-subsystem status string for 14
+providers (Ollama, mail, calendar sync, PDF/EPUB parsers, OCR/STT, smart home, etc.), each
+with its own honest status vocabulary ("not-connected", "parser-required",
+"permission-required", ...) - but that vocabulary is inconsistent across providers and
+there was no single canonical view of "is everything OK." Rather than building a second,
+separate health-tracking system that could drift from the real provider state,
+`computeHealthRegistry()` is a pure derived view: it maps each provider's real status (plus
+Ollama embeddings, semantic-index freshness, and Storage/IndexedDB headroom) into the
+plan's 10-state canonical vocabulary, computed fresh on every render from
+`buildNewShellContext()` - there is no `state.control.healthRegistry` to store or drift out
+of sync.
+
+**Found:** A literal "show every non-alive subsystem in Feed" would flood the feed with
+"OCR requires config" / "mail not connected" on every fresh install, since most providers
+start in an honest but unconfigured baseline state - directly contradicting this project's
+own "no cockpit first screen" rule ([[lifeos-nav-decision]]-adjacent). `HEALTH_FEED_ALERT_STATES`
+narrows Feed's banner to only `degraded`/`failed` - genuine regressions, not "hasn't been set
+up yet." Control still shows the complete registry (all 10 states, all subsystems), since
+that surface is explicitly the technical-proof view where "OCR requires config" is useful
+signal, not noise.
+
+**Verified end-to-end:** new `tools/audit-health.mjs` statically confirms all 10 canonical
+states are declared, `computeHealthRegistry`/`healthRegistryAlerts` exist and are wired into
+the live context (not just defined and unused), and both Control and Feed render their
+respective sections. `output/playwright/health-registry.spec.mjs` proves the baseline case
+first (Control shows a real `requires_config` row for the PDF parser; Feed shows no alert
+banner at all), then triggers a real degradation - Ollama probe succeeds but `/api/generate`
+genuinely fails (mocked 500) - and confirms the *same* real `degraded` state appears in both
+Feed's alert banner and Control's registry row, proving there's one source of truth, not two.
+Full audit loop (only red = expected dirty tree), G-E2E-CORE (13 passed/1 skipped),
+`kb-smoke.spec.mjs` (2 passed) all green. Rebuilt public-demo.

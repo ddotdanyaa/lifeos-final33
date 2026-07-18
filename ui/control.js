@@ -113,6 +113,31 @@ function backupRestorePreview(report) {
   ].join("");
 }
 
+const HEALTH_LABELS = {
+  alive: "работает",
+  starting: "запускается",
+  degraded: "частично работает",
+  failed: "не работает",
+  disabled: "отключено",
+  updating: "обновляется",
+  requires_config: "нужна настройка",
+  permission_blocked: "нужно разрешение",
+  provider_unavailable: "не подключено",
+  index_stale: "индекс устарел"
+};
+
+function healthLabel(health) {
+  return HEALTH_LABELS[health] || health;
+}
+
+function healthRows(rows) {
+  return safeList(
+    rows,
+    (row) => `<div class="recovery-row health-row" data-testid="health-row" data-health="${escapeHtml(row.health)}"><span>${escapeHtml(row.label)}</span><mark data-testid="health-state">${escapeHtml(healthLabel(row.health))}</mark>${row.detail ? `<em>${escapeHtml(compactText(row.detail, 90))}</em>` : ""}</div>`,
+    `<div class="empty-inline" data-testid="health-empty">Подсистемы ещё не проверены.</div>`
+  );
+}
+
 function obsidianScanPreview(report) {
   if (!report) {
     return `<div class="empty-inline" data-testid="obsidian-scan-empty">Vault ещё не отсканирован.</div>`;
@@ -167,6 +192,7 @@ export function renderControl(ctx) {
   const snapshots = ctx.control?.rollbackSnapshots || [];
   const corruptRecords = ctx.control?.corruptRecords || [];
   const mergeReview = ctx.mergeReview || [];
+  const healthRegistry = ctx.healthRegistry || [];
   const obsidianScanReport = ctx.obsidianScanReport || null;
   const backupRestoreReport = ctx.backupRestoreReport || null;
   const trashItems = ctx.trashItems || [];
@@ -205,6 +231,7 @@ export function renderControl(ctx) {
     `<section class="recovery-list" data-testid="merge-review-list"><h4>Дубликаты на рассмотрении</h4><strong data-testid="merge-review-count">${mergeReview.length}</strong>${mergeReviewRows(mergeReview)}</section>`,
     `<section class="recovery-list" data-testid="obsidian-bridge-section"><h4>Obsidian vault</h4>${button("import-obsidian-vault", "Импорт vault", { kind: "ghost", testId: "import-obsidian-vault" })}${button("export-obsidian-vault", "Экспорт в Obsidian", { kind: "ghost", testId: "export-obsidian-vault" })}${obsidianScanPreview(obsidianScanReport)}</section>`,
     `<section class="recovery-list" data-testid="backup-restore-section"><h4>Восстановление бэкапа</h4>${backupRestorePreview(backupRestoreReport)}</section>`,
+    `<section class="recovery-list" data-testid="health-registry-section"><h4>Состояние подсистем</h4>${healthRows(healthRegistry)}</section>`,
     renderInspectorDrawer(ctx),
     `<details class="dev-state-panel" data-testid="dev-state"><summary>Состояние разработки</summary><div data-testid="dev-state-panel"><div data-testid="architecture-contract"><strong>Product Brain</strong><span>Доступен только здесь, в графе через фильтр разработки и в чате через /dev. Artifact OS contract: ввод -> артефакт -> проекции -> граф -> контроль.</span><mark data-testid="architecture-validation">ок</mark>${button("set-surface", "Открыть граф разработки", { id: "graph", kind: "ghost" })}</div></div></details>`,
     `</aside>`,

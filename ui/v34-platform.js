@@ -56,10 +56,21 @@ function importJobRow(job) {
   ].join("");
 }
 
+function healthAlertBanner(alerts) {
+  if (!alerts || !alerts.length) return "";
+  return [
+    `<section class="v34-panel health-alert-banner" data-testid="feed-health-alerts">`,
+    `<header><h3>Деградация подсистем</h3></header>`,
+    alerts.map((row) => `<div class="health-alert-row" data-testid="feed-health-alert-row" data-health="${escapeHtml(row.health)}"><strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(row.detail || row.health)}</span></div>`).join(""),
+    `</section>`
+  ].join("");
+}
+
 export function renderFeed(ctx) {
   const channels = sortRecent(live(ctx.channels));
   const events = sortRecent(ctx.feedEvents || []).slice(0, 24);
   const importJobs = (ctx.importJobs || []).slice(0, 5);
+  const healthAlerts = ctx.healthAlerts || [];
   const body = [
     `<div class="v34-workspace v34-feed-workspace" data-testid="feed-workspace">`,
     `<section class="v34-overview">`,
@@ -68,6 +79,7 @@ export function renderFeed(ctx) {
     miniStat("источники", String((ctx.sources || []).length), "blue"),
     miniStat("следы аудита", String((ctx.auditLog || []).length), "red"),
     `</section>`,
+    healthAlertBanner(healthAlerts),
     importJobs.length ? `<section class="v34-panel" data-testid="import-jobs-panel"><header><h3>Фоновые импорты</h3></header>${importJobs.map(importJobRow).join("")}</section>` : "",
     `<div class="v34-split">`,
     `<section class="v34-panel">`,
