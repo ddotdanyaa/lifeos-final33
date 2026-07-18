@@ -1168,3 +1168,33 @@ interaction (nav click to workspace render) measured 22.7ms against a 1500ms bud
 echoed in its output (not just `ok: true`). Full audit loop (only red = expected dirty
 tree), `npm run verify`, G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all
 green. No app.js/ui changes this package, so no public-demo rebuild was needed.
+
+## P10.4 UX_COHERENCE
+
+**Decision:** `docs/qc/FINAL_UI_HUMAN_AUDIT.md` was last updated 2026-06-26, before almost
+all of this session's work - its 15-workspace scorecard and `tools/audit-human-ux-final.mjs`'s
+matching `requiredWorkspaces` list had no coverage at all for the 11 v34 workspaces
+(Feed, Systems, Builder, Проекты, Model Hub, Умный дом, Marketplace, Design Studio, Базы,
+Screen Companion, Personal Twin) built or substantially matured in P2-P9. Added honest
+9-scored rows for all 11, each grounded in a specific capability actually e2e-verified this
+session (e.g. Marketplace's row cites the real install/uninstall/rollback proof from P8.1,
+not a generic claim), and extended the audit script's required-workspace list so the gate
+now actually enforces all 26 rather than silently ignoring 11 of them.
+
+**Found:** The command palette (`commandPaletteItems()`) already covered all 26 nav
+surfaces - cross-checked line by line against `ui/shell.js`'s `primaryNav`/`secondaryNav`
+and found a 1:1 match - so "covers every v34 surface" needed no fix. What it lacked was any
+System Factory-specific action (only generic surface navigation and quick-capture
+templates), so added one real "Новая система (Factory)" entry that navigates to the Builder
+- deliberately not a form-filling shortcut, since the actual creation form
+(`#system-title`/`#system-kind`) only exists on the Builder page itself and command-palette
+items can't safely fill DOM inputs that aren't rendered yet.
+
+**Verified end-to-end:** `output/playwright/ux-coherence.spec.mjs` drives the real command
+palette (not the source array) - for each of the 26 surfaces, types the exact rendered
+title into the palette's search box and confirms the matching row appears, then confirms
+the new Factory action's row appears under a "Factory" search and genuinely navigates to
+the Builder (`builder-workspace` visible, `state.activeSurface === "builder"`). Full audit
+loop (only red = expected dirty tree), `audit:primary-ui-language` + `audit:visual-hierarchy`
++ `audit:human-ux-final` (26 workspaces) + G-E2E-CORE (13 passed/1 skipped) +
+`kb-smoke.spec.mjs` (2 passed) all green. Rebuilt public-demo.

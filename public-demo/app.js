@@ -3339,6 +3339,7 @@ function commandPaletteItems(state) {
     { id: "quick:task", group: "Быстрое действие", title: "Новая задача из захвата", hint: "Откроет capture-first шаблон задачи", shortcut: "N T" },
     { id: "quick:expense", group: "Быстрое действие", title: "Новый расход", hint: "Откроет шаблон расхода и финансы", shortcut: "N F" },
     { id: "quick:habit", group: "Быстрое действие", title: "Новая привычка", hint: "Откроет шаблон привычки", shortcut: "N H" },
+    { id: "quick:system", group: "Быстрое действие", title: "Новая система (Factory)", hint: "Откроет Конструктор для создания типизированной системы", shortcut: "N S" },
     { id: "action:capture", group: "Быстрое действие", title: "Разобрать текущий ввод", hint: "Создаст источник и предложения без скрытых изменений", shortcut: "Enter" },
     { id: "action:apply-safe", group: "Быстрое действие", title: "Принять безопасные предложения", hint: openProposals ? openProposals + " открытых предложений" : "Откроет очередь предложений", shortcut: "A A" },
     { id: "action:graph-active", group: "Связи", title: "Показать связи активного артефакта", hint: activeNote ? activeNote.title : "Выбери артефакт в базе", shortcut: "G ." },
@@ -3435,6 +3436,12 @@ function runCommandPaletteCommand(state, id) {
     state.activeSurface = "capture";
     state.commandPaletteOpen = false;
     addAudit(state, "command.run", "Команда открыла быстрый ввод привычки", state.activeNoteId);
+    return;
+  }
+  if (id === "quick:system") {
+    state.activeSurface = "builder";
+    state.commandPaletteOpen = false;
+    addAudit(state, "command.run", "Команда открыла Конструктор для новой системы", state.activeNoteId);
     return;
   }
   if (id === "action:capture") {

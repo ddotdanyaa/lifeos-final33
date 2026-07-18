@@ -17,7 +17,18 @@ const requiredWorkspaces = [
   "Graph",
   "Control",
   "Providers",
-  "Mobile"
+  "Mobile",
+  "Feed",
+  "Systems",
+  "Builder",
+  "Проекты",
+  "Model Hub",
+  "Умный дом",
+  "Marketplace",
+  "Design Studio",
+  "Базы",
+  "Screen Companion",
+  "Personal Twin"
 ];
 
 const problems = [];

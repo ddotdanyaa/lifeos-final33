@@ -2,7 +2,7 @@
 
 STATUS: CONTINUATION_REQUIRED
 
-Updated: 2026-06-26 after `P_WORKSPACE_9PLUS_VISUAL_POLISH`.
+Updated: 2026-07-18 after `P10.4 UX_COHERENCE` — added the 11 v34 workspaces (Feed through Personal Twin) built/matured across this session's P2-P9 packages, which were previously outside this scorecard's coverage.
 
 Scores are deliberately strict. A score below 9 is a local product gate unless the remaining limitation is an external/provider setup with an honest UI gate and local fallback.
 
@@ -23,6 +23,17 @@ Scores are deliberately strict. A score below 9 is a local product gate unless t
 | Control | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_REVALIDATED: development state, export/recover, rollback snapshots, corruption isolation |
 | Providers | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 10 | 9 | PASS_WITH_EXTERNAL_GATES: passports show setup, data boundary, revoke and local fallback without fake ready |
 | Mobile | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_REVALIDATED_WITH_PERMISSION_GATE: capture-first mobile path and no horizontal overflow proof |
+| Feed | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS: unified event stream, background import progress, honest health-degradation banner (only genuine degraded/failed states, never baseline unconfigured noise) |
+| Systems | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS: typed entities/fields/views, dry-run-only triggers, real records with per-view rendering, e2e-proven completeness |
+| Builder | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS: same Factory surface as Systems (creation-focused variant), position-indexed field ids fix a real Cyrillic-name collision |
+| Проекты | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS: project hub links tasks/decisions/risks/documents into one connected system |
+| Model Hub | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_WITH_OLLAMA_GATE: model route passports, masked BYOK vault, per-call locality receipts, no silent cloud calls |
+| Умный дом | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_WITH_HUB_GATE: device/event map, explicit local-hub connection boundary, no hidden device control |
+| Marketplace | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS: 10 real starter packs, manifest validation + install preview, uninstall with a real rollback-snapshot proof |
+| Design Studio | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS: view presets (renderer/density/grouping) separated from data, no migration required to change display |
+| Базы | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS: relational rows/views/graph export on the same repository, no separate database engine |
+| Screen Companion | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_WITH_PERMISSION_GATE: explicit owner permission required before any screen context is read, manual fallback otherwise |
+| Personal Twin | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS: snapshots are real restorable recovery points (not just a summary), a genuine restore drill proven e2e |
 
 ## F01-F25 Coverage
 
