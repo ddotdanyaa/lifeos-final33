@@ -25,6 +25,30 @@ function renderReviewEntry(reviewItem) {
   return `<div class="knowledge-card${done ? " done" : ""}" data-testid="review-row"><strong>${escapeHtml(compactText(reviewItem.title, 80))}</strong><span>${escapeHtml(reviewItem.day || "")}</span>${button("toggle-review-item", done ? "Вернуть" : "Готово", { id: reviewItem.id, kind: "ghost", testId: "toggle-review-item" })}</div>`;
 }
 
+function semanticSearchSection(ctx) {
+  const report = ctx.semanticSearchReport || null;
+  const index = ctx.semanticIndex || {};
+  const rows = report && report.status === "embeddings_ok"
+    ? safeList(
+        report.results,
+        (result) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(result.noteId)}" data-testid="semantic-result-row"><strong>${escapeHtml(result.title)}</strong><span data-testid="semantic-result-score">${Math.round(result.score * 100)}%</span></button>`,
+        `<div class="empty-inline" data-testid="semantic-search-empty">По смыслу ничего не найдено.</div>`
+      )
+    : "";
+  return [
+    `<section class="info-panel semantic-search-panel" data-testid="semantic-search-panel">`,
+    `<div class="section-title">Семантический поиск</div>`,
+    `<label>Запрос<input id="semantic-search-input" data-testid="semantic-search-input" autocomplete="off" aria-label="Семантический поиск" placeholder="Найти заметки по смыслу"></label>`,
+    button("run-semantic-search", "Найти по смыслу", { kind: "ghost", testId: "run-semantic-search" }),
+    `<div><span>Индекс: ${index.vectorCount || 0} заметок${index.model ? " (" + escapeHtml(index.model) + ")" : ""}</span></div>`,
+    report && report.status !== "embeddings_ok"
+      ? `<div class="empty-inline" data-testid="semantic-search-unavailable">Семантический поиск недоступен: ${escapeHtml(report.reason || "провайдер эмбеддингов не подключён")}</div>`
+      : "",
+    report && report.status === "embeddings_ok" ? `<div data-testid="semantic-search-results">${rows}</div>` : "",
+    `</section>`
+  ].join("");
+}
+
 function renderControlTrail(ctx, noteId) {
   const forNote = (list) => (list || []).filter((item) => item.noteId === noteId);
   const rows = [
@@ -77,6 +101,7 @@ export function renderLibrary(ctx) {
     `<aside class="knowledge-cards"><h3>Выводы</h3>${safeList(claims.slice(0, 8), renderClaimEntry, `<div class="empty-inline">Инсайты появятся из чтения, аудио и заметок.</div>`)}<h3>Вопросы</h3>${safeList(questions.slice(0, 6), renderQuestionEntry, `<div class="empty-inline">Вопросы станут задачами без потери источника.</div>`)}<h3>Повторение</h3>${safeList(reviewItems.slice(0, 6), renderReviewEntry, `<div class="empty-inline">Карточка повторения появится после извлечения смысла.</div>`)}</aside>`,
     `</div>`,
     renderBookWorkbenchPanel(ctx),
+    semanticSearchSection(ctx),
     active ? renderControlTrail(ctx, active.id) : ""
   ].join("");
   return renderWorkspaceLayout("library", "База знаний", "Заметки, wikilinks, backlinks, источники и карточки знания.", body, { testId: "workspace-library", kicker: "Знания" });

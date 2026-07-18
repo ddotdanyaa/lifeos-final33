@@ -1089,6 +1089,10 @@ function createInitialState() {
       lastGenerationStatus: "",
       lastGenerationSample: "",
       lastLatencyMs: 0,
+      embeddingsStatus: "unchecked",
+      embeddingsModel: "",
+      lastEmbeddingsError: "",
+      lastEmbeddingsCheckedAt: "",
       scopes: ["active-artifact-analysis"],
       revokedAt: ""
     },
@@ -2236,6 +2240,10 @@ function normalizeState(input) {
       lastGenerationStatus: "",
       lastGenerationSample: "",
       lastLatencyMs: 0,
+      embeddingsStatus: "unchecked",
+      embeddingsModel: "",
+      lastEmbeddingsError: "",
+      lastEmbeddingsCheckedAt: "",
       scopes: ["active-artifact-analysis"],
       revokedAt: ""
     }, base.ollama || {}),
@@ -2254,6 +2262,8 @@ function normalizeState(input) {
       mergeReview: {},
       importJobs: {},
       obsidianScanReport: null,
+      semanticIndex: { endpoint: "", model: "", vectors: {}, vectorCount: 0, updatedAt: "" },
+      semanticSearchReport: null,
       privacyZones: {
         local: "active",
         providers: "gated",
@@ -6714,6 +6724,103 @@ async function testOllamaGeneration(endpoint, model) {
   };
 }
 
+// Semantic search (P6.5): local vector index over notes via Ollama /api/embeddings, only
+// attempted after the owner explicitly tests embeddings (status "embeddings_ok") - never
+// speculative, honest provider_unavailable otherwise, no fake similarity scores.
+async function fetchOllamaEmbedding(endpoint, model, text) {
+  const base = String(endpoint || "").replace(/\/+$/, "");
+  const response = await fetch(base + "/api/embeddings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, prompt: String(text || "").slice(0, 4000) })
+  });
+  if (!response.ok) throw new Error("Ollama embeddings responded with HTTP " + response.status);
+  const payload = await response.json();
+  const embedding = Array.isArray(payload.embedding) ? payload.embedding : null;
+  if (!embedding || !embedding.length) throw new Error("Ollama embeddings returned no vector");
+  return embedding;
+}
+
+async function testOllamaEmbeddings(endpoint, model) {
+  const base = String(endpoint || "").replace(/\/+$/, "");
+  const selectedModel = cleanLine(model || "");
+  if (!selectedModel) throw new Error("No Ollama model selected for /api/embeddings test.");
+  const startedAt = Date.now();
+  const embedding = await fetchOllamaEmbedding(base, selectedModel, "LifeOS local embeddings provider check.");
+  return {
+    endpoint: base,
+    model: selectedModel,
+    status: "embeddings_ok",
+    dims: embedding.length,
+    latencyMs: Math.max(1, Date.now() - startedAt)
+  };
+}
+
+function cosineSimilarity(a, b) {
+  const len = Math.min(a.length, b.length);
+  if (!len) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < len; i += 1) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (!normA || !normB) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+async function buildSemanticIndexVectors(endpoint, model, notes) {
+  const vectors = {};
+  const capped = notes.slice(0, 200);
+  for (const note of capped) {
+    const text = cleanLine((note.title || "") + " " + (note.body || ""));
+    if (!text) continue;
+    try {
+      vectors[note.id] = await fetchOllamaEmbedding(endpoint, model, text);
+    } catch (error) {
+      // skip a single failing note rather than aborting the whole index build
+    }
+  }
+  return { model, vectors, indexedCount: Object.keys(vectors).length, skippedCount: capped.length - Object.keys(vectors).length };
+}
+
+function applySemanticIndex(state, endpoint, result) {
+  state.control.semanticIndex = {
+    endpoint,
+    model: result.model,
+    vectors: result.vectors,
+    vectorCount: result.indexedCount,
+    updatedAt: now()
+  };
+  recordProviderRun(state, "ollama", "semantic-index", "embeddings_ok", "Semantic index built: " + result.indexedCount + " заметок (" + result.skippedCount + " пропущено)", { indexedCount: result.indexedCount, skippedCount: result.skippedCount, model: result.model });
+  addAudit(state, "search.semantic.index", "Семантический индекс построен: " + result.indexedCount + " заметок", "");
+}
+
+function applySemanticSearchResults(state, query, queryEmbedding) {
+  const index = state.control.semanticIndex || { vectors: {} };
+  const scored = [];
+  for (const [noteId, embedding] of Object.entries(index.vectors || {})) {
+    const note = state.notes[noteId];
+    if (!note || note.deleted) continue;
+    const score = cosineSimilarity(queryEmbedding, embedding);
+    if (score >= 0.15) scored.push({ noteId, title: note.title || "Заметка", score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  state.control.semanticSearchReport = {
+    query,
+    status: "embeddings_ok",
+    results: scored.slice(0, 8),
+    checkedAt: now()
+  };
+  addAudit(state, "search.semantic.query", "Семантический поиск: \"" + query + "\" (" + scored.length + " совпадений)", "");
+}
+
+function blockSemanticSearch(state, query, status, reason) {
+  state.control.semanticSearchReport = { query, status, reason: cleanLine(reason || ""), results: [], checkedAt: now() };
+}
+
 // Live Ollama chat (P5.1): the full local generation path, used only when the owner
 // has already explicitly probed AND tested generation (status "generation_ok") - never
 // attempted speculatively. Citations point back to the real notes the prompt was built
@@ -8363,6 +8470,12 @@ function buildNewShellContext(state, activeNote) {
     reviewItems: Object.values(state.reviewItems || {}).filter((item) => !item.deleted),
     systemRecordSchedule: systemRecordDateEntries(state),
     obsidianScanReport: state.control.obsidianScanReport || null,
+    semanticIndex: {
+      model: (state.control.semanticIndex || {}).model || "",
+      vectorCount: Object.keys((state.control.semanticIndex || {}).vectors || {}).length,
+      updatedAt: (state.control.semanticIndex || {}).updatedAt || ""
+    },
+    semanticSearchReport: state.control.semanticSearchReport || null,
     mergeReview: Object.values(state.control.mergeReview || {}).map((entry) => ({
       id: entry.id,
       sourceId: entry.sourceId,
@@ -14502,6 +14615,78 @@ async function handleAction(action, id) {
   }
   if (action === "ollama-dry-run") {
     await store.commit("Ollama proposal dry run", (state) => createOllamaProposalDryRun(state, "Analyze active artifact and return proposal drafts only"));
+    return;
+  }
+  if (action === "test-ollama-embeddings") {
+    const endpointInput = document.querySelector("#ollama-endpoint");
+    const endpoint = endpointInput ? cleanLine(endpointInput.value) : store.state.ollama.endpoint;
+    const model = store.state.ollama.selectedModel || (store.state.ollama.models || [])[0] || "";
+    if (!model) {
+      await store.commit("Ollama embeddings test blocked", (state) => {
+        state.ollama.embeddingsStatus = "provider_unavailable";
+        state.ollama.lastEmbeddingsError = "No Ollama model selected for /api/embeddings test.";
+        state.ollama.lastEmbeddingsCheckedAt = now();
+        recordProviderRun(state, "ollama", "test-embeddings", "blocked", "Ollama embeddings test blocked: no model selected", { endpoint });
+      });
+      return;
+    }
+    const confirmed = window.confirm("Run local Ollama /api/embeddings test on " + model + " at " + endpoint + "?");
+    if (!confirmed) return;
+    try {
+      const result = await testOllamaEmbeddings(endpoint, model);
+      await store.commit("Ollama embeddings test completed", (state) => {
+        state.ollama.embeddingsStatus = "embeddings_ok";
+        state.ollama.embeddingsModel = result.model;
+        state.ollama.lastEmbeddingsError = "";
+        state.ollama.lastEmbeddingsCheckedAt = now();
+        recordProviderRun(state, "ollama", "test-embeddings", "embeddings_ok", "Ollama /api/embeddings ok on " + result.model + " (" + result.dims + " dims) in " + result.latencyMs + "ms", result);
+        addAudit(state, "ollama.embeddings.test", "Ollama /api/embeddings test ok on " + result.model, state.activeNoteId);
+      });
+    } catch (error) {
+      await store.commit("Ollama embeddings test failed", (state) => {
+        state.ollama.embeddingsStatus = "provider_unavailable";
+        state.ollama.lastEmbeddingsError = error && error.message ? error.message : String(error);
+        state.ollama.lastEmbeddingsCheckedAt = now();
+        recordProviderRun(state, "ollama", "test-embeddings", "provider_unavailable", "Ollama /api/embeddings failed: " + state.ollama.lastEmbeddingsError, { endpoint, model });
+        addAudit(state, "ollama.embeddings.test", "Ollama /api/embeddings failed: " + state.ollama.lastEmbeddingsError, state.activeNoteId);
+      });
+    }
+    return;
+  }
+  if (action === "build-semantic-index") {
+    if (store.state.ollama.embeddingsStatus !== "embeddings_ok") {
+      await store.commit("Semantic index build blocked", (state) => {
+        recordProviderRun(state, "ollama", "semantic-index", "provider_unavailable", "Semantic index build blocked: embeddings not connected", {});
+      });
+      return;
+    }
+    const endpoint = store.state.ollama.endpoint;
+    const model = store.state.ollama.embeddingsModel || store.state.ollama.selectedModel;
+    const notes = Object.values(store.state.notes).filter((note) => !note.deleted && note.systemType !== "product_brain");
+    const result = await buildSemanticIndexVectors(endpoint, model, notes);
+    await store.commit("Semantic index built", (state) => applySemanticIndex(state, endpoint, result));
+    return;
+  }
+  if (action === "run-semantic-search") {
+    const input = document.querySelector("#semantic-search-input");
+    const query = cleanLine(input ? input.value : "");
+    if (!query) return;
+    if (store.state.ollama.embeddingsStatus !== "embeddings_ok" || !Object.keys((store.state.control.semanticIndex || {}).vectors || {}).length) {
+      await store.commit("Semantic search blocked", (state) => {
+        blockSemanticSearch(state, query, "provider_unavailable", store.state.ollama.embeddingsStatus !== "embeddings_ok" ? "провайдер эмбеддингов не подключён" : "семантический индекс пуст - сначала построй его");
+      });
+      return;
+    }
+    const endpoint = store.state.ollama.endpoint;
+    const model = store.state.control.semanticIndex.model;
+    try {
+      const queryEmbedding = await fetchOllamaEmbedding(endpoint, model, query);
+      await store.commit("Semantic search completed", (state) => applySemanticSearchResults(state, query, queryEmbedding));
+    } catch (error) {
+      await store.commit("Semantic search failed", (state) => {
+        blockSemanticSearch(state, query, "provider_unavailable", error && error.message ? error.message : String(error));
+      });
+    }
     return;
   }
   if (action === "revoke-provider") {

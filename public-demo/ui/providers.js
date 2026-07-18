@@ -9,6 +9,8 @@ function providerAction(key, provider) {
   if (key === "ollama") {
     actions.push(button("probe-ollama", "Проверить подключение", { kind: "primary", testId: "probe-provider-ollama" }));
     actions.push(button("test-ollama-generation", "Тест генерации", { kind: "ghost", testId: "test-provider-ollama-generation" }));
+    actions.push(button("test-ollama-embeddings", "Тест эмбеддингов", { kind: "ghost", testId: "test-provider-ollama-embeddings" }));
+    actions.push(button("build-semantic-index", "Построить семантический индекс", { kind: "ghost", testId: "build-semantic-index" }));
   }
 
   if (key === "pwa") {
@@ -52,7 +54,17 @@ function pwaPassport(provider) {
   ].join("");
 }
 
-function providerCard(key, provider = {}) {
+function semanticIndexPassport(ctx) {
+  const index = ctx.semanticIndex || {};
+  return [
+    `<div class="provider-mini-passport" data-testid="semantic-index-panel">`,
+    `<div><span>Семантический индекс</span><strong data-testid="semantic-index-count">${index.vectorCount || 0} заметок</strong></div>`,
+    `<div><span>Модель</span><strong data-testid="semantic-index-model">${escapeHtml(index.model || "не построен")}</strong></div>`,
+    `</div>`
+  ].join("");
+}
+
+function providerCard(key, provider = {}, ctx) {
   const label = provider.label || key;
   const status = providerLabel(provider.status);
   const summary = provider.requiredAction || provider.fallback || "Локальный режим работает без внешней отправки данных.";
@@ -67,6 +79,7 @@ function providerCard(key, provider = {}) {
     `</header>`,
     `<p>${escapeHtml(summary)}</p>`,
     key === "pwa" ? pwaPassport(provider) : "",
+    key === "ollama" ? semanticIndexPassport(ctx || {}) : "",
     `<div class="provider-boundary"><span>Что остаётся локально</span><strong>${escapeHtml(localBoundary)}</strong></div>`,
     `<div class="provider-actions">${providerAction(key, provider)}</div>`,
     `</article>`
@@ -99,7 +112,7 @@ export function renderProviders(ctx) {
     `<div class="providers-layout" data-testid="provider-panel">`,
     safeList(
       providers,
-      (row) => providerCard(row.key, row.provider),
+      (row) => providerCard(row.key, row.provider, ctx),
       `<div class="empty-inline">Подключения появятся после проверки среды.</div>`
     ),
     byokVaultSection(ctx),

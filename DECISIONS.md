@@ -802,3 +802,42 @@ receipt; the scan report clears after confirm. A second scan on a different fold
 cancelled and produces zero new notes. Export triggers a real `lifeos-obsidian-export.zip`
 download. Full audit loop (only red = expected dirty tree), G-E2E-KB (`kb-smoke.spec.mjs`,
 2 passed), G-E2E-CORE (13 passed/1 skipped) all green. Rebuilt public-demo.
+
+## P6.5 SEMANTIC_SEARCH_GATED
+
+**Decision:** Reuse the existing `state.ollama` provider passport rather than inventing a
+separate embeddings-provider object - embeddings are just another capability of the same
+local Ollama daemon, so `embeddingsStatus`/`embeddingsModel`/`lastEmbeddingsError` live
+alongside the existing chat fields. Gating mirrors P5.1's chat pattern exactly: a real
+`/api/embeddings` call only fires after the owner clicks "Тест эмбеддингов" (with a
+`window.confirm`), and the semantic index is only built after that test reports
+`embeddings_ok` - never spun up speculatively. The index itself
+(`state.control.semanticIndex.vectors`) stores one real embedding per note, computed via
+sequential `/api/embeddings` calls capped at 200 notes so a large vault can't hang the UI
+on a single index-build click; per-note failures are skipped rather than aborting the whole
+build (a bad note shouldn't block the rest of the vault from being searchable).
+
+**Found:** Cosine similarity is computed for real (`cosineSimilarity()`, dot product over
+vector norms) with a hard 0.15 floor - results below that are dropped rather than shown with
+a low badge, because a fabricated-looking "12% match" is worse than not surfacing a result
+at all (`Семантический поиск недоступен` is shown instead whenever the provider isn't
+connected or the index is empty, never a silently-empty results list masquerading as "no
+matches"). While building the e2e proof, a real product-adjacent test-authoring bug turned
+up: `page.on("dialog", d => d.accept())` with no text silently no-ops LifeOS's `new-note`
+prompt (`promptValue()` returns `""` and the action bails via `if (!title) return`), so all
+of the test's later note edits were accidentally being applied to a pre-existing seeded
+BYOK note instead of a new note - fixed by supplying the intended title to `dialog.accept()`
+per `new-note` click (the same technique `kb-smoke.spec.mjs` already uses), not by changing
+`new-note`'s behavior, which is correct as-is.
+
+**Verified end-to-end:** `output/playwright/semantic-search.spec.mjs` proves, in order: (1)
+semantic search is honestly unavailable before any embeddings work has happened; (2) a
+mocked `/api/embeddings` 500 makes the embeddings test honestly fail
+(`embeddingsStatus=provider_unavailable`), never faking success; (3) a working mock makes
+the test genuinely pass; (4) two real notes on unrelated topics get indexed with mock
+embeddings that diverge by topic; (5) building the index produces a real vector per note;
+(6) querying "кофе" ranks the coffee note at 100% confidence and excludes the unrelated
+mountain note by real cosine similarity, not a hardcoded result list. Full audit loop (only
+red = expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2
+passed), `ollama-live-chat.spec.mjs` (still green, confirming the embeddings passport
+addition didn't regress the existing chat passport) all green. Rebuilt public-demo.
