@@ -1039,3 +1039,39 @@ genuinely fails (mocked 500) - and confirms the *same* real `degraded` state app
 Feed's alert banner and Control's registry row, proving there's one source of truth, not two.
 Full audit loop (only red = expected dirty tree), G-E2E-CORE (13 passed/1 skipped),
 `kb-smoke.spec.mjs` (2 passed) all green. Rebuilt public-demo.
+
+## P9.2 FAILURE_INJECTION
+
+**Decision:** Rather than mocking network requests again (already the technique for
+Ollama/embeddings failures in P5.1/P6.5/P9.1), P9.2 needed failure injection that reaches
+places network mocking can't: the actual `KnowledgeRepository.save()` write path and a
+generic provider's status. Added `injectStorageFailureForTest(enabled)` (a flag checked at
+the very top of `save()`, so a real throw happens on the real code path) and
+`injectProviderFailureForTest(providerId)` (flips any real provider to "error" via a normal
+commit) as test-only hooks on `window.__lifeosKnowledgeBase`, matching the existing
+`backdateTrashItemForTest`/`resetForTest` convention.
+
+**Found:** Writing the storage-failure test surfaced a genuine, previously-untested bug:
+`ReactiveStore.persistCurrent()`'s catch block set `saveState = "error"` (correct) but then
+`throw error` again. Every one of the ~195 `await store.commit(...)` call sites in the
+codebase has no try/catch around it, so that rethrow became an unhandled promise rejection,
+which the existing global `unhandledrejection` listener treats as fatal - calling
+`renderError(bootError)` and replacing the entire UI with a crash screen. That is exactly
+the opposite of what "isolate failures, keep the app alive" requires: a storage hiccup
+would have taken down the whole interface, not just the storage indicator. Fixed by
+removing the rethrow - the write-queue's `.then(task, task)` chaining already self-heals on
+the next write regardless of whether the previous task's promise rejected, so nothing
+downstream actually depended on that exception propagating.
+
+**Verified end-to-end:** `output/playwright/failure-injection.spec.mjs` proves, against
+real failures (not mocks): (1) after injecting a PDF-provider failure, Control's health row
+and Feed's alert banner both show it, and a brand-new note can still be created normally;
+(2) after injecting a storage failure, creating a note still updates the UI immediately
+(the in-memory commit succeeds even though persistence doesn't), `#save-status` honestly
+shows "ошибка", Control's storage health row shows "failed", and Today/Graph/Library all
+stay fully navigable - the shell never disappears into a crash screen; (3) turning the
+injected failure off lets the very next save succeed, with `#save-status` returning to
+"сохранено" and every note created during the "outage" still present. Full audit loop (only
+red = expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2
+passed), `health-registry.spec.mjs` (still green after the saveState threading change) all
+green. Rebuilt public-demo.

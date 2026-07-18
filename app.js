@@ -929,6 +929,11 @@ class KnowledgeRepository {
   }
 
   async save(state) {
+    // Failure injection (P9.2): a test-only switch that makes the real persistence path
+    // genuinely throw, so recovery behavior (in-memory state survives, other surfaces stay
+    // usable, health honestly reports "failed") is proven against a real failure, not a
+    // mocked-away one.
+    if (this.simulateFailureForTest) throw new Error("Simulated storage failure (test injection)");
     const clean = normalizeState(state);
     clean.lastSavedAt = now();
     const text = JSON.stringify(clean);
@@ -8356,10 +8361,15 @@ class ReactiveStore {
           updateSaveStatus();
         }
       } catch (error) {
+        // Isolation (P9.2): a persistence failure must never crash the live UI. Record it
+        // honestly (saveState "error" -> Health Registry's storage row, bootError kept for
+        // diagnostics) and re-render with the in-memory state intact - never rethrow here,
+        // since every caller does `await store.commit(...)` with no catch, and rethrowing
+        // used to become an unhandled rejection that the global handler turned into a full
+        // renderError() crash screen, even though every other surface was still working.
         this.saveState = "error";
         bootError = error;
         render();
-        throw error;
       }
     });
   }
@@ -8441,7 +8451,7 @@ function render() {
   }
   const state = store.state;
   const activeNote = getActiveNote(state);
-  app.innerHTML = renderNewShell(buildNewShellContext(state, activeNote));
+  app.innerHTML = renderNewShell(buildNewShellContext(state, activeNote, { saveState: store.saveState }));
   if (state.commandPaletteOpen) {
     const input = document.getElementById("command-palette-query");
     if (input) {
@@ -8567,7 +8577,7 @@ function lifeFeedEvents(state) {
     .slice(0, 80);
 }
 
-function buildNewShellContext(state, activeNote) {
+function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
   const graph = mapGraph(state);
   const publicActiveNote = activeNote && activeNote.systemType !== "product_brain" ? activeNote : null;
   const selectedId = state.graphView.selectedNodeId || state.activeNoteId || "";
@@ -8670,8 +8680,8 @@ function buildNewShellContext(state, activeNote) {
     semanticSearchReport: state.control.semanticSearchReport || null,
     backupRestoreReport: state.control.backupRestoreReport ? { filename: state.control.backupRestoreReport.filename, summary: state.control.backupRestoreReport.summary } : null,
     packInstallPreview: state.control.packInstallPreview || null,
-    healthRegistry: computeHealthRegistry(state),
-    healthAlerts: healthRegistryAlerts(state),
+    healthRegistry: computeHealthRegistry(state, runtimeSignals.saveState),
+    healthAlerts: healthRegistryAlerts(state, runtimeSignals.saveState),
     mergeReview: Object.values(state.control.mergeReview || {}).map((entry) => ({
       id: entry.id,
       sourceId: entry.sourceId,
@@ -12516,7 +12526,7 @@ function mapProviderStatusToHealth(status) {
 // turn the first screen into a cockpit of checks.
 const HEALTH_FEED_ALERT_STATES = new Set(["degraded", "failed"]);
 
-function computeHealthRegistry(state) {
+function computeHealthRegistry(state, saveState) {
   const rows = [];
   for (const [key, provider] of Object.entries(state.providers || {})) {
     rows.push({
@@ -12550,15 +12560,17 @@ function computeHealthRegistry(state) {
   rows.push({
     key: "storage",
     label: "Storage / IndexedDB",
-    health: storageRatio > 0.95 ? "failed" : storageRatio > 0.8 ? "degraded" : "alive",
-    detail: Math.round(storageUsage / 1024) + " KB из " + (storageQuota ? Math.round(storageQuota / 1024 / 1024) + " MB" : "неизвестного объёма"),
+    health: saveState === "error" ? "failed" : storageRatio > 0.95 ? "failed" : storageRatio > 0.8 ? "degraded" : "alive",
+    detail: saveState === "error"
+      ? "Сохранение не удалось: изменения остаются только в памяти этой вкладки"
+      : Math.round(storageUsage / 1024) + " KB из " + (storageQuota ? Math.round(storageQuota / 1024 / 1024) + " MB" : "неизвестного объёма"),
     updatedAt: state.environment.updatedAt || ""
   });
   return rows;
 }
 
-function healthRegistryAlerts(state) {
-  return computeHealthRegistry(state).filter((row) => HEALTH_FEED_ALERT_STATES.has(row.health));
+function healthRegistryAlerts(state, saveState) {
+  return computeHealthRegistry(state, saveState).filter((row) => HEALTH_FEED_ALERT_STATES.has(row.health));
 }
 
 function controlObjectCounts(state) {
@@ -15531,6 +15543,23 @@ async function deleteRepositoryDatabasesForTest() {
   })));
 }
 
+// Failure injection test hooks (P9.2): force a real provider or storage failure so the
+// isolation drill (app alive, other surfaces work, degradation honestly shown) can be
+// proven against a genuine failure path rather than a mocked-away one.
+function injectStorageFailureForTest(enabled) {
+  if (repository) repository.simulateFailureForTest = Boolean(enabled);
+  return true;
+}
+
+async function injectProviderFailureForTest(providerId) {
+  if (!store || !store.state.providers[providerId]) return false;
+  await store.commit("Test: provider failure injected", (state) => {
+    state.providers[providerId] = Object.assign({}, state.providers[providerId], { status: "error", lastError: "Simulated provider failure (test injection)", lastCheckedAt: now() });
+    addAudit(state, "provider.failure.inject", "Simulated failure injected for provider: " + providerId, "");
+  });
+  return true;
+}
+
 async function backdateTrashItemForTest(kind, id, isoTimestamp) {
   if (!store) return false;
   await store.commit("Test: backdate trash item", (state) => {
@@ -15714,6 +15743,8 @@ window.__lifeosKnowledgeBase = {
   analyzeSourceArtifact,
   seedExactLargeVault,
   backdateTrashItemForTest,
+  injectStorageFailureForTest,
+  injectProviderFailureForTest,
   isolateCorruptRecord,
   recoverCorruptRecord,
   buildArchitectureSnapshot,

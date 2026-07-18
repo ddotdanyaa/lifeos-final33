@@ -27,8 +27,8 @@ if (!healthStatesMatch) {
 
 if (!app.includes("function computeHealthRegistry")) problems.push("app.js does not define computeHealthRegistry");
 if (!app.includes("function healthRegistryAlerts")) problems.push("app.js does not define healthRegistryAlerts");
-if (!app.includes("healthRegistry: computeHealthRegistry(state)")) problems.push("buildNewShellContext does not expose healthRegistry (derived live, not a stored duplicate)");
-if (!app.includes("healthAlerts: healthRegistryAlerts(state)")) problems.push("buildNewShellContext does not expose healthAlerts");
+if (!/healthRegistry:\s*computeHealthRegistry\(state/.test(app)) problems.push("buildNewShellContext does not expose healthRegistry (derived live, not a stored duplicate)");
+if (!/healthAlerts:\s*healthRegistryAlerts\(state/.test(app)) problems.push("buildNewShellContext does not expose healthAlerts");
 
 // --- Control panel shows the full registry ---
 if (!control.includes("health-registry-section") || !control.includes("health-row")) problems.push("ui/control.js does not render a health registry panel");
