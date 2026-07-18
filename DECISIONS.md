@@ -975,3 +975,33 @@ a real rollback snapshot recorded; restoring that snapshot genuinely un-deletes 
 closing the loop on "uninstall with rollback proven." Full audit loop (only red = expected
 dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all green.
 Rebuilt public-demo.
+
+## P8.2 TEN_STARTER_PACKS
+
+**Decision:** The plan names 10 specific pack categories (Capture, Daily-Time, Work, Money,
+Food-Health, Household, Travel, Learning-Media, Social, Builder-AI), but 4 packs already
+existed, already pass P8.1's e2e test by name (`pack-manifest-enforce.spec.mjs` filters on
+"CRM"), and already cover real ground: CRM (Social/Work-adjacent), Learning Hub
+(Learning-Media), Smart-home dashboard (Household-adjacent), Project cockpit (Work).
+Renaming or replacing them to force an exact 1:1 label match would churn working, tested
+code for no functional gain - the plan's real intent ("доказательство выразительности") is
+that the System Factory can express 10 *distinct life domains*, not that four specific
+strings get renamed. Added 6 new packs (Capture, Daily-Time, Money, Food-Health, Travel,
+Builder-AI) to reach 10 total, each following the exact same Package Contract shape P8.1
+established (spread `PACK_MANIFEST_DEFAULTS` for the four that don't need bespoke
+permissions, matching the smart-home pack's precedent for the one that does).
+
+**Found:** No pack ships any seeded sample rows (no fake transactions, fake meals, fake
+trips) - every pack is schema-only (entities/fields/views/actions), identical in kind to the
+four that already passed `audit-no-hardcoded-sample.mjs`; verified the audit still passes
+after adding six more schema-only manifests.
+
+**Verified end-to-end:** `output/playwright/ten-starter-packs.spec.mjs` reads the pack
+registry directly from state (not a hardcoded list of 10 names, so it can't silently drift
+from what's actually installed), asserts exactly 10 packs exist, then installs *all ten*
+through the real preview→confirm flow, verifying each produces a genuinely distinct
+`systemDefinitions` entry with real entities from its own manifest - then uninstalls all ten
+and verifies every one reverts (system soft-deleted, pack back to "available"). Full audit
+loop (only red = expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs`
+(2 passed), `pack-manifest-enforce.spec.mjs` (still green after the roster grew) all green.
+Rebuilt public-demo.
