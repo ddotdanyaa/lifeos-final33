@@ -377,9 +377,28 @@ export function renderSmartHome(ctx) {
   return renderWorkspaceLayout("smart-home", "Умный дом", "Карта устройств и событий без скрытого управления: локальный hub подключается только явно.", body, { testId: "workspace-smart-home", kicker: "Дом" });
 }
 
+function packInstallPreviewCard(preview) {
+  if (!preview) return "";
+  const migration = preview.migrationPreview || {};
+  return [
+    `<div class="pack-install-preview" data-testid="pack-install-preview">`,
+    `<div><strong>${escapeHtml(preview.title)}</strong></div>`,
+    preview.manifestOk
+      ? `<div data-testid="pack-manifest-ok"><span>Манифест валиден</span></div>`
+      : `<div data-testid="pack-manifest-invalid"><span>Манифест невалиден: ${escapeHtml((preview.manifestErrors || []).join("; "))}</span></div>`,
+    `<div data-testid="pack-migration-preview"><span>Создаст: ${migration.entitiesCreated || 0} entities, ${migration.fieldsCreated || 0} полей, ${migration.viewsCreated || 0} видов, ${migration.actionsCreated || 0} действий</span></div>`,
+    `<div class="pack-install-preview-actions">`,
+    button("confirm-pack-install", "Подтвердить установку", { id: preview.packId, kind: "primary", testId: "confirm-pack-install", disabled: !preview.manifestOk }),
+    button("cancel-pack-install", "Отменить", { id: preview.packId, kind: "ghost", testId: "cancel-pack-install" }),
+    `</div>`,
+    `</div>`
+  ].join("");
+}
+
 export function renderMarketplace(ctx) {
   const packs = sortRecent(live(ctx.marketplacePacks));
   const installed = sortRecent(live(ctx.installedPacks));
+  const preview = ctx.packInstallPreview || null;
   const body = [
     `<div class="v34-workspace v34-marketplace-workspace" data-testid="marketplace-workspace">`,
     `<section class="v34-overview">`,
@@ -393,13 +412,19 @@ export function renderMarketplace(ctx) {
     safeList(
       packs,
       (pack) => {
-        const isInstalled = installed.some((item) => item.packId === pack.id);
+        const installedPack = installed.find((item) => item.packId === pack.id);
+        const isInstalled = Boolean(installedPack);
+        const showPreview = preview && preview.packId === pack.id;
         return [
           `<article class="v34-pack-card" data-testid="marketplace-pack-row">`,
           `<header><strong>${escapeHtml(pack.title)}</strong><mark>${escapeHtml(pack.kind || "pack")}</mark></header>`,
           `<p>${escapeHtml(compactText(pack.description || "", 160))}</p>`,
           `<div class="v34-chip-line">${(pack.entities || []).slice(0, 4).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>`,
-          `<footer>${button("install-pack", isInstalled ? "Установлено" : "Установить локально", { id: pack.id, kind: isInstalled ? "ghost" : "primary", testId: "install-pack", disabled: isInstalled })}${graphButton(pack.id)}${noteButton(pack.noteId)}</footer>`,
+          `<footer>${isInstalled
+            ? button("uninstall-pack", "Удалить", { id: installedPack.id, kind: "danger", testId: "uninstall-pack" })
+            : button("install-pack", "Установить локально", { id: pack.id, kind: "primary", testId: "install-pack" })
+          }${graphButton(pack.id)}${noteButton(pack.noteId)}</footer>`,
+          showPreview ? packInstallPreviewCard(preview) : "",
           `</article>`
         ].join("");
       },

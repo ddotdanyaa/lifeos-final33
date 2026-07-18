@@ -1312,6 +1312,18 @@ const V34_DEFAULT_CHANNELS = [
   }
 ];
 
+// Package Contract (P8.1): every pack manifest must declare permissions/data-effects/
+// uninstall+rollback support/trust/compat so a pack can be validated before install, never
+// just assumed safe because it came from the marketplace list.
+const PACK_MANIFEST_DEFAULTS = {
+  permissions: ["local-storage-write"],
+  dataEffects: ["creates-system-definition", "creates-note"],
+  uninstallSupported: true,
+  rollbackSupported: true,
+  trust: "local-only",
+  compat: { minSchemaVersion: 3 }
+};
+
 const V34_MARKETPLACE_PACKS = [
   {
     id: "pack-crm-lite",
@@ -1321,7 +1333,8 @@ const V34_MARKETPLACE_PACKS = [
     entities: ["Контакт", "Сделка", "Follow-up"],
     fields: ["имя", "статус", "следующий шаг", "связанный проект"],
     views: ["таблица", "timeline", "карточки"],
-    actions: ["добавить клиента", "создать follow-up", "экспорт"]
+    actions: ["добавить клиента", "создать follow-up", "экспорт"],
+    ...PACK_MANIFEST_DEFAULTS
   },
   {
     id: "pack-learning-hub",
@@ -1331,7 +1344,8 @@ const V34_MARKETPLACE_PACKS = [
     entities: ["Курс", "Урок", "Конспект", "Повторение"],
     fields: ["источник", "прогресс", "следующее повторение", "проект"],
     views: ["reader", "граф", "повторение"],
-    actions: ["добавить источник", "вытащить цитаты", "создать задачу"]
+    actions: ["добавить источник", "вытащить цитаты", "создать задачу"],
+    ...PACK_MANIFEST_DEFAULTS
   },
   {
     id: "pack-smart-home-dashboard",
@@ -1341,7 +1355,13 @@ const V34_MARKETPLACE_PACKS = [
     entities: ["Комната", "Устройство", "Событие", "Сценарий"],
     fields: ["комната", "статус", "последнее событие", "разрешение"],
     views: ["dashboard", "timeline", "safety"],
-    actions: ["записать событие", "подготовить адаптер", "экспорт"]
+    actions: ["записать событие", "подготовить адаптер", "экспорт"],
+    permissions: ["local-storage-write", "smart-home-adapter-prepare"],
+    dataEffects: ["creates-system-definition", "creates-note"],
+    uninstallSupported: true,
+    rollbackSupported: true,
+    trust: "local-only",
+    compat: { minSchemaVersion: 3 }
   },
   {
     id: "pack-project-cockpit",
@@ -1351,9 +1371,35 @@ const V34_MARKETPLACE_PACKS = [
     entities: ["Проект", "Решение", "Риск", "Задача"],
     fields: ["статус", "дедлайн", "owner", "следующий шаг"],
     views: ["dashboard", "таблица", "graph"],
-    actions: ["добавить проект", "создать решение", "запустить agent dry-run"]
+    actions: ["добавить проект", "создать решение", "запустить agent dry-run"],
+    ...PACK_MANIFEST_DEFAULTS
   }
 ];
+
+// Package Contract validation: required manifest shape, checked before every install so a
+// malformed or untrusted pack is rejected rather than silently installed.
+function validatePackManifest(pack) {
+  const errors = [];
+  if (!pack || typeof pack !== "object") return { ok: false, errors: ["missing manifest"] };
+  for (const field of ["entities", "fields", "views", "actions", "permissions", "dataEffects"]) {
+    if (!Array.isArray(pack[field]) || !pack[field].length) errors.push("manifest." + field + " must be a non-empty array");
+  }
+  if (pack.uninstallSupported !== true) errors.push("manifest.uninstallSupported must be true");
+  if (pack.rollbackSupported !== true) errors.push("manifest.rollbackSupported must be true");
+  if (pack.trust !== "local-only") errors.push("manifest.trust must be \"local-only\" (no vendor code execution)");
+  if (!pack.compat || typeof pack.compat.minSchemaVersion !== "number") errors.push("manifest.compat.minSchemaVersion must be a number");
+  return { ok: errors.length === 0, errors };
+}
+
+function buildPackMigrationPreview(pack) {
+  return {
+    entitiesCreated: pack.entities.length,
+    fieldsCreated: pack.fields.length,
+    viewsCreated: pack.views.length,
+    actionsCreated: pack.actions.length,
+    dataEffects: pack.dataEffects
+  };
+}
 
 const V34_DESIGN_PROFILES = [
   {
@@ -1787,9 +1833,34 @@ function evaluateDailySystemTriggers(state) {
   }
 }
 
+function previewPackInstall(state, packId) {
+  const pack = state.marketplacePacks[packId];
+  if (!pack) return false;
+  const manifest = validatePackManifest(pack);
+  state.control.packInstallPreview = {
+    packId,
+    title: pack.title,
+    manifestOk: manifest.ok,
+    manifestErrors: manifest.errors,
+    migrationPreview: buildPackMigrationPreview(pack)
+  };
+  addAudit(state, "marketplace.install.preview", "Install preview for " + pack.title + ": " + (manifest.ok ? "manifest valid" : manifest.errors.join("; ")), pack.noteId);
+  return true;
+}
+
+function cancelPackInstall(state) {
+  state.control.packInstallPreview = null;
+}
+
 function installMarketplacePack(state, packId) {
   const pack = state.marketplacePacks[packId];
   if (!pack || pack.deleted) return "";
+  const manifest = validatePackManifest(pack);
+  if (!manifest.ok) {
+    recordProviderRun(state, "marketplace", "install", "manifest-invalid", "Install rejected, manifest invalid: " + manifest.errors.join("; "), { packId, errors: manifest.errors });
+    addAudit(state, "marketplace.install.reject", "Install rejected for " + pack.title + ": " + manifest.errors.join("; "), pack.noteId);
+    return "";
+  }
   const existing = Object.values(state.installedPacks || {}).find((item) => item.packId === packId && !item.deleted);
   if (existing) return existing.systemId || "";
   const installId = makeId("install");
@@ -1817,9 +1888,33 @@ function installMarketplacePack(state, packId) {
     updatedAt: createdAt,
     deleted: false
   };
+  state.marketplacePacks[packId].status = "installed";
+  state.control.packInstallPreview = null;
   recordProviderRun(state, "marketplace", "install", "installed", "Installed local system pack without vendor code: " + pack.title, { packId, systemId });
   addAudit(state, "marketplace.install", "Installed local system pack: " + pack.title, state.installedPacks[installId].noteId);
   return systemId;
+}
+
+function uninstallMarketplacePack(state, installId) {
+  const installed = state.installedPacks[installId];
+  if (!installed || installed.deleted) return false;
+  createRollbackSnapshot(state, "До удаления пака: " + installed.title);
+  installed.deleted = true;
+  installed.status = "uninstalled";
+  installed.updatedAt = now();
+  const system = state.systemDefinitions[installed.systemId];
+  if (system) {
+    system.deleted = true;
+    system.status = "uninstalled";
+    system.updatedAt = now();
+  }
+  if (state.marketplacePacks[installed.packId]) {
+    state.marketplacePacks[installed.packId].status = "available";
+    state.marketplacePacks[installed.packId].updatedAt = now();
+  }
+  recordProviderRun(state, "marketplace", "uninstall", "uninstalled", "Uninstalled local system pack with rollback snapshot: " + installed.title, { packId: installed.packId, systemId: installed.systemId });
+  addAudit(state, "marketplace.uninstall", "Uninstalled local system pack: " + installed.title, installed.noteId);
+  return true;
 }
 
 function createProject(state, title) {
@@ -2291,6 +2386,7 @@ function normalizeState(input) {
       semanticIndex: { endpoint: "", model: "", vectors: {}, vectorCount: 0, updatedAt: "" },
       semanticSearchReport: null,
       backupRestoreReport: null,
+      packInstallPreview: null,
       privacyZones: {
         local: "active",
         providers: "gated",
@@ -8507,6 +8603,7 @@ function buildNewShellContext(state, activeNote) {
     },
     semanticSearchReport: state.control.semanticSearchReport || null,
     backupRestoreReport: state.control.backupRestoreReport ? { filename: state.control.backupRestoreReport.filename, summary: state.control.backupRestoreReport.summary } : null,
+    packInstallPreview: state.control.packInstallPreview || null,
     mergeReview: Object.values(state.control.mergeReview || {}).map((entry) => ({
       id: entry.id,
       sourceId: entry.sourceId,
@@ -13551,6 +13648,10 @@ async function handleAction(action, id) {
     return;
   }
   if (action === "install-pack") {
+    await store.commit("V34 local pack install preview", (state) => previewPackInstall(state, id));
+    return;
+  }
+  if (action === "confirm-pack-install") {
     await store.commit("V34 local pack installed", (state) => {
       const systemId = installMarketplacePack(state, id);
       if (systemId) {
@@ -13558,6 +13659,16 @@ async function handleAction(action, id) {
         state.activeSurface = "systems";
       }
     });
+    return;
+  }
+  if (action === "cancel-pack-install") {
+    await store.commit("V34 local pack install cancelled", (state) => cancelPackInstall(state));
+    return;
+  }
+  if (action === "uninstall-pack") {
+    const confirmed = window.confirm("Удалить пак? Будет создан снимок отката перед удалением.");
+    if (!confirmed) return;
+    await store.commit("V34 local pack uninstalled", (state) => uninstallMarketplacePack(state, id));
     return;
   }
   if (action === "create-project") {

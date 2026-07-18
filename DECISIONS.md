@@ -943,3 +943,35 @@ drill: clicking "Восстановить контекст" brings back the firs
 disappear, with a `twin.restore` audit entry as evidence. Full audit loop (only red =
 expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all
 green. Rebuilt public-demo.
+
+## P8.1 PACK_MANIFEST_ENFORCE
+
+**Decision:** `installMarketplacePack()` previously installed unconditionally - every pack
+in `V34_MARKETPLACE_PACKS` was implicitly trusted just by being in the local registry array,
+with no manifest shape enforced and no way to uninstall at all. Added a real Package
+Contract: every pack manifest now declares `permissions`, `dataEffects`,
+`uninstallSupported`, `rollbackSupported`, `trust`, and `compat.minSchemaVersion` alongside
+the existing entities/fields/views/actions, and `validatePackManifest()` checks all of it
+before `installMarketplacePack()` will proceed - an invalid manifest is rejected with a
+`marketplace.install.reject` audit, never silently installed.
+
+**Found:** Following the same scan→preview→confirm/cancel convention already used for
+Obsidian import, merge review, and backup restore, added an explicit install-preview step
+(`previewPackInstall`/`buildPackMigrationPreview`) rather than making "Установить локально"
+install immediately - the plan specifically calls for "install preview includes migration
+preview," and a one-click install couldn't show anything before committing. Uninstall
+reused `createRollbackSnapshot()` (the same mechanism P7.1/P7.3 already lean on) rather than
+inventing pack-specific undo logic, so "uninstall with rollback proven" is provable with the
+existing rollback-restore path instead of new state-restore code.
+
+**Verified end-to-end:** extended `tools/audit-seven-contracts.mjs` with a Package Contract
+section (manifest field checks via `extractFunctionBody`, confirms `installMarketplacePack`
+calls `validatePackManifest` and `uninstallMarketplacePack` calls `createRollbackSnapshot`
+before mutating). `output/playwright/pack-manifest-enforce.spec.mjs` proves: the install
+preview shows a real manifest-valid badge and real entity/field counts (not hardcoded
+labels); confirming creates a real `systemDefinitions` entry with the manifest's actual
+entities; uninstalling soft-deletes that system and the pack becomes "available" again, with
+a real rollback snapshot recorded; restoring that snapshot genuinely un-deletes the system,
+closing the loop on "uninstall with rollback proven." Full audit loop (only red = expected
+dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all green.
+Rebuilt public-demo.

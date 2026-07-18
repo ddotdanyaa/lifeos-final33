@@ -123,6 +123,25 @@ for (const [name, body] of [["generateOllamaChatAnswer", generateOllamaChatAnswe
 }
 if (!app.includes("addChatMessage(state, \"assistant\", liveAnswer.text")) problems.push("live Ollama answers must be written via addChatMessage, not directly into notes/claims/insights");
 
+// --- Package Contract (P8.1): manifest declares types/views/workflows/permissions/
+// data-effects/uninstall/rollback/trust/compat, and is validated before every install ---
+const PACK_MANIFEST_FIELDS = ["entities", "fields", "views", "actions", "permissions", "dataEffects", "uninstallSupported", "rollbackSupported", "trust", "compat"];
+if (!app.includes("function validatePackManifest")) problems.push("app.js does not define validatePackManifest");
+const validatePackManifestBody = extractFunctionBody(app, "validatePackManifest");
+for (const field of PACK_MANIFEST_FIELDS) {
+  if (!validatePackManifestBody.includes(field)) problems.push(`Package Contract manifest missing check for field: ${field}`);
+}
+if (!app.includes("function buildPackMigrationPreview")) problems.push("app.js does not define buildPackMigrationPreview");
+if (!app.includes("function previewPackInstall")) problems.push("app.js does not define previewPackInstall (install preview must precede install)");
+const installMarketplacePackBody = extractFunctionBody(app, "installMarketplacePack");
+if (!installMarketplacePackBody) problems.push("app.js does not define installMarketplacePack");
+if (installMarketplacePackBody && !installMarketplacePackBody.includes("validatePackManifest")) problems.push("installMarketplacePack does not validate the manifest before installing");
+if (!app.includes("function uninstallMarketplacePack")) problems.push("app.js does not define uninstallMarketplacePack");
+const uninstallMarketplacePackBody = extractFunctionBody(app, "uninstallMarketplacePack");
+if (uninstallMarketplacePackBody && !uninstallMarketplacePackBody.includes("createRollbackSnapshot")) problems.push("uninstallMarketplacePack does not take a rollback snapshot before uninstalling");
+if (!app.includes("\"confirm-pack-install\"")) problems.push("app.js does not handle the confirm-pack-install action");
+if (!app.includes("\"uninstall-pack\"")) problems.push("app.js does not handle the uninstall-pack action");
+
 if (problems.length) fail("Seven Contracts audit failed", { problems });
 
 console.log(JSON.stringify({
@@ -134,5 +153,6 @@ console.log(JSON.stringify({
   strongMutationKinds: STRONG_MUTATION_KINDS.length,
   capabilityGrantFields: CAPABILITY_GRANT_FIELDS.length,
   aiMemoryGate: "generateOllamaChatAnswer/callModelRoute are pure model-call wrappers; AI content only reaches memory/graph via an open proposal",
-  note: "Object (P1.1) + Receipt (P1.2) + Capability/Locality (P1.3) contracts all covered"
+  packManifestFields: PACK_MANIFEST_FIELDS.length,
+  note: "Object (P1.1) + Receipt (P1.2) + Capability/Locality (P1.3) + Package (P8.1) contracts all covered"
 }, null, 2));
