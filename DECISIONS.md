@@ -624,3 +624,54 @@ counts at all, then used the one proposal-creation path that *is* live
 click a live "apply" button, since none exists yet (out of scope here, tracked separately).
 Full audit loop (only red = expected dirty tree), extended `audit:seven-contracts`,
 G-E2E-CORE + the new spec (14 passed/1 skipped) all green. Rebuilt public-demo.
+
+## P6.1 PDF_EPUB_LOCAL
+
+**Discovery: pdfjs-dist and fflate were installed in P0.5 but genuinely never imported
+anywhere in app.js** - every PDF/EPUB source has always shown "parser-required" with no
+code path that could ever change that, and fflate's role for the storage-compression
+fallback was also never actually wired (that fallback just returns uncompressed JSON -
+out of scope for this package, it's a different concern, noted but not touched).
+
+**Decision: `server.mjs` already serves any file under the repo root** (it has no
+path allowlist beyond preventing traversal out of root), so `import("./node_modules/
+pdfjs-dist/build/pdf.mjs")` and the fflate equivalent work directly as dynamic imports
+with zero server changes - confirmed by curling both paths for a real 200 before writing
+any parsing code.
+
+**Found and fixed a real bug via e2e testing: fflate's default `esm/index.mjs` imports
+`node:module` (`createRequire`) at the top level**, which no browser can resolve
+("Failed to resolve module specifier 'module'") - this only surfaced once EPUB parsing
+was actually exercised in a real browser, not from reading the code. fflate ships a
+dedicated `esm/browser.js` build with the identical `unzipSync`/`strFromU8` API and no
+Node-only imports; switched to that.
+
+**Decision: PDF parsing caps at 60 pages** (`Math.min(doc.numPages, 60)`) - an honest
+bound so a very large PDF degrades to "read the first N pages" rather than hanging
+indefinitely or exhausting memory; still real extraction, not a fake truncated summary.
+
+**Decision: parse failures are recorded on the source itself** (`source.parserError`,
+surfaced in the Reader UI as "ошибка парсера: <message>") and audited under
+`source.extract.failed` (deliberately NOT matching any Receipt-classifying suffix, since a
+failed attempt didn't actually change anything worth receipting) - `parserStatus` stays
+gated, `text` stays empty. Verified this concretely: a hand-crafted PDF fixture with no
+valid page/content structure genuinely fails pdf.js parsing and the UI shows the honest
+error, never a fabricated "text-ready".
+
+**Noted, not changed: `tools/build-public.mjs` does not copy `node_modules`** into the
+GitHub Pages public-demo build, so the dynamic import 404s there and this feature
+gracefully falls back to the pre-existing honest gate in that specific deployment target
+only. The real product (local/daemon/LAN server modes via `server.mjs`, where
+`node_modules` is present) gets full parsing. Copying `node_modules` into the public demo
+would bloat a "clean static preview" build for a capability that preview isn't meant to
+demonstrate; not worth the tradeoff.
+
+**Verified end-to-end** with a new `output/playwright/pdf-epub-local.spec.mjs`, generating
+real fixture files (a hand-built minimal-but-valid single-page PDF, and a real EPUB - zip
+container with container.xml/OPF/spine/chapter built via fflate itself, both containing
+distinctive text): uploaded each, clicked "Извлечь текст", confirmed the extracted text
+matches exactly and `parserStatus` becomes `text-ready`; then uploaded a deliberately
+invalid PDF and confirmed the failure path shows the honest error with `text` staying
+empty. Full audit loop (only red = expected dirty tree), `e2e:reader-player` (H09),
+G-E2E-CORE + kb-smoke + the new spec together (16 passed/1 skipped) all green. Rebuilt
+public-demo.

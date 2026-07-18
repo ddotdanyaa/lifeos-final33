@@ -6,8 +6,12 @@ function readingFor(ctx, sourceId) {
 
 function sourceStatus(source) {
   if (source.parserStatus === "text-ready" || source.status === "text-ready" || source.text) return "текст готов";
-  if (/\.(pdf|epub)$/i.test(source.name || "")) return "Формат ждёт парсер";
+  if (/\.(pdf|epub)$/i.test(source.name || "")) return source.parserError ? "ошибка парсера: " + source.parserError : "Формат ждёт парсер";
   return "сохранено";
+}
+
+function isGatedBook(source) {
+  return /\.(pdf|epub)$/i.test(source.name || "") && !source.text && Boolean(source.dataUrl);
 }
 
 export function renderBookWorkbenchPanel(ctx) {
@@ -31,7 +35,7 @@ export function renderReaderSurface(ctx) {
     `<h3>Очередь чтения</h3>`,
     safeList(books, (book) => {
       const reading = readingFor(ctx, book.id);
-      return `<article class="book-source-card" data-testid="book-source-card"><strong>${escapeHtml(book.name || "Текст")}</strong><span>${escapeHtml(sourceStatus(book))}</span>${reading ? `<em>${Math.round(reading.progress || 0)}%</em>` : ""}${button("open-source-note", "Открыть источник", { id: book.id, kind: "ghost" })}<input id="highlight-title-${escapeHtml(book.id)}" data-testid="highlight-title" aria-label="Текст цитаты" placeholder="Цитата или мысль"><span class="book-card-actions">${button("extract-highlights", "Найти цитаты", { id: book.id, kind: "ghost", testId: "extract-highlights" })}${button("add-highlight-entry", "Добавить цитату", { id: book.id, kind: "ghost", testId: "add-highlight-entry" })}</span>${reading ? `<label class="reading-progress-mini">Прогресс<input id="reading-progress-${escapeHtml(reading.id)}" data-testid="reading-progress" type="number" min="0" max="100" value="${escapeHtml(reading.progress || 0)}" aria-label="Прогресс чтения"></label>${button("update-reading-progress", "Сохранить", { id: reading.id, kind: "ghost", testId: "update-reading-progress" })}` : ""}</article>`;
+      return `<article class="book-source-card" data-testid="book-source-card"><strong>${escapeHtml(book.name || "Текст")}</strong><span>${escapeHtml(sourceStatus(book))}</span>${reading ? `<em>${Math.round(reading.progress || 0)}%</em>` : ""}${button("open-source-note", "Открыть источник", { id: book.id, kind: "ghost" })}${isGatedBook(book) ? button("extract-book-text", "Извлечь текст", { id: book.id, kind: "primary", testId: "extract-book-text" }) : ""}<input id="highlight-title-${escapeHtml(book.id)}" data-testid="highlight-title" aria-label="Текст цитаты" placeholder="Цитата или мысль"><span class="book-card-actions">${button("extract-highlights", "Найти цитаты", { id: book.id, kind: "ghost", testId: "extract-highlights" })}${button("add-highlight-entry", "Добавить цитату", { id: book.id, kind: "ghost", testId: "add-highlight-entry" })}</span>${reading ? `<label class="reading-progress-mini">Прогресс<input id="reading-progress-${escapeHtml(reading.id)}" data-testid="reading-progress" type="number" min="0" max="100" value="${escapeHtml(reading.progress || 0)}" aria-label="Прогресс чтения"></label>${button("update-reading-progress", "Сохранить", { id: reading.id, kind: "ghost", testId: "update-reading-progress" })}` : ""}</article>`;
     }, `<div class="empty-inline">Импортируй TXT или MD.</div>`),
     button("import-file", "Добавить текст", { kind: "primary", testId: "book-import" }),
     `</aside>`,

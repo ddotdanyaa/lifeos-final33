@@ -3328,6 +3328,94 @@ function parserStatusForSource(name, kind, readableText) {
   return "binary-stored";
 }
 
+function dataUrlToBytes(dataUrl) {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  return base64ToBytes(base64);
+}
+
+let pdfjsModulePromise = null;
+function loadPdfJs() {
+  if (!pdfjsModulePromise) {
+    pdfjsModulePromise = import("./node_modules/pdfjs-dist/build/pdf.mjs").then((module) => {
+      module.GlobalWorkerOptions.workerSrc = "./node_modules/pdfjs-dist/build/pdf.worker.mjs";
+      return module;
+    });
+  }
+  return pdfjsModulePromise;
+}
+
+// Real local PDF parsing (P6.1): pdfjs-dist was installed in P0.5 but never actually
+// used at runtime until this package. Caps pages read to keep this honest and fast for
+// very large PDFs rather than silently hanging; a parse failure never fakes text.
+async function parsePdfSource(dataUrl) {
+  const pdfjsLib = await loadPdfJs();
+  const bytes = dataUrlToBytes(dataUrl);
+  const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const maxPages = Math.min(doc.numPages, 60);
+  const pageTexts = [];
+  for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
+    const page = await doc.getPage(pageNumber);
+    const content = await page.getTextContent();
+    pageTexts.push(content.items.map((item) => item.str).join(" "));
+  }
+  const text = cleanLine(pageTexts.join("\n\n"));
+  if (!text) throw new Error("PDF parsed but contained no extractable text (likely scanned images).");
+  return { text, pagesRead: maxPages, totalPages: doc.numPages };
+}
+
+function stripHtmlToText(html) {
+  return cleanLine(String(html || "")
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " "));
+}
+
+let fflateModulePromise = null;
+function loadFflate() {
+  // fflate's default esm/index.mjs imports node:module (createRequire) which browsers
+  // cannot resolve; esm/browser.js is fflate's own browser-safe build with the same API.
+  if (!fflateModulePromise) fflateModulePromise = import("./node_modules/fflate/esm/browser.js");
+  return fflateModulePromise;
+}
+
+// Real local EPUB parsing (P6.1): EPUB is a zip container. fflate (installed in P0.5,
+// never used until now) unzips it; container.xml points at the OPF, whose spine gives
+// reading order, whose manifest maps idref -> the actual xhtml file per spine item.
+async function parseEpubSource(dataUrl) {
+  const { unzipSync, strFromU8 } = await loadFflate();
+  const bytes = dataUrlToBytes(dataUrl);
+  const files = unzipSync(bytes);
+  const containerXml = files["META-INF/container.xml"] ? strFromU8(files["META-INF/container.xml"]) : "";
+  const opfPathMatch = containerXml.match(/full-path="([^"]+)"/);
+  const opfPath = opfPathMatch ? opfPathMatch[1] : Object.keys(files).find((name) => /\.opf$/i.test(name));
+  if (!opfPath || !files[opfPath]) throw new Error("EPUB container.xml/OPF manifest not found.");
+  const opfText = strFromU8(files[opfPath]);
+  const opfDir = opfPath.includes("/") ? opfPath.slice(0, opfPath.lastIndexOf("/") + 1) : "";
+  const manifest = {};
+  for (const match of opfText.matchAll(/<item\b[^>]*id="([^"]+)"[^>]*href="([^"]+)"[^>]*\/?>/g)) {
+    manifest[match[1]] = opfDir + match[2];
+  }
+  for (const match of opfText.matchAll(/<item\b[^>]*href="([^"]+)"[^>]*id="([^"]+)"[^>]*\/?>/g)) {
+    if (!manifest[match[2]]) manifest[match[2]] = opfDir + match[1];
+  }
+  const spineIds = Array.from(opfText.matchAll(/<itemref\b[^>]*idref="([^"]+)"/g)).map((match) => match[1]);
+  const orderedPaths = spineIds.map((id) => manifest[id]).filter(Boolean);
+  const chapterTexts = [];
+  for (const path of orderedPaths.slice(0, 200)) {
+    const normalizedPath = path.replace(/^\.\//, "");
+    const file = files[normalizedPath] || files[path];
+    if (!file) continue;
+    chapterTexts.push(stripHtmlToText(strFromU8(file)));
+  }
+  const text = cleanLine(chapterTexts.join("\n\n"));
+  if (!text) throw new Error("EPUB parsed but no chapter text could be extracted.");
+  return { text, chapters: orderedPaths.length };
+}
+
 function inferSourceKind(name, mime, forcedKind) {
   if (forcedKind === "audio") return "audio";
   const ext = extensionForName(name);
@@ -13664,6 +13752,35 @@ async function handleAction(action, id) {
     const input = document.getElementById("book-extraction-" + id);
     const text = input ? input.value : "";
     await store.commit("Manual source extraction saved", (state) => saveManualSourceExtraction(state, id, text));
+    return;
+  }
+  if (action === "extract-book-text") {
+    const source = store.state.sources[id];
+    if (!source || !source.dataUrl) return;
+    const ext = extensionForName(source.name);
+    let result = null;
+    let failure = "";
+    try {
+      if (ext === "pdf") result = await parsePdfSource(source.dataUrl);
+      else if (ext === "epub") result = await parseEpubSource(source.dataUrl);
+      else return;
+    } catch (error) {
+      failure = error && error.message ? error.message : String(error);
+    }
+    await store.commit("Book text extracted", (state) => {
+      const current = state.sources[id];
+      if (!current) return;
+      if (result) {
+        current.text = result.text;
+        current.parserStatus = "text-ready";
+        current.status = "text-ready";
+        current.parserError = "";
+        addAudit(state, "source.update", "Текст извлечён из " + current.name + " (" + ext.toUpperCase() + ")", current.noteId);
+      } else {
+        current.parserError = failure;
+        addAudit(state, "source.extract.failed", "Не удалось извлечь текст из " + current.name + ": " + failure, current.noteId);
+      }
+    });
     return;
   }
   if (action === "extract-highlights") {
