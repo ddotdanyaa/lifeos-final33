@@ -89,10 +89,19 @@ function corruptRows(records) {
   );
 }
 
+function mergeReviewRows(entries) {
+  return safeList(
+    entries,
+    (entry) => `<div class="recovery-row merge-review-row" data-testid="merge-review-row"><span>${escapeHtml(entry.sourceName + " похож на " + entry.duplicateOfName)}</span>${button("merge-duplicate", "Объединить", { id: entry.id, kind: "ghost", testId: "merge-duplicate" })}${button("keep-both-duplicates", "Оставить оба", { id: entry.id, kind: "ghost", testId: "keep-both-duplicates" })}</div>`,
+    `<div class="empty-inline" data-testid="merge-review-empty">Дубликатов на рассмотрении нет.</div>`
+  );
+}
+
 export function renderControl(ctx) {
   const audit = ctx.auditLog || [];
   const snapshots = ctx.control?.rollbackSnapshots || [];
   const corruptRecords = ctx.control?.corruptRecords || [];
+  const mergeReview = ctx.mergeReview || [];
   const capabilities = Object.values(ctx.control?.capabilities || {}).sort((a, b) => String(b.grantedAt || "").localeCompare(String(a.grantedAt || "")));
   const rollbackCount = snapshots.length;
   const storageUsage = Number(ctx.environment?.storageUsage || 0);
@@ -122,6 +131,7 @@ export function renderControl(ctx) {
     `<section class="recovery-list" data-testid="deleted-note-list"><h4>Удалённые заметки</h4>${deletedNoteRows(ctx.deletedNotes || [])}</section>`,
     `<section class="recovery-list" data-testid="corrupt-record-list"><h4>Повреждённые записи</h4><strong data-testid="corrupt-record-count">${corruptRecords.length}</strong>${corruptRows(corruptRecords)}</section>`,
     `<section class="recovery-list" data-testid="capability-list"><h4>Способности провайдеров</h4><strong data-testid="capability-count">${capabilities.length}</strong>${capabilityRows(capabilities)}</section>`,
+    `<section class="recovery-list" data-testid="merge-review-list"><h4>Дубликаты на рассмотрении</h4><strong data-testid="merge-review-count">${mergeReview.length}</strong>${mergeReviewRows(mergeReview)}</section>`,
     renderInspectorDrawer(ctx),
     `<details class="dev-state-panel" data-testid="dev-state"><summary>Состояние разработки</summary><div data-testid="dev-state-panel"><div data-testid="architecture-contract"><strong>Product Brain</strong><span>Доступен только здесь, в графе через фильтр разработки и в чате через /dev. Artifact OS contract: ввод -> артефакт -> проекции -> граф -> контроль.</span><mark data-testid="architecture-validation">ок</mark>${button("set-surface", "Открыть граф разработки", { id: "graph", kind: "ghost" })}</div></div></details>`,
     `</aside>`,

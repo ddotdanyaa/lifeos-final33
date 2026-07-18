@@ -2251,6 +2251,8 @@ function normalizeState(input) {
       architectureEvents: [],
       capabilities: {},
       byokVault: {},
+      mergeReview: {},
+      importJobs: {},
       privacyZones: {
         local: "active",
         providers: "gated",
@@ -2337,6 +2339,24 @@ function normalizeState(input) {
   for (const model of Object.values(state.modelProfiles || {})) {
     model.routingPolicy = ["local-first", "cloud-confirmed"].includes(model.routingPolicy) ? model.routingPolicy : (model.kind === "cloud-gated" ? "cloud-confirmed" : "local-first");
     model.budget = model.budget && typeof model.budget === "object" ? model.budget : { limit: 50, used: 0, costPerCall: 0, unit: "USD" };
+  }
+  state.control.mergeReview = state.control.mergeReview && typeof state.control.mergeReview === "object" ? state.control.mergeReview : {};
+  for (const entry of Object.values(state.control.mergeReview)) {
+    entry.id = cleanLine(entry.id || makeId("merge"));
+    entry.sourceId = cleanLine(entry.sourceId || "");
+    entry.duplicateOfSourceId = cleanLine(entry.duplicateOfSourceId || "");
+    entry.checksum = cleanLine(entry.checksum || "");
+    entry.createdAt = entry.createdAt || now();
+  }
+  state.control.importJobs = state.control.importJobs && typeof state.control.importJobs === "object" ? state.control.importJobs : {};
+  for (const job of Object.values(state.control.importJobs)) {
+    job.id = cleanLine(job.id || makeId("importjob"));
+    job.title = cleanLine(job.title || "Импорт");
+    job.totalItems = Number.isFinite(Number(job.totalItems)) ? Number(job.totalItems) : 0;
+    job.processedItems = Number.isFinite(Number(job.processedItems)) ? Number(job.processedItems) : 0;
+    job.status = ["running", "cancelled", "done"].includes(job.status) ? job.status : "running";
+    job.createdAt = job.createdAt || now();
+    job.updatedAt = job.updatedAt || job.createdAt;
   }
   state.designStudio.viewPresets = state.designStudio.viewPresets && typeof state.designStudio.viewPresets === "object" ? state.designStudio.viewPresets : {};
   for (const surface of Object.keys(state.designStudio.viewPresets)) {
@@ -2766,7 +2786,7 @@ function normalizeState(input) {
 // types (e.g. twin.snapshot) are more precisely a memory-write than a generic create.
 const STRONG_MUTATION_RULES = [
   { kind: "memory-write", test: (type) => type.startsWith("knowledge.extract") || type.startsWith("insight.refresh") || type.startsWith("chat.product_brain") || type.startsWith("twin.snapshot") },
-  { kind: "merge", test: (type) => type.startsWith("ghost.materialize") },
+  { kind: "merge", test: (type) => type.startsWith("ghost.materialize") || type.startsWith("source.merge") },
   { kind: "design-apply", test: (type) => type.startsWith("design.profile") },
   { kind: "pack-install", test: (type) => type.startsWith("marketplace.install") },
   { kind: "permission-change", test: (type) => type.startsWith("provider.prepare") || type.startsWith("screen.prepare") || type.startsWith("capability.") || type.endsWith(".revoke") },
@@ -4040,6 +4060,7 @@ async function fileToSourcePayload(file, forcedKind) {
   const text = readableText ? await file.text() : "";
   const dataUrl = !readableText && file.size <= INLINE_MEDIA_LIMIT ? await readFileAsDataUrl(file) : "";
   const parserStatus = parserStatusForSource(file.name, kind, readableText);
+  const checksum = await computeChecksum(text || dataUrl);
   return {
     name: cleanLine(file.name || "imported-source"),
     kind,
@@ -4048,6 +4069,7 @@ async function fileToSourcePayload(file, forcedKind) {
     text,
     dataUrl,
     parserStatus,
+    checksum,
     status: readableText ? "text-ready" : kind === "audio" ? "audio-stored" : parserStatus
   };
 }
@@ -4076,6 +4098,100 @@ function createSourceNoteBody(source) {
   ].join("\n");
 }
 
+// Import Pipeline (P6.2): every import gets a checksum for real dedup detection (not
+// name/size heuristics) and an import_receipt via recordProviderRun. Duplicates are never
+// silently dropped or silently merged - they're flagged for an explicit owner decision.
+async function computeChecksum(text) {
+  if (!text) return "";
+  try {
+    const bytes = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch (error) {
+    return "";
+  }
+}
+
+function findDuplicateSource(state, checksum, excludeId) {
+  if (!checksum) return null;
+  return Object.values(state.sources || {}).find((item) => !item.deleted && item.checksum === checksum && item.id !== excludeId) || null;
+}
+
+const BULK_IMPORT_CHUNK_SIZE = 10;
+
+function startBulkImportJob(state, lines) {
+  const id = makeId("importjob");
+  const createdAt = now();
+  state.control.importJobs[id] = {
+    id,
+    title: "Построчный импорт (" + lines.length + ")",
+    lines,
+    totalItems: lines.length,
+    processedItems: 0,
+    status: "running",
+    createdAt,
+    updatedAt: createdAt
+  };
+  recordProviderRun(state, "import", "bulk-start", "running", "Фоновый импорт начат: " + lines.length + " строк", { jobId: id, totalItems: lines.length });
+  return id;
+}
+
+// One chunk per commit, so the Feed shows real incremental progress and a cancel click
+// (a separate commit) can interleave between chunks - see runBulkImportJob's setTimeout
+// yield below, which is what actually gives the cancel button a chance to run.
+function processBulkImportChunk(state, jobId) {
+  const job = state.control.importJobs[jobId];
+  if (!job || job.status !== "running") return job ? job.status : "missing";
+  const chunk = job.lines.slice(job.processedItems, job.processedItems + BULK_IMPORT_CHUNK_SIZE);
+  for (const line of chunk) {
+    const cleanedLine = cleanLine(line);
+    if (cleanedLine) createNote(state, shorten(cleanedLine, 60), state.activeFolderId, cleanedLine);
+  }
+  job.processedItems = Math.min(job.totalItems, job.processedItems + chunk.length);
+  job.updatedAt = now();
+  if (job.processedItems >= job.totalItems) {
+    job.status = "done";
+    recordProviderRun(state, "import", "bulk-done", "done", "Фоновый импорт завершён: " + job.processedItems + " заметок", { jobId, totalItems: job.totalItems });
+    addAudit(state, "source.import.bulk", "Фоновый импорт завершён: " + job.processedItems + " заметок", "");
+  }
+  return job.status;
+}
+
+function cancelBulkImportJob(state, jobId) {
+  const job = state.control.importJobs[jobId];
+  if (!job || job.status !== "running") return;
+  job.status = "cancelled";
+  job.updatedAt = now();
+  recordProviderRun(state, "import", "bulk-cancel", "cancelled", "Фоновый импорт отменён после " + job.processedItems + "/" + job.totalItems, { jobId });
+  addAudit(state, "source.import.bulk", "Фоновый импорт отменён владельцем: " + job.processedItems + "/" + job.totalItems, "");
+}
+
+async function runBulkImportJob(jobId) {
+  for (;;) {
+    let status = "missing";
+    await store.commit("Import chunk processed", (state) => {
+      status = processBulkImportChunk(state, jobId);
+    });
+    if (status !== "running") return;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
+}
+
+function resolveMergeReview(state, mergeId, decision) {
+  const entry = state.control.mergeReview[mergeId];
+  if (!entry) return;
+  const duplicate = state.sources[entry.sourceId];
+  if (duplicate && decision === "merge") {
+    duplicate.deleted = true;
+    duplicate.status = "merged-duplicate";
+    addAudit(state, "source.merge", "Дубликат объединён: " + duplicate.name + " -> " + entry.duplicateOfSourceId, duplicate.noteId);
+  } else if (duplicate) {
+    duplicate.status = "stored";
+    addAudit(state, "source.merge.dismissed", "Оставлены оба источника: " + duplicate.name, duplicate.noteId);
+  }
+  delete state.control.mergeReview[mergeId];
+}
+
 function addImportedSource(state, payload) {
   const id = makeId("source");
   const createdAt = now();
@@ -4092,11 +4208,23 @@ function addImportedSource(state, payload) {
     transcriptStatus: payload.kind === "audio" ? "needs-owner-transcript" : "",
     status: cleanLine(payload.status || "stored"),
     parserStatus: cleanLine(payload.parserStatus || payload.status || "stored"),
+    checksum: cleanLine(payload.checksum || ""),
     analysis: {},
     deleted: false,
     createdAt,
     updatedAt: createdAt
   };
+  const duplicate = findDuplicateSource(state, source.checksum, id);
+  if (duplicate) {
+    source.status = "duplicate-review";
+    const mergeId = makeId("merge");
+    state.control.mergeReview[mergeId] = { id: mergeId, sourceId: id, duplicateOfSourceId: duplicate.id, checksum: source.checksum, createdAt: now() };
+    recordProviderRun(state, "import", "dedup", "duplicate-found", "Обнаружен дубликат: " + source.name + " совпадает с " + duplicate.name, { checksum: source.checksum, sourceId: id, duplicateOfSourceId: duplicate.id });
+    addAudit(state, "source.import.duplicate", "Дубликат найден при импорте: " + source.name, "");
+    state.sources[id] = source;
+    rebuildIndexes(state);
+    return id;
+  }
   source.analysis = analyzeSourceArtifact(source);
   if (source.text) {
     const noteId = createNote(state, stripExtension(source.name), state.activeFolderId, createSourceNoteBody(source));
@@ -4118,6 +4246,7 @@ function addImportedSource(state, payload) {
     ensureReadingItemForSource(state, id);
     extractHighlightsFromSource(state, id);
   }
+  recordProviderRun(state, "import", "file", "imported", "Импорт: " + source.name + " (" + source.kind + ")", { checksum: source.checksum, sourceId: id, size: source.size });
   addAudit(state, "source.import", "Source imported: " + source.name + " (" + source.kind + ")", source.noteId);
   rebuildIndexes(state);
   return id;
@@ -8057,6 +8186,14 @@ function buildNewShellContext(state, activeNote) {
     questions: Object.values(state.questions || {}).filter((item) => !item.deleted),
     reviewItems: Object.values(state.reviewItems || {}).filter((item) => !item.deleted),
     systemRecordSchedule: systemRecordDateEntries(state),
+    mergeReview: Object.values(state.control.mergeReview || {}).map((entry) => ({
+      id: entry.id,
+      sourceId: entry.sourceId,
+      duplicateOfSourceId: entry.duplicateOfSourceId,
+      sourceName: state.sources[entry.sourceId] ? state.sources[entry.sourceId].name : entry.sourceId,
+      duplicateOfName: state.sources[entry.duplicateOfSourceId] ? state.sources[entry.duplicateOfSourceId].name : entry.duplicateOfSourceId
+    })),
+    importJobs: Object.values(state.control.importJobs || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     providers,
     providerRuns: Object.values(state.providerRuns || {}).sort((a, b) => (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || "")),
     readingItems: Object.values(state.readingItems || {}).filter((item) => !item.deleted),
@@ -13228,6 +13365,35 @@ async function handleAction(action, id) {
     await store.commit("Flow run executed", (state) => {
       const result = executeFlowRun(state, id);
       if (!result.ok) state.commandMessage = result.errors.join("; ");
+    });
+    return;
+  }
+  if (action === "bulk-import-lines") {
+    const lines = String(store.state.captureDraft || "").split(/\r?\n/).map((line) => cleanLine(line)).filter(Boolean);
+    if (!lines.length) return;
+    let jobId = "";
+    await store.commit("Bulk import started", (state) => {
+      jobId = startBulkImportJob(state, lines);
+      state.captureDraft = "";
+    });
+    await runBulkImportJob(jobId);
+    return;
+  }
+  if (action === "cancel-import-job") {
+    await store.commit("Import job cancelled", (state) => {
+      cancelBulkImportJob(state, id);
+    });
+    return;
+  }
+  if (action === "merge-duplicate") {
+    await store.commit("Duplicate merged", (state) => {
+      resolveMergeReview(state, id, "merge");
+    });
+    return;
+  }
+  if (action === "keep-both-duplicates") {
+    await store.commit("Duplicate kept", (state) => {
+      resolveMergeReview(state, id, "keep");
     });
     return;
   }

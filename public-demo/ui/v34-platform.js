@@ -44,9 +44,22 @@ function feedEventRow(event) {
   ].join("");
 }
 
+function importJobRow(job) {
+  const percent = job.totalItems ? Math.round((job.processedItems / job.totalItems) * 100) : 0;
+  return [
+    `<div class="import-job-row" data-testid="import-job-row" data-status="${escapeHtml(job.status)}">`,
+    `<strong>${escapeHtml(job.title)}</strong>`,
+    `<progress data-testid="import-job-progress" value="${job.processedItems}" max="${job.totalItems || 1}"></progress>`,
+    `<span>${job.processedItems}/${job.totalItems} (${percent}%) - ${escapeHtml(job.status)}</span>`,
+    job.status === "running" ? button("cancel-import-job", "Отмена", { id: job.id, kind: "danger", testId: "cancel-import-job" }) : "",
+    `</div>`
+  ].join("");
+}
+
 export function renderFeed(ctx) {
   const channels = sortRecent(live(ctx.channels));
   const events = sortRecent(ctx.feedEvents || []).slice(0, 24);
+  const importJobs = (ctx.importJobs || []).slice(0, 5);
   const body = [
     `<div class="v34-workspace v34-feed-workspace" data-testid="feed-workspace">`,
     `<section class="v34-overview">`,
@@ -55,6 +68,7 @@ export function renderFeed(ctx) {
     miniStat("источники", String((ctx.sources || []).length), "blue"),
     miniStat("следы аудита", String((ctx.auditLog || []).length), "red"),
     `</section>`,
+    importJobs.length ? `<section class="v34-panel" data-testid="import-jobs-panel"><header><h3>Фоновые импорты</h3></header>${importJobs.map(importJobRow).join("")}</section>` : "",
     `<div class="v34-split">`,
     `<section class="v34-panel">`,
     `<header><h3>Поток жизни</h3>${button("set-surface", "Добавить вход", { id: "capture", kind: "primary", testId: "feed-open-capture" })}</header>`,

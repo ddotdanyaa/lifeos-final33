@@ -17,6 +17,7 @@ export function renderAssistantInput(ctx) {
     `</div>`,
     `<div class="assistant-submit-row">`,
     button("capture-text", "Разобрать", { kind: "calm", testId: "capture-text" }),
+    button("bulk-import-lines", "Импорт по строкам", { kind: "ghost", testId: "bulk-import-lines" }),
     button("clear-capture", "Очистить", { kind: "ghost", testId: "clear-capture" }),
     `</div>`,
     `</section>`

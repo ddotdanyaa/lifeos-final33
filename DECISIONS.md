@@ -675,3 +675,60 @@ invalid PDF and confirmed the failure path shows the honest error with `text` st
 empty. Full audit loop (only red = expected dirty tree), `e2e:reader-player` (H09),
 G-E2E-CORE + kb-smoke + the new spec together (16 passed/1 skipped) all green. Rebuilt
 public-demo.
+
+## P6.2 IMPORT_PIPELINE_RECEIPTS
+
+**Decision: dedup uses a real SHA-256 checksum (`crypto.subtle.digest`) of the imported
+text/dataUrl, not name/size/mtime heuristics.** Why: name/size matching is exactly the
+kind of "looks honest but isn't" shortcut this project's audits exist to catch - two files
+with different names and the same content are real duplicates; two files that happen to
+share a name/size aren't necessarily. A duplicate is never silently dropped or silently
+auto-merged - it's stored, flagged `status: "duplicate-review"`, and surfaced in a new
+Control "Дубликаты на рассмотрении" list requiring an explicit owner decision (merge or
+keep both).
+
+**Decision: the "import_receipt_artifact" is `recordProviderRun(state, "import", ...)`
+with rich `details` (checksum, sourceId, duplicateOfSourceId), not a new top-level
+collection.** Why: `providerRuns` already has exactly the shape needed (a generic
+`details` object, already Object-Contract/receipt/capability-covered since P1-P2) -
+adding a 48th collection would mean updating every audit that counts collections (47),
+for a distinction (`import_receipt` vs `providerRun`) that's naming, not substance.
+
+**Decision: chunked background import is a new, explicit "Импорт по строкам" action on
+the universal capture input**, not a size-triggered change to existing single-file import
+behavior. Why: a size/line-count heuristic on file import risked silently changing
+behavior for a legitimate large prose document (many paragraphs, one per line) by
+misreading it as "bulk items" - an explicit, separate action avoids guessing intent.
+10 lines processed per commit, with a 30ms yield between chunks specifically so a
+separate "Отмена" click (its own commit) gets a real chance to interleave and take effect
+before the next chunk starts - proven by the e2e test actually cancelling mid-job, not
+just after it happened to finish.
+
+**Found a real receipt-coverage gap while wiring this up**: `STRONG_MUTATION_RULES`'
+"merge" kind previously only matched `ghost.materialize` - a duplicate-resolution decision
+(`source.merge`/`source.merge.dismissed`) wouldn't have been classified as anything and
+would have gotten no receipt at all. Extended the rule's test to also match
+`source.merge` so merge/keep-both decisions are receipted like every other strong
+mutation.
+
+**Found and diagnosed a test-only issue, not a product bug** (see
+[[lifeos-normalize-state-gotcha]], now expanded): the bulk-import job appeared completely
+stuck at 0 progress for 10+ seconds. Root cause: `store.commit()`'s promise only resolves
+once the IndexedDB save actually completes, and saves serialize through one write queue -
+several rapid prior actions (two file uploads + a merge decision) had queued up saves the
+bulk-import commit was waiting behind, even though the UI had already re-rendered the new
+job (the synchronous `emit()` inside `commit()` fires before the save). Confirmed via
+temporary debug logging (and remembering to filter for it - the console listener was
+initially only forwarding `type() === "error"`, hiding the plain `console.log` traces that
+would have shown this immediately). Fixed the test with a `flushForTest()` call before the
+bulk-import section, not the product.
+
+**Verified end-to-end** with a new `output/playwright/import-pipeline.spec.mjs`: uploaded
+two files with identical content under different names, confirmed a merge-review entry
+appears with a real checksum-bearing import receipt, resolved it via "Объединить" and
+confirmed the duplicate is soft-deleted; then pasted 300 lines, started the chunked
+import, waited for real progress (not zero), cancelled it, and confirmed notes were
+created for only part of the input (`0 < processed < total`) with `job.status ===
+"cancelled"` - proving chunking and cancellation are both real, not simulated. Full audit
+loop (only red = expected dirty tree), `audit:ledger`, G-E2E-CORE + kb-smoke + the new
+spec together (16 passed/1 skipped) all green. Rebuilt public-demo.
