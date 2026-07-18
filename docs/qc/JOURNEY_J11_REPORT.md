@@ -34,7 +34,7 @@ Library has markdown editing, wikilinks, ghost links, backlinks/search and sourc
   "providerRuns": 0,
   "proposalsOpen": 0,
   "proposalsApplied": 0,
-  "auditEvents": 1,
+  "auditEvents": 0,
   "graphNodes": 2,
   "graphEdges": 1,
   "graphEdgeReasons": 1
@@ -42,10 +42,10 @@ Library has markdown editing, wikilinks, ghost links, backlinks/search and sourc
 ```
 
 ## Graph Edges
-After: 467 edges, 467 with visible reasons.
+After: 585 edges, 585 with visible reasons.
 
 ## Data Control Events
-After: 241 audit events. Tail: review.create: Review item created: Повторить highlight: Идея: сделать систему второго мозга для книг, аудио... | highlight.create: Highlight created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку | note.create: Note created: Связанная заметка
+After: 300 audit events. Tail: provider.run: import file: Импорт: Идея: сделать систему второго мозга для книг,....md (text) | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | chat.input.artifact: owner chat artifact recorded: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку | note.create: Note created: Связанная заметка
 
 ## Remaining Gated
 None for this local journey.

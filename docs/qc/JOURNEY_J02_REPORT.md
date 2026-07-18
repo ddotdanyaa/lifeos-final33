@@ -31,21 +31,21 @@ A simple capture surfaces one primary Russian action plus Изменить and �
   "chatMessages": 2,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 0,
+  "providerRuns": 1,
   "proposalsOpen": 0,
   "proposalsApplied": 3,
-  "auditEvents": 14,
-  "graphNodes": 8,
-  "graphEdges": 14,
-  "graphEdgeReasons": 14
+  "auditEvents": 18,
+  "graphNodes": 10,
+  "graphEdges": 18,
+  "graphEdgeReasons": 18
 }
 ```
 
 ## Graph Edges
-After: 14 edges, 14 with visible reasons.
+After: 36 edges, 36 with visible reasons.
 
 ## Data Control Events
-After: 16 audit events. Tail: source.import: Source imported: завтра в 6 встать и приготовить завтрак.md (text) | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку | task.create: Task created: встать и приготовить завтрак | proposal.apply: Applied proposal: встать и приготовить завтрак | plan.create: Today block added: встать и приготовить завтрак | proposal.apply: Applied proposal: встать и приготовить завтрак
+After: 39 audit events. Tail: chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку | task.create: Task created: встать и приготовить завтрак | proposal.apply: Applied proposal: встать и приготовить завтрак | plan.create: Today block added: встать и приготовить завтрак | proposal.apply: Applied proposal: встать и приготовить завтрак
 
 ## Remaining Gated
 None for this local journey.

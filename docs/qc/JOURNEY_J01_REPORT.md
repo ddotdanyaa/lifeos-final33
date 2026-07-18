@@ -42,10 +42,10 @@ Fresh Home opens as four owner zones: Universal Capture, Today/Next, Money/Habit
 ```
 
 ## Graph Edges
-After: 0 edges, 0 with visible reasons.
+After: 18 edges, 18 with visible reasons.
 
 ## Data Control Events
-After: 2 audit events. Tail: product_brain.seed: Product Brain artifact graph updated to 2026-06-26-provider-passports | provider.run: pwa boot: PWA shell checked: service-worker-ready
+After: 21 audit events. Tail: note.create: Note created: Food-Health | note.create: Note created: Travel | note.create: Note created: Builder-AI | note.create: Note created: Ollama local | note.create: Note created: Свои API-ключи | v34.platform.seed: LifeOS v34 platform primitives seeded | capability.grant: Capability granted: pwa/boot (local) | provider.run: pwa boot: PWA shell checked: service-worker-ready
 
 ## Remaining Gated
 None for this local journey.

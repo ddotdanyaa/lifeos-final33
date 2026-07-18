@@ -31,21 +31,21 @@ Capture workspace collects unprocessed source artifacts into a review board with
   "chatMessages": 2,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 0,
+  "providerRuns": 1,
   "proposalsOpen": 4,
   "proposalsApplied": 0,
-  "auditEvents": 7,
-  "graphNodes": 9,
-  "graphEdges": 16,
-  "graphEdgeReasons": 16
+  "auditEvents": 0,
+  "graphNodes": 11,
+  "graphEdges": 20,
+  "graphEdgeReasons": 20
 }
 ```
 
 ## Graph Edges
-After: 619 edges, 619 with visible reasons.
+After: 755 edges, 755 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: note.create: Note created: вечерний обзор: голосом записал идею про сон,... | source.project: Source projected into note: вечерний обзор: голосом записал идею про сон,....md | reading.create: Reading item created: вечерний обзор: голосом записал идею про сон,... | review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact
+After: 300 audit events. Tail: review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | provider.run: import file: Импорт: вечерний обзор: голосом записал идею про сон,....md (text) | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | chat.input.artifact: owner chat artifact recorded: вечерний обзор: голосом записал идею про сон, деньги и граф | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact
 
 ## Remaining Gated
 None for this local journey.

@@ -31,10 +31,10 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
   "chatMessages": 2,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 0,
-  "proposalsOpen": 2,
+  "providerRuns": 1,
+  "proposalsOpen": 0,
   "proposalsApplied": 7,
-  "auditEvents": 23,
+  "auditEvents": 26,
   "graphNodes": 15,
   "graphEdges": 26,
   "graphEdgeReasons": 26
@@ -42,10 +42,10 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
 ```
 
 ## Graph Edges
-After: 40 edges, 40 with visible reasons.
+After: 66 edges, 66 with visible reasons.
 
 ## Data Control Events
-After: 39 audit events. Tail: proposal.apply: Applied proposal: Напомнить: зал купить протеин вода 2л до 1 июля накопить | finance.account: Finance account set: Основной счет | finance.transaction: Finance expense: Протеин 14 RUB | proposal.apply: Applied proposal: Протеин | habit.create: Habit created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | goal.create: Goal created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером
+After: 65 audit events. Tail: proposal.apply: Applied proposal: Напомнить: зал купить протеин вода 2л до 1 июля накопить | finance.account: Finance account set: Основной счет | finance.transaction: Finance expense: Протеин 14 RUB | proposal.apply: Applied proposal: Протеин | habit.create: Habit created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | goal.create: Goal created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером
 
 ## Remaining Gated
 None for this local journey.

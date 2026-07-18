@@ -1,8 +1,8 @@
 {
-  "measuredAt": "2026-07-18T08:52:26.483Z",
-  "bootMs": 2681,
+  "measuredAt": "2026-07-18T09:55:03.285Z",
+  "bootMs": 2713,
   "bootBudgetMs": 8000,
-  "interactionMs": 22.700000002980232,
+  "interactionMs": 22.400000005960464,
   "interactionBudgetMs": 1500,
   "bootWithinBudget": true,
   "interactionWithinBudget": true

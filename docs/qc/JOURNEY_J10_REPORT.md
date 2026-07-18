@@ -31,21 +31,21 @@ Idea capture becomes a source-backed knowledge artifact with project/next-action
   "chatMessages": 2,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 0,
+  "providerRuns": 1,
   "proposalsOpen": 4,
   "proposalsApplied": 1,
-  "auditEvents": 10,
-  "graphNodes": 10,
-  "graphEdges": 18,
-  "graphEdgeReasons": 18
+  "auditEvents": 0,
+  "graphNodes": 12,
+  "graphEdges": 22,
+  "graphEdgeReasons": 22
 }
 ```
 
 ## Graph Edges
-After: 466 edges, 466 with visible reasons.
+After: 584 edges, 584 with visible reasons.
 
 ## Data Control Events
-After: 240 audit events. Tail: reading.create: Reading item created: Идея: сделать систему второго мозга для книг,... | review.create: Review item created: Повторить highlight: Идея: сделать систему второго мозга для книг, аудио... | highlight.create: Highlight created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку
+After: 300 audit events. Tail: highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | provider.run: import file: Импорт: Идея: сделать систему второго мозга для книг,....md (text) | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | chat.input.artifact: owner chat artifact recorded: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку
 
 ## Remaining Gated
 None for this local journey.

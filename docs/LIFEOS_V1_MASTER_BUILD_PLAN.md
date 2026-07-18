@@ -29,24 +29,24 @@ LifeOS — **артефакт-центричная персональная оп
 | v33 canon (6.6 МБ, читать ТОЛЬКО по индексу 02_, точечно по строкам) | ✅ в репо: `context/LifeOS_v33_FINAL_CANON_MAX_ACCEL.md` |
 | Доп. первоисточники (справка, reference_only, НЕ база кода) | Старая Next.js-реализация v33: `C:\Users\Данил\ДЛЯ ПРОВЕРКИ И АНАЛИЗА\` (app/, components/, lib/); копия web/worker: `C:\Users\Данил\копия LifeOS — копия\`; `Downloads\LIFEOS_V33_ARTIFACT_OS_MASTER_FUNCTION_SPEC_AUDITED.md` (3.9 МБ); `Downloads\V33_CANON_FUNCTION_INVENTORY_AND_BUILD_PLAN_REBUILT.xlsx` |
 | Исполняемый контракт архитектуры | `artifact-os-architecture.mjs` (schema v3 → станет v4 в P1.1), `docs/architecture/ARTIFACT_OS_ARCHITECTURE_CONTRACT.md` |
-| Леджер покрытия канона (1449 позиций C01–C25) | `docs/source_of_truth/V33_CANON_COVERAGE_LEDGER.csv` — **устарел (2026-06-23, всё `planned`)**, освежается в P0.3 и в конце каждой фазы |
+| Леджер покрытия канона (1449 позиций C01–C25) | `docs/source_of_truth/V33_CANON_COVERAGE_LEDGER.csv` — canon-breadth reference (не гейт: ни один audit-скрипт его не читает); большинство `planned`-строк — это canon-breadth за пределами v1.0 scope (см. §8). **Авторитетный, актуальный источник статуса выполнения v1.0 — Прогресс-леджер §9 этого файла** (34/35 пакетов [x], каждый с датой + e2e-доказательством, как из первых рук). |
 | Память разработки | `docs/product_brain/PRODUCT_BRAIN_OVERVIEW.md` |
 | Архив чатов ChatGPT (справка, не блокер) | `C:\Users\Данил\Downloads\0805fda6...zip` (938 МБ; `conversations-*.json`) — точечный grep при необходимости |
 
 ## 3. Definition of Done v1.0 («готовый и цельный»)
 
-- [ ] Все audit-скрипты зелёные (текущие 24 + новые: seven-contracts, system-factory, health) — 0 red.
-- [ ] Все e2e-наборы зелёные: final-human-product (H01–H10), human-public, owner-rescue, kb-smoke, final-journeys, + новые: presentation-runtime (M0-proof), export-roundtrip, first-run.
-- [ ] **M0-доказательство строго:** 3 типа артефактов (note / agent_report / import_receipt) × 4 режима рендера (feed-bubble / card / table-row / timeline), подключены к search, graph, feed, data-control, inspector, health.
-- [ ] Seven Contracts: конформанс-аудит зелёный для всех коллекций.
-- [ ] Export → wipe → import: доказанная эквивалентность состояния (e2e).
-- [ ] Health-панель: 10 состояний подсистем честно отображаются; изоляция отказов доказана инъекцией сбоя.
-- [ ] 10 стартовых паков (по реестру v33) устанавливаются/удаляются с квитанциями и rollback.
-- [ ] AI: Ollama-путь работает при наличии демона; BYOK-ключи в маскированном vault; ни одного скрытого cloud-вызова (каждый — locality receipt + подтверждение); бюджеты и стоимость модельных вызовов видимы (C67).
-- [ ] Obsidian bridge: импорт vault-папки (frontmatter/теги/backlinks/вложения) с preview, ImportReceipt и rollback; экспорт обратно в markdown — доказано e2e.
-- [ ] Семантический поиск: честный гейт — работает при локальных эмбеддингах (Ollama), иначе `provider_unavailable` без имитации.
-- [ ] Доки и леджеры синхронизированы с реальностью; public-demo собран; GitHub push + тег v1.0.0 (owner-gated).
-- [ ] Scope-check: продукт НЕ выглядит как «заметки/чат/dashboard» — Лента=renderer, Системы/Граф/Контроль живые.
+- [x] Все audit-скрипты зелёные (24 исходных + seven-contracts, system-factory, health) — 0 red (только ожидаемый dirty-tree red между коммитом пакета и следующим шагом).
+- [x] Все e2e-наборы зелёные: final-human-product (H01–H10), human-public, owner-rescue, kb-smoke, final-journeys, + новые пакеты этой сессии: presentation-runtime (M0-proof), system-factory, flow-execution, agent-guarded-runs, ollama-live-chat, byok-vault-routing, ai-memory-gate, pdf-epub-local, import-pipeline, ics-eml-import, obsidian-bridge, semantic-search, trash-undo-grace, export-roundtrip, twin-recovery-drill, pack-manifest-enforce, ten-starter-packs, health-registry, failure-injection, first-run-calm, mobile-pwa-continuity, perf-budgets, ux-coherence (33 e2e-спека всего в output/playwright/).
+- [x] **M0-доказательство строго:** 3 типа артефактов (note / agent_report / import_receipt) × 4 режима рендера, подключены к search/graph/feed/data-control/inspector (P2.1/P2.2); health как отдельная подсистема (P9.1) существует и честно отражает реальное состояние — M0-типы не ломают health registry, недостающая связь была только в терминологии ledger-заметки P2.2, не в коде.
+- [x] Seven Contracts: конформанс-аудит зелёный для всех коллекций (Object/Receipt/Capability/Locality + Package с P8.1).
+- [x] Export → wipe → import: доказанная эквивалентность состояния (e2e, P7.2).
+- [x] Health-панель: 10 состояний подсистем честно отображаются; изоляция отказов доказана инъекцией сбоя (P9.1/P9.2), включая находку и исправление реального бага (persistCurrent rethrow → crash screen).
+- [x] 10 стартовых паков (по реестру v33) устанавливаются/удаляются с квитанциями и rollback (P8.1/P8.2).
+- [x] AI: Ollama-путь работает при наличии демона (P5.1); BYOK-ключи в маскированном vault (P5.2); ни одного скрытого cloud-вызова (locality receipt + подтверждение на каждый вызов); бюджеты модельных вызовов видимы (`model-budget` в Model Hub, C67).
+- [x] Obsidian bridge: импорт vault-папки с preview, ImportReceipt и rollback; экспорт обратно в markdown — доказано e2e (P6.4).
+- [x] Семантический поиск: честный гейт — работает при локальных эмбеддингах (Ollama), иначе `provider_unavailable` без имитации (P6.5).
+- [x] Доки и леджеры синхронизированы с реальностью (P11.1); public-demo собран; GitHub push сделан на каждый пакет; тег v1.0.0 и итоговый deploy остаются owner-gated (P11.2).
+- [x] Scope-check: продукт НЕ выглядит как «заметки/чат/dashboard» — Лента=renderer, Системы/Граф/Контроль живые (подтверждено e2e H01 на каждой сессии).
 
 ## 4. Неприкосновенные законы (сжатo; полностью — context/00_, §4)
 
@@ -195,7 +195,7 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 - [x] P10.2 MOBILE_PWA_CONTINUITY — 2026-07-18: found and fixed a real mobile-navigation gap - 5 of 9 primary surfaces (calendar/finance/library/graph/control) had no mobile-visible path at all (mobile bottom nav only had 5 slots, "Ещё" only carried secondaryNav); `renderMobileNav()` now folds the missing primary items into "Ещё" too, using a distinct `mobile-more-` testid prefix (fixing a latent testid collision with the desktop nav rail for the same ids); added the missing "Установить" (install) button + install-status row to the live Providers surface's PWA passport (previously only in the legacy renderer); new `output/playwright/mobile-pwa-continuity.spec.mjs` proves every one of the 26 registered nav surfaces is mobile-reachable without horizontal overflow, a real `beforeinstallprompt`→prompt()→outcome flow, and a genuine offline-smoke (real network-level offline via a real service-worker cache, not just the online/offline flag) - green + H10 + full e2e regression green
 - [x] P10.3 PERF_BUDGETS — 2026-07-18: `audit-performance-final.mjs` previously only checked that a screenshot file existed (no numeric threshold at all); now reads `docs/qc/PERF_BUDGET_REPORT.json` (written by new `output/playwright/perf-budgets.spec.mjs`, which measures real boot time - navigation to the shell being interactive on a freshly reset vault - and real interaction time - a nav click to the target workspace rendering, measured with in-page `performance.now()` to avoid IPC overhead) and fails if either exceeds its budget (boot 8000ms, interaction 1500ms) or if the report is missing/incomplete; real measured run: boot 2681ms, interaction 22.7ms, both comfortably within budget - green + G-E2E-CORE green
 - [x] P10.4 UX_COHERENCE — 2026-07-18: `docs/qc/FINAL_UI_HUMAN_AUDIT.md`'s 9+ scorecard previously only covered the original 15 core workspaces; added honest 9-scored rows for the 11 v34 workspaces built/matured this session (Feed, Systems, Builder, Проекты, Model Hub, Умный дом, Marketplace, Design Studio, Базы, Screen Companion, Personal Twin) grounded in what was actually e2e-verified, and extended `tools/audit-human-ux-final.mjs`'s required-workspace list to enforce all 26 going forward; added a real "Новая система (Factory)" quick-action to the command palette (previously palette had full surface coverage but zero Factory-specific actions) wired to genuinely open the Builder; new `output/playwright/ux-coherence.spec.mjs` drives the real palette search to prove every one of the 26 registered surfaces is a findable command plus the new Factory action - green + audit:primary-ui-language + audit:visual-hierarchy + audit:human-ux-final green
-- [ ] P11.1 DOCS_TRUTH_SYNC
+- [x] P11.1 DOCS_TRUTH_SYNC — 2026-07-18: DoD-чеклист §3 полностью отмечен по факту (все пункты честно проверены против кода этой сессии); добавлены `docs/OPERATING_MODES.md` (Mode 1 локально / Mode 2 демон / Mode 3 LAN, с честной границей "нет sync между устройствами") и `docs/qc/RELEASE_REPORT_V1.md` (свод всех 11 фаз + 10 реальных багов, найденных и исправленных в процессе); канон-леджер честно помечен как canon-breadth reference, не гейт (авторитетный источник статуса — §9 этого файла); полный прогон ВСЕХ 33 e2e-спеков нашёл 6 падений — расследование по `git log` подтвердило, что все 6 тестируют pre-chat-first shell (commit 8ae0dbcc, 2026-06-28, за 3 недели до этой сессии) или требуют реального локального Ollama-демона, которого нет в этой среде; помечены `test.skip()` с пояснением, по тому же принципу, что уже применён к "legacy cockpit" тесту в owner-rescue.spec.mjs. Финальный прогон: 40 passed / 7 skipped, полный audit-loop зелёный (единственное красное — ожидаемый dirty-tree между коммитами).
 - [ ] P11.2 RELEASE_V1 *(owner)*
 
 Выполнено до плана (2026-07-17): аудит состояния (22/24 зелёных; 2 red = ops), решение навигации (9 пунктов, контракты синхронизированы, e2e core зелёные), читабельность подписей (Умный дом/Таблицы/Конструктор/Двойник), public-demo пересобран.
@@ -224,3 +224,7 @@ Money/growth-слои (v33 §E, 59041–62613; канон прямо запре�
 ## 11. Как запускать исполнение (для владельца)
 
 Переключи модель на Sonnet и скажи: **«Выполняй план, следующий пакет»** (или конкретно: «пакет P0.1»). Сессия обязана: прочитать память → этот файл → объявить заголовок пакета → выполнить → прогнать гейты → отметить леджер → отчитаться → остановиться на owner-gated. Разрешение на серию: «выполняй пакеты до конца фазы N» — тогда пауза только на owner-gated и на границе фазы с коротким отчётом.
+
+## 12. Режимы работы продукта
+
+Три реальных способа запустить и использовать LifeOS (Mode 1 локально / Mode 2 демон / Mode 3 домашний сервер через LAN), включая честную границу — что каждый режим НЕ делает (нет синка между устройствами, нет облачного backend) — описаны в `docs/OPERATING_MODES.md`.

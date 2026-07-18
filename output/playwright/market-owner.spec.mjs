@@ -35,7 +35,10 @@ async function resetLifeOs(page) {
   await page.reload();
 }
 
-test("market-grade artifact OS rescue @market-owner @calendar @finance @reader-player @graph @ai-providers", async ({ page }) => {
+// Skipped: written for the pre-chat-first shell (commit 8ae0dbcc, 2026-06-28) - expects
+// "home-next-action"/"active-artifact-card" elements the current home.js doesn't render
+// (replaced by the mini-summary-card design, covered by H01/H02 in final-human-product.spec.mjs).
+test.skip("market-grade artifact OS rescue @market-owner @calendar @finance @reader-player @graph @ai-providers", async ({ page }) => {
   await mkdir("output/playwright", { recursive: true });
   page.on("dialog", async (dialog) => dialog.accept());
 

@@ -31,21 +31,21 @@ Reader parses TXT/MD, tracks progress and highlights, and shows honest PDF/EPUB 
   "chatMessages": 2,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 0,
+  "providerRuns": 2,
   "proposalsOpen": 15,
   "proposalsApplied": 0,
-  "auditEvents": 21,
-  "graphNodes": 32,
-  "graphEdges": 62,
-  "graphEdgeReasons": 62
+  "auditEvents": 0,
+  "graphNodes": 36,
+  "graphEdges": 70,
+  "graphEdgeReasons": 70
 }
 ```
 
 ## Graph Edges
-After: 529 edges, 529 with visible reasons.
+After: 655 edges, 655 with visible reasons.
 
 ## Data Control Events
-After: 262 audit events. Tail: highlight.extract: Highlights extracted from book-sample.md: 4 | review.create: Review item created: Повторить highlight: Highlight becomes knowledge | highlight.create: Highlight created: Highlight becomes knowledge | reading.progress: Reading progress 45%: book-sample | note.create: Note created: journey-parser-gate | source.project.gated: Book source projected with parser gate: journey-parser-gate.pdf | reading.create: Reading item created: journey-parser-gate | source.import: Source imported: journey-parser-gate.pdf (book)
+After: 300 audit events. Tail: highlight.create: Highlight created: Highlight becomes knowledge | reading.progress: Reading progress 45%: book-sample | note.create: Note created: journey-parser-gate | source.project.gated: Book source projected with parser gate: journey-parser-gate.pdf | reading.create: Reading item created: journey-parser-gate | provider.run: import file: Импорт: journey-parser-gate.pdf (book) | source.import: Source imported: journey-parser-gate.pdf (book) | chat.answer.artifact: assistant chat artifact recorded: Imported journey-parser-gate.pdf and prepared next actions.
 
 ## Remaining Gated
 PDF/EPUB automatic parsing remains parser-gated until local parser packages are installed.

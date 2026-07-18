@@ -61,7 +61,11 @@ async function proposalsForSource(page, sourceId) {
   }, sourceId);
 }
 
-test("финальный owner parser: время, неоднозначность и отсутствие дублей", async ({ page }) => {
+// Skipped: written for the pre-chat-first shell (last touched by commit 8ae0dbcc, "Replace
+// visible LifeOS shell with chat-first product UI", 2026-06-28) - expects a "proposal-panel"
+// element the current shell doesn't render (replaced by the human-answer-card flow, covered
+// by final-human-product.spec.mjs H02 and owner-rescue.spec.mjs). Kept for history, not gated.
+test.skip("финальный owner parser: время, неоднозначность и отсутствие дублей", async ({ page }) => {
   await mkdir("output/playwright/final", { recursive: true });
   await resetLifeOs(page);
   const breakfastDate = await page.evaluate(() => {

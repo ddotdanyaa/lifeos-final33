@@ -31,21 +31,21 @@ Twenty typo-heavy and mixed-language inputs create source artifacts and proposal
   "chatMessages": 40,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 0,
+  "providerRuns": 20,
   "proposalsOpen": 100,
   "proposalsApplied": 0,
-  "auditEvents": 154,
-  "graphNodes": 196,
-  "graphEdges": 350,
-  "graphEdgeReasons": 350
+  "auditEvents": 214,
+  "graphNodes": 236,
+  "graphEdges": 430,
+  "graphEdgeReasons": 430
 }
 ```
 
 ## Graph Edges
-After: 390 edges, 390 with visible reasons.
+After: 496 edges, 496 with visible reasons.
 
 ## Data Control Events
-After: 193 audit events. Tail: note.create: Note created: каждый день вода 2л и читать 20 страниц | source.project: Source projected into note: каждый день вода 2л и читать 20 страниц.md | reading.create: Reading item created: каждый день вода 2л и читать 20 страниц | review.create: Review item created: Повторить highlight: каждый день вода 2л и читать 20 страниц | highlight.create: Highlight created: каждый день вода 2л и читать 20 страниц | highlight.extract: Highlights extracted from каждый день вода 2л и читать 20 страниц.md: 1 | source.import: Source imported: каждый день вода 2л и читать 20 страниц.md (text) | inbox.capture: Inbox text captured as artifact
+After: 279 audit events. Tail: review.create: Review item created: Повторить highlight: каждый день вода 2л и читать 20 страниц | highlight.create: Highlight created: каждый день вода 2л и читать 20 страниц | highlight.extract: Highlights extracted from каждый день вода 2л и читать 20 страниц.md: 1 | provider.run: import file: Импорт: каждый день вода 2л и читать 20 страниц.md (text) | source.import: Source imported: каждый день вода 2л и читать 20 страниц.md (text) | chat.input.artifact: owner chat artifact recorded: каждый день вода 2л и читать 20 страниц | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact
 
 ## Remaining Gated
 None for this local journey.
