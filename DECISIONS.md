@@ -913,3 +913,33 @@ passphrase is rejected with a real `control.backup.reject` audit entry, and the 
 passphrase decrypts and restores the same note for real. Full audit loop (only red =
 expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all
 green. Rebuilt public-demo.
+
+## P7.3 TWIN_RECOVERY_DRILL
+
+**Decision:** `createPersonalTwinSnapshot()` previously only wrote a text summary ("47
+notes / 12 sources / ...") into a linked note - genuinely honest about being "a local
+summary artifact, not an external identity clone," but not an actual recovery mechanism, so
+there was nothing for a "recovery drill" to prove. Rather than inventing a new snapshot
+format, reused `buildRollbackStatePayload()` (the same whole-state clone `createRollbackSnapshot`
+already uses) so a twin snapshot is now a genuine restore point, not just richer metadata.
+
+**Found:** Naively embedding a full state clone inside every twin snapshot creates a real
+compounding-size bug: snapshot N's payload contains a full copy of state, which itself
+contains snapshot N-1 with *its* embedded payload, which contains snapshot N-2's payload,
+and so on - each new snapshot would roughly double in size. Fixed by
+`buildTwinSnapshotPayload()` stripping `.payload` from every *other* twin snapshot's entry
+inside the embedded clone (keeping their title/summary/noteId metadata, since a restored
+vault should still show its own snapshot history - just without further-nested recovery
+data three levels removed from what anyone would actually restore). The new snapshot's own
+metadata row is inserted into state *before* the payload is captured, so the embedded clone
+correctly includes itself as a payload-less entry rather than needing special-case
+exclusion logic.
+
+**Verified end-to-end:** `output/playwright/twin-recovery-drill.spec.mjs` creates a real
+note, takes a twin snapshot, confirms the snapshot's stored payload actually contains real
+notes data (not just a summary string), then makes further changes (a second note -
+standing in for "lost context" between the snapshot and now) and runs the actual recovery
+drill: clicking "Восстановить контекст" brings back the first note and makes the second one
+disappear, with a `twin.restore` audit entry as evidence. Full audit loop (only red =
+expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all
+green. Rebuilt public-demo.

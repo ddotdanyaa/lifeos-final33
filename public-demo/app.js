@@ -2121,10 +2121,36 @@ function createPersonalTwinSnapshot(state) {
     status: "local-snapshot",
     deleted: false,
     createdAt,
-    updatedAt: createdAt
+    updatedAt: createdAt,
+    payload: null
   };
+  // Full recovery payload is captured AFTER inserting the metadata row above, so the
+  // embedded clone includes this snapshot's own (payload-less) entry rather than causing
+  // an infinite/exponential nesting of prior snapshots' recovery payloads.
+  state.personalTwinSnapshots[id].payload = buildTwinSnapshotPayload(state);
   addAudit(state, "twin.snapshot", "Personal Twin snapshot created: " + summary, noteId);
   return id;
+}
+
+function buildTwinSnapshotPayload(state) {
+  const payload = buildRollbackStatePayload(state);
+  payload.personalTwinSnapshots = Object.fromEntries(
+    Object.entries(payload.personalTwinSnapshots || {}).map(([snapshotId, snapshot]) => [snapshotId, Object.assign({}, snapshot, { payload: null })])
+  );
+  return payload;
+}
+
+function restoreFromTwinSnapshot(state, twinId) {
+  const snapshot = state.personalTwinSnapshots[twinId];
+  if (!snapshot || !snapshot.payload) return false;
+  const restored = normalizeState(snapshot.payload);
+  const title = snapshot.title;
+  const summary = snapshot.summary;
+  for (const key of Object.keys(state)) delete state[key];
+  Object.assign(state, restored);
+  state.control.lastImportSummary = "Restored from Personal Twin snapshot: " + title;
+  addAudit(state, "twin.restore", "Personal Twin snapshot restored: " + summary, state.activeNoteId);
+  return true;
 }
 
 function productBrainEdgeReason(key) {
@@ -8466,7 +8492,7 @@ function buildNewShellContext(state, activeNote) {
     installedPacks: Object.values(state.installedPacks || {}).filter((item) => !item.deleted),
     marketplacePacks: Object.values(state.marketplacePacks || {}).filter((item) => !item.deleted),
     modelProfiles: Object.values(state.modelProfiles || {}).filter((item) => !item.deleted),
-    personalTwinSnapshots: Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted),
+    personalTwinSnapshots: Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted).map((item) => ({ id: item.id, title: item.title, summary: item.summary, noteId: item.noteId, status: item.status, deleted: item.deleted, createdAt: item.createdAt, updatedAt: item.updatedAt, hasPayload: Boolean(item.payload) })),
     planBlocks,
     projectItems: Object.values(state.projectItems || {}).filter((item) => !item.deleted),
     projects: Object.values(state.projects || {}).filter((item) => !item.deleted),
@@ -13733,6 +13759,12 @@ async function handleAction(action, id) {
         state.activeSurface = "twin";
       }
     });
+    return;
+  }
+  if (action === "restore-twin-snapshot") {
+    const confirmed = window.confirm("Восстановить контекст из этого снимка Personal Twin? Текущее состояние будет заменено.");
+    if (!confirmed) return;
+    await store.commit("Personal Twin snapshot restored", (state) => restoreFromTwinSnapshot(state, id));
     return;
   }
   if (action === "set-inspector-renderer") {

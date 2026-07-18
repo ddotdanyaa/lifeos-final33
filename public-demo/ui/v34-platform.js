@@ -557,7 +557,7 @@ export function renderTwin(ctx) {
     `<div class="v34-panel">`,
     `<header><h3>Personal Twin / recovery memory</h3>${button("create-twin-snapshot", "Создать снимок", { kind: "primary", testId: "create-twin-snapshot" })}</header>`,
     `<p class="v34-boundary">Это локальный recovery-слепок контекста, а не внешняя копия личности. Он помогает понять, что уже есть в базе и что можно восстановить.</p>`,
-    safeList(snapshots, (snapshot) => `<article class="v34-object-row" data-testid="twin-snapshot-row"><div><strong>${escapeHtml(snapshot.title)}</strong><span>${meta([statusLabel(snapshot.status), snapshot.summary])}</span></div><div class="v34-row-actions">${graphButton(snapshot.id)}${noteButton(snapshot.noteId)}</div></article>`, `<div class="empty-inline">Создай первый локальный снимок памяти и восстановления.</div>`),
+    safeList(snapshots, (snapshot) => `<article class="v34-object-row" data-testid="twin-snapshot-row"><div><strong>${escapeHtml(snapshot.title)}</strong><span>${meta([statusLabel(snapshot.status), snapshot.summary])}</span></div><div class="v34-row-actions">${graphButton(snapshot.id)}${noteButton(snapshot.noteId)}${button("restore-twin-snapshot", "Восстановить контекст", { id: snapshot.id, kind: "danger", testId: "restore-twin-snapshot", disabled: !snapshot.hasPayload })}</div></article>`, `<div class="empty-inline">Создай первый локальный снимок памяти и восстановления.</div>`),
     `</div>`,
     `</div>`
   ].join("");
