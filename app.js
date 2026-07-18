@@ -3335,7 +3335,68 @@ function stripExtension(name) {
 function canReadSourceAsText(name, mime) {
   const ext = extensionForName(name);
   if (String(mime || "").startsWith("text/")) return true;
-  return ["md", "markdown", "txt", "csv", "json", "html", "xml", "log"].includes(ext);
+  return ["md", "markdown", "txt", "csv", "json", "html", "xml", "log", "ics", "eml"].includes(ext);
+}
+
+// File-only calendar/mail import (P6.3): .ics/.eml are parsed from the file the owner
+// picked, never by reaching out to any account/server - matches the plan's "без доступа
+// к аккаунтам, только файлы" boundary exactly.
+function unfoldIcsLines(text) {
+  return String(text || "").replace(/\r\n/g, "\n").split("\n").reduce((lines, line) => {
+    if (/^[ \t]/.test(line) && lines.length) lines[lines.length - 1] += line.slice(1);
+    else lines.push(line);
+    return lines;
+  }, []);
+}
+
+function parseIcsDate(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/);
+  if (!match) return { day: "", time: "" };
+  return {
+    day: match[1] + "-" + match[2] + "-" + match[3],
+    time: match[4] ? match[4] + ":" + match[5] : ""
+  };
+}
+
+function parseIcsEvents(text) {
+  const lines = unfoldIcsLines(text);
+  const events = [];
+  let current = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line === "BEGIN:VEVENT") { current = {}; continue; }
+    if (line === "END:VEVENT") { if (current) events.push(current); current = null; continue; }
+    if (!current) continue;
+    const separatorIndex = line.indexOf(":");
+    if (separatorIndex === -1) continue;
+    const key = line.slice(0, separatorIndex).split(";")[0].toUpperCase();
+    const value = line.slice(separatorIndex + 1);
+    if (key === "SUMMARY") current.summary = value;
+    else if (key === "DESCRIPTION") current.description = value.replace(/\\n/g, " ");
+    else if (key === "DTSTART") current.start = parseIcsDate(value);
+    else if (key === "DTEND") current.end = parseIcsDate(value);
+  }
+  return events;
+}
+
+function parseEmlMessage(text) {
+  const normalized = String(text || "").replace(/\r\n/g, "\n");
+  const headerEnd = normalized.indexOf("\n\n");
+  const headerBlock = headerEnd === -1 ? normalized : normalized.slice(0, headerEnd);
+  const body = headerEnd === -1 ? "" : normalized.slice(headerEnd + 2);
+  const headers = {};
+  for (const headerLine of unfoldIcsLines(headerBlock)) {
+    const separatorIndex = headerLine.indexOf(":");
+    if (separatorIndex === -1) continue;
+    headers[headerLine.slice(0, separatorIndex).trim().toLowerCase()] = headerLine.slice(separatorIndex + 1).trim();
+  }
+  return {
+    subject: cleanLine(headers.subject || ""),
+    from: cleanLine(headers.from || ""),
+    date: cleanLine(headers.date || ""),
+    body: cleanLine(body).slice(0, 4000)
+  };
 }
 
 function parserStatusForSource(name, kind, readableText) {
@@ -4225,11 +4286,18 @@ function addImportedSource(state, payload) {
     rebuildIndexes(state);
     return id;
   }
+  const ext = extensionForName(source.name);
+  let emlMessage = null;
+  if (ext === "eml" && source.text) {
+    emlMessage = parseEmlMessage(source.text);
+    source.text = ["Subject: " + (emlMessage.subject || "(no subject)"), "From: " + emlMessage.from, "Date: " + emlMessage.date, "", emlMessage.body].filter(Boolean).join("\n");
+  }
   source.analysis = analyzeSourceArtifact(source);
   if (source.text) {
-    const noteId = createNote(state, stripExtension(source.name), state.activeFolderId, createSourceNoteBody(source));
+    const noteId = createNote(state, emlMessage ? (emlMessage.subject || stripExtension(source.name)) : stripExtension(source.name), state.activeFolderId, createSourceNoteBody(source));
     source.noteId = noteId;
-    addAudit(state, "source.project", "Source projected into note: " + source.name, noteId);
+    if (emlMessage) addAudit(state, "source.project", "Email imported from file: " + source.name, noteId);
+    else addAudit(state, "source.project", "Source projected into note: " + source.name, noteId);
   } else if (source.kind === "audio") {
     const noteId = createNote(state, stripExtension(source.name), state.activeFolderId, createSourceNoteBody(source));
     source.noteId = noteId;
@@ -4246,7 +4314,23 @@ function addImportedSource(state, payload) {
     ensureReadingItemForSource(state, id);
     extractHighlightsFromSource(state, id);
   }
-  recordProviderRun(state, "import", "file", "imported", "Импорт: " + source.name + " (" + source.kind + ")", { checksum: source.checksum, sourceId: id, size: source.size });
+  let icsEventCount = 0;
+  if (ext === "ics" && payload.text) {
+    const events = parseIcsEvents(payload.text);
+    for (const event of events) {
+      if (!event.summary) continue;
+      addPlanBlock(state, event.summary, {
+        day: event.start && event.start.day ? event.start.day : todayKey(),
+        startTime: event.start ? event.start.time : "",
+        endTime: event.end ? event.end.time : "",
+        sourceId: id,
+        noteId: source.noteId
+      });
+      icsEventCount += 1;
+    }
+    if (icsEventCount) addAudit(state, "source.import.ics", "Импортировано событий из .ics: " + icsEventCount + " (" + source.name + ")", source.noteId);
+  }
+  recordProviderRun(state, "import", "file", "imported", "Импорт: " + source.name + " (" + source.kind + ")", { checksum: source.checksum, sourceId: id, size: source.size, icsEvents: icsEventCount });
   addAudit(state, "source.import", "Source imported: " + source.name + " (" + source.kind + ")", source.noteId);
   rebuildIndexes(state);
   return id;

@@ -732,3 +732,39 @@ created for only part of the input (`0 < processed < total`) with `job.status ==
 "cancelled"` - proving chunking and cancellation are both real, not simulated. Full audit
 loop (only red = expected dirty tree), `audit:ledger`, G-E2E-CORE + kb-smoke + the new
 spec together (16 passed/1 skipped) all green. Rebuilt public-demo.
+
+## P6.3 ICS_EML_FILE_IMPORT
+
+**Decision: both parsers are plain regex/line-based, no XML/MIME library** - .ics's
+line-folding (RFC 5545: continuation lines start with a space/tab) and .eml's header
+block are both simple enough to parse correctly with a small `unfoldIcsLines` helper
+shared by both, rather than pulling in a calendar or mail-parsing dependency for a
+narrowly-scoped file-only feature. Kept honest: unsupported constructs (recurring events,
+multipart MIME attachments) are simply not extracted, not silently mis-parsed as
+something else.
+
+**Decision: parsed ICS day/time values are passed to the existing `addPlanBlock()` as
+explicit `options.day`/`startTime`/`endTime`, confirmed to override `parseTaskSchedule`'s
+own NLP date-guessing from the title text** (checked the source: `options.day ||
+parseDateFromText(...)`) - so an event titled "Team sync" with a real DTSTART doesn't
+accidentally get re-guessed from the word "sync" or similar. No changes needed to
+`addPlanBlock` itself; this was purely confirming an existing precedence order.
+
+**Decision: `.eml`'s parsed subject/from/date/body replaces the raw MIME dump as the
+source's own `text`** (used by `createSourceNoteBody`), rather than keeping the raw email
+untouched with parsed fields bolted on separately - a raw RFC822 dump with unparsed
+`Content-Type`/boundary noise is not something an owner should have to read to find the
+actual message.
+
+**Decision: zero account/server access, by construction not just by policy** - both
+parsers take only the `File` object's own text content (`file.text()`, already read
+before any parser runs); there is no code path in either function that could reach a
+mail/calendar server even accidentally, matching the plan's "без доступа к аккаунтам,
+только файлы" requirement structurally, not just as a description.
+
+**Verified end-to-end** with a new `output/playwright/ics-eml-import.spec.mjs`: a real
+.ics file (VCALENDAR/VEVENT with DTSTART/DTEND/SUMMARY) produces a real planBlock with the
+exact parsed day/start/end time and a receipt recording the event count; a real .eml file
+produces a source whose note title and body reflect the parsed subject/body, not raw
+headers. Full audit loop (only red = expected dirty tree), `e2e:calendar` (H08),
+G-E2E-CORE + the new spec (14 passed/1 skipped) all green. Rebuilt public-demo.
