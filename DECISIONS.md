@@ -1075,3 +1075,31 @@ injected failure off lets the very next save succeed, with `#save-status` return
 red = expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2
 passed), `health-registry.spec.mjs` (still green after the saveState threading change) all
 green. Rebuilt public-demo.
+
+## P10.1 FIRST_RUN_CALM
+
+**Decision:** Rather than assuming empty states needed rework, audited them first: `ui/home.js`
+already leads with a guided capture composer (placeholder text listing every input type,
+5 quick-action buttons for task/expense/file/audio/book) and mini-summary cards that
+navigate to Today/Money/Habits even when empty; `ui/today.js`'s empty "День спокойный"
+state already carries its own "Добавить" button, and every sub-list (goals, timed tasks,
+plan blocks) has its own inline add-form directly below it, not just descriptive text.
+Found no genuine dead-end - a surface with literally no path forward - anywhere in the nine
+primary surfaces, so no rework was needed; P10.1's real gap was the *missing proof* that
+this holds across a continuous first-run journey, not isolated single-surface checks.
+
+**Found:** `audit:home-complexity` and `audit:no-cockpit-first-screen` were already green
+throughout this entire session (verified in every audit-loop run since P0) - they were
+gates from earlier phases' work, not new for P10.1, so this package's job was to add the
+missing *journey-level* proof the plan specifically asks for ("e2e «первые 10 минут»"),
+not to re-derive gates that already exist.
+
+**Verified end-to-end:** new `output/playwright/first-run-calm.spec.mjs` walks a genuinely
+fresh vault through all 9 primary surfaces (inbox/today/calendar/finance/feed/systems/library/
+graph/control) confirming each renders something real before any data exists, then performs
+two different first captures (a scheduled task, then an expense) through the real guided
+composer, confirming each produces exactly one human answer with one primary action and
+that the resulting task genuinely appears in Today - proving continuity across the whole
+nav, not just isolated surfaces. Full audit loop (only red = expected dirty tree), G-E2E-CORE
+(13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all green. No app.js/ui changes this
+package (audit-only + new e2e), so no public-demo rebuild was needed.
