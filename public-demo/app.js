@@ -2577,6 +2577,9 @@ function normalizeState(input) {
     run.summary = String(run.summary || "");
     run.scopes = Array.isArray(run.scopes) ? run.scopes.map(cleanLine).filter(Boolean) : [];
     run.proposedActions = Array.isArray(run.proposedActions) ? run.proposedActions : [];
+    run.proposalIds = Array.isArray(run.proposalIds) ? run.proposalIds.filter((proposalId) => state.proposals[proposalId]) : [];
+    run.stepResults = Array.isArray(run.stepResults) ? run.stepResults : [];
+    run.health = ["alive", "degraded", "failed"].includes(run.health) ? run.health : "alive";
     run.createdAt = run.createdAt || now();
     run.updatedAt = run.updatedAt || run.createdAt;
   }
@@ -4570,6 +4573,10 @@ function answerProductBrainQuestion(state, text) {
   return "Product Brain: " + summary.noteCount + " узлов, DONE " + (summary.counts.DONE || 0) + ", PARTIAL " + (summary.counts.PARTIAL || 0) + ", GATED " + (summary.counts.GATED || 0) + ". Текущий пакет: " + summary.currentPackage + ". Следующий: " + summary.nextPackage + ".";
 }
 
+// Guarded agent runs (P4.2): a run is a preview until the owner explicitly approves
+// it - approving applies every proposal the run spawned, in one guarded batch (same
+// isolate-per-step pattern as executeFlowRun), never automatically. Capability check
+// mirrors how provider actions already gate themselves (P1.3).
 function runLocalAgent(state, sourceId, noteId) {
   const source = state.sources[sourceId] || null;
   const note = state.notes[noteId] || (source && source.noteId ? state.notes[source.noteId] : null);
@@ -4578,25 +4585,58 @@ function runLocalAgent(state, sourceId, noteId) {
   const summary = analysis
     ? analysis.summary + (analysis.actionLines.length ? " Действия: " + analysis.actionLines.slice(0, 2).join("; ") : "")
     : note ? shorten(note.body, 180) : "No active artifact selected.";
+  ensureCapabilityGrant(state, "agent", "run", { scope: "read-active-artifact", locality: "local" });
   const id = makeId("agent");
   const createdAt = now();
+  const taskProposalId = addProposal(state, "task", "Сделать следующий шаг по " + title, source ? source.id : "", note ? note.id : "");
+  const planProposalId = addProposal(state, "plan", "Запланировать обзор " + title, source ? source.id : "", note ? note.id : "");
   state.agentRuns[id] = {
     id,
     name: "Local organizer",
-    status: "dry-run",
+    status: "preview",
     sourceId: source ? source.id : "",
     noteId: note ? note.id : "",
     summary,
     scopes: ["read-active-artifact", "create-proposals"],
     proposedActions: ["task-proposal", "plan-proposal"],
+    proposalIds: [taskProposalId, planProposalId].filter(Boolean),
+    stepResults: [],
+    health: "alive",
     createdAt,
     updatedAt: createdAt
   };
-  addProposal(state, "task", "Сделать следующий шаг по " + title, source ? source.id : "", note ? note.id : "");
-  addProposal(state, "plan", "Запланировать обзор " + title, source ? source.id : "", note ? note.id : "");
   addChatMessage(state, "assistant", "Локальный организатор подготовил действия для " + title + ".", source ? source.id : "", note ? note.id : "");
   addAudit(state, "agent.run", "Local organizer completed: " + title, note ? note.id : "");
   return id;
+}
+
+function approveAgentRun(state, runId) {
+  const run = state.agentRuns[runId];
+  if (!run) return { ok: false, errors: ["Agent run не найден"] };
+  if (run.status === "applied") return { ok: false, errors: ["Уже применено"] };
+  if (!findActiveCapability(state, "agent", "run")) return { ok: false, errors: ["Нет активного гранта способности agent/run"] };
+  const stepResults = [];
+  for (const proposalId of run.proposalIds || []) {
+    try {
+      const proposal = state.proposals[proposalId];
+      if (!proposal || proposal.status !== "open") {
+        stepResults.push({ proposalId, status: "skipped", error: "" });
+        continue;
+      }
+      applyProposal(state, proposalId);
+      const applied = state.proposals[proposalId];
+      stepResults.push({ proposalId, status: applied && applied.status === "applied" ? "ok" : "skipped", error: "" });
+    } catch (error) {
+      stepResults.push({ proposalId, status: "failed", error: error && error.message ? error.message : String(error) });
+    }
+  }
+  run.stepResults = stepResults;
+  const failedCount = stepResults.filter((step) => step.status === "failed").length;
+  run.health = failedCount === 0 ? "alive" : failedCount === stepResults.length ? "failed" : "degraded";
+  run.status = "applied";
+  run.updatedAt = now();
+  addAudit(state, "agent.run.apply", "Agent run \"" + run.name + "\" одобрен и применён: " + (stepResults.length - failedCount) + "/" + stepResults.length + " шагов ок", run.noteId);
+  return { ok: true, errors: [], health: run.health };
 }
 
 function addReminder(state, title, options) {
@@ -12952,6 +12992,13 @@ async function handleAction(action, id) {
   if (action === "toggle-flow-kill-switch") {
     await store.commit("Flow kill switch toggled", (state) => {
       toggleFlowKillSwitch(state, id);
+    });
+    return;
+  }
+  if (action === "approve-agent-run") {
+    await store.commit("Agent run approved", (state) => {
+      const result = approveAgentRun(state, id);
+      if (!result.ok) state.commandMessage = result.errors.join("; ");
     });
     return;
   }

@@ -449,3 +449,48 @@ the app (Today surface) stays fully usable afterward, proving a blocked/failed f
 takes down the product. Full audit loop (only red = expected dirty tree), G-E2E-CORE +
 system-factory + flow-execution together (16 passed/1 skipped) all green. Rebuilt
 public-demo.
+
+## P4.2 AGENT_GUARDED_RUNS
+
+**Decision: agent runs reuse the exact same isolated-batch-apply pattern as
+`executeFlowRun` (P4.1)**, applied to `runLocalAgent`'s own proposals via a new
+`approveAgentRun()`. Why: this is the same shape of problem (a preview that spawned N
+proposals, now needs a guarded batch-apply with per-step isolation) - a second bespoke
+implementation would just be a copy of P4.1 with different naming.
+
+**Decision: capability check reuses P1.3's exact mechanism** (`ensureCapabilityGrant(state,
+"agent", "run", ...)` on preview, `findActiveCapability(state, "agent", "run")` gating
+`approveAgentRun`), not a new agent-specific permission concept. Same resource+action+
+scope+locality+approval+budget shape as provider grants; the click that starts the agent
+preview is the explicit-user-action approval, same reasoning as P1.3's provider grants.
+
+**Decision: "report = agent_report_artifact" needed no new code** - an agentRun record
+already gets `type: "agent-run"` from P1.1's Object Contract and is already one of P2.1's
+three M0-proven renderer types (labeled "agent_report" there). Approving a run just adds
+real outcome data (`stepResults`, `health`) to the same record Object Contract/renderer
+registry/inspector already treat as a first-class artifact - nothing new to wire for the
+"report" half of this package.
+
+**Renamed the agentRun status `"dry-run"` to `"preview"`** to match the plan's own
+vocabulary ("preview → approve → apply") and distinguish it from `"applied"`; kept the
+exact UI strings ("черновой прогон", "Требуется Принять") pre-existing e2e specs
+(`final-journeys`, `owner-rescue`, `market-owner`, `kb-smoke`) already assert on, shown
+conditionally only while `status !== "applied"`.
+
+**Hit the same normalizeState-timing gotcha as P4.1 ([[lifeos-normalize-state-gotcha]]),
+this time in a test rather than product code**: the new e2e test read `run.type` (an
+Object Contract v4 field) immediately after clicking "Проверить агента", before the async
+save/normalize pass had completed - `commit()` renders with the raw pre-normalize state
+first. Fixed the *test* (added `flushForTest()` before asserting on contract fields), not
+the product: `runLocalAgent`'s own object literal already needs no Object Contract fields
+set directly, since those are guaranteed by the existing generic `applyObjectContractToState`
+pass in normalizeState (unlike P4.1's `budget`/`killSwitch`, which had no other source of
+truth and had to be read synchronously by the very next render).
+
+**Verified end-to-end** with a new `output/playwright/agent-guarded-runs.spec.mjs`: preview
+creates proposals but does not touch tasks/planBlocks yet; a capability grant
+(resource=agent, action=run, locality=local) exists; approving applies both proposals for
+real (tasks/planBlocks counts increase) and the run becomes `status: "applied"`,
+`health: "alive"`. Full audit loop (only red = expected dirty tree), extended
+`audit:seven-contracts`, G-E2E-CORE + kb-smoke + the new spec together (16 passed/1
+skipped) all green. Rebuilt public-demo.

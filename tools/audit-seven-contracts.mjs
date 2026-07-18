@@ -84,6 +84,12 @@ const control = readFileSync("ui/control.js", "utf8");
 if (!control.includes("capability-row") || !control.includes("capability-list")) problems.push("ui/control.js does not render a capability section");
 if (!app.includes("\"revoke-capability\"")) problems.push("app.js does not handle the revoke-capability action");
 
+// --- Agent Guarded Runs (P4.2): preview -> approve -> apply, gated by the same capability contract ---
+if (!app.includes("ensureCapabilityGrant(state, \"agent\", \"run\"")) problems.push("runLocalAgent does not check/ensure an agent/run capability grant");
+if (!app.includes("function approveAgentRun")) problems.push("app.js does not define approveAgentRun");
+if (!app.includes("findActiveCapability(state, \"agent\", \"run\")")) problems.push("approveAgentRun does not verify the capability grant before applying");
+if (!app.includes("\"approve-agent-run\"")) problems.push("app.js does not handle the approve-agent-run action");
+
 if (problems.length) fail("Seven Contracts audit failed", { problems });
 
 console.log(JSON.stringify({

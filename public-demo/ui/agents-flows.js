@@ -18,7 +18,17 @@ export function renderAgentsFlows(ctx) {
     `<h3>Сценарий</h3>`,
     renderFlowCanvas(ctx),
     `</section>`,
-    `<aside class="agent-history"><h3>История</h3>${safeList(runs.slice(0, 6), (run) => `<div class="run-row" data-testid="agent-run"><strong>${escapeHtml(publicText(run.name || run.title || run.kind || "черновой прогон"))}</strong><span>черновой прогон · Требуется Принять</span><em>${escapeHtml(compactText(run.summary || run.status || "", 120))}</em></div>`, `<div class="empty-inline">Запусти агента или сценарий.</div>`)}</aside>`,
+    `<aside class="agent-history"><h3>История</h3>${safeList(runs.slice(0, 6), (run) => [
+      `<div class="run-row" data-testid="agent-run">`,
+      `<strong>${escapeHtml(publicText(run.name || run.title || run.kind || "черновой прогон"))}</strong>`,
+      `<span>${run.status === "applied" ? "применено" : "черновой прогон · Требуется Принять"}</span>`,
+      `<em>${escapeHtml(compactText(run.summary || run.status || "", 120))}</em>`,
+      run.health ? `<mark data-testid="agent-run-health" data-health="${escapeHtml(run.health)}">${escapeHtml(run.health)}</mark>` : "",
+      run.status === "preview" && (run.proposalIds || []).length
+        ? button("approve-agent-run", "Одобрить", { id: run.id, kind: "primary", testId: "approve-agent-run" })
+        : "",
+      `</div>`
+    ].join(""), `<div class="empty-inline">Запусти агента или сценарий.</div>`)}</aside>`,
     `<section class="approval-queue" data-testid="approval-queue"><h3>Очередь подтверждения</h3><p>Все результаты остаются предложениями до явного действия владельца.</p></section>`,
     `</div>`
   ].join("");
