@@ -540,3 +540,49 @@ echoing a stale/fake model response. Confirmed (already known from P4.1) that
 dev machine), not something this package could fix without one. Full audit loop (only red
 = expected dirty tree), G-E2E-CORE + the new spec together (14 passed/1 skipped) green.
 Rebuilt public-demo.
+
+## P5.2 BYOK_VAULT_ROUTING
+
+**Decision: the vault (`state.control.byokVault`) is a separate collection from
+`modelProfiles`, specifically so it can be redacted from export independently.** A model
+profile (routing policy, budget, endpoint) is safe to export - it's configuration, not a
+secret. Keeping the actual key value in its own collection meant `buildVaultExportPayload`
+only needed one targeted change (`byokVault: {}` alongside the existing `rollbackSnapshots: []`
+redaction, same established pattern) rather than having to strip fields out of every
+individual modelProfile record.
+
+**Found and fixed a real, load-bearing gap in the receipt pipeline while implementing "per-
+call locality receipt": `addAudit`/`addReceipt` always wrote `locality: "local"`** -
+`addReceipt`'s caller inside `addAudit` never passed a locality option at all, so *every*
+receipt in the entire app, regardless of what actually happened, was hardcoded local. This
+was invisible until now because nothing had ever needed to claim otherwise (Ollama is
+genuinely local). Fixed by adding an optional `options` parameter to `addAudit()` that
+flows through to `addReceipt()`, and having `recordProviderRun()` pass through
+`details.locality` when the caller specifies one (defaulting to "local" otherwise, so every
+other existing call site is unaffected). This is the one path in the whole app that can
+honestly say `locality: "cloud:<route>"` instead of "local".
+
+**Decision: the capability grant itself (`ensureCapabilityGrant`) stays coarse-grained
+(one grant per resource+action, first-locality-wins)**, while the *receipt* is now the
+fine-grained per-call record of actual locality. Not a bug: P1.3's grant answers "is this
+kind of action allowed at all," the receipt answers "what actually happened this specific
+time" - conflating them would mean a single grant creation event would need to somehow
+predict every future call's locality, which isn't the grant's job.
+
+**Decision: cloud calls are gated behind an explicit `window.confirm()` naming the exact
+endpoint**, in addition to needing an active BYOK key - two independent gates (confirm +
+key present), matching the plan's "cloud только с явным подтверждением." A budget check
+(`used >= limit`) blocks the call entirely before either gate, so a runaway budget can't
+even prompt for confirmation.
+
+**Verified end-to-end** with a new `output/playwright/byok-vault-routing.spec.mjs` using a
+synthetic fixture key (`sk-test-fake-...`, never a real credential) and a fully mocked
+network endpoint (no real cloud provider contacted): added a cloud-gated model route,
+stored the fake key, confirmed it's masked in every rendered location (including a
+whole-page text scan for the raw value), confirmed the call requires the confirm dialog and
+writes a `model-call` receipt with `locality` starting `"cloud:"`, and - via real Playwright
+download interception on the actual "Экспорт всего" button - confirmed the downloaded
+export JSON contains neither the raw key string anywhere nor any entries under
+`control.byokVault`. Full audit loop (only red = expected dirty tree),
+`audit:no-label-theater-hard`, G-E2E-CORE + byok + ollama-live specs together (15 passed/1
+skipped) all green. Rebuilt public-demo.

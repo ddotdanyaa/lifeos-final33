@@ -308,7 +308,7 @@ export function renderModelHub(ctx) {
     `</div>`,
     safeList(
       models,
-      (model) => `<article class="v34-object-row" data-testid="model-row"><div><strong>${escapeHtml(model.title)}</strong><span>${meta([model.kind, statusLabel(model.status), model.endpoint || "owner-provided", model.boundary])}</span></div><div class="v34-row-actions">${button("verify-model-route", "Проверить", { id: model.id, kind: "ghost", testId: "verify-model-route" })}${graphButton(model.id)}${noteButton(model.noteId)}</div></article>`,
+      (model) => `<article class="v34-object-row" data-testid="model-row"><div><strong>${escapeHtml(model.title)}</strong><span>${meta([model.kind, statusLabel(model.status), model.endpoint || "owner-provided", model.boundary])}</span><span data-testid="model-routing-policy">${escapeHtml(model.routingPolicy)}</span><span data-testid="model-budget">${model.budget.used.toFixed(2)}/${model.budget.limit} ${escapeHtml(model.budget.unit)}</span></div><div class="v34-row-actions">${button("verify-model-route", "Проверить", { id: model.id, kind: "ghost", testId: "verify-model-route" })}${button("call-model-route", "Вызвать", { id: model.id, kind: "primary", testId: "call-model-route" })}${graphButton(model.id)}${noteButton(model.noteId)}</div></article>`,
       `<div class="empty-inline">Маршруты моделей появятся после добавления.</div>`
     ),
     `</section>`,

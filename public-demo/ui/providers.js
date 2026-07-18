@@ -73,6 +73,26 @@ function providerCard(key, provider = {}) {
   ].join("");
 }
 
+function byokVaultSection(ctx) {
+  const models = (ctx.modelProfiles || []).filter((model) => model.kind === "cloud-gated");
+  const entries = Object.values(ctx.control?.byokVault || {}).filter((entry) => !entry.revokedAt);
+  return [
+    `<section class="byok-vault" data-testid="byok-vault-panel">`,
+    `<header><h3>BYOK: ключи облачных маршрутов</h3><p>Ключ вводит только владелец здесь; всегда замаскирован в интерфейсе и не попадает в экспорт по умолчанию.</p></header>`,
+    `<div class="v34-form" data-testid="byok-vault-form">`,
+    `<label><span>Маршрут (cloud-gated модель)</span><select id="byok-provider">${models.map((model) => `<option value="${escapeHtml(model.id)}">${escapeHtml(model.title)}</option>`).join("") || `<option value="">нет cloud-gated маршрутов</option>`}</select></label>`,
+    `<label><span>Ключ</span><input id="byok-key" type="password" autocomplete="off" value="" placeholder="sk-..."></label>`,
+    button("add-byok-key", "Сохранить ключ", { kind: "primary", testId: "add-byok-key", disabled: !models.length }),
+    `</div>`,
+    safeList(
+      entries,
+      (entry) => `<div class="byok-key-row" data-testid="byok-key-row"><span>${escapeHtml((models.find((model) => model.id === entry.providerId) || {}).title || entry.providerId)}</span><strong data-testid="byok-key-masked">${escapeHtml(entry.maskedPreview)}</strong>${button("revoke-byok-key", "Отозвать", { id: entry.id, kind: "ghost", testId: "revoke-byok-key" })}</div>`,
+      `<div class="empty-inline" data-testid="byok-vault-empty">Ключей пока нет.</div>`
+    ),
+    `</section>`
+  ].join("");
+}
+
 export function renderProviders(ctx) {
   const providers = ctx.providers || [];
   const body = [
@@ -82,6 +102,7 @@ export function renderProviders(ctx) {
       (row) => providerCard(row.key, row.provider),
       `<div class="empty-inline">Подключения появятся после проверки среды.</div>`
     ),
+    byokVaultSection(ctx),
     `</div>`
   ].join("");
 

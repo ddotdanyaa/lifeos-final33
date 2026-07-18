@@ -1946,6 +1946,8 @@ function addModelProfile(state, title, endpoint, kind) {
     endpoint: cleanLine(endpoint || ""),
     status: endpoint ? "unchecked" : "needs-owner-credentials",
     boundary: "Explicit owner run only; proposal mode before mutation.",
+    routingPolicy: kind === "cloud-gated" ? "cloud-confirmed" : "local-first",
+    budget: { limit: 50, used: 0, costPerCall: kind === "cloud-gated" ? 0.01 : 0, unit: "USD" },
     noteId,
     deleted: false,
     createdAt,
@@ -1953,6 +1955,58 @@ function addModelProfile(state, title, endpoint, kind) {
   };
   addAudit(state, "model.profile", "Model profile added: " + cleanTitle, noteId);
   return id;
+}
+
+// BYOK vault (P5.2): the owner types the key into this exact field only; masked
+// everywhere it's displayed, and stripped from vault export by default (see
+// buildVaultExportPayload). The raw value is only ever read by callModelRoute(),
+// for the owner's own explicitly-confirmed cloud call - never logged/audited.
+function addByokKey(state, providerId, rawKey) {
+  const key = String(rawKey || "").trim();
+  if (!key) return { ok: false, errors: ["Ключ пустой"] };
+  const id = makeId("byok");
+  const createdAt = now();
+  state.control.byokVault[id] = {
+    id,
+    providerId: cleanLine(providerId || "provider"),
+    secretValue: key,
+    maskedPreview: "*".repeat(Math.max(0, key.length - 4)) + key.slice(-4),
+    revokedAt: "",
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "byok.key.add", "BYOK ключ добавлен для " + (providerId || "provider") + " (замаскирован)", "");
+  return { ok: true, id, errors: [] };
+}
+
+function revokeByokKey(state, id) {
+  const entry = state.control.byokVault[id];
+  if (!entry) return;
+  entry.revokedAt = now();
+  entry.secretValue = "";
+  addAudit(state, "byok.key.revoke", "BYOK ключ отозван для " + entry.providerId, "");
+}
+
+function findActiveByokKey(state, providerId) {
+  return Object.values(state.control.byokVault).find((entry) => entry.providerId === providerId && !entry.revokedAt) || null;
+}
+
+// Only ever invoked after an explicit owner confirm (see call-model-route handler);
+// never fired automatically. locality is "cloud:<providerId>", never "local" - this is
+// the one path in the app that can leave the device, and it must say so honestly.
+async function callModelRoute(endpoint, apiKey, prompt) {
+  const base = String(endpoint || "").replace(/\/+$/, "");
+  const startedAt = Date.now();
+  const response = await fetch(base, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiKey },
+    body: JSON.stringify({ prompt, stream: false })
+  });
+  if (!response.ok) throw new Error("Cloud model route responded with HTTP " + response.status);
+  const payload = await response.json();
+  const text = cleanLine(payload.response || payload.text || payload.output || "");
+  if (!text) throw new Error("Cloud model route returned an empty response");
+  return { text, latencyMs: Math.max(1, Date.now() - startedAt) };
 }
 
 function verifyModelRoute(state, modelId) {
@@ -2196,6 +2250,7 @@ function normalizeState(input) {
       corruptRecords: [],
       architectureEvents: [],
       capabilities: {},
+      byokVault: {},
       privacyZones: {
         local: "active",
         providers: "gated",
@@ -2268,6 +2323,20 @@ function normalizeState(input) {
     grant.budget = grant.budget && typeof grant.budget === "object" ? grant.budget : { limit: 0, spent: 0, unit: "unmetered-local" };
     grant.grantedAt = grant.grantedAt || now();
     grant.revokedAt = String(grant.revokedAt || "");
+  }
+  state.control.byokVault = state.control.byokVault && typeof state.control.byokVault === "object" ? state.control.byokVault : {};
+  for (const entry of Object.values(state.control.byokVault)) {
+    entry.id = cleanLine(entry.id || makeId("byok"));
+    entry.providerId = cleanLine(entry.providerId || "provider");
+    entry.secretValue = String(entry.secretValue || "");
+    entry.maskedPreview = cleanLine(entry.maskedPreview || (entry.secretValue ? "*".repeat(Math.max(0, entry.secretValue.length - 4)) + entry.secretValue.slice(-4) : ""));
+    entry.revokedAt = String(entry.revokedAt || "");
+    entry.createdAt = entry.createdAt || now();
+    entry.updatedAt = entry.updatedAt || entry.createdAt;
+  }
+  for (const model of Object.values(state.modelProfiles || {})) {
+    model.routingPolicy = ["local-first", "cloud-confirmed"].includes(model.routingPolicy) ? model.routingPolicy : (model.kind === "cloud-gated" ? "cloud-confirmed" : "local-first");
+    model.budget = model.budget && typeof model.budget === "object" ? model.budget : { limit: 50, used: 0, costPerCall: 0, unit: "USD" };
   }
   state.designStudio.viewPresets = state.designStudio.viewPresets && typeof state.designStudio.viewPresets === "object" ? state.designStudio.viewPresets : {};
   for (const surface of Object.keys(state.designStudio.viewPresets)) {
@@ -2732,7 +2801,7 @@ function addReceipt(state, kind, objectId, summary, options = {}) {
   state.control.receipts = state.control.receipts.slice(-160);
 }
 
-function addAudit(state, type, summary, noteId) {
+function addAudit(state, type, summary, noteId, options = {}) {
   state.auditLog.push({
     id: makeId("audit"),
     type,
@@ -2743,7 +2812,7 @@ function addAudit(state, type, summary, noteId) {
   state.auditLog = state.auditLog.slice(-300);
   state.commandMessage = summary;
   const mutationKind = classifyStrongMutation(type);
-  if (mutationKind) addReceipt(state, mutationKind, noteId || "", summary, { noteId: noteId || "" });
+  if (mutationKind) addReceipt(state, mutationKind, noteId || "", summary, { noteId: noteId || "", locality: options.locality });
 }
 
 function parseWikiInner(inner) {
@@ -6314,7 +6383,8 @@ function revokeCapability(state, id) {
 }
 
 function recordProviderRun(state, providerId, kind, status, summary, details) {
-  ensureCapabilityGrant(state, providerId, kind, { locality: "local" });
+  const locality = details && details.locality ? details.locality : "local";
+  ensureCapabilityGrant(state, providerId, kind, { locality });
   const id = makeId("providerrun");
   const activeNote = getActiveNote(state);
   const source = Object.values(state.sources || {}).filter((item) => !item.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null;
@@ -6331,7 +6401,7 @@ function recordProviderRun(state, providerId, kind, status, summary, details) {
     createdAt,
     updatedAt: createdAt
   };
-  addAudit(state, "provider.run", providerId + " " + kind + ": " + summary, activeNote ? activeNote.id : "");
+  addAudit(state, "provider.run", providerId + " " + kind + ": " + summary, activeNote ? activeNote.id : "", { locality });
   return id;
 }
 
@@ -11804,7 +11874,7 @@ function buildVaultExportPayload(state) {
     providers: state.providers,
     environment: state.environment,
     ollama: state.ollama,
-    control: Object.assign({}, state.control, { rollbackSnapshots: [] }),
+    control: Object.assign({}, state.control, { rollbackSnapshots: [], byokVault: {} }),
     backlinks: state.backlinks,
     ghosts: state.ghosts,
     graph: mapGraph(state),
@@ -12855,6 +12925,64 @@ async function handleAction(action, id) {
       if (modelId) {
         state.graphView.selectedNodeId = modelId;
         state.activeSurface = "models";
+      }
+    });
+    return;
+  }
+  if (action === "add-byok-key") {
+    const providerInput = document.querySelector("#byok-provider");
+    const keyInput = document.querySelector("#byok-key");
+    const rawKey = keyInput ? keyInput.value : "";
+    await store.commit("BYOK key added", (state) => {
+      const result = addByokKey(state, providerInput ? providerInput.value : "", rawKey);
+      if (!result.ok) state.commandMessage = result.errors.join("; ");
+    });
+    if (keyInput) keyInput.value = "";
+    return;
+  }
+  if (action === "revoke-byok-key") {
+    await store.commit("BYOK key revoked", (state) => {
+      revokeByokKey(state, id);
+    });
+    return;
+  }
+  if (action === "call-model-route") {
+    const model = store.state.modelProfiles[id];
+    if (!model) return;
+    if (model.routingPolicy === "cloud-confirmed") {
+      const confirmed = window.confirm("Отправить запрос во внешний облачный маршрут \"" + model.title + "\" (" + model.endpoint + ")? Это единственное место, где данные могут покинуть устройство.");
+      if (!confirmed) return;
+    }
+    if (model.budget.used >= model.budget.limit) {
+      await store.commit("Model route budget exceeded", (state) => {
+        state.commandMessage = "Бюджет маршрута \"" + model.title + "\" исчерпан (" + model.budget.limit + " " + model.budget.unit + ")";
+      });
+      return;
+    }
+    const vaultEntry = findActiveByokKey(store.state, model.id);
+    if (model.routingPolicy === "cloud-confirmed" && !vaultEntry) {
+      await store.commit("Model route blocked, no key", (state) => {
+        state.commandMessage = "Нет активного BYOK ключа для \"" + model.title + "\"; добавь ключ в Подключениях.";
+      });
+      return;
+    }
+    let result = null;
+    let failure = "";
+    try {
+      result = await callModelRoute(model.endpoint, vaultEntry ? vaultEntry.secretValue : "local", "LifeOS model route check.");
+    } catch (error) {
+      failure = error && error.message ? error.message : String(error);
+    }
+    await store.commit("Model route called", (state) => {
+      const current = state.modelProfiles[id];
+      if (!current) return;
+      if (result) {
+        current.budget.used += current.budget.costPerCall || 0;
+        current.status = "route_ok";
+        recordProviderRun(state, "models", "route-call", "route_ok", "Маршрут \"" + current.title + "\" ответил за " + result.latencyMs + "мс", { modelId: current.id, locality: current.routingPolicy === "cloud-confirmed" ? "cloud:" + current.title : "local" });
+      } else {
+        current.status = "route_failed";
+        recordProviderRun(state, "models", "route-call", "route_failed", "Маршрут \"" + current.title + "\" недоступен: " + failure, { modelId: current.id, locality: current.routingPolicy === "cloud-confirmed" ? "cloud:" + current.title : "local", error: failure });
       }
     });
     return;
