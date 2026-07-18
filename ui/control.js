@@ -97,11 +97,32 @@ function mergeReviewRows(entries) {
   );
 }
 
+function obsidianScanPreview(report) {
+  if (!report) {
+    return `<div class="empty-inline" data-testid="obsidian-scan-empty">Vault ещё не отсканирован.</div>`;
+  }
+  const sampleTitles = (report.files || []).slice(0, 5).map((file) => escapeHtml(file.title)).join(", ");
+  const wikilinkTotal = (report.files || []).reduce((sum, file) => sum + Number(file.wikilinkCount || 0), 0);
+  const tagTotal = (report.files || []).reduce((sum, file) => sum + (file.tags || []).length, 0);
+  return [
+    `<div class="obsidian-scan-report" data-testid="obsidian-scan-report">`,
+    `<div><strong>${escapeHtml(report.vaultName)}</strong><span> — ${report.files.length} заметок, ${report.attachmentCount} вложений</span></div>`,
+    `<div><span>Тегов: ${tagTotal} · Wiki-ссылок: ${wikilinkTotal}</span></div>`,
+    sampleTitles ? `<div><em>${sampleTitles}${report.files.length > 5 ? "…" : ""}</em></div>` : "",
+    `<div class="obsidian-scan-actions">`,
+    button("confirm-obsidian-import", "Подтвердить импорт", { kind: "primary", testId: "confirm-obsidian-import" }),
+    button("cancel-obsidian-import", "Отменить", { kind: "ghost", testId: "cancel-obsidian-import" }),
+    `</div>`,
+    `</div>`
+  ].join("");
+}
+
 export function renderControl(ctx) {
   const audit = ctx.auditLog || [];
   const snapshots = ctx.control?.rollbackSnapshots || [];
   const corruptRecords = ctx.control?.corruptRecords || [];
   const mergeReview = ctx.mergeReview || [];
+  const obsidianScanReport = ctx.obsidianScanReport || null;
   const capabilities = Object.values(ctx.control?.capabilities || {}).sort((a, b) => String(b.grantedAt || "").localeCompare(String(a.grantedAt || "")));
   const rollbackCount = snapshots.length;
   const storageUsage = Number(ctx.environment?.storageUsage || 0);
@@ -132,6 +153,7 @@ export function renderControl(ctx) {
     `<section class="recovery-list" data-testid="corrupt-record-list"><h4>Повреждённые записи</h4><strong data-testid="corrupt-record-count">${corruptRecords.length}</strong>${corruptRows(corruptRecords)}</section>`,
     `<section class="recovery-list" data-testid="capability-list"><h4>Способности провайдеров</h4><strong data-testid="capability-count">${capabilities.length}</strong>${capabilityRows(capabilities)}</section>`,
     `<section class="recovery-list" data-testid="merge-review-list"><h4>Дубликаты на рассмотрении</h4><strong data-testid="merge-review-count">${mergeReview.length}</strong>${mergeReviewRows(mergeReview)}</section>`,
+    `<section class="recovery-list" data-testid="obsidian-bridge-section"><h4>Obsidian vault</h4>${button("import-obsidian-vault", "Импорт vault", { kind: "ghost", testId: "import-obsidian-vault" })}${button("export-obsidian-vault", "Экспорт в Obsidian", { kind: "ghost", testId: "export-obsidian-vault" })}${obsidianScanPreview(obsidianScanReport)}</section>`,
     renderInspectorDrawer(ctx),
     `<details class="dev-state-panel" data-testid="dev-state"><summary>Состояние разработки</summary><div data-testid="dev-state-panel"><div data-testid="architecture-contract"><strong>Product Brain</strong><span>Доступен только здесь, в графе через фильтр разработки и в чате через /dev. Artifact OS contract: ввод -> артефакт -> проекции -> граф -> контроль.</span><mark data-testid="architecture-validation">ок</mark>${button("set-surface", "Открыть граф разработки", { id: "graph", kind: "ghost" })}</div></div></details>`,
     `</aside>`,

@@ -2253,6 +2253,7 @@ function normalizeState(input) {
       byokVault: {},
       mergeReview: {},
       importJobs: {},
+      obsidianScanReport: null,
       privacyZones: {
         local: "active",
         providers: "gated",
@@ -4171,6 +4172,97 @@ async function computeChecksum(text) {
   } catch (error) {
     return "";
   }
+}
+
+// Obsidian Vault Bridge (P6.4, milestone M4): scan -> preview -> explicit confirm ->
+// notes+rollback, never a silent bulk write. Two-way live sync is out of v1 scope
+// (post-v1 per the plan); export is one-shot, round-tripping folder/file structure.
+function parseFrontmatter(text) {
+  const normalized = String(text || "").replace(/\r\n/g, "\n");
+  const match = normalized.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!match) return { tags: [], body: normalized };
+  const yamlBlock = match[1];
+  const tagsMatch = yamlBlock.match(/^tags:\s*(.*)$/m);
+  let tags = [];
+  if (tagsMatch) {
+    const raw = tagsMatch[1].trim();
+    if (raw.startsWith("[")) tags = raw.replace(/^\[|\]$/g, "").split(",").map((tag) => cleanLine(tag.replace(/^["']|["']$/g, "")));
+    else if (raw) tags = [cleanLine(raw)];
+    else {
+      const listLines = yamlBlock.slice(yamlBlock.indexOf(tagsMatch[0]) + tagsMatch[0].length).split("\n");
+      for (const line of listLines) {
+        const itemMatch = line.match(/^\s*-\s*(.+)$/);
+        if (!itemMatch) break;
+        tags.push(cleanLine(itemMatch[1]));
+      }
+    }
+  }
+  return { tags: tags.filter(Boolean), body: normalized.slice(match[0].length) };
+}
+
+async function scanObsidianVaultFiles(fileList) {
+  const files = Array.from(fileList || []);
+  const mdFiles = files.filter((file) => /\.md$/i.test(file.name));
+  const attachmentFiles = files.filter((file) => !/\.md$/i.test(file.name));
+  const entries = [];
+  for (const file of mdFiles) {
+    const relativePath = file.webkitRelativePath || file.name;
+    const text = await file.text();
+    const { tags, body } = parseFrontmatter(text);
+    const wikilinkCount = (body.match(/\[\[[^\]]+\]\]/g) || []).length;
+    entries.push({
+      relativePath,
+      name: file.name,
+      title: stripExtension(file.name),
+      body,
+      tags,
+      wikilinkCount,
+      hasFrontmatter: text.length !== body.length
+    });
+  }
+  return { files: entries, attachmentCount: attachmentFiles.length };
+}
+
+function startObsidianScan(state, scan, vaultName) {
+  state.control.obsidianScanReport = {
+    vaultName: cleanLine(vaultName || "Obsidian vault"),
+    files: scan.files,
+    attachmentCount: scan.attachmentCount,
+    scannedAt: now()
+  };
+  addAudit(state, "source.import.obsidian.scan", "Vault просканирован: " + scan.files.length + " заметок, " + scan.attachmentCount + " вложений", "");
+}
+
+function cancelObsidianImport(state) {
+  state.control.obsidianScanReport = null;
+}
+
+function confirmObsidianImport(state) {
+  const scan = state.control.obsidianScanReport;
+  if (!scan || !scan.files.length) return { ok: false, imported: 0 };
+  createRollbackSnapshot(state, "До импорта Obsidian vault: " + scan.vaultName);
+  const folderId = createFolder(state, scan.vaultName);
+  let imported = 0;
+  for (const file of scan.files) {
+    const noteId = createNote(state, file.title, folderId, file.body);
+    const note = state.notes[noteId];
+    note.tags = file.tags;
+    note.obsidianPath = file.relativePath;
+    imported += 1;
+  }
+  recordProviderRun(state, "import", "obsidian-vault", "imported", "Obsidian vault импортирован: " + imported + " заметок из " + scan.vaultName, { vaultName: scan.vaultName, imported, attachmentCount: scan.attachmentCount });
+  addAudit(state, "source.import.obsidian", "Obsidian vault импортирован: " + imported + " заметок (" + scan.vaultName + ")", "");
+  state.control.obsidianScanReport = null;
+  return { ok: true, imported };
+}
+
+function buildObsidianExportFiles(state) {
+  const notes = Object.values(state.notes).filter((note) => !note.deleted && note.obsidianPath);
+  const files = {};
+  for (const note of notes) {
+    files[note.obsidianPath] = note.body || "";
+  }
+  return files;
 }
 
 function findDuplicateSource(state, checksum, excludeId) {
@@ -8270,6 +8362,7 @@ function buildNewShellContext(state, activeNote) {
     questions: Object.values(state.questions || {}).filter((item) => !item.deleted),
     reviewItems: Object.values(state.reviewItems || {}).filter((item) => !item.deleted),
     systemRecordSchedule: systemRecordDateEntries(state),
+    obsidianScanReport: state.control.obsidianScanReport || null,
     mergeReview: Object.values(state.control.mergeReview || {}).map((entry) => ({
       id: entry.id,
       sourceId: entry.sourceId,
@@ -13674,6 +13767,42 @@ async function handleAction(action, id) {
     if (input) input.click();
     return;
   }
+  if (action === "import-obsidian-vault") {
+    const input = document.querySelector("#obsidian-vault-import");
+    if (input) input.click();
+    return;
+  }
+  if (action === "confirm-obsidian-import") {
+    await store.commit("Obsidian vault imported", (state) => {
+      confirmObsidianImport(state);
+    });
+    return;
+  }
+  if (action === "cancel-obsidian-import") {
+    await store.commit("Obsidian vault import cancelled", (state) => {
+      cancelObsidianImport(state);
+    });
+    return;
+  }
+  if (action === "export-obsidian-vault") {
+    const files = buildObsidianExportFiles(store.state);
+    if (!Object.keys(files).length) return;
+    const { zipSync, strToU8 } = await loadFflate();
+    const zipped = zipSync(Object.fromEntries(Object.entries(files).map(([path, text]) => [path, strToU8(text)])), { level: 0 });
+    const blob = new Blob([zipped], { type: "application/zip" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "lifeos-obsidian-export.zip";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    await store.commit("Obsidian vault exported", (state) => {
+      addAudit(state, "vault.export", "Obsidian vault экспортирован: " + Object.keys(files).length + " заметок", state.activeNoteId);
+    });
+    return;
+  }
   if (action === "open-source-note") {
     await store.commit("Source note opened", (state) => {
       const source = state.sources[id];
@@ -14493,6 +14622,17 @@ async function handleChange(event) {
   if (target.id === "backup-import") {
     await importBackupFromInput(target.files);
     target.value = "";
+    return;
+  }
+  if (target.id === "obsidian-vault-import") {
+    const files = Array.from(target.files || []);
+    target.value = "";
+    if (!files.length) return;
+    const vaultName = (files[0].webkitRelativePath || "").split("/")[0] || "Obsidian vault";
+    const scan = await scanObsidianVaultFiles(files);
+    await store.commit("Obsidian vault scanned", (state) => {
+      startObsidianScan(state, scan, vaultName);
+    });
     return;
   }
   if (target.id === "note-title") {

@@ -768,3 +768,37 @@ exact parsed day/start/end time and a receipt recording the event count; a real 
 produces a source whose note title and body reflect the parsed subject/body, not raw
 headers. Full audit loop (only red = expected dirty tree), `e2e:calendar` (H08),
 G-E2E-CORE + the new spec (14 passed/1 skipped) all green. Rebuilt public-demo.
+
+## P6.4 OBSIDIAN_VAULT_BRIDGE
+
+**Decision:** Implement the Obsidian bridge as scan -> preview -> explicit confirm/cancel,
+mirroring the P6.2 merge-review pattern rather than importing on file-select. A folder
+picker (`<input webkitdirectory multiple>`) reads every `.md` file via the File API only
+(no filesystem access API, no account/server calls). `parseFrontmatter()` extracts YAML
+`tags:` (both inline-array and list-item forms) and strips the frontmatter block from the
+note body; wikilink count is a lightweight regex count (`[[...]]`), not a resolved link
+graph, since full backlink resolution is out of scope for v1 (`docs/LIFEOS_V1_MASTER_BUILD_PLAN.md`
+P6.4 explicitly stops at one-way sync). Vault name comes from `webkitRelativePath`'s first
+path segment, falling back to "Obsidian vault" when unavailable (e.g. synthetic file
+uploads without a real relative path).
+
+**Found:** Confirming the import must go through `createRollbackSnapshot()` before creating
+any notes (per gotcha #1, `budget`/`killSwitch`-style fields aren't the risk here — the risk
+is committing 50-2000 notes with no undo path). Each imported note gets a new `obsidianPath`
+field (the original relative path) so `buildObsidianExportFiles()` can round-trip notes back
+to their original vault-relative paths on export, without inventing a new folder-mapping
+scheme. Export builds a zip client-side via fflate's `esm/browser.js` build (same fix as
+P6.1/P5.1 — the default `esm/index.mjs` imports `node:module` and breaks in-browser) and
+triggers a real anchor-click download; no server round-trip.
+
+**Verified end-to-end:** `output/playwright/obsidian-bridge.spec.mjs` writes two real `.md`
+files (one with YAML frontmatter tags + a wikilink, one plain) into a real temp directory
+and uploads it via `setInputFiles(dirPath)` against the real `webkitdirectory` input (in-memory
+buffers are rejected by Playwright for `webkitdirectory` inputs, confirmed via a first failed
+run - fixed by writing real files to a real temp dir). Scan preview shows the correct file/tag
+count before any note exists; confirming creates exactly the right number of new notes with
+the parsed tags and `obsidianPath` set, plus a rollback snapshot and a `source.import.obsidian`
+receipt; the scan report clears after confirm. A second scan on a different folder is
+cancelled and produces zero new notes. Export triggers a real `lifeos-obsidian-export.zip`
+download. Full audit loop (only red = expected dirty tree), G-E2E-KB (`kb-smoke.spec.mjs`,
+2 passed), G-E2E-CORE (13 passed/1 skipped) all green. Rebuilt public-demo.

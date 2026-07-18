@@ -148,6 +148,7 @@ export function renderNewShell(ctx) {
     `<input id="file-import" data-testid="file-import" type="file" multiple hidden>`,
     `<input id="audio-import" data-testid="audio-import" type="file" accept="audio/*" multiple hidden>`,
     `<input id="backup-import" data-testid="backup-import" type="file" accept="application/json,.json" hidden>`,
+    `<input id="obsidian-vault-import" data-testid="obsidian-vault-import" type="file" webkitdirectory multiple hidden>`,
     `<header class="lifeos-public-header">`,
     `<div><strong>LifeOS v34</strong><span>Локальная персональная ОС для жизни, данных, знаний и действий</span></div>`,
     `<label class="global-search-v2"><span>Найти</span><input id="global-search" data-testid="global-search" value="${escapeHtml(ctx.searchQuery || "")}" autocomplete="off" aria-label="Поиск"></label>`,
