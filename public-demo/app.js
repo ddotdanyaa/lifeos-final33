@@ -2787,6 +2787,7 @@ function normalizeState(input) {
     state.uiRevision = UI_REVISION;
   }
   applyObjectContractToState(state);
+  purgeExpiredTrashItems(state);
   rebuildIndexes(state);
   return state;
 }
@@ -8458,6 +8459,8 @@ function buildNewShellContext(state, activeNote) {
     lifeDomains: lifeDomainStats(state),
     notes: Object.values(state.notes || {}).filter((note) => !note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     deletedNotes: Object.values(state.notes || {}).filter((note) => note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    trashItems: allTrashRows(state).slice(0, 30).map((row) => Object.assign({}, row, { daysLeft: Math.max(0, Math.ceil(TRASH_GRACE_DAYS - daysSinceTimestamp(row.updatedAt))) })),
+    trashGraceDays: TRASH_GRACE_DAYS,
     ollama: state.ollama || {},
     installedPacks: Object.values(state.installedPacks || {}).filter((item) => !item.deleted),
     marketplacePacks: Object.values(state.marketplacePacks || {}).filter((item) => !item.deleted),
@@ -12171,6 +12174,44 @@ const V34_CONTROL_COLLECTIONS = Object.freeze({
   "twin-snapshot": "personalTwinSnapshots"
 });
 
+// Trash + grace restore (P7.1): soft-deleted items across every collection stay
+// restorable for TRASH_GRACE_DAYS, then normalizeState() hard-purges them on the next
+// load/save - a real grace window, not a label, backed by the same updatedAt timestamp
+// every archive*/restore* function already maintains.
+const TRASH_GRACE_DAYS = 30;
+
+function daysSinceTimestamp(isoString) {
+  const then = Date.parse(isoString || "");
+  if (!Number.isFinite(then)) return 0;
+  return (Date.now() - then) / 86400000;
+}
+
+function trashCollectionKeyForKind(kind) {
+  const builtIn = { note: "notes", source: "sources", task: "tasks", reminder: "reminders", habit: "habits", goal: "goals", plan: "planBlocks" };
+  return builtIn[kind] || V34_CONTROL_COLLECTIONS[kind] || "";
+}
+
+function restoreTrashItem(state, kind, id) {
+  if (kind === "note") { restoreNote(state, id); return true; }
+  if (kind === "source") { restoreSource(state, id); return true; }
+  if (kind === "task") { restoreTask(state, id); return true; }
+  if (kind === "reminder") { restoreReminder(state, id); return true; }
+  if (kind === "habit") { restoreHabit(state, id); return true; }
+  if (kind === "goal") { restoreGoal(state, id); return true; }
+  if (kind === "plan") { restorePlanBlock(state, id); return true; }
+  return restoreV34ControlObject(state, kind, id);
+}
+
+function purgeTrashItemForever(state, kind, id) {
+  const key = trashCollectionKeyForKind(kind);
+  const item = key && state[key] ? state[key][id] : null;
+  if (!item) return false;
+  const title = item.title || item.name || id;
+  delete state[key][id];
+  addAudit(state, "control.trash.purge", "Удалено навсегда: " + kind + " " + title, "");
+  return true;
+}
+
 function pushDeletedControlRows(rows, state, kind) {
   const collection = state[V34_CONTROL_COLLECTIONS[kind]] || {};
   for (const item of Object.values(collection).filter((row) => row && row.deleted)) {
@@ -12203,7 +12244,7 @@ function restoreV34ControlObject(state, kind, id) {
   return true;
 }
 
-function recoveryItems(state) {
+function allTrashRows(state) {
   const rows = [];
   for (const note of Object.values(state.notes || {}).filter((item) => item.deleted)) rows.push({ kind: "note", id: note.id, title: note.title, updatedAt: note.updatedAt });
   for (const source of Object.values(state.sources || {}).filter((item) => item.deleted)) rows.push({ kind: "source", id: source.id, title: source.name, updatedAt: source.updatedAt });
@@ -12213,7 +12254,32 @@ function recoveryItems(state) {
   for (const goal of Object.values(state.goals || {}).filter((item) => item.deleted)) rows.push({ kind: "goal", id: goal.id, title: goal.title, updatedAt: goal.updatedAt });
   for (const block of Object.values(state.planBlocks || {}).filter((item) => item.deleted)) rows.push({ kind: "plan", id: block.id, title: block.title, updatedAt: block.updatedAt });
   for (const kind of Object.keys(V34_CONTROL_COLLECTIONS)) pushDeletedControlRows(rows, state, kind);
-  return rows.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 12);
+  return rows.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+}
+
+function recoveryItems(state) {
+  return allTrashRows(state).slice(0, 12);
+}
+
+function purgeExpiredTrashItems(state) {
+  let purgedCount = 0;
+  for (const row of allTrashRows(state)) {
+    if (daysSinceTimestamp(row.updatedAt) <= TRASH_GRACE_DAYS) continue;
+    const key = trashCollectionKeyForKind(row.kind);
+    if (key && state[key] && state[key][row.id]) {
+      delete state[key][row.id];
+      purgedCount += 1;
+    }
+  }
+  if (purgedCount > 0) addAudit(state, "control.trash.purge", "Автоматически удалено навсегда после " + TRASH_GRACE_DAYS + " дней: " + purgedCount, "");
+}
+
+function undoLastTrashAction(state) {
+  const mostRecent = allTrashRows(state)[0];
+  if (!mostRecent) return false;
+  restoreTrashItem(state, mostRecent.kind, mostRecent.id);
+  addAudit(state, "control.undo", "Отменено последнее удаление: " + mostRecent.title, "");
+  return true;
 }
 
 function controlObjectCounts(state) {
@@ -13987,6 +14053,26 @@ async function handleAction(action, id) {
     await store.commit("Note restored", (state) => restoreNote(state, id));
     return;
   }
+  if (action === "restore-trash-item") {
+    const separatorIndex = id.indexOf(":");
+    const kind = separatorIndex === -1 ? id : id.slice(0, separatorIndex);
+    const itemId = separatorIndex === -1 ? "" : id.slice(separatorIndex + 1);
+    await store.commit("Trash item restored", (state) => restoreTrashItem(state, kind, itemId));
+    return;
+  }
+  if (action === "purge-trash-item-forever") {
+    const separatorIndex = id.indexOf(":");
+    const kind = separatorIndex === -1 ? id : id.slice(0, separatorIndex);
+    const itemId = separatorIndex === -1 ? "" : id.slice(separatorIndex + 1);
+    const confirmed = window.confirm("Удалить навсегда без возможности восстановления?");
+    if (!confirmed) return;
+    await store.commit("Trash item purged forever", (state) => purgeTrashItemForever(state, kind, itemId));
+    return;
+  }
+  if (action === "undo-last-trash") {
+    await store.commit("Undo last trash action", (state) => undoLastTrashAction(state));
+    return;
+  }
   if (action === "restore-source") {
     await store.commit("Source restored", (state) => restoreSource(state, id));
     return;
@@ -14998,6 +15084,16 @@ async function deleteRepositoryDatabasesForTest() {
   })));
 }
 
+async function backdateTrashItemForTest(kind, id, isoTimestamp) {
+  if (!store) return false;
+  await store.commit("Test: backdate trash item", (state) => {
+    const key = trashCollectionKeyForKind(kind);
+    const item = key && state[key] ? state[key][id] : null;
+    if (item) item.updatedAt = isoTimestamp;
+  });
+  return true;
+}
+
 async function resetRepositoryForTest() {
   if (repository && typeof repository.close === "function") repository.close();
   repository = null;
@@ -15170,6 +15266,7 @@ window.__lifeosKnowledgeBase = {
   parseTaskSchedule,
   analyzeSourceArtifact,
   seedExactLargeVault,
+  backdateTrashItemForTest,
   isolateCorruptRecord,
   recoverCorruptRecord,
   buildArchitectureSnapshot,

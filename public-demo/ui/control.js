@@ -117,12 +117,43 @@ function obsidianScanPreview(report) {
   ].join("");
 }
 
+const TRASH_KIND_LABELS = {
+  note: "Заметка",
+  source: "Источник",
+  task: "Задача",
+  reminder: "Напоминание",
+  habit: "Привычка",
+  goal: "Цель",
+  plan: "Блок времени"
+};
+
+function trashKindLabel(kind) {
+  return TRASH_KIND_LABELS[kind] || String(kind || "").replace(/[-_]+/g, " ");
+}
+
+function trashRows(items) {
+  return safeList(
+    items,
+    (item) => [
+      `<div class="recovery-row trash-row" data-testid="trash-row">`,
+      `<span>${escapeHtml(trashKindLabel(item.kind) + ": " + item.title)}</span>`,
+      `<mark data-testid="trash-days-left">${item.daysLeft} ${item.daysLeft === 1 ? "день" : "дней"}</mark>`,
+      button("restore-trash-item", "Восстановить", { id: item.kind + ":" + item.id, kind: "ghost", testId: "restore-trash-item" }),
+      button("purge-trash-item-forever", "Удалить навсегда", { id: item.kind + ":" + item.id, kind: "danger", testId: "purge-trash-item-forever" }),
+      `</div>`
+    ].join(""),
+    `<div class="empty-inline" data-testid="trash-empty">Корзина пуста.</div>`
+  );
+}
+
 export function renderControl(ctx) {
   const audit = ctx.auditLog || [];
   const snapshots = ctx.control?.rollbackSnapshots || [];
   const corruptRecords = ctx.control?.corruptRecords || [];
   const mergeReview = ctx.mergeReview || [];
   const obsidianScanReport = ctx.obsidianScanReport || null;
+  const trashItems = ctx.trashItems || [];
+  const trashGraceDays = ctx.trashGraceDays || 30;
   const capabilities = Object.values(ctx.control?.capabilities || {}).sort((a, b) => String(b.grantedAt || "").localeCompare(String(a.grantedAt || "")));
   const rollbackCount = snapshots.length;
   const storageUsage = Number(ctx.environment?.storageUsage || 0);
@@ -149,6 +180,7 @@ export function renderControl(ctx) {
     button("create-rollback-snapshot", "Снимок отката", { kind: "ghost", testId: "create-rollback-snapshot" }),
     button("archive-selected-artifact", "В архив", { kind: "danger", testId: "archive-selected-artifact" }),
     `<section class="recovery-list" data-testid="rollback-list"><h4>Rollback snapshots</h4>${rollbackRows(snapshots)}</section>`,
+    `<section class="recovery-list" data-testid="trash-list"><h4>Корзина</h4><span>Восстановление доступно ${trashGraceDays} дней, затем удаление навсегда</span><strong data-testid="trash-count">${trashItems.length}</strong>${button("undo-last-trash", "Отменить последнее удаление", { kind: "ghost", testId: "undo-last-trash", disabled: !trashItems.length })}${trashRows(trashItems)}</section>`,
     `<section class="recovery-list" data-testid="deleted-note-list"><h4>Удалённые заметки</h4>${deletedNoteRows(ctx.deletedNotes || [])}</section>`,
     `<section class="recovery-list" data-testid="corrupt-record-list"><h4>Повреждённые записи</h4><strong data-testid="corrupt-record-count">${corruptRecords.length}</strong>${corruptRows(corruptRecords)}</section>`,
     `<section class="recovery-list" data-testid="capability-list"><h4>Способности провайдеров</h4><strong data-testid="capability-count">${capabilities.length}</strong>${capabilityRows(capabilities)}</section>`,

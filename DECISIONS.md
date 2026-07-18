@@ -841,3 +841,39 @@ mountain note by real cosine similarity, not a hardcoded result list. Full audit
 red = expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2
 passed), `ollama-live-chat.spec.mjs` (still green, confirming the embeddings passport
 addition didn't regress the existing chat passport) all green. Rebuilt public-demo.
+
+## P7.1 TRASH_UNDO_GRACE
+
+**Decision:** Rather than building a new soft-delete/restore mechanism, generalize what
+already existed: `archiveSelectedControlObject()` + the per-kind `archive*()`/`restore*()`
+pairs (notes, sources, tasks, reminders, habits, goals, plan blocks, and every
+`V34_CONTROL_COLLECTIONS` kind) already flip a real `.deleted` flag with a real `updatedAt`
+receipt. The legacy cockpit's `recoveryItems()` already aggregated all of that into one
+list but was never wired into the live chat-first `ui/control.js` - only notes had a
+Control-surface restore UI. Refactored `recoveryItems()` into `allTrashRows()` (full list,
+sorted by `updatedAt` desc) with `recoveryItems()` now a thin `.slice(0, 12)` wrapper, so
+both the legacy and live surfaces share one source of truth.
+
+**Found:** "Undo the last commit" is implemented as "restore whichever trashed item has the
+most recent `updatedAt`" (`undoLastTrashAction()`) rather than parsing `auditLog` entries by
+type, because `addAudit()`'s `noteId` argument is the *owning* note for non-note kinds, not
+the trashed object's own id - the audit log alone can't identify what to restore for e.g. a
+trashed source or habit. The real per-collection `.deleted`/`updatedAt` state is the actual
+source of truth for "what got deleted most recently," so building undo directly off
+`allTrashRows()` is both simpler and more honest than reverse-engineering it from summary
+strings. Grace expiry (`purgeExpiredTrashItems`, `TRASH_GRACE_DAYS=30`) runs inside
+`normalizeState()` - the one place that already runs on every load/save - so a real hard
+`delete state[collection][id]` happens automatically once 30 days have passed, with a single
+summary audit entry (not one per item, to avoid audit-log spam on a large purge).
+
+**Verified end-to-end:** `output/playwright/trash-undo-grace.spec.mjs` proves, on real
+notes: (1) delete -> item appears in the unified Trash list with "30 дней" showing; (2)
+"Отменить последнее удаление" restores it for real (`note.deleted === false`) and it leaves
+the trash list; (3) a second note is restored via its own row's "Восстановить" button, not
+just the "undo last" path; (4) a third note's "Удалить навсегда" makes it genuinely
+unrecoverable (`state.notes[id] === undefined`); (5) a fourth note's timestamp is backdated
+31 days via a new `backdateTrashItemForTest` test hook, and a real page reload (forcing
+`normalizeState()` to run) hard-purges it for real, with the expected `control.trash.purge`
+audit entry - no waiting 30 real days, no faked purge call. Full audit loop (only red =
+expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed),
+`audit:recovery-final` all green. Rebuilt public-demo.
