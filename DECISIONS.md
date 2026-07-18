@@ -494,3 +494,49 @@ real (tasks/planBlocks counts increase) and the run becomes `status: "applied"`,
 `health: "alive"`. Full audit loop (only red = expected dirty tree), extended
 `audit:seven-contracts`, G-E2E-CORE + kb-smoke + the new spec together (16 passed/1
 skipped) all green. Rebuilt public-demo.
+
+## P5.1 OLLAMA_LIVE
+
+**Discovery: chat never actually called Ollama at all, even when connected and tested** -
+`buildLocalChatAnswer` is a pure rule-based intent matcher; the "generation_ok" status was
+only ever used to display a label, never to route an actual `/api/generate` call. This is
+exactly the gap the plan names ("полный локальный путь чата... при доступном демоне").
+
+**Decision: the live path only ever fires when `state.ollama.status === "generation_ok"`
+AND a model is selected** - i.e. only after the owner has *both* explicitly probed the
+endpoint *and* explicitly run the generation test button (two separate confirms already in
+place). Never attempted speculatively just because an endpoint string exists. On any
+failure (network error, non-200, empty response) it falls back to the existing
+`buildLocalChatAnswer` silently and honestly - no error shown to the user as if it were a
+model answer, no fake success.
+
+**Decision: reused `recordProviderRun()` verbatim for the receipt** (kind: "chat"), which
+already gives capability-grant-checking (P1.3) and receipt/audit writing (P1.2, "provider.run"
+already matches the model-call strong-mutation rule) for free - no new receipt-writing code
+needed, just a new call site with `providerId: "ollama", kind: "chat"`.
+
+**Decision: citations are the actual notes `searchNotes()` matched and fed into the
+prompt**, not anything the model claims - `buildOllamaChatPrompt` includes their titles/
+bodies in the prompt text itself, and the citation line appended to the answer lists those
+exact same notes' titles. This makes "citations" a property of what was actually given to
+the model, not an unverifiable claim about what it used.
+
+**Async network work moved outside `store.commit`'s mutator** (matching the existing
+`probe-ollama`/`test-ollama-generation` pattern): the `fetch()` call happens before
+`store.commit`, and only the already-resolved answer/citations/model/latency are passed
+into the synchronous mutator - `commit()`'s mutator must stay synchronous (see
+[[lifeos-normalize-state-gotcha]] for why timing inside commit matters generally).
+
+**Verified end-to-end** with a new `output/playwright/ollama-live-chat.spec.mjs` that mocks
+the Ollama daemon over the network (`page.route` on `/api/tags` and `/api/generate` - this
+machine has no real Ollama install, same technique the plan itself calls for at P5.2's
+gate): probe -> test generation -> send a chat message -> the mocked model's exact text
+appears in the answer with a citation line, a `providerRuns` entry with `kind: "chat"` and
+the right model exists, and a `control.receipts` entry with `kind: "model-call"` and
+`locality: "local"` was written. Then broke the mocked endpoint (500 response) and
+confirmed chat still answers coherently through the honest fallback, never crashing or
+echoing a stale/fake model response. Confirmed (already known from P4.1) that
+`e2e:ai-providers`'s J15 failure is pre-existing/environmental (no real daemon on this
+dev machine), not something this package could fix without one. Full audit loop (only red
+= expected dirty tree), G-E2E-CORE + the new spec together (14 passed/1 skipped) green.
+Rebuilt public-demo.

@@ -6252,6 +6252,32 @@ async function testOllamaGeneration(endpoint, model) {
   };
 }
 
+// Live Ollama chat (P5.1): the full local generation path, used only when the owner
+// has already explicitly probed AND tested generation (status "generation_ok") - never
+// attempted speculatively. Citations point back to the real notes the prompt was built
+// from, not invented ones.
+function buildOllamaChatPrompt(context, citedNotes, question) {
+  const citationBlock = citedNotes.length
+    ? "Related local notes:\n" + citedNotes.map((note) => "- " + note.title + ": " + shorten(cleanLine(note.body || ""), 200)).join("\n") + "\n\n"
+    : "";
+  return "You are a local, honest assistant for LifeOS, a personal data OS. Answer briefly using only the given local context; do not invent facts.\n\nActive context: " + context.title + " - " + context.text + "\n\n" + citationBlock + "Question: " + question + "\nAnswer:";
+}
+
+async function generateOllamaChatAnswer(endpoint, model, prompt) {
+  const base = String(endpoint || "").replace(/\/+$/, "");
+  const startedAt = Date.now();
+  const response = await fetch(base + "/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: 220 } })
+  });
+  if (!response.ok) throw new Error("Ollama chat responded with HTTP " + response.status);
+  const payload = await response.json();
+  const text = cleanLine(payload.response || "");
+  if (!text) throw new Error("Ollama chat returned an empty response");
+  return { text, latencyMs: Math.max(1, Date.now() - startedAt) };
+}
+
 // Capability Contract (Seven Contracts, "Capability/Locality"): a grant is
 // resource+action+scope+locality+approval+budget, per P1.3. Every provider action
 // checks/ensures a grant exists before the run is recorded - see recordProviderRun below.
@@ -13115,11 +13141,31 @@ async function handleAction(action, id) {
       || chatInputs.find((item) => item.offsetParent !== null)
       || chatInputs[0];
     const text = input ? input.value : "";
+    const cleanText = String(text || "").trim();
+    const normalizedChatText = normalizeRuText(cleanText);
+    const wantsDevAnswer = /^\/dev\b/i.test(cleanText) || normalizedChatText.includes("спросить о разработке") || normalizedChatText.includes("состояние разработки");
+    // Live Ollama generation is only attempted when the owner already explicitly
+    // tested it ("generation_ok"), never speculatively - and it always falls back to
+    // the honest local rule-based answer on any failure, never a fake response.
+    let liveAnswer = null;
+    if (!wantsDevAnswer && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel) {
+      try {
+        const citedNotes = searchNotes(store.state, cleanText).filter((note) => note.systemType !== "product_brain").slice(0, 3);
+        const context = activeChatContext(store.state);
+        const prompt = buildOllamaChatPrompt(context, citedNotes, cleanText);
+        const result = await generateOllamaChatAnswer(store.state.ollama.endpoint, store.state.ollama.selectedModel, prompt);
+        liveAnswer = {
+          text: result.text,
+          citations: citedNotes.map((note) => ({ id: note.id, title: note.title })),
+          model: store.state.ollama.selectedModel,
+          latencyMs: result.latencyMs
+        };
+      } catch (error) {
+        liveAnswer = null;
+      }
+    }
     await store.commit("Chat message sent", (state) => {
-      const cleanText = String(text || "").trim();
       if (!cleanText) return;
-      const normalizedChatText = normalizeRuText(cleanText);
-      const wantsDevAnswer = /^\/dev\b/i.test(cleanText) || normalizedChatText.includes("спросить о разработке") || normalizedChatText.includes("состояние разработки");
       const productBrainAnswer = wantsDevAnswer ? answerProductBrainQuestion(state, cleanText.replace(/^\/dev\s*/i, "")) : "";
       if (productBrainAnswer) {
         state.activeNoteId = PRODUCT_BRAIN_ROOT_ID;
@@ -13130,8 +13176,14 @@ async function handleAction(action, id) {
         return;
       }
       addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
-      addChatMessage(state, "assistant", buildLocalChatAnswer(state, cleanText), "", state.activeNoteId);
-      addAudit(state, "chat.local.answer", "Local chat answered: " + shorten(cleanText, 90), state.activeNoteId);
+      if (liveAnswer) {
+        const citationLine = liveAnswer.citations.length ? " Источники: " + liveAnswer.citations.map((citation) => citation.title).join(", ") + "." : "";
+        addChatMessage(state, "assistant", liveAnswer.text + citationLine, "", state.activeNoteId);
+        recordProviderRun(state, "ollama", "chat", "generation_ok", "Ollama chat ответил моделью " + liveAnswer.model + " за " + liveAnswer.latencyMs + "мс, источников: " + liveAnswer.citations.length, { model: liveAnswer.model, citationIds: liveAnswer.citations.map((citation) => citation.id), latencyMs: liveAnswer.latencyMs });
+      } else {
+        addChatMessage(state, "assistant", buildLocalChatAnswer(state, cleanText), "", state.activeNoteId);
+        addAudit(state, "chat.local.answer", "Local chat answered: " + shorten(cleanText, 90), state.activeNoteId);
+      }
     });
     return;
   }
