@@ -1138,3 +1138,33 @@ Also added the previously-missing "Установить" button + install-status
 Providers surface's PWA passport (`ui/providers.js`), which only existed in the legacy
 renderer before. Full audit loop (only red = expected dirty tree), H10 + full G-E2E-CORE +
 `kb-smoke.spec.mjs` (2 passed) all green after the prefix fix. Rebuilt public-demo.
+
+## P10.3 PERF_BUDGETS
+
+**Decision:** `tools/audit-performance-final.mjs` previously only verified that a screenshot
+file existed and a journey report mentioned "large vault" - genuinely useless as a
+performance gate, since it couldn't fail no matter how slow the app got. Rather than
+inventing a synthetic benchmark harness, added a real numeric budget the plan explicitly
+asks for (boot, interaction): a new `output/playwright/perf-budgets.spec.mjs` measures both
+in a real browser against the real app and writes `docs/qc/PERF_BUDGET_REPORT.json`, which
+the audit now reads and enforces against fixed thresholds (boot 8000ms, interaction 1500ms)
+- the audit fails outright if the report is missing, incomplete, or over budget, closing the
+"always green no matter what" gap.
+
+**Found:** Measuring interaction time from the Playwright side (click, then `await
+expect(...).toBeVisible()`) would include IPC round-trip and polling overhead unrelated to
+the app's actual render speed, making the number meaningless as a budget. Instead measured
+entirely inside the page via `page.evaluate()`: `performance.now()` immediately before a
+real `.click()` on the nav button, then `requestAnimationFrame`-polled until the target
+workspace's element exists, `performance.now()` again - a number that reflects only the
+app's own commit-to-render latency (interaction commits are synchronous in-memory before
+the async persist, so this was expected to be small - measured 22.7ms, confirming the
+architecture's synchronous-render design pays off in practice, not just in theory).
+
+**Verified end-to-end:** ran `perf-budgets.spec.mjs` for real: boot (fresh vault, navigation
+to the shell's capture composer visible) measured 2681ms against an 8000ms budget;
+interaction (nav click to workspace render) measured 22.7ms against a 1500ms budget. Ran
+`audit-performance-final.mjs` against that real report - green, with the actual numbers
+echoed in its output (not just `ok: true`). Full audit loop (only red = expected dirty
+tree), `npm run verify`, G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all
+green. No app.js/ui changes this package, so no public-demo rebuild was needed.
