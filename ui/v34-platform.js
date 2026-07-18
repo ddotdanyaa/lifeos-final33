@@ -109,7 +109,34 @@ function systemEntityFieldForm(system) {
   ].join("");
 }
 
-function systemRecordForm(system, entity, records, entityIndex) {
+const SYSTEM_VIEW_MODES = [["list", "feed-bubble"], ["table", "table-row"], ["card", "card"]];
+
+function systemViewSwitch(systemId, activeRenderer) {
+  return `<div class="system-view-switch" data-testid="system-view-switch">${SYSTEM_VIEW_MODES.map(([label, mode]) => button("set-system-view", label, { id: systemId + "::" + mode, kind: mode === activeRenderer ? "primary" : "ghost", testId: "system-view-" + label })).join("")}</div>`;
+}
+
+function systemRecordActions(record) {
+  return `${button("edit-system-record", "Изменить", { id: record.id, kind: "ghost", testId: "edit-system-record" })}${button("toggle-system-record-state", record.lifecycleState === "archived" ? "Вернуть" : "Архивировать", { id: record.id, kind: "ghost", testId: "toggle-system-record-state" })}`;
+}
+
+function systemRecordRows(records, renderer) {
+  if (!records.length) return `<div class="empty-inline">Записей пока нет.</div>`;
+  if (renderer === "table-row") {
+    const rows = records.map((record) => {
+      const item = presentArtifact(record, "system-record");
+      return `${renderArtifactByMode(item, renderer)}<tr class="system-record-actions-row" data-testid="system-record-row"><td colspan="4" class="v34-row-actions">${systemRecordActions(record)}</td></tr>`;
+    }).join("");
+    return `<table><tbody>${rows}</tbody></table>`;
+  }
+  const markup = records.map((record) => {
+    const item = presentArtifact(record, "system-record");
+    const preview = renderArtifactByMode(item, renderer);
+    return `<div class="system-record-wrap" data-testid="system-record-row">${preview}<div class="v34-row-actions">${systemRecordActions(record)}</div></div>`;
+  }).join("");
+  return renderer === "feed-bubble" ? `<div class="system-record-list">${markup}</div>` : markup;
+}
+
+function systemRecordForm(system, entity, records, entityIndex, viewRenderer) {
   // ids are index-based, not name-based: entity/field names are free-form (often
   // Cyrillic-only), and stripping non-ASCII chars for an id slug would collapse
   // multiple distinct names to the same id - index is always unique and stable
@@ -130,7 +157,7 @@ function systemRecordForm(system, entity, records, entityIndex) {
     `<label><span>Название записи</span><input id="builder-record-title-${entityIndex}" autocomplete="off" value=""></label>`,
     fieldInputs,
     button("create-system-record", "Добавить запись", { id: String(entityIndex), kind: "primary", testId: "create-system-record-" + entityIndex }),
-    safeList(records, (record) => `<article class="v34-object-row" data-testid="system-record-row"><div><strong>${escapeHtml(record.title)}</strong><span>${meta(Object.entries(record.fields || {}).map(([key, value]) => key + "=" + value))}</span></div></article>`, `<div class="empty-inline">Записей пока нет.</div>`),
+    systemRecordRows(records, viewRenderer),
     `</div>`
   ].join("");
 }
@@ -181,8 +208,8 @@ export function renderSystems(ctx, variant = "systems") {
       systemEntityFieldForm(focusedSystem),
       `</section>`,
       `<section class="v34-panel" data-testid="system-records-panel">`,
-      `<header><h3>Записи</h3></header>`,
-      focusedSystem.entities.map((entity, entityIndex) => systemRecordForm(focusedSystem, entity, records.filter((record) => record.systemId === focusedSystem.id && record.entityName === entity.name), entityIndex)).join(""),
+      `<header><h3>Записи</h3>${systemViewSwitch(focusedSystem.id, (ctx.designStudio?.viewPresets?.["system:" + focusedSystem.id]?.renderer) || "table-row")}</header>`,
+      focusedSystem.entities.map((entity, entityIndex) => systemRecordForm(focusedSystem, entity, records.filter((record) => record.systemId === focusedSystem.id && record.entityName === entity.name), entityIndex, (ctx.designStudio?.viewPresets?.["system:" + focusedSystem.id]?.renderer) || "table-row")).join(""),
       `</section>`
     ].join("") : "",
     `</div>`

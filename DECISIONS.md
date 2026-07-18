@@ -325,3 +325,41 @@ empty, then confirmed it succeeds with correct typed values (`Сумма: 500` a
 a string) once filled - including a full Object Contract v4 pass on the new record for
 free. Full audit loop (only red = expected dirty tree), G-SMOKE, `audit:architecture`,
 G-E2E-CORE (13 passed/1 skipped) all green. Rebuilt public-demo.
+
+## P3.2 SYSTEM_VIEWS_ACTIONS
+
+**Decision: reused P2.1's ViewPreset mechanism (`state.designStudio.viewPresets`) keyed by
+`"system:" + systemId` for the list/table/card switch, instead of a new dedicated field.**
+Why: it's already exactly "a renderer choice associated with an arbitrary key", which is
+what a per-system view preference is - a second parallel mechanism would just be
+duplicated state for the same concept.
+
+**Decision: "update" is implemented via sequential native `window.prompt()` calls (one per
+field, reusing the existing `promptValue()` helper already used by `edit-task`/
+`edit-reminder`/etc.), not a new inline-edit form.** Why: the server-rendered-per-commit
+architecture has no client-side reactivity to pop open an edit form pre-filled with a
+specific record's current values without a page-state toggle per record; `promptValue()`
+is this codebase's established, working pattern for exactly this kind of quick field edit,
+and matching it keeps the diff small.
+
+**Decision: "state-change" reuses the Object Contract v4 `lifecycleState` field
+(active/archived) already on every record**, rather than inventing a new system-specific
+status concept. A generic toggle action was cheaper and more consistent than adding a
+second parallel state model on top of the one P1.1 already guarantees exists.
+
+**Found and fixed a real update-validation edge case via e2e testing**: `updateSystemRecord`
+validates the *merged* field set atomically - correct behavior (no partial saves), but it
+means editing just the title while a required field's prompt gets cancelled/dismissed
+silently rejects the *entire* update, including the title, with no visible reason beyond
+`commandMessage`. The first version of the e2e test only supplied an answer for the first
+prompt and silently failed to see the title change, which is exactly this behavior working
+as designed - fixed the test (answer every prompt), not the product code, since rejecting
+an invalid merged record is the intended contract-honoring behavior.
+
+**Verified end-to-end** with a new permanent spec, `output/playwright/system-factory.spec.mjs`
+(replaces the disposable P3.1 test): typed date field -> record creation -> table view
+default -> switch to card view (table disappears, card renderer appears) -> edit via
+prompt chain -> state-change toggle -> the date value appears in both Today's and
+Calendar's new system-schedule sections without becoming a task. Full audit loop (only red
+= expected dirty tree) and G-E2E-CORE + the new spec together (14 passed/1 skipped) green.
+Rebuilt public-demo.

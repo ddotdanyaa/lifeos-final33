@@ -26,6 +26,7 @@ export function renderCalendar(ctx) {
     `<aside class="unscheduled-bucket"><h3>Без времени</h3>${safeList(unscheduled, (item) => `<button class="unscheduled-item" data-action="focus-graph-node" data-id="${escapeHtml(item.id)}" data-testid="calendar-agenda-item"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(scheduleLine(item, ctx.todayKey, ctx.tomorrowKey))}</span></button>`, emptyState("Нет свободных задач", "Все задачи либо назначены, либо день пуст."))}</aside>`,
     `</main>`,
     `<footer class="calendar-agenda-strip" data-testid="calendar-agenda-strip">${safeList(ctx.scheduleItems.slice(0, 6), (item) => `<button data-action="focus-graph-node" data-id="${escapeHtml(item.id)}"><time>${escapeHtml(scheduleLine(item, ctx.todayKey, ctx.tomorrowKey))}</time><strong>${escapeHtml(item.title || "Блок")}</strong></button>`, `<span>Добавь задачу, и она появится в плане.</span>`)}</footer>`,
+    `<section class="calendar-system-schedule" data-testid="calendar-system-schedule"><h3>Даты систем</h3>${safeList((ctx.systemRecordSchedule || []).slice(0, 10), (entry) => `<div class="reminder-chip" data-testid="calendar-system-schedule-row"><strong>${escapeHtml(entry.title)}</strong><span>${escapeHtml(entry.day + " · " + entry.systemTitle)}</span></div>`, `<span>Даты систем появятся после заполнения полей типа "дата".</span>`)}</section>`,
     `</div>`
   ].join("");
   return renderWorkspaceLayout("calendar", "Календарь", "Планирование времени, а не таблица задач.", body, { testId: "workspace-calendar", actions, kicker: "План" });

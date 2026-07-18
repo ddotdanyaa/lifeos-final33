@@ -1647,6 +1647,56 @@ function createSystemRecord(state, systemId, entityName, rawValues) {
   return { ok: true, id, errors: [] };
 }
 
+function updateSystemRecord(state, recordId, rawValues) {
+  const record = state.systemRecords[recordId];
+  if (!record || record.deleted) return { ok: false, errors: ["Запись не найдена"] };
+  const system = state.systemDefinitions[record.systemId];
+  const entity = system ? system.entities.find((item) => item.name === record.entityName) : null;
+  if (!entity) return { ok: false, errors: ["Сущность не найдена"] };
+  const merged = Object.assign({}, record.fields, rawValues);
+  const validation = validateSystemRecordFields(entity, merged);
+  if (!validation.ok) return { ok: false, errors: validation.errors };
+  record.fields = validation.values;
+  if (rawValues.title) record.title = cleanLine(rawValues.title);
+  record.updatedAt = now();
+  addAudit(state, "system.record.update", "Запись обновлена: " + record.title, record.noteId);
+  return { ok: true, errors: [] };
+}
+
+function toggleSystemRecordState(state, recordId) {
+  const record = state.systemRecords[recordId];
+  if (!record) return;
+  record.lifecycleState = record.lifecycleState === "archived" ? "active" : "archived";
+  record.updatedAt = now();
+  addAudit(state, "system.record.toggle", "Статус записи изменен: " + record.title + " -> " + record.lifecycleState, record.noteId);
+}
+
+// System Factory date projection (P3.2): any typed date-field value on a systemRecord
+// surfaces as a read-only schedule entry in Today/Calendar, without becoming a task.
+function systemRecordDateEntries(state) {
+  const entries = [];
+  for (const record of Object.values(state.systemRecords || {})) {
+    if (record.deleted) continue;
+    const system = state.systemDefinitions[record.systemId];
+    const entity = system ? system.entities.find((item) => item.name === record.entityName) : null;
+    if (!entity) continue;
+    for (const field of entity.fields) {
+      if (field.type !== "date") continue;
+      const value = record.fields[field.name];
+      if (!value) continue;
+      entries.push({
+        id: record.id + ":" + field.name,
+        recordId: record.id,
+        title: record.title,
+        day: value,
+        fieldName: field.name,
+        systemTitle: system.title
+      });
+    }
+  }
+  return entries.sort((a, b) => a.day.localeCompare(b.day));
+}
+
 function installMarketplacePack(state, packId) {
   const pack = state.marketplacePacks[packId];
   if (!pack || pack.deleted) return "";
@@ -7632,6 +7682,7 @@ function buildNewShellContext(state, activeNote) {
     projects: Object.values(state.projects || {}).filter((item) => !item.deleted),
     questions: Object.values(state.questions || {}).filter((item) => !item.deleted),
     reviewItems: Object.values(state.reviewItems || {}).filter((item) => !item.deleted),
+    systemRecordSchedule: systemRecordDateEntries(state),
     providers,
     providerRuns: Object.values(state.providerRuns || {}).sort((a, b) => (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || "")),
     readingItems: Object.values(state.readingItems || {}).filter((item) => !item.deleted),
@@ -12430,6 +12481,39 @@ async function handleAction(action, id) {
       } else {
         state.commandMessage = result.errors.join("; ");
       }
+    });
+    return;
+  }
+  if (action === "edit-system-record") {
+    const record = store.state.systemRecords[id];
+    if (!record) return;
+    const system = store.state.systemDefinitions[record.systemId];
+    const entity = system ? system.entities.find((item) => item.name === record.entityName) : null;
+    const title = promptValue("Название записи", record.title);
+    if (title === null) return;
+    const rawValues = { title };
+    if (entity) {
+      for (const field of entity.fields) {
+        const value = promptValue(field.name + " (" + field.type + ")", String(record.fields[field.name] ?? ""));
+        if (value !== null) rawValues[field.name] = value;
+      }
+    }
+    await store.commit("System record edited", (state) => {
+      const result = updateSystemRecord(state, id, rawValues);
+      if (!result.ok) state.commandMessage = result.errors.join("; ");
+    });
+    return;
+  }
+  if (action === "toggle-system-record-state") {
+    await store.commit("System record state changed", (state) => {
+      toggleSystemRecordState(state, id);
+    });
+    return;
+  }
+  if (action === "set-system-view") {
+    const [systemId, mode] = String(id || "").split("::");
+    await store.commit("System view mode selected", (state) => {
+      state.designStudio.viewPresets["system:" + systemId] = normalizeViewPreset(Object.assign({}, state.designStudio.viewPresets["system:" + systemId], { renderer: mode }));
     });
     return;
   }
