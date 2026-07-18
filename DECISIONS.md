@@ -877,3 +877,39 @@ unrecoverable (`state.notes[id] === undefined`); (5) a fourth note's timestamp i
 audit entry - no waiting 30 real days, no faked purge call. Full audit loop (only red =
 expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed),
 `audit:recovery-final` all green. Rebuilt public-demo.
+
+## P7.2 EXPORT_ROUNDTRIP_PROOF
+
+**Decision:** `importBackupFromInput()` already built a preview (a note + source summarizing
+the file), explicitly because "Apply/merge is intentionally not silent" - but it never
+actually restored anything, so there was no real roundtrip to prove. Rather than replace that
+preview step, extended it: the parsed payload is now stashed in
+`state.control.backupRestoreReport` alongside the existing preview note/source, and a new
+explicit "Восстановить бэкап"/"Отменить" pair (mirroring the Obsidian scan-preview and
+merge-review UI pattern already used twice this session) is the only path that actually
+calls `applyBackupRestore()`. That function takes a `createRollbackSnapshot()` first, then
+replaces the same `BACKUP_COLLECTION_KEYS` collections the export produces - never
+`providers`/`environment`/`ollama`, which describe this device's runtime state, not vault
+content that should round-trip.
+
+**Found:** For "optional encrypted snapshot backup" (v34 §10.3), used AES-GCM with a
+PBKDF2-SHA256-derived key (150k iterations) entirely via `SubtleCrypto` - no server, no new
+dependency. An empty passphrase field keeps the existing plain-JSON export as the default
+(never a silently-weakened "encryption"); a non-empty one produces a
+`lifeosEncryptedBackup: true` envelope whose ciphertext contains no readable vault content.
+Import detects that flag, prompts for a passphrase via `window.prompt`, and honestly rejects
+(via the same `control.backup.reject` audit path already used for malformed JSON) on a wrong
+passphrase or corrupted ciphertext - it never partially applies a backup it couldn't fully
+decrypt/parse.
+
+**Verified end-to-end:** `output/playwright/export-roundtrip.spec.mjs` proves three things
+against real downloaded files (not mocked payloads): (1) a full vault export, followed by
+`resetForTest()` to a genuinely empty vault, followed by importing that same file and
+confirming the restore, brings back a note with byte-identical title and body - real
+equivalence, not a summary match; (2) exporting the selected artifact from the inspector
+downloads a file scoped to just that object; (3) an encrypted export's raw file contains no
+trace of the note's title (proving it's actually encrypted, not just labeled so), a wrong
+passphrase is rejected with a real `control.backup.reject` audit entry, and the correct
+passphrase decrypts and restores the same note for real. Full audit loop (only red =
+expected dirty tree), G-E2E-CORE (13 passed/1 skipped), `kb-smoke.spec.mjs` (2 passed) all
+green. Rebuilt public-demo.

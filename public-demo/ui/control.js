@@ -97,6 +97,22 @@ function mergeReviewRows(entries) {
   );
 }
 
+function backupRestorePreview(report) {
+  if (!report) {
+    return `<div class="empty-inline" data-testid="backup-restore-empty">Бэкап не загружен.</div>`;
+  }
+  return [
+    `<div class="backup-restore-report" data-testid="backup-restore-report">`,
+    `<div><strong>${escapeHtml(report.filename)}</strong></div>`,
+    `<div><span>${escapeHtml(report.summary)}</span></div>`,
+    `<div class="backup-restore-actions">`,
+    button("confirm-backup-restore", "Восстановить бэкап", { kind: "primary", testId: "confirm-backup-restore" }),
+    button("cancel-backup-restore", "Отменить", { kind: "ghost", testId: "cancel-backup-restore" }),
+    `</div>`,
+    `</div>`
+  ].join("");
+}
+
 function obsidianScanPreview(report) {
   if (!report) {
     return `<div class="empty-inline" data-testid="obsidian-scan-empty">Vault ещё не отсканирован.</div>`;
@@ -152,6 +168,7 @@ export function renderControl(ctx) {
   const corruptRecords = ctx.control?.corruptRecords || [];
   const mergeReview = ctx.mergeReview || [];
   const obsidianScanReport = ctx.obsidianScanReport || null;
+  const backupRestoreReport = ctx.backupRestoreReport || null;
   const trashItems = ctx.trashItems || [];
   const trashGraceDays = ctx.trashGraceDays || 30;
   const capabilities = Object.values(ctx.control?.capabilities || {}).sort((a, b) => String(b.grantedAt || "").localeCompare(String(a.grantedAt || "")));
@@ -174,6 +191,7 @@ export function renderControl(ctx) {
     `<h3>Данные</h3>`,
     `<div class="control-meter"><span>Снимки отката</span><strong data-testid="rollback-count">${rollbackCount}</strong></div>`,
     `<div class="storage-map" data-testid="storage-map"><span>Где хранится</span><strong>Storage / IndexedDB / локально</strong><em>${escapeHtml(storageText)}</em></div>`,
+    `<label class="backup-encrypt-field"><span>Пароль шифрования (опционально)</span><input id="backup-encrypt-passphrase" data-testid="backup-encrypt-passphrase" type="password" autocomplete="off" placeholder="оставь пустым для обычного экспорта"></label>`,
     button("export-vault", "Экспорт всего", { kind: "primary", testId: "control-export-all" }),
     button("export-selected-artifact", "Экспорт фокуса", { kind: "ghost", testId: "export-selected-artifact" }),
     button("import-backup", "Импорт бэкапа", { kind: "ghost", testId: "import-backup" }),
@@ -186,6 +204,7 @@ export function renderControl(ctx) {
     `<section class="recovery-list" data-testid="capability-list"><h4>Способности провайдеров</h4><strong data-testid="capability-count">${capabilities.length}</strong>${capabilityRows(capabilities)}</section>`,
     `<section class="recovery-list" data-testid="merge-review-list"><h4>Дубликаты на рассмотрении</h4><strong data-testid="merge-review-count">${mergeReview.length}</strong>${mergeReviewRows(mergeReview)}</section>`,
     `<section class="recovery-list" data-testid="obsidian-bridge-section"><h4>Obsidian vault</h4>${button("import-obsidian-vault", "Импорт vault", { kind: "ghost", testId: "import-obsidian-vault" })}${button("export-obsidian-vault", "Экспорт в Obsidian", { kind: "ghost", testId: "export-obsidian-vault" })}${obsidianScanPreview(obsidianScanReport)}</section>`,
+    `<section class="recovery-list" data-testid="backup-restore-section"><h4>Восстановление бэкапа</h4>${backupRestorePreview(backupRestoreReport)}</section>`,
     renderInspectorDrawer(ctx),
     `<details class="dev-state-panel" data-testid="dev-state"><summary>Состояние разработки</summary><div data-testid="dev-state-panel"><div data-testid="architecture-contract"><strong>Product Brain</strong><span>Доступен только здесь, в графе через фильтр разработки и в чате через /dev. Artifact OS contract: ввод -> артефакт -> проекции -> граф -> контроль.</span><mark data-testid="architecture-validation">ок</mark>${button("set-surface", "Открыть граф разработки", { id: "graph", kind: "ghost" })}</div></div></details>`,
     `</aside>`,

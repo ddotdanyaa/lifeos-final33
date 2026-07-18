@@ -2264,6 +2264,7 @@ function normalizeState(input) {
       obsidianScanReport: null,
       semanticIndex: { endpoint: "", model: "", vectors: {}, vectorCount: 0, updatedAt: "" },
       semanticSearchReport: null,
+      backupRestoreReport: null,
       privacyZones: {
         local: "active",
         providers: "gated",
@@ -8479,6 +8480,7 @@ function buildNewShellContext(state, activeNote) {
       updatedAt: (state.control.semanticIndex || {}).updatedAt || ""
     },
     semanticSearchReport: state.control.semanticSearchReport || null,
+    backupRestoreReport: state.control.backupRestoreReport ? { filename: state.control.backupRestoreReport.filename, summary: state.control.backupRestoreReport.summary } : null,
     mergeReview: Object.values(state.control.mergeReview || {}).map((entry) => ({
       id: entry.id,
       sourceId: entry.sourceId,
@@ -12497,6 +12499,62 @@ function downloadJsonPayload(payload, filename) {
   URL.revokeObjectURL(url);
 }
 
+// Optional encrypted snapshot backup (v34 §10.3): AES-GCM with a PBKDF2-derived key from
+// an owner-supplied passphrase, entirely client-side via SubtleCrypto - the passphrase
+// itself never leaves this function, and an empty passphrase means "export in the clear"
+// (the existing default), never a silently-weakened "encryption".
+const BACKUP_ENCRYPTION_ITERATIONS = 150000;
+
+function bufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBuffer(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function deriveBackupEncryptionKey(passphrase, saltBuffer) {
+  const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: saltBuffer, iterations: BACKUP_ENCRYPTION_ITERATIONS, hash: "SHA-256" },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptBackupPayload(payload, passphrase) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveBackupEncryptionKey(passphrase, salt);
+  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  return {
+    lifeosEncryptedBackup: true,
+    algorithm: "AES-GCM",
+    kdf: "PBKDF2-SHA256",
+    iterations: BACKUP_ENCRYPTION_ITERATIONS,
+    salt: bufferToBase64(salt),
+    iv: bufferToBase64(iv),
+    ciphertext: bufferToBase64(ciphertext)
+  };
+}
+
+async function decryptBackupPayload(envelope, passphrase) {
+  const salt = base64ToBuffer(envelope.salt);
+  const iv = base64ToBuffer(envelope.iv);
+  const key = await deriveBackupEncryptionKey(passphrase, salt);
+  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, base64ToBuffer(envelope.ciphertext));
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
 function backupSummary(payload) {
   if (!payload || typeof payload !== "object") return "Invalid backup payload";
   const rows = [
@@ -12576,8 +12634,54 @@ function importBackupPreview(state, payload, filename) {
   state.control.lastImportSummary = summary;
   state.activeNoteId = noteId;
   state.activeSurface = "control";
+  state.control.backupRestoreReport = { filename: cleanLine(filename || "lifeos-backup.json"), summary, payload };
   addAudit(state, "control.backup.import", "Backup imported as preview: " + summary, noteId);
   return sourceId;
+}
+
+// Export/import roundtrip (P7.2): the backup preview above never mutates the vault by
+// itself ("apply/merge is intentionally not silent") - applyBackupRestore only runs after
+// the owner explicitly confirms, and only ever replaces the same content collections the
+// export produced (never providers/environment/ollama, which describe this device, not
+// vault content).
+const BACKUP_COLLECTION_KEYS = [
+  "notes", "folders", "sources", "tasks", "goals", "reminders", "habits",
+  "financeAccounts", "financeTransactions", "budgets", "subscriptions",
+  "insights", "claims", "questions", "reviewItems", "readingItems", "highlights",
+  "transcriptSegments", "audioCheckpoints", "playerNotes", "savedSearches", "planBlocks",
+  "proposals", "chatMessages", "agentRuns", "providerRuns", "flowRuns", "flows",
+  "channels", "systemDefinitions", "systemRecords", "projects", "projectItems",
+  "modelProfiles", "smartHomeDevices", "smartHomeEvents", "marketplacePacks",
+  "installedPacks", "designProfiles", "customDatabases", "databaseRows",
+  "screenCompanionSessions", "personalTwinSnapshots"
+];
+
+function arrayToKeyedById(array) {
+  return Object.fromEntries((Array.isArray(array) ? array : []).filter((item) => item && item.id).map((item) => [item.id, item]));
+}
+
+function applyBackupRestore(state, payload) {
+  if (!payload || typeof payload !== "object") return false;
+  createRollbackSnapshot(state, "До восстановления бэкапа: " + (state.control.backupRestoreReport?.filename || "lifeos-backup.json"));
+  for (const key of BACKUP_COLLECTION_KEYS) {
+    if (Array.isArray(payload[key])) state[key] = arrayToKeyedById(payload[key]);
+  }
+  if (Array.isArray(payload.auditLog)) state.auditLog = payload.auditLog.slice(-300);
+  if (payload.backlinks && typeof payload.backlinks === "object") state.backlinks = payload.backlinks;
+  if (payload.ghosts && typeof payload.ghosts === "object") state.ghosts = payload.ghosts;
+  state.activeNoteId = Object.keys(state.notes)[0] || "";
+  state.activeFolderId = Object.keys(state.folders)[0] || "";
+  state.activeSurface = "library";
+  const summary = backupSummary(payload);
+  state.control.lastImportSummary = summary;
+  state.control.backupRestoreReport = null;
+  rebuildIndexes(state);
+  addAudit(state, "control.backup.import.apply", "Бэкап восстановлен: " + summary, state.activeNoteId);
+  return true;
+}
+
+function cancelBackupRestore(state) {
+  state.control.backupRestoreReport = null;
 }
 
 function archiveSelectedControlObject(state) {
@@ -13243,6 +13347,25 @@ async function importBackupFromInput(fileList) {
       addAudit(state, "control.backup.reject", state.control.lastImportSummary, state.activeNoteId);
     });
     return;
+  }
+  if (payload && payload.lifeosEncryptedBackup === true) {
+    const passphrase = window.prompt("Backup зашифрован. Введи пароль:", "");
+    if (!passphrase) {
+      await store.commit("Encrypted backup import cancelled", (state) => {
+        state.control.lastImportSummary = "Encrypted backup import cancelled: no passphrase entered";
+        addAudit(state, "control.backup.reject", state.control.lastImportSummary, state.activeNoteId);
+      });
+      return;
+    }
+    try {
+      payload = await decryptBackupPayload(payload, passphrase);
+    } catch (error) {
+      await store.commit("Encrypted backup decrypt failed", (state) => {
+        state.control.lastImportSummary = "Rejected encrypted backup: wrong passphrase or corrupt file";
+        addAudit(state, "control.backup.reject", state.control.lastImportSummary, state.activeNoteId);
+      });
+      return;
+    }
   }
   await store.commit("Backup imported as preview", (state) => importBackupPreview(state, payload, file.name));
 }
@@ -14796,6 +14919,20 @@ async function handleAction(action, id) {
     return;
   }
   if (action === "export-vault") {
+    const passphraseInput = document.querySelector("#backup-encrypt-passphrase");
+    const passphrase = passphraseInput ? passphraseInput.value : "";
+    if (passphrase) {
+      const exportPayload = buildVaultExportPayload(store.state);
+      const summary = backupSummary(exportPayload);
+      const envelope = await encryptBackupPayload(exportPayload, passphrase);
+      downloadJsonPayload(envelope, "lifeos-knowledge-vault.encrypted.json");
+      if (passphraseInput) passphraseInput.value = "";
+      await store.commit("Encrypted vault export generated", (state) => {
+        state.control.lastExportSummary = "encrypted: " + summary;
+        addAudit(state, "vault.export", "Encrypted vault export generated: " + summary, state.activeNoteId);
+      });
+      return;
+    }
     const result = exportVault(store.state, "");
     await store.commit("Vault export generated", (state) => {
       state.control.lastExportSummary = result.summary;
@@ -14810,6 +14947,19 @@ async function handleAction(action, id) {
       state.control.lastExportSummary = result.summary;
       addAudit(state, "control.export.selected", "Selected artifact export generated: " + result.summary, state.activeNoteId);
     });
+    return;
+  }
+  if (action === "confirm-backup-restore") {
+    const confirmed = window.confirm("Восстановить бэкап? Текущие коллекции будут заменены (снимок отката создаётся автоматически).");
+    if (!confirmed) return;
+    await store.commit("Backup restored", (state) => {
+      const report = state.control.backupRestoreReport;
+      if (report) applyBackupRestore(state, report.payload);
+    });
+    return;
+  }
+  if (action === "cancel-backup-restore") {
+    await store.commit("Backup restore cancelled", (state) => cancelBackupRestore(state));
     return;
   }
   if (action === "create-rollback-snapshot") {
