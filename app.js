@@ -4976,6 +4976,33 @@ function chatMessageToProposal(state, messageId, type) {
   return proposalId;
 }
 
+const CHAT_ACTION_PROPOSAL_PRIORITY = ["finance_expense", "finance_income", "reminder", "task", "knowledge"];
+
+// U4 CHAT_ACTIONS: turns an owner chat message into a real, correctly-typed proposal by
+// reusing the same classifier (analyzeArtifactInput) and proposal store (addProposal) as the
+// main capture input - not a second, chat-specific classification path. Picks the single most
+// specific actionable draft (money > reminder > task), falling back to the always-present
+// "knowledge" (note) draft so every message gets something appliable in the chat thread itself,
+// matching the plan's four scenarios (трата/задача/заметка/напоминание).
+function createChatMessageProposal(state, messageId, text) {
+  const message = state.chatMessages[messageId];
+  if (!message || !cleanLine(text)) return "";
+  const analysis = analyzeArtifactInput(text);
+  const chosen = CHAT_ACTION_PROPOSAL_PRIORITY
+    .map((type) => (analysis.drafts || []).find((item) => item.type === type))
+    .find(Boolean);
+  if (!chosen) return "";
+  const proposalId = addProposal(state, chosen.type, chosen.title, "", message.noteId || state.activeNoteId || "", {
+    reason: chosen.reason,
+    quote: chosen.quote || text,
+    confidence: chosen.confidence,
+    group: chosen.group,
+    fields: Object.assign({}, chosen.fields, { chatMessageId: message.id, source: "local-chat" })
+  });
+  message.proposalId = proposalId;
+  return proposalId;
+}
+
 function latestOwnerChatMessage(state) {
   return Object.values(state.chatMessages || {}).filter((message) => message.role === "owner").sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] || null;
 }
@@ -9132,6 +9159,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     modelProfiles: Object.values(state.modelProfiles || {}).filter((item) => !item.deleted),
     personalTwinSnapshots: Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted).map((item) => ({ id: item.id, title: item.title, summary: item.summary, noteId: item.noteId, status: item.status, deleted: item.deleted, createdAt: item.createdAt, updatedAt: item.updatedAt, hasPayload: Boolean(item.payload) })),
     planBlocks,
+    proposals: Object.values(state.proposals || {}),
     projectItems: Object.values(state.projectItems || {}).filter((item) => !item.deleted),
     projects: Object.values(state.projects || {}).filter((item) => !item.deleted),
     questions: Object.values(state.questions || {}).filter((item) => !item.deleted),
@@ -14969,7 +14997,8 @@ async function handleAction(action, id) {
         addAudit(state, "chat.product_brain", "Product Brain answered local development question", PRODUCT_BRAIN_ROOT_ID);
         return;
       }
-      addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
+      const ownerMessageId = addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
+      createChatMessageProposal(state, ownerMessageId, cleanText);
       if (liveAnswer) {
         const citationLine = liveAnswer.citations.length ? " Источники: " + liveAnswer.citations.map((citation) => citation.title).join(", ") + "." : "";
         addChatMessage(state, "assistant", liveAnswer.text + citationLine, "", state.activeNoteId);

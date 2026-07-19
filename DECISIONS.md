@@ -1687,3 +1687,34 @@ and ~15559); since dispatch is sequential `if`/`return`, the second is confirmed
 dead code (the manual finance-entry form in `ui/components/MoneyDashboard.js` only ever hits
 the first). Left alone since it's inert and unrelated to the text-capture path U2 actually
 touches; flagged via spawn_task for a standalone cleanup.
+
+## U4 CHAT_ACTIONS (2026-07-20)
+
+**Decision - one proposal per message, chosen by priority, not all matching drafts:** a
+message like "напомни позвонить маме завтра" produces several `analyzeArtifactInput` drafts
+simultaneously (task, calendar, reminder all match). Showing all of them under one chat
+message would clutter the thread and contradict the plan's own framing ("предложение" -
+singular). `createChatMessageProposal`'s priority list
+(`finance_expense > finance_income > reminder > task > knowledge`) picks the single most
+specific one - money and reminders are more actionable/specific signals than a bare task, and
+"knowledge" is the always-available fallback so nothing goes without a proposal.
+
+**Decision - replaced the old "Сделать задачей" button rather than keeping both:** it always
+created a generic, untyped "task" proposal titled "Сделать из чата: <text>" regardless of what
+the message said - a strictly worse version of what the new automatic, correctly-typed
+proposal already provides for every message. Running both side by side would mean two
+different proposal-creation paths per message, which is exactly the "не изобретать вторую"
+the plan warned against; consolidating onto one is the more honest state, not just tidier UI.
+
+**Finding - `ctx.proposals` was never exposed to the live shell context at all:** this is
+plausibly the root cause behind the `BLOCKED.md` note that "apply-proposal/dismiss-proposal
+still work, just invisible until a future package wires a live UI for them" - without
+`ctx.proposals`, no `ui/*.js` surface could have rendered a proposal even if it tried. Added it
+to `buildNewShellContext`'s returned ctx (`Object.values(state.proposals || {})`, unfiltered -
+`ui/chat.js` itself filters to the specific proposal each message points at via
+`message.proposalId`).
+
+**Verification - full P19 suite re-run again:** this package touches the same shared
+classifier/proposal code U2 did (`analyzeArtifactInput`, `addProposal`) plus a new ctx field
+consumed by every surface via `buildNewShellContext`, so re-ran the full 24-journey regression
+suite rather than just the new spec - green, no regressions.

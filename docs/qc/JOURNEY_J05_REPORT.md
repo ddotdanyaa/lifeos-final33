@@ -32,17 +32,17 @@ Finance text capture creates expense, account/balance, subscription/bill, income
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 0,
+  "proposalsOpen": 3,
   "proposalsApplied": 7,
   "auditEvents": 21,
-  "graphNodes": 18,
-  "graphEdges": 37,
-  "graphEdgeReasons": 37
+  "graphNodes": 21,
+  "graphEdges": 43,
+  "graphEdgeReasons": 43
 }
 ```
 
 ## Graph Edges
-After: 533 edges, 533 with visible reasons.
+After: 539 edges, 539 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: finance.transaction: Finance expense: Пятёрочка 1240 RUB | proposal.apply: Applied proposal: Пятёрочка | finance.transaction: Finance income: Доход 1240 RUB | proposal.apply: Applied proposal: Доход | finance.account: Finance account set: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка

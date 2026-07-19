@@ -244,7 +244,28 @@ planBlocks), никаких новых источников правды.
   element exists); `node tools/build-public.mjs` run. Screenshots in `docs/qc/screens/U2/`
   (money-before = U0's already-captured money-after, the true pre-U2 baseline). UX-scorecard
   updated.
-- [ ] U4 CHAT_ACTIONS
+- [x] U4 CHAT_ACTIONS (2026-07-20) — closes the exact `BLOCKED.md` gap ("Proposals are not
+  rendered anywhere in the live chat-first shell"). New `createChatMessageProposal(state,
+  messageId, text)` in app.js runs the owner's message through `analyzeArtifactInput` (the
+  same classifier U2 just extended) and picks the single most specific actionable draft via a
+  priority list (`finance_expense > finance_income > reminder > task > knowledge`), always
+  falling back to the ever-present "knowledge" draft so a plain thought still gets a real,
+  appliable note proposal - not a second classification path, reuses `addProposal`/
+  `state.proposals` exactly as the main capture input does. Called right after `addChatMessage`
+  in the `send-chat` handler. `ctx.proposals` (previously not exposed to the live shell context
+  at all - part of why the gap existed) is now wired into `buildNewShellContext`. `ui/chat.js`
+  renders each owner message's proposal (if any) as a preview card - type label, title,
+  Применить/Отклонить - wired to the ALREADY-WORKING `apply-proposal`/`dismiss-proposal`
+  handlers (per BLOCKED.md, these never needed fixing, only a live UI to trigger them);
+  replaces the old generic "Сделать задачей" button, which always created an untyped "task"
+  proposal regardless of what the message actually said. **Gate**: `npm run verify` green; all
+  `tools/audit-*.mjs` green; H10 green; full P19 24-journey suite re-run green (chat/proposal
+  code is shared/core); new `output/playwright/chat-actions.spec.mjs` proves all 4 scenarios
+  (трата/задача/напоминание/заметка) - correct proposal type previewed, Apply creates the real
+  object (financeTransactions/tasks/reminders/insights) plus an audit-log entry; `node
+  tools/build-public.mjs` run. Screenshots in `docs/qc/screens/U4/` (chat-before = U0's
+  already-captured chat-after; chat-after captured with an open Расход proposal preview
+  visible, per the plan's explicit gate wording). UX-scorecard updated.
 - [ ] U3 VOICE_LOOP
 - [ ] U5 READER
 - [ ] U6 EVENING_SUMMARY

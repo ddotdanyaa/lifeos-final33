@@ -11,6 +11,44 @@ function filterChatMessages(messages, query) {
   return messages.filter((message) => String(message.text || message.content || "").toLowerCase().includes(clean));
 }
 
+// U4 CHAT_ACTIONS: real proposal-apply UI inline in the chat thread (BLOCKED.md previously
+// noted state.proposals had no live renderer anywhere in the chat-first shell, even though
+// apply-proposal/dismiss-proposal already worked). Each owner message that got a real,
+// typed proposal (app.js's createChatMessageProposal, same classifier + proposal store as
+// the main capture input) shows its preview and an Применить/Отклонить pair right here.
+const CHAT_PROPOSAL_TYPE_LABELS = {
+  finance_expense: "Расход",
+  finance_income: "Доход",
+  reminder: "Напоминание",
+  task: "Задача",
+  knowledge: "Заметка"
+};
+
+function chatProposalPreview(ctx, message) {
+  if (message.role === "assistant" || !message.proposalId) {
+    return message.role !== "assistant"
+      ? `<div>${button("chat-to-proposal", "Сделать задачей", { id: message.id, kind: "ghost", testId: "chat-to-proposal" })}</div>`
+      : "";
+  }
+  const proposal = (ctx.proposals || []).find((item) => item.id === message.proposalId);
+  if (!proposal) return "";
+  const typeLabel = CHAT_PROPOSAL_TYPE_LABELS[proposal.type] || proposal.type;
+  if (proposal.status === "applied") {
+    return `<div class="chat-proposal-preview applied" data-testid="chat-proposal-preview" data-raw-status="applied"><span>${escapeHtml(typeLabel)} применено</span></div>`;
+  }
+  if (proposal.status !== "open") return "";
+  return [
+    `<div class="chat-proposal-preview" data-testid="chat-proposal-preview" data-raw-status="open" data-raw-type="${escapeHtml(proposal.type)}">`,
+    `<span class="chat-proposal-type">${escapeHtml(typeLabel)}</span>`,
+    `<strong>${escapeHtml(proposal.title)}</strong>`,
+    `<div class="chat-proposal-actions">`,
+    button("apply-proposal", "Применить", { id: proposal.id, kind: "primary", testId: "chat-proposal-apply" }),
+    button("dismiss-proposal", "Отклонить", { id: proposal.id, kind: "ghost", testId: "chat-proposal-dismiss" }),
+    `</div>`,
+    `</div>`
+  ].join("");
+}
+
 export function renderChat(ctx) {
   const allMessages = ctx.chatMessages || [];
   const chatSearchQuery = ctx.chatSearchQuery || "";
@@ -36,7 +74,7 @@ export function renderChat(ctx) {
     `<section class="chat-thread" data-testid="chat-thread">`,
     isSearching && !messages.length
       ? `<div class="empty-inline" data-testid="chat-thread-search-empty">Ничего не найдено по «${escapeHtml(chatSearchQuery.trim())}».</div>`
-      : safeList(messages, (message) => `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : ""}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${escapeHtml(compactText(message.text || message.content || "", 760))}</p>${message.receiptId ? `<small>receipt ${escapeHtml(message.receiptId)}</small>` : ""}${message.role !== "assistant" ? `<div>${button("chat-to-proposal", "Сделать задачей", { id: message.id, kind: "ghost", testId: "chat-to-proposal" })}</div>` : ""}</article>`, `<article class="chat-message assistant"><span>LifeOS</span><p>Напиши сообщение: оно станет локальным артефактом, попадёт в историю, поиск, граф, ленту и Data Control.</p></article>`),
+      : safeList(messages, (message) => `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : ""}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${escapeHtml(compactText(message.text || message.content || "", 760))}</p>${message.receiptId ? `<small>receipt ${escapeHtml(message.receiptId)}</small>` : ""}${chatProposalPreview(ctx, message)}</article>`, `<article class="chat-message assistant"><span>LifeOS</span><p>Напиши сообщение: оно станет локальным артефактом, попадёт в историю, поиск, граф, ленту и Data Control.</p></article>`),
     `</section>`,
     `<footer class="chat-composer" data-testid="chat-composer"><textarea id="chat-input" data-testid="chat-input" rows="2" placeholder="Напиши вопрос, я отвечу по локальному контексту…" aria-label="Сообщение в чат" spellcheck="true"></textarea>${button("send-chat", "Отправить", { kind: "primary", testId: "send-chat" })}<details><summary>Спросить о разработке</summary><p>Команда /dev отвечает из внутреннего состояния разработки.</p></details></footer>`,
     `</div>`

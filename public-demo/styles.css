@@ -6500,6 +6500,36 @@ audio {
   color: #cbd5e1;
 }
 
+.chat-proposal-preview {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--ink);
+}
+
+.chat-proposal-preview.applied {
+  padding: var(--space-2) var(--space-3);
+  color: #166534;
+  background: #ecfdf3;
+  font-size: var(--text-sm);
+}
+
+.chat-proposal-type {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+}
+
+.chat-proposal-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
 .chat-composer {
   display: grid;
   grid-template-columns: 1fr auto;

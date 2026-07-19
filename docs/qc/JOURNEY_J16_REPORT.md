@@ -32,20 +32,20 @@ Local chat history persists without AI and messages can become proposal objects.
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 1,
+  "proposalsOpen": 2,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 4,
-  "graphEdges": 6,
-  "graphEdgeReasons": 6
+  "graphNodes": 5,
+  "graphEdges": 9,
+  "graphEdgeReasons": 9
 }
 ```
 
 ## Graph Edges
-After: 763 edges, 763 with visible reasons.
+After: 766 edges, 766 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: capability.grant: Capability granted: ollama/probe (local) | provider.run: ollama probe: Ollama models_found at http://127.0.0.1:11434 | ollama.probe: Ollama models_found at http://127.0.0.1:11434 | chat.input.artifact: owner chat artifact recorded: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.answer.artifact: assistant chat artifact recorded: Похоже, это связано с локальными артефактами: вечерний обзор: голосом записал идею про сон,...; завтра в 14:00 зал, к... | chat.local.answer: Local chat answered: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.proposal: Chat message became proposal: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | provider.run: pwa boot: PWA shell checked: service-worker-ready
+After: 300 audit events. Tail: capability.grant: Capability granted: ollama/probe (local) | provider.run: ollama probe: Ollama models_found at http://127.0.0.1:11434 | ollama.probe: Ollama models_found at http://127.0.0.1:11434 | chat.input.artifact: owner chat artifact recorded: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.answer.artifact: assistant chat artifact recorded: Похоже, это связано с локальными артефактами: вечерний обзор: голосом записал идею про сон,...; завтра в 14:00 зал, к... | chat.local.answer: Local chat answered: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready
 
 ## Remaining Gated
 None for this local journey.
