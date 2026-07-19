@@ -1504,3 +1504,29 @@ handler and can race a one-shot listener) and types a real `[[wikilink]]` into `
 then verifies the backlink shows up on the target note and is absent on the source - proving
 the actual wikilink-parsing -> backlinks-computation -> render pipeline, not a mocked
 shortcut.
+
+## R4 CHAT_THREAD_SEARCH (2026-07-19) - closes the v1.1 acceleration plan's ledger
+
+**Finding - the plan's premise was wrong on both halves:** it claimed
+"minisearch/searchNotes уже индексируют chatMessages." Checked both: `searchNotes` only
+scores notes and artifacts that have a `noteId` (sources/tasks/goals/etc.) - it never reads
+`state.chatMessages` at all. And `minisearch`, despite being one of the 9 approved-and-
+installed engines, isn't imported or used anywhere in app.js currently. Neither claim held
+up, so this package's real scope was building a genuinely new (small) search filter, not
+wiring up an existing one.
+
+**Decision - plain substring match, not minisearch:** a chat thread is a small, entirely
+in-memory list: the same lightweight substring-scoring approach `searchNotes` already uses
+for its own terms is sufficient, and pulling in minisearch's inverted-index machinery for
+this would be adding dependency-usage complexity with no real benefit at this scale. Kept
+consistent with CLAUDE.md §2's "no new deps without owner sign-off" by not introducing
+minisearch's actual *usage* just because it happens to be installed.
+
+**Note:** found and fixed a pre-existing exact-duplicate line in this plan's own ledger
+(`docs/LIFEOS_V1_1_ACCELERATION_PLAN.md` had "- [ ] R4 CHAT_THREAD_SEARCH" listed twice in
+a row) while ticking this package - a stray artifact from the original plan-writing session,
+not something introduced here.
+
+**This closes every ledger item in `docs/LIFEOS_V1_1_ACCELERATION_PLAN.md` §4**: T1, П-A,
+П-B (architecture complete, real model load blocked by a documented external ONNX Runtime
+issue), П-C, R1, R2, R3, R4 - all ticked with dated, gate-verified entries.

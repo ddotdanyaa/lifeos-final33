@@ -45,7 +45,7 @@ Exact mixed large vault создан: 1000 артефактов, 2000 замет
 After: 11 edges, 11 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: control.export.selected: Selected artifact export generated: selected note / note_a31e8d992175 | control.rollback.snapshot: Rollback snapshot created: Snapshot before Data Control change | capability.grant: Capability granted: pwa/owner-check (local) | provider.run: pwa owner-check: PWA shell checked: service-worker-ready | capability.grant: Capability granted: mail/prepare (local) | provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials | test.seed.exact-large-vault: Exact large vault seeded: at least 6751 graph nodes / 7250 graph edges
+After: 300 audit events. Tail: control.export.selected: Selected artifact export generated: selected note / note_2da81c913e29 | control.rollback.snapshot: Rollback snapshot created: Snapshot before Data Control change | capability.grant: Capability granted: pwa/owner-check (local) | provider.run: pwa owner-check: PWA shell checked: service-worker-ready | capability.grant: Capability granted: mail/prepare (local) | provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials | test.seed.exact-large-vault: Exact large vault seeded: at least 6751 graph nodes / 7250 graph edges
 
 ## Remaining Gated
 Нет локального gate для этого journey.

@@ -1012,6 +1012,7 @@ function createInitialState() {
     activeFolderId: rootId,
     activeSurface: "inbox",
     searchQuery: "",
+    chatSearchQuery: "",
     commandPaletteOpen: false,
     commandPaletteQuery: "",
     savedSearches: {},
@@ -2418,6 +2419,7 @@ function normalizeState(input) {
     activeFolderId: base.activeFolderId || "",
     activeSurface: base.activeSurface || "inbox",
     searchQuery: base.searchQuery || "",
+    chatSearchQuery: base.chatSearchQuery || "",
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
     commandPaletteQuery: cleanLine(base.commandPaletteQuery || ""),
     savedSearches: base.savedSearches && typeof base.savedSearches === "object" ? base.savedSearches : {},
@@ -8804,6 +8806,15 @@ class ReactiveStore {
     this.scheduleSave("Search state saved");
   }
 
+  // R4 CHAT_THREAD_SEARCH: same lightweight per-keystroke pattern as updateSearch above -
+  // no store.commit() ceremony for UI-only filter state that changes on every keypress.
+  updateChatSearch(query) {
+    this.state.chatSearchQuery = query;
+    this.stateRevision += 1;
+    this.emit();
+    this.scheduleSave("Chat search state saved");
+  }
+
   updateCommandPaletteQuery(query) {
     this.state.commandPaletteQuery = query;
     this.stateRevision += 1;
@@ -9019,6 +9030,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     budgets: Object.values(state.budgets || {}).filter((item) => !item.deleted),
     captureDraft: state.captureDraft || "",
     chatMessages: visibleChatMessages(state),
+    chatSearchQuery: state.chatSearchQuery || "",
     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
     commandMessage: state.commandMessage || "",
     commandPaletteHtml: renderCommandPalette(state),
@@ -15814,6 +15826,10 @@ function handleInput(event) {
   if (!store || !(target instanceof HTMLElement)) return;
   if (target.id === "global-search") {
     store.updateSearch(target.value);
+    return;
+  }
+  if (target.id === "chat-thread-search") {
+    store.updateChatSearch(target.value);
     return;
   }
   if (target.id === "command-palette-query") {
