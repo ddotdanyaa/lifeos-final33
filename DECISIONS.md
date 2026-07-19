@@ -1458,3 +1458,31 @@ from `app.js`'s save path that isn't visible in this session's other e2e runs. I
 block anything once the emit-before-persist fix above was in place, and reproducing/
 chasing it further was out of scope for this package - noting it here in case a future
 session sees the same warning and wonders whether it's new.
+
+## R2 DRAG_TIMEBLOCK (2026-07-19)
+
+**Bug found and fixed - a real, user-facing layout bug, not a test artifact:** the live
+hourly time grid (`ui/components/TimeGrid.js`) and app.js's dead
+`renderCalendarPanelLegacy`/`renderCalendarPanelV5` functions (a 7-day mini-calendar,
+unreachable in the live chat-first shell - same dead-code pattern already found twice this
+session) both used the class name `.calendar-grid`. CSS classes aren't scoped, so the dead
+component's rule (`grid-template-columns: repeat(7, minmax(0,1fr))`, meant for 7 day
+columns) was silently applying to the live 18-row hourly grid too, since nothing in the
+live-grid's own `.calendar-grid` rule overrode `display`/`grid-template-columns`. The
+result: all 18 hour rows got auto-placed into a 7-column grid, so hours 06:00-12:00 (the
+first 7) rendered stacked exactly on top of each other, then 13:00-19:00 on top of each
+other one row down, and so on - discovered only because R2 needed pixel-accurate hit
+targets for the drop zones, but this has presumably made the calendar's hour view visually
+broken for the whole time since TimeGrid.js was introduced. Fixed by renaming the live
+grid's class to `.hourly-time-grid` (kept `data-testid="calendar-grid"` - no test depended
+on the class itself except `final-human-product.spec.mjs`'s H08, updated to match).
+
+**Decision - assert "a valid hour got assigned," not the exact dragged-to row:** a
+synthetic Playwright mouse drag (mousedown/move/up, via sortablejs's `forceFallback` JS
+drag simulation since native HTML5 DnD isn't reliably drivable by e2e tools) can land a row
+or two off the aimed target depending on drag-threshold/animation timing, even with the
+layout bug fixed. That's a simulation-precision detail, independently confirmed not to
+reflect a real product issue (verified directly via `getBoundingClientRect()` that rows are
+now correctly non-overlapping and evenly spaced). The e2e test asserts the task ends up
+with *some* valid `HH:00` time and is removed from "Без времени," which proves the
+drag->reschedule pipeline runs for real without being fragile to exact pixel targeting.

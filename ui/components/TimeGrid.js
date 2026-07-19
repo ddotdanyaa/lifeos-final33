@@ -17,5 +17,12 @@ export function renderTimeGrid(ctx, items = []) {
       `</div>`
     ].join("");
   });
-  return `<div class="calendar-grid" data-testid="calendar-grid">${rows.join("")}</div>`;
+  // "hourly-time-grid", not "calendar-grid": app.js's dead legacy renderCalendarPanelLegacy/V5
+  // functions (unreachable in the live chat-first shell) also emit class="calendar-grid" for an
+  // unrelated 7-day mini-calendar, and styles.css's rule for THAT (grid-template-columns:
+  // repeat(7, ...)) was silently applying here too via the shared class name - collapsing all 18
+  // hour rows into a 7-column grid (rows overlapping 7-at-a-time) since nothing in the newer rule
+  // overrode display/grid-template-columns. Kept data-testid="calendar-grid" unchanged (no test
+  // depended on the class name itself, only final-human-product.spec.mjs's H08, updated to match).
+  return `<div class="hourly-time-grid" data-testid="calendar-grid">${rows.join("")}</div>`;
 }

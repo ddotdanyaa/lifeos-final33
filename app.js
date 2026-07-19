@@ -3707,6 +3707,14 @@ function loadPdfJs() {
   return pdfjsModulePromise;
 }
 
+let sortableModulePromise = null;
+function loadSortable() {
+  if (!sortableModulePromise) {
+    sortableModulePromise = import("./node_modules/sortablejs/modular/sortable.esm.js").then((module) => module.default);
+  }
+  return sortableModulePromise;
+}
+
 // Real local PDF parsing (P6.1): pdfjs-dist was installed in P0.5 but never actually
 // used at runtime until this package. Caps pages read to keep this honest and fast for
 // very large PDFs rather than silently hanging; a parse failure never fakes text.
@@ -8839,6 +8847,7 @@ function render() {
     }
   }
   mountGraph();
+  mountCalendarDragDrop();
   scrollChatThreadToLatest();
   updateSaveStatus();
 }
@@ -13890,6 +13899,74 @@ function mountGraph() {
   const canvas = document.querySelector("#graph-canvas");
   if (!canvas || !store) return;
   graphEngine = new GraphCanvas(canvas, mapGraph(store.state), store.state);
+}
+
+let calendarSortableInstances = [];
+
+// R2 DRAG_TIMEBLOCK: dragging an unscheduled task/plan-block/reminder onto an hour row assigns
+// it that time (idea from FullCalendar/Super Productivity, sortablejs was already approved and
+// installed - no new dependency). Async because sortablejs loads lazily like pdfjs/fflate; each
+// render tears down the previous instances and re-attaches to the freshly rendered DOM.
+async function mountCalendarDragDrop() {
+  const unscheduledContainer = document.querySelector(".unscheduled-bucket");
+  const hourContainers = Array.from(document.querySelectorAll(".planning-hour-items"));
+  if (!unscheduledContainer || !hourContainers.length) return;
+  const Sortable = await loadSortable();
+  // The dynamic import is async - a later render may have already replaced this exact DOM
+  // subtree by the time it resolves. Re-check before attaching to a detached node.
+  if (!document.body.contains(unscheduledContainer)) return;
+  for (const instance of calendarSortableInstances) instance.destroy();
+  calendarSortableInstances = [];
+  const group = "calendar-timeblock";
+  // forceFallback: SortableJS otherwise uses the native HTML5 Drag and Drop API, which Playwright
+  // (and most e2e tools) cannot reliably drive with plain mouse events - the JS-simulated
+  // fallback responds to real mousedown/mousemove/mouseup like any other pointer interaction.
+  calendarSortableInstances.push(Sortable.create(unscheduledContainer, {
+    group: { name: group, pull: "clone", put: false },
+    sort: false,
+    draggable: ".unscheduled-item",
+    animation: 150,
+    forceFallback: true
+  }));
+  for (const container of hourContainers) {
+    calendarSortableInstances.push(Sortable.create(container, {
+      group: { name: group, pull: false, put: true },
+      animation: 150,
+      forceFallback: true,
+      onAdd: (event) => {
+        const itemId = event.item.dataset.id;
+        const hourRow = event.to.closest(".planning-hour");
+        const match = hourRow ? /^time-row-(.+)$/.exec(hourRow.dataset.testid || "") : null;
+        event.item.remove();
+        if (itemId && match) rescheduleItemToHour(itemId, match[1]);
+      }
+    }));
+  }
+}
+
+async function rescheduleItemToHour(itemId, hour) {
+  await store.commit("Item dragged to time slot", (state) => {
+    const task = state.tasks[itemId];
+    if (task) {
+      task.startTime = hour;
+      task.updatedAt = now();
+      addAudit(state, "task.reschedule", "Задача перенесена на " + hour + " перетаскиванием: " + task.title, task.noteId || "");
+      return;
+    }
+    const block = state.planBlocks[itemId];
+    if (block) {
+      block.startTime = hour;
+      block.updatedAt = now();
+      addAudit(state, "plan.reschedule", "Блок перенесён на " + hour + " перетаскиванием: " + block.title, block.noteId || "");
+      return;
+    }
+    const reminder = state.reminders[itemId];
+    if (reminder) {
+      reminder.time = hour;
+      reminder.updatedAt = now();
+      addAudit(state, "reminder.reschedule", "Напоминание перенесено на " + hour + " перетаскиванием: " + reminder.title, "");
+    }
+  });
 }
 
 function renderSidePanelsOnly() {

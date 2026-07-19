@@ -6052,7 +6052,7 @@ audio {
   font-style: normal;
 }
 
-.calendar-grid {
+.hourly-time-grid {
   border: 1px solid var(--line-soft);
   border-radius: 18px;
   overflow: hidden;

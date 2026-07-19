@@ -172,7 +172,9 @@ test("H08 Calendar shows a readable time grid, not a dense table", async ({ page
   await page.getByTestId("human-primary-action").click();
   await openSurface(page, "calendar");
   await expect(page.getByTestId("workspace-calendar")).toBeVisible();
-  await expect(page.locator(".calendar-grid")).toBeVisible();
+  // testid, not the ".calendar-grid" class - R2 renamed the class to "hourly-time-grid" to stop
+  // colliding with a dead-code component's unrelated same-named class (see TimeGrid.js).
+  await expect(page.getByTestId("calendar-grid")).toBeVisible();
   await expect(page.getByTestId("calendar-agenda-strip")).toContainText("заказать еду");
   await page.screenshot({ path: join(shotDir, "calendar.png"), fullPage: true });
 });
