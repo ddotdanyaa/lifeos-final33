@@ -31,10 +31,24 @@ function receiptCard(ctx, source) {
   ].join("");
 }
 
+function weeklyChartSection(ctx) {
+  const weekly = ctx.financeWeekly || { labels: [], expenseByDay: [], incomeByDay: [] };
+  const weekExpense = weekly.expenseByDay.reduce((sum, value) => sum + value, 0);
+  const weekIncome = weekly.incomeByDay.reduce((sum, value) => sum + value, 0);
+  return [
+    `<section class="finance-weekly" data-testid="finance-weekly-summary">`,
+    `<h3>Неделя</h3>`,
+    `<div class="finance-weekly-totals"><span>Расходы: ${money(weekExpense)}</span><span>Доходы: ${money(weekIncome)}</span></div>`,
+    `<div class="finance-weekly-chart-box"><canvas data-testid="finance-weekly-chart"></canvas></div>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderFinance(ctx) {
   const body = [
     `<div data-testid="finance-panel">`,
     renderMoneyDashboard(ctx),
+    weeklyChartSection(ctx),
     `<section class="finance-deep-row">`,
     `<div class="budget-panel"><h3>Категории</h3>${safeList(ctx.budgets, (budget) => `<div class="budget-row" data-testid="budget-row"><span>${escapeHtml(budget.category || "Категория")}</span><strong>${money(budget.limit)}</strong></div>`, `<div class="empty-inline">Добавь бюджет для категории.</div>`)}</div>`,
     `<div class="subscription-panel"><h3>Подписки</h3>${safeList(ctx.subscriptions, (sub) => `<div class="subscription-row" data-testid="subscription-row"><span>${escapeHtml(sub.title || "Подписка")}</span><strong>${money(sub.amount)}</strong></div>`, `<div class="empty-inline">Регулярные платежи появятся здесь.</div>`)}</div>`,

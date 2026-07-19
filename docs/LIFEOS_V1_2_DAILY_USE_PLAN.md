@@ -219,7 +219,31 @@ planBlocks), никаких новых источников правды.
   a real fake-device microphone recording end-to-end from Home; `node tools/build-public.mjs`
   run. Before/after screenshots in `docs/qc/screens/U1/` (before = U0's already-captured
   after-state, the true pre-U1 baseline). UX-scorecard updated.
-- [ ] U2 MONEY_FAST
+- [x] U2 MONEY_FAST (2026-07-20) — extended `analyzeArtifactInput`'s existing amount/type
+  parsers (app.js), not a new parser: added `looksLikeBareMoneyEntry` (2-6 digit number
+  leading/trailing a <=4-word phrase, no date/time) as a fallback amount source in
+  `extractMoneyEntities`, used it to default bare money-mentioning text to an expense in
+  `isExpense` when nothing else (income/balance/subscription/budget/date-time) already claims
+  it, and added "заработал" to the income keyword list + `extractMoneyEntitiesHuman`'s money-
+  context gate. Both of the plan's exact examples now classify correctly: "350 бензин" →
+  expense/350/category "Транспорт" (added бензин/заправ to `inferFinanceCategory`), "заработал
+  4200 смена" → income/4200. Also fixed the redundant-task bug U1 found (`isExpense` no longer
+  independently triggers a `task-main` draft). Goal pace: `goalPace(goal, todayKey)` in
+  `ui/habits-goals.js` compares actual progress to a straight-line schedule from creation to
+  `targetDate` - honest arithmetic, not a forecast - rendered as a "Успеваю"/"Отстаю" label next
+  to the goal's existing `<progress>` bar (which, along with debt/payment tracking via
+  `targetAmount`/`addGoalProgress`, already existed generically for any goal - "Выкуп машины"
+  needed no new goal machinery, only the pace label). Weekly chart: `mountFinanceChart` (app.js)
+  + a `<canvas>` in `ui/finance.js` render a real chart.js bar chart of the last 7 days' actual
+  `financeTransactions` (chart.js's first runtime use since being approved/installed in an
+  earlier package). **Gate**: `npm run verify` green; all `tools/audit-*.mjs` green; H03/H10
+  green; the full P19 24-journey suite re-run and green (classifier changes are shared/core, so
+  ran the whole suite, not just the new spec, per CLAUDE.md §3's phase-boundary rule); new
+  `output/playwright/money-fast-capture.spec.mjs` proves both text-capture examples, the goal
+  progress-bar+pace, and the chart (sampling actual canvas pixel data, not just checking the
+  element exists); `node tools/build-public.mjs` run. Screenshots in `docs/qc/screens/U2/`
+  (money-before = U0's already-captured money-after, the true pre-U2 baseline). UX-scorecard
+  updated.
 - [ ] U4 CHAT_ACTIONS
 - [ ] U3 VOICE_LOOP
 - [ ] U5 READER

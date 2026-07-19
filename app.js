@@ -3719,6 +3719,27 @@ function loadSortable() {
   return sortableModulePromise;
 }
 
+let chartModulePromise = null;
+// chart.js's ESM build (dist/chart.js, and its auto/auto.js entry) has a bare-specifier
+// `import '@kurkle/color'` internally, which a real npm resolver handles but a browser's
+// native ESM loader cannot (no import map here) - a plain dynamic import() of it throws
+// "Failed to resolve module specifier". The UMD build (dist/chart.umd.js) bundles
+// @kurkle/color inline for exactly this browser-without-bundler case, so it's loaded as a
+// classic <script> (not a module) - its UMD wrapper then assigns window.Chart itself.
+function loadChartJs() {
+  if (window.Chart) return Promise.resolve(window.Chart);
+  if (!chartModulePromise) {
+    chartModulePromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "./node_modules/chart.js/dist/chart.umd.js";
+      script.onload = () => resolve(window.Chart);
+      script.onerror = () => reject(new Error("Failed to load chart.js UMD bundle"));
+      document.head.appendChild(script);
+    });
+  }
+  return chartModulePromise;
+}
+
 // Real local PDF parsing (P6.1): pdfjs-dist was installed in P0.5 but never actually
 // used at runtime until this package. Caps pages read to keep this honest and fast for
 // very large PDFs rather than silently hanging; a parse failure never fakes text.
@@ -3922,6 +3943,24 @@ function sourceQuote(text, pattern) {
   return shorten(cleanLine(source), 140);
 }
 
+// U2 MONEY_FAST: a bare "amount + short category" entry ("350 бензин") or "заработал 4200
+// смена" has no currency sign and no keyword the older heuristics below recognize (they only
+// know a fixed merchant/category word list). Reading it unambiguously by word order alone -
+// 2-6 digit number next to <=3 short words total, and NOT a date/time (so "15 июля" or "в 15"
+// aren't mistaken for money) - is the honest, non-ML way to cover arbitrary categories without
+// enumerating every possible one.
+function looksLikeBareMoneyEntry(text) {
+  const source = String(text || "").trim();
+  if (!source) return null;
+  const wordCount = source.split(/\s+/).filter(Boolean).length;
+  if (wordCount === 0 || wordCount > 4) return null;
+  if (parseTimeFromText(source).startTime || parseDateFromText(source)) return null;
+  const leading = source.match(/^(\d{2,6})(?:[.,]\d{1,2})?\s+\S/);
+  const trailing = source.match(/\S\s+(\d{2,6})(?:[.,]\d{1,2})?\s*[.!]?$/);
+  const match = leading || trailing;
+  return match ? Number(match[1]) : null;
+}
+
 function extractMoneyEntities(text) {
   const humanMatches = extractMoneyEntitiesHuman(text);
   if (humanMatches.length) return humanMatches;
@@ -3937,6 +3976,10 @@ function extractMoneyEntities(text) {
   if (!matches.length && fallback && /(купить|оплатить|потратил|списал|списалось|стоил|цена|баланс|зарплата|лимит|подписка|долг|expense|income|budget|subscription)/i.test(source)) {
     matches.push({ amount: Number(fallback[1]), currency: "RUB", raw: fallback[1] });
   }
+  if (!matches.length) {
+    const bareAmount = looksLikeBareMoneyEntry(source);
+    if (bareAmount) matches.push({ amount: bareAmount, currency: "RUB", raw: String(bareAmount) });
+  }
   return matches.slice(0, 6);
 }
 
@@ -3948,7 +3991,7 @@ function extractFirstAmount(text) {
 function extractMoneyEntitiesHuman(text) {
   const source = repairMojibake(String(text || ""));
   const lower = normalizeRuText(source);
-  const hasMoneyContext = /(пят[её]рочк|перекр[её]сток|магнит|продукт|еда|кофе|расход|потрат|купил|купить|оплат|баланс|карта|сч[её]т|зарплат|доход|подписк|бюджет|лимит|перев[её]л|накоплен|руб|₽|expense|income|budget|subscription)/iu.test(lower);
+  const hasMoneyContext = /(пят[её]рочк|перекр[её]сток|магнит|продукт|еда|кофе|расход|потрат|купил|купить|оплат|баланс|карта|сч[её]т|зарплат|доход|заработал|пришл|получил|подписк|бюджет|лимит|перев[её]л|накоплен|руб|₽|expense|income|budget|subscription)/iu.test(lower);
   if (!hasMoneyContext) return [];
   const matches = [];
   const seen = new Set();
@@ -4011,7 +4054,7 @@ function extractMerchant(text) {
 function inferFinanceCategory(text) {
   const humanLower = normalizeRuText(text);
   if (/продукт|еда|кофе|пят[её]рочк|перекр[её]сток|магнит|grocery|food|meal|ужин|обед|завтрак/u.test(humanLower)) return "Еда";
-  if (/такси|метро|билет|дорог|travel|поезд/u.test(humanLower)) return "Транспорт";
+  if (/такси|метро|билет|дорог|travel|поезд|бензин|заправ/u.test(humanLower)) return "Транспорт";
   if (/протеин|зал|gym|спорт/u.test(humanLower)) return "Спорт";
   if (/подписк|яндекс|netflix|spotify|icloud/u.test(humanLower)) return "Подписки";
   if (/дом|лампоч|ремонт|полк/u.test(humanLower)) return "Дом";
@@ -4127,11 +4170,16 @@ function analyzeArtifactInput(input, fileMeta) {
   const hasDateOrTime = Boolean(day || time.startTime || timeNeedsChoice || /\b(сегодня|завтра|послезавтра|вечером|утром|днем|понедельник|пятниц|до\s+\d{1,2})\b/i.test(lower));
   const isRecurring = hasAnyText(lower, ["каждый день", "ежедневно", "еженедельно", "по будням", "каждый понедельник", "каждую неделю", "daily", "weekly"]);
   const isTask = hasAnyText(lower, ["нужно", "надо", "сделать", "купить", "позвонить", "написать", "проверить", "подготовить", "отправить", "записаться", "выбрать", "починить", "оплатить"]) || /\b(task|t[o]do)\b/i.test(lower);
-  const isExpense = amount > 0 && (hasAnyText(lower, ["купить", "оплатить", "потратил", "потратила", "списалось", "кофе", "продукт", "пятерочка", "протеин", "такси", "аптека", "расход"]) || /\bexpense\b/i.test(lower));
-  const isIncome = amount > 0 && (hasAnyText(lower, ["зарплата", "доход", "пришла", "получил"]) || /\b(income|salary)\b/i.test(lower));
+  const isIncome = amount > 0 && (hasAnyText(lower, ["зарплата", "доход", "пришла", "получил", "заработал"]) || /\b(income|salary)\b/i.test(lower));
   const isBalance = amount > 0 && (hasAnyText(lower, ["баланс", "остаток", "карта", "счет"]) || /\baccount\b/i.test(lower));
   const isSubscription = amount > 0 && (hasAnyText(lower, ["подписка", "ежемесячно", "каждый месяц", "счет"]) || /\b(subscription|bill)\b/i.test(lower));
   const isBudget = amount > 0 && (hasAnyText(lower, ["бюджет", "лимит"]) || /\b(limit|budget)\b/i.test(lower));
+  // U2 MONEY_FAST: a bare "amount + category" entry with none of the keywords above (e.g.
+  // "350 бензин") still defaults to an expense - spending is the overwhelmingly common case
+  // for quick-entry apps (Actual Budget's own convention), and this only fires when nothing
+  // else already claimed the number (income/balance/subscription/budget keyword, or a date/time).
+  const isBareMoneyEntry = amount > 0 && !hasDateOrTime && !isIncome && !isBalance && !isSubscription && !isBudget && Boolean(looksLikeBareMoneyEntry(text));
+  const isExpense = amount > 0 && (hasAnyText(lower, ["купить", "оплатить", "потратил", "потратила", "списалось", "кофе", "продукт", "пятерочка", "протеин", "такси", "аптека", "расход"]) || /\bexpense\b/i.test(lower) || isBareMoneyEntry);
   const isHabit = isRecurring || hasAnyText(lower, ["привычка", "вода", "сон", "тренировка", "читать", "медитация", "routine", "habit"]);
   const isGoal = hasAnyText(lower, ["цель", "хочу", "накопить", "достичь"]) || /до\s+\d{1,2}\s+[а-я]+|\b(goal|target)\b/i.test(lower);
   const isProject = hasAnyText(lower, ["проект"]) || /\bproject\b/i.test(lower);
@@ -4178,7 +4226,11 @@ function analyzeArtifactInput(input, fileMeta) {
   }, 0.95));
 
   const actionTitle = stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text) || stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг";
-  if (isTask || isExpense || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea) {
+  // isExpense deliberately excluded here (U2 MONEY_FAST fix): a pure expense/income entry
+  // with no task-language and no date/time shouldn't also spawn a redundant task-main draft
+  // just because it happens to mention money (found via "Расход: 350 бензин" creating both a
+  // finance transaction AND an unwanted duplicate task titled "Расход: бензин").
+  if (isTask || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea) {
     const actionReason = isProject || isIdea
       ? "Идея или проект требует owner-visible следующего шага"
       : "Найден глагол действия или предмет покупки/дела";
@@ -8869,6 +8921,7 @@ function render() {
   }
   mountGraph();
   mountCalendarDragDrop();
+  mountFinanceChart();
   scrollChatThreadToLatest();
   updateSaveStatus();
 }
@@ -9054,6 +9107,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     environment: state.environment || {},
     financeAccounts: Object.values(state.financeAccounts || {}).filter((item) => !item.deleted),
     financeSummary: financeSummary(state),
+    financeWeekly: financeWeeklySeries(state),
     flowRuns: Object.values(state.flowRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     flows: Object.values(state.flows || {}),
     agentRuns: Object.values(state.agentRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
@@ -9748,6 +9802,18 @@ function financeSummary(state) {
     budgetLimit,
     subscriptions: Object.values(state.subscriptions || {}).filter((item) => !item.deleted && item.status === "active").length
   };
+}
+
+// U2 MONEY_FAST weekly chart data: real per-day totals for the last 7 days (today back
+// 6 days), not a placeholder series - chart.js just renders whatever this returns.
+function financeWeeklySeries(state) {
+  const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted);
+  const days = [];
+  for (let offset = -6; offset <= 0; offset += 1) days.push(dateKeyFromOffset(offset));
+  const expenseByDay = days.map((day) => txs.filter((tx) => tx.kind === "expense" && tx.day === day).reduce((sum, tx) => sum + tx.amount, 0));
+  const incomeByDay = days.map((day) => txs.filter((tx) => tx.kind === "income" && tx.day === day).reduce((sum, tx) => sum + tx.amount, 0));
+  const labels = days.map((day) => day.slice(5).split("-").reverse().join("."));
+  return { labels, expenseByDay, incomeByDay };
 }
 
 function ownerTodaySummary(state) {
@@ -13966,6 +14032,51 @@ async function mountCalendarDragDrop() {
       }
     }));
   }
+}
+
+let financeChartInstance = null;
+
+// U2 MONEY_FAST: real weekly chart via chart.js (already approved/installed, first actual
+// runtime use). Same lazy-load + destroy-and-recreate-on-render pattern as
+// mountCalendarDragDrop/mountGraph - only touches the DOM when the Finance surface's canvas
+// is actually present.
+async function mountFinanceChart() {
+  const canvas = document.querySelector('[data-testid="finance-weekly-chart"]');
+  if (!canvas || !store) {
+    if (financeChartInstance) {
+      financeChartInstance.destroy();
+      financeChartInstance = null;
+    }
+    return;
+  }
+  let Chart;
+  try {
+    Chart = await loadChartJs();
+  } catch (error) {
+    return;
+  }
+  if (!document.body.contains(canvas)) return;
+  if (financeChartInstance) {
+    financeChartInstance.destroy();
+    financeChartInstance = null;
+  }
+  const series = financeWeeklySeries(store.state);
+  financeChartInstance = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: series.labels,
+      datasets: [
+        { label: "Расходы", data: series.expenseByDay, backgroundColor: "#dc6b52" },
+        { label: "Доходы", data: series.incomeByDay, backgroundColor: "#3f9d6c" }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
 }
 
 async function rescheduleItemToHour(itemId, hour) {

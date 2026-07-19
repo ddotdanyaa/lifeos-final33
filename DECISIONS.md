@@ -1629,3 +1629,61 @@ hardware correctly showed "запись не удалась / Permission denied"
 (CLAUDE.md §7 provider-honesty requirement) - the e2e test covers the real success path via
 Playwright's fake-media-device flags, matching R1's established `waveform-record.spec.mjs`
 pattern.
+
+## U2 MONEY_FAST (2026-07-20)
+
+**Decision - default bare money-mentions to expense, guarded narrowly:** rather than trying
+to enumerate every possible expense-category noun (impossible - "бензин" was just the first
+gap found), a bare "amount + <=3 words, no date/time" pattern with no other financial keyword
+now defaults to an expense. This mirrors Actual Budget's own quick-entry convention (spending
+is the overwhelmingly common bare-number case) and is explicitly guarded to only fire when
+income/balance/subscription/budget keywords and date/time signals are ALL absent, so it can't
+override an existing, more specific classification - verified by re-running the full P19
+24-journey suite (unchanged, all pass) since this touches shared classifier code used well
+beyond the money quick-actions.
+
+**Finding, root-caused precisely - why "Расход: 350 бензин" (U1's discovery) created a
+redundant task:** traced it to two independent bugs, both fixed here. (1) `extractMoneyEntities`
+never even extracted "350" as an amount for "бензин"-style text with no recognized keyword -
+`isExpense` requires `amount > 0`, so it silently never fired for genuinely bare entries; the
+new `looksLikeBareMoneyEntry` fallback fixes the extraction itself, not just the keyword list.
+(2) Separately, `analyzeArtifactInput`'s task-draft trigger (`if (isTask || isExpense || ...)`)
+treated ANY expense signal as also worth a task draft, regardless of whether the text had any
+task-language at all - removed `isExpense` from that condition (isTask alone still covers
+"купить бензин"-style phrasing that's genuinely both).
+
+**Decision - goal pace is linear-schedule arithmetic, not a forecast:** the plan explicitly
+asked for "простое сравнение факт vs график, не ML-прогноз". `goalPace` compares today's actual
+progress against what a straight line from the goal's `createdAt` to its `targetDate` would
+expect by today - no trend-fitting, no historical-rate projection. This keeps the guarantee
+that nothing owner-facing here claims more certainty than the math actually supports.
+
+**Decision - chart.js loaded as a classic `<script>` (UMD), not via dynamic `import()`:**
+tried the straightforward `import("./node_modules/chart.js/auto/auto.js")` first (matching
+`loadSortable`'s existing pattern) and hit a real browser limitation: chart.js's ESM build has
+a bare-specifier `import '@kurkle/color'` internally, which npm/bundler resolution handles but
+a browser's native ESM loader cannot without an import map (none exists here). chart.js's UMD
+build (`dist/chart.umd.js`) bundles `@kurkle/color` inline for exactly this no-bundler
+scenario, so `loadChartJs()` (app.js) injects it as a plain `<script>` tag and reads the
+`window.Chart` global its UMD wrapper assigns, instead of importing it as a module. Documents
+a real constraint for any future MIT/Apache engine that has its own bare-specifier
+dependencies - check for an `/auto/`-or-similar bundled/UMD build before assuming a bare
+dynamic `import()` of the package's stated ESM entry will work in-browser.
+
+**Note - `tools/build-public.mjs`/`service-worker.js` were checked, not changed:**
+CLAUDE.md §2 says to update both after connecting a new engine. Verified against existing
+precedent first: `build-public.mjs` copies no `node_modules` path for ANY already-connected
+engine (sortablejs, pdfjs-dist, etc.) - the public demo simply doesn't bundle
+`node_modules`-dependent features, and `mountFinanceChart`'s try/catch around the chart.js
+load means it degrades to "no chart" there rather than breaking, consistent with how those
+other engines already behave in public-demo. `service-worker.js`'s fetch handler already
+caches any `.js`/`.css` response generically (network-first, cache-fallback) rather than
+listing files by name, so no per-engine list to add. Neither file needed a change for this
+package; noting the verification rather than silently skipping the instruction.
+
+**Finding, flagged as a separate background task (not fixed here - out of U2's scope):**
+`app.js`'s action dispatcher has two `if (action === "add-finance") {...}` blocks (~line 15470
+and ~15559); since dispatch is sequential `if`/`return`, the second is confirmed-unreachable
+dead code (the manual finance-entry form in `ui/components/MoneyDashboard.js` only ever hits
+the first). Left alone since it's inert and unrelated to the text-capture path U2 actually
+touches; flagged via spawn_task for a standalone cleanup.
