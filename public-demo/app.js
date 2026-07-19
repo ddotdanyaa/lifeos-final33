@@ -6666,6 +6666,104 @@ async function runWhisperTranscribe(sourceId) {
   await pollWhisperTranscribeProgress(requestId, sourceId);
 }
 
+// R1 WAVEFORM_RECORD: in-app microphone recording with a live waveform (AnalyserNode + Canvas,
+// wavesurfer.js's Record-plugin idea, no new dependency). The stopped recording reuses the exact
+// same import path as a file upload (importFilesFromInput), so it gets the same source artifact,
+// note, proposals and graph/search wiring as any other audio - no separate storage mechanism.
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordingAudioContext = null;
+let recordingAnalyser = null;
+let recordingAnimationFrame = 0;
+const recordingRuntime = { status: "idle", error: "" };
+
+function drawRecordingWaveform() {
+  const canvas = document.querySelector('[data-testid="record-waveform"]');
+  if (!canvas || !recordingAnalyser) return;
+  const canvasCtx = canvas.getContext("2d");
+  const bufferLength = recordingAnalyser.frequencyBinCount;
+  const data = new Uint8Array(bufferLength);
+  const draw = () => {
+    if (recordingRuntime.status !== "recording") return;
+    recordingAnimationFrame = requestAnimationFrame(draw);
+    recordingAnalyser.getByteTimeDomainData(data);
+    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+    canvasCtx.beginPath();
+    const sliceWidth = canvas.width / bufferLength;
+    let x = 0;
+    for (let i = 0; i < bufferLength; i += 1) {
+      const y = (data[i] / 128) * (canvas.height / 2);
+      if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    canvasCtx.stroke();
+  };
+  draw();
+}
+
+async function startAudioRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    recordingAudioContext = new AudioCtx();
+    const micSource = recordingAudioContext.createMediaStreamSource(stream);
+    recordingAnalyser = recordingAudioContext.createAnalyser();
+    recordingAnalyser.fftSize = 256;
+    micSource.connect(recordingAnalyser);
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data && event.data.size > 0) recordedChunks.push(event.data);
+    });
+    mediaRecorder.addEventListener("stop", () => stream.getTracks().forEach((track) => track.stop()));
+    mediaRecorder.start();
+    recordingRuntime.status = "recording";
+    recordingRuntime.error = "";
+  } catch (error) {
+    recordingRuntime.status = "error";
+    recordingRuntime.error = String((error && error.message) || error);
+  }
+  // store.commit() re-renders synchronously via emit() before its returned promise resolves -
+  // the promise itself only settles once the slow IndexedDB persist finishes. Don't await it
+  // before drawing: the DOM (and the canvas the waveform attaches to) is already current the
+  // instant this call returns, and waiting on persistence here would delay the waveform for no
+  // reason (or hang it entirely under a slow/stalled save).
+  const pendingCommit = store.commit("Audio recording status changed", (state) => {
+    state.control.audioRecordingStatus = { status: recordingRuntime.status, error: recordingRuntime.error };
+  });
+  if (recordingRuntime.status === "recording") drawRecordingWaveform();
+  await pendingCommit;
+}
+
+async function stopAudioRecording() {
+  if (!mediaRecorder || recordingRuntime.status !== "recording") return;
+  const recorder = mediaRecorder;
+  const chunks = recordedChunks;
+  const finishedBlob = await new Promise((resolve) => {
+    recorder.addEventListener("stop", () => resolve(new Blob(chunks, { type: recorder.mimeType || "audio/webm" })), { once: true });
+    recorder.stop();
+  });
+  cancelAnimationFrame(recordingAnimationFrame);
+  if (recordingAudioContext) {
+    try {
+      await recordingAudioContext.close();
+    } catch (error) {
+      /* already closed */
+    }
+    recordingAudioContext = null;
+  }
+  recordingAnalyser = null;
+  mediaRecorder = null;
+  recordingRuntime.status = "idle";
+  recordingRuntime.error = "";
+  const pendingCommit = store.commit("Audio recording status changed", (state) => {
+    state.control.audioRecordingStatus = { status: "idle", error: "" };
+  });
+  const file = new File([finishedBlob], "recording-" + Date.now() + ".webm", { type: finishedBlob.type || "audio/webm" });
+  await importFilesFromInput([file], "audio");
+  await pendingCommit;
+}
+
 function addGoal(state, title, options) {
   const cleanTitle = cleanLine(title);
   if (!cleanTitle) return "";
@@ -14663,6 +14761,14 @@ async function handleAction(action, id) {
   if (action === "import-audio") {
     const input = document.querySelector("#audio-import");
     if (input) input.click();
+    return;
+  }
+  if (action === "start-audio-recording") {
+    await startAudioRecording();
+    return;
+  }
+  if (action === "stop-audio-recording") {
+    await stopAudioRecording();
     return;
   }
   if (action === "import-backup") {

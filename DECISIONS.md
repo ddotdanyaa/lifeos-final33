@@ -1424,3 +1424,37 @@ output/playwright/pdf-epub-local.spec.mjs ... green"). Copying the file tripped
 `audit-public-build.mjs`'s private-content-pattern check. Rather than rewriting/sanitizing
 real ledger text, the import feature gracefully 404s in public-demo instead - the same
 honest-degradation pattern P6.1 already established for node_modules-dependent features.
+
+## R1 WAVEFORM_RECORD (2026-07-19)
+
+**Decision - implemented actual in-app recording, not just a visual indicator:** the plan
+named this package "waveform record" and pointed at wavesurfer.js's Record plugin, but this
+app has zero existing microphone-recording capability - the "Player" only ever handled
+uploaded audio files. Building a waveform indicator with nothing to indicate would be
+pointless, so this package became: real `getUserMedia`+`MediaRecorder` capture, a live
+`AnalyserNode`+`Canvas` waveform while recording, and on stop, the recorded blob is handed
+to the exact same `importFilesFromInput` path a file upload uses - same artifact, note,
+proposals, graph/search wiring, no parallel storage mechanism invented.
+
+**Bug found and fixed (real, not test-only) - store.commit()'s emit-before-persist
+ordering:** `ReactiveStore.commit()` synchronously re-renders the DOM via `emit()` partway
+through its body, then returns a promise that only resolves once the slow IndexedDB
+persist (`persistCurrent`) finishes. Code that does `await store.commit(...)` and then
+touches a specific DOM node directly (the waveform's canvas, found via
+`document.querySelector`) was grabbing whatever canvas existed *before* the awaited
+persist finished — which, once the commit's own `emit()` had already re-rendered the page
+in the meantime, was a stale, detached element. The draw loop kept animating onto that
+orphaned node while the real, currently-visible canvas stayed blank forever. Fixed by not
+awaiting the commit before doing DOM-dependent work - only the synchronous re-render
+matters for that, not the persist. This pattern (imperative canvas/DOM work immediately
+following a commit) doesn't exist anywhere else in the codebase yet, so no other callers
+needed the same fix, but it's worth remembering if a future package adds another one.
+
+**Observation, not a regression:** running with Chromium's
+`--use-fake-device-for-media-stream`/`--use-fake-ui-for-media-stream` flags (the standard,
+real-hardware-free way to e2e-test WebRTC/media-capture code, not a mock at the JS layer)
+surfaced a recurring `"CompressionStream fallback Error: stream timeout"` console warning
+from `app.js`'s save path that isn't visible in this session's other e2e runs. It didn't
+block anything once the emit-before-persist fix above was in place, and reproducing/
+chasing it further was out of scope for this package - noting it here in case a future
+session sees the same warning and wonders whether it's new.

@@ -21,6 +21,26 @@ function whisperStatusLabel(audio) {
   return audio.transcriptText ? "есть расшифровка" : "можно расшифровать вручную";
 }
 
+function recordStatusLabel(status) {
+  if (status === "recording") return "идёт запись…";
+  if (status === "error") return "запись не удалась";
+  return "готово к записи";
+}
+
+function renderRecordPanel(recordingStatus) {
+  const status = String((recordingStatus && recordingStatus.status) || "idle");
+  const isRecording = status === "recording";
+  return [
+    `<div class="audio-record-panel" data-testid="audio-record-panel">`,
+    `<canvas data-testid="record-waveform" width="240" height="60"></canvas>`,
+    `<div data-testid="record-status" data-raw-status="${escapeHtml(status)}"><span>${escapeHtml(recordStatusLabel(status))}</span>${status === "error" && recordingStatus.error ? `<em>${escapeHtml(recordingStatus.error)}</em>` : ""}</div>`,
+    isRecording
+      ? button("stop-audio-recording", "Стоп", { kind: "danger", testId: "stop-audio-recording" })
+      : button("start-audio-recording", "Записать аудио", { kind: "ghost", testId: "start-audio-recording" }),
+    `</div>`
+  ].join("");
+}
+
 export function renderPlayerSurface(ctx) {
   const audios = ctx.audioSources || [];
   const active = audios[0] || null;
@@ -32,6 +52,7 @@ export function renderPlayerSurface(ctx) {
     `<h3>Аудио</h3>`,
     safeList(audios, (audio) => `<article class="audio-card" data-testid="audio-card"><strong>${escapeHtml(audio.name || "Аудио")}</strong><span>${escapeHtml(whisperStatusLabel(audio))}</span>${button("open-source-note", "Открыть источник", { id: audio.id, kind: "ghost" })}${button("transcribe-whisper", "Расшифровать (Whisper)", { id: audio.id, kind: "ghost", testId: `transcribe-whisper-${audio.id}`, disabled: !sttReady || audio.transcriptStatus === "whisper-transcribing", title: sttReady ? "" : "Сначала подготовь Whisper ниже" })}<label class="transcript-editor-label">Ручная расшифровка<textarea class="transcript-box" data-testid="transcript-input-${escapeHtml(audio.id)}" id="transcript-${escapeHtml(audio.id)}" spellcheck="true">${escapeHtml(audio.transcriptText || "")}</textarea></label>${button("save-transcript", "Сохранить расшифровку", { id: audio.id, kind: "primary", testId: `save-transcript-${audio.id}` })}${safeList(segmentsFor(ctx, audio.id), renderSegmentRow, "")}<div class="checkpoint-row"><input id="checkpoint-time-${escapeHtml(audio.id)}" data-testid="checkpoint-time" aria-label="Время закладки" placeholder="00:30"><input id="checkpoint-title-${escapeHtml(audio.id)}" data-testid="checkpoint-title" aria-label="Название закладки" placeholder="Что важно">${button("add-audio-checkpoint", "Добавить закладку", { id: audio.id, kind: "ghost", testId: "add-audio-checkpoint" })}</div><textarea id="transcript-snippet-${escapeHtml(audio.id)}" data-testid="transcript-snippet" aria-label="Transcript snippet" placeholder="Фрагмент для заметки, задачи или вывода"></textarea><div class="knowledge-actions">${button("transcript-to-task", "В задачу", { id: audio.id, kind: "ghost", testId: "transcript-to-task" })}${button("transcript-to-claim", "В вывод", { id: audio.id, kind: "ghost", testId: "transcript-to-claim" })}${button("transcript-to-note", "В заметку", { id: audio.id, kind: "ghost", testId: "transcript-to-note" })}</div></article>`, `<div class="empty-inline">Добавь аудио.</div>`),
     button("import-audio", "Добавить аудио", { kind: "primary", testId: "player-import-audio" }),
+    renderRecordPanel(ctx.control?.audioRecordingStatus),
     `</aside>`,
     `<section class="audio-player-card" data-testid="player-panel">`,
     `<div class="player-art"><span>▶</span></div>`,
