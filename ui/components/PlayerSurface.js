@@ -27,7 +27,7 @@ function recordStatusLabel(status) {
   return "готово к записи";
 }
 
-function renderRecordPanel(recordingStatus) {
+export function renderRecordPanel(recordingStatus) {
   const status = String((recordingStatus && recordingStatus.status) || "idle");
   const isRecording = status === "recording";
   return [

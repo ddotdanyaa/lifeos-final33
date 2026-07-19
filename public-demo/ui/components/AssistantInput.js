@@ -2,8 +2,10 @@ import { button, escapeHtml } from "./shared.js";
 
 export function renderAssistantInput(ctx) {
   const quickButtons = [
-    ["quick-task", "Задача", "quick-task"],
+    ["start-audio-recording", "Голос", "quick-voice"],
     ["quick-expense", "Расход", "quick-expense"],
+    ["quick-task", "Задача", "quick-task"],
+    ["quick-note", "Мысль", "quick-note"],
     ["import-file", "Файл / скрин", "capture-import"],
     ["import-audio", "Аудио", "capture-audio"],
     ["import-file", "Книга", "capture-book"]

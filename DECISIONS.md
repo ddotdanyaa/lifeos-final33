@@ -1582,3 +1582,50 @@ continuity.spec.mjs` alone twice - passed both times. Treated as pre-existing te
 flakiness, not a U0 regression, consistent with this session's established practice of not
 chasing synthetic-environment flakes that don't reproduce in isolation (see R2/R3 in the
 v1.1 ledger).
+
+## U1 TODAY_HOME (2026-07-19)
+
+**Decision - reuse `renderTimeGrid`/`taskRow` verbatim, don't build a Home-specific
+variant:** the plan explicitly said "переиспользовать существующий TimeGrid.js, НЕ строить
+новый." `renderTimeGrid` already takes `(ctx, items)` with no surface-specific assumptions, so
+Home just filters `ctx.scheduleItems` by `day === ctx.todayKey` (the same filter `ui/calendar.js`
+already does) and passes it in directly. `taskRow` was local/unexported in `ui/today.js`;
+exported it rather than copy-pasting its markup into `home.js` - one row renderer, two callers.
+
+**Finding - the "Расход" text-entry path has a real classification bug, discovered while
+testing the new Расход/Трата quick action, and deliberately NOT fixed here:** typing
+"Расход: 350 бензин" and applying the resulting proposals creates a correct
+`financeTransactions` entry (350, expense) but ALSO an unwanted duplicate task titled
+"Расход: бензин". Root cause: `buildHumanCaptureAnswer` (app.js) only shows the
+finance-specific preview when BOTH an expense proposal AND a balance proposal exist
+(`if (expense && balance)`); with only an expense proposal, it falls through to the
+task/calendar branch and previews/primary-labels the capture as a task even though a
+`finance_expense` proposal also exists alongside. `apply-source-proposals`'s safe-type list
+includes both `task` and `finance_expense`, so clicking the (mislabeled) "Создать задачу"
+primary button applies both proposals, not just one. This is exactly the "быстрая фиксация:
+авто-парсинг суммы/категории/типа" problem `U2 MONEY_FAST` exists to solve - left alone here
+since U1's scope was strictly "add quick-action buttons that reuse existing handlers," not
+"fix the classifier the buttons call into." Confirmed via direct state inspection
+(`window.__lifeosKnowledgeBase.getStateSnapshot().financeTransactions`), not just the preview
+text, so this is a verified finding for U2 to start from, not a guess.
+
+**Decision - revert an in-flight "Расход" -> "Трата" label rename:** initially renamed the
+quick-expense button to match the plan's illustrative wording ("Голос / Трата / Задача /
+Мысль") verbatim, but `tools/audit-primary-ui-language.mjs` failed
+("Missing Russian primary labels: Расход") - it spot-checks for that literal string across
+the primary UI files as an anti-regression guard. Per CLAUDE.md's "don't weaken audits for
+green," the fix was to keep the established term ("Расход" is used consistently across
+Finance/mini-summary-card/quick-expense already) rather than either weakening the audit or
+fragmenting terminology with a synonym. The plan's button-label wording is illustrative intent,
+not a literal UI-copy spec, so "Расход" stayed.
+
+**Decision - `renderRecordPanel` shown conditionally on Home, unconditionally on Player:**
+Player's audio surface always renders the record panel (it's the dedicated audio workspace).
+Home is meant to stay calm (CLAUDE.md §6), so it only renders the panel while
+`state.control.audioRecordingStatus.status !== "idle"` - appears the instant Голос is clicked
+(recording or even a permission-denied error, both count as "not idle"), disappears again once
+stopped. Verified honestly: manually testing Голос in a browser pane without real microphone
+hardware correctly showed "запись не удалась / Permission denied" rather than faking success
+(CLAUDE.md §7 provider-honesty requirement) - the e2e test covers the real success path via
+Playwright's fake-media-device flags, matching R1's established `waveform-record.spec.mjs`
+pattern.

@@ -199,7 +199,26 @@ planBlocks), никаких новых источников правды.
   моб. навигация) в `docs/qc/screens/U0/`. UX-scorecard (`docs/qc/FINAL_UI_HUMAN_AUDIT.md`)
   обновлён с датированной заметкой (оценки не изменились — это визуальный, не функциональный
   пакет).
-- [ ] U1 TODAY_HOME
+- [x] U1 TODAY_HOME (2026-07-19) — Home (`ui/home.js`) gained a "Мой день" section
+  reusing `renderTimeGrid` (`ui/components/TimeGrid.js`, unmodified) filtered to
+  `ctx.scheduleItems` where `day === ctx.todayKey`, plus a compact undone-tasks-today list
+  reusing `taskRow` (newly exported from `ui/today.js`, not duplicated). 4 quick actions
+  (Голос/Расход/Задача/Мысль) live in `ui/components/AssistantInput.js`'s existing
+  quick-buttons row: Голос and Мысль are new, Расход/Задача already existed. Голос directly
+  calls the existing `start-audio-recording` handler (R1); Мысль is a new `quick-note` action
+  in app.js mirroring `quick-task`'s exact dual-path shape (creates immediately via
+  `captureTextArtifact` if the textarea already has text, else just clears the draft) - not a
+  new input pathway, same pattern as the handler it sits next to. The audio record panel
+  (`renderRecordPanel`, exported from `ui/components/PlayerSurface.js`) is now also rendered on
+  Home, conditionally shown only while `state.control.audioRecordingStatus.status !== "idle"`
+  (keeps Home calm when not recording; Player always shows it). **Gate**: `npm run verify`
+  green; all `tools/audit-*.mjs` green (after reverting an initial "Расход" -> "Трата" label
+  rename that broke `audit-primary-ui-language.mjs` - see DECISIONS.md); H10 no-overflow green;
+  new `output/playwright/today-home-quick-actions.spec.mjs` proves all 4 quick actions create
+  a real artifact (task/finance transaction/source/audio source) in <=2 clicks each, including
+  a real fake-device microphone recording end-to-end from Home; `node tools/build-public.mjs`
+  run. Before/after screenshots in `docs/qc/screens/U1/` (before = U0's already-captured
+  after-state, the true pre-U1 baseline). UX-scorecard updated.
 - [ ] U2 MONEY_FAST
 - [ ] U4 CHAT_ACTIONS
 - [ ] U3 VOICE_LOOP

@@ -1,7 +1,7 @@
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
 import { button, emptyState, escapeHtml, safeList, scheduleLine } from "./components/shared.js";
 
-function taskRow(ctx, task, testId = "task-row") {
+export function taskRow(ctx, task, testId = "task-row") {
   const done = task.status === "done";
   return [
     `<article class="today-task-row ${done ? "is-done" : ""}" data-testid="${testId}">`,

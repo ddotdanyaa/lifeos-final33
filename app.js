@@ -14797,6 +14797,20 @@ async function handleAction(action, id) {
     });
     return;
   }
+  if (action === "quick-note") {
+    const input = document.querySelector("#capture-input");
+    const text = input ? input.value : store.state.captureDraft;
+    const cleanText = repairMojibake(String(text || "")).trim();
+    if (cleanText) {
+      await store.commit("Quick note captured", (state) => captureTextArtifact(state, cleanText));
+      return;
+    }
+    await store.commit("Quick note template", (state) => {
+      state.captureDraft = "";
+      addAudit(state, "capture.template", "Quick note template opened", state.activeNoteId);
+    });
+    return;
+  }
   if (action === "quick-habit") {
     await store.commit("Quick habit template", (state) => {
       state.captureDraft = "Каждый день ";
