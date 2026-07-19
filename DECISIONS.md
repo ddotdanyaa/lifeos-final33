@@ -1300,3 +1300,48 @@ model pulls (the v1.0 session's biggest single time cost was blocking on a synch
 and running only the package's own target spec/audit mid-package with the full sweep
 reserved for package/phase boundaries (matches the actual gate discipline already used
 throughout v1.0, now made explicit).
+
+## П-A LIVE_CHAT_REAL_DAEMON (2026-07-19)
+
+**Decision - model:** Pulled `qwen3:4b` (Apache-2.0 across the whole Qwen3 series) rather
+than the two pre-existing models already sitting on this machine's Ollama daemon
+(`qwen2.5:3b`, `llama3.2:3b`, dated 2026-06-02/03 - predate this session, a genuine
+discovery not created here). Reason: Qwen2.5's exact per-size license terms were not
+cleanly re-verifiable in the time available, and this project's licensing discipline
+(research doc this plan is built from) prioritizes verified-clean licenses over reusing
+what's already on disk.
+
+**Finding that corrected the plan's own assumption:** the plan (written by a prior
+Fable session without live daemon access) assumed qwen3 emits inline `<think>...</think>`
+tags needing string-stripping. Direct curl testing against the real daemon showed Ollama
+actually returns reasoning in a separate top-level JSON field (`payload.thinking`), not
+inline tags - `stripModelThinkingBlocks` is kept as a defensive no-op for other possible
+providers but was never the actual fix.
+
+**The real bug and its fix:** the live chat's citation-context prompt, given an
+open-ended question, sent qwen3:4b into unbounded internal reasoning that consumed the
+entire `num_predict` token budget before any answer was produced (`done_reason:"length"`,
+empty `response`) - reproduced at num_predict 500, 1600 (5117-char thinking block, still
+truncated, 377s), and confirmed independent of the `think:false` API parameter (which
+does not reduce reasoning length, only whether it's split into a separate JSON field or
+merged inline - re-confirmed this session via direct `/api/chat` testing, matching an
+earlier finding). The fix that actually worked: adding an explicit brevity constraint to
+`buildOllamaChatPrompt` ("at most 2 short sentences, max 40 words") measurably bounds the
+model's own reasoning length, so generation finishes naturally (`done_reason:"stop"`) in
+~56s on CPU-only hardware instead of never finishing. `generateOllamaChatAnswer`'s
+AbortSignal.timeout is 150000ms - a generous multiple of the measured time, not a budget
+the model is expected to need.
+
+**A4 un-skip revealed three independent pre-existing test bugs**, none related to Ollama,
+all latent because `final-journeys.spec.mjs`'s P19 had never actually been run before
+(always `test.skip`, per its own comment, since the prior v1.0 session never had a real
+daemon to justify running it): J16's `chat-to-proposal` selector used `.first()` instead
+of `.last()` and hung retrying against an old message's permanently-scrolled-out-of-view
+button; a mid-test `page.reload()` skipped the settle-wait `resetLifeOs` uses elsewhere,
+racing the app's post-reload hydration; J18 asserted `approval-row` where FlowCanvas.js
+only renders that marker for a flow run with zero pending proposals (a run that actually
+created proposals renders `execute-flow-run` instead - the real approval gate); and the
+shared `openSurface` helper had no fallback for secondary-nav-only surfaces (e.g.
+providers, which never appears in the mobile bottom row) at mobile viewport width, since
+`ui/shell.js` renders those with a `mobile-more-` testid prefix the helper never tried.
+All four fixed in the test file itself; none required a product change.

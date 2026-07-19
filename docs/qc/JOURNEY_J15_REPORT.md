@@ -42,10 +42,10 @@ Chat/Providers expose Ollama status, explicit probe, model list and proposal-onl
 ```
 
 ## Graph Edges
-After: 621 edges, 621 with visible reasons.
+After: 757 edges, 757 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: reading.create: Reading item created: вечерний обзор: голосом записал идею про сон,... | review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact | provider.run: ollama probe: Ollama models_found at http://localhost:11434 | ollama.probe: Ollama models_found at http://localhost:11434
+After: 300 audit events. Tail: provider.run: import file: Импорт: вечерний обзор: голосом записал идею про сон,....md (text) | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | chat.input.artifact: owner chat artifact recorded: вечерний обзор: голосом записал идею про сон, деньги и граф | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact | capability.grant: Capability granted: ollama/probe (local) | provider.run: ollama probe: Ollama models_found at http://127.0.0.1:11434 | ollama.probe: Ollama models_found at http://127.0.0.1:11434
 
 ## Remaining Gated
 A real local Ollama daemon is owner/device-dependent; this journey verifies the reachable API contract with a mocked localhost response.

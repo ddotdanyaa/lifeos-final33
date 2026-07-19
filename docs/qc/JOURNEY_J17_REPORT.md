@@ -35,17 +35,17 @@ Agent dry-run is attached to the current artifact, shows safety boundaries, reco
   "proposalsOpen": 2,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 3,
-  "graphEdges": 6,
-  "graphEdgeReasons": 6
+  "graphNodes": 4,
+  "graphEdges": 8,
+  "graphEdgeReasons": 8
 }
 ```
 
 ## Graph Edges
-After: 631 edges, 631 with visible reasons.
+After: 771 edges, 771 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact | provider.run: ollama probe: Ollama models_found at http://localhost:11434 | ollama.probe: Ollama models_found at http://localhost:11434 | chat.local: Local chat message linked to artifact | chat.proposal: Chat message became proposal: пятерочка 1240 продукты сегодня баланс карта 15200 подписка Яндекс 399 28 июня зарплата... | provider.run: pwa boot: PWA shell checked: service-worker-ready | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,...
+After: 300 audit events. Tail: chat.input.artifact: owner chat artifact recorded: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.answer.artifact: assistant chat artifact recorded: Похоже, это связано с локальными артефактами: вечерний обзор: голосом записал идею про сон,...; завтра в 14:00 зал, к... | chat.local.answer: Local chat answered: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.proposal: Chat message became proposal: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | provider.run: pwa boot: PWA shell checked: service-worker-ready | capability.grant: Capability granted: agent/run (local) | chat.answer.artifact: assistant chat artifact recorded: Локальный организатор подготовил действия для вечерний обзор: голосом записал идею про сон,.... | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,...
 
 ## Remaining Gated
 None for this local journey.

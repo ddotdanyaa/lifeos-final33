@@ -6908,12 +6908,17 @@ async function testOllamaGeneration(endpoint, model) {
   const response = await fetch(base + "/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    // num_predict must cover a reasoning model's internal thinking budget (returned
+    // separately in payload.thinking by Ollama) as well as the actual reply - too small a
+    // budget (previously 16) truncates mid-thought and leaves payload.response empty even
+    // though the model is genuinely working (verified against a real qwen3:4b daemon).
     body: JSON.stringify({
       model: selectedModel,
       prompt: "LifeOS local provider check. Reply with OK.",
       stream: false,
-      options: { num_predict: 16 }
-    })
+      options: { num_predict: 200 }
+    }),
+    signal: AbortSignal.timeout(60000)
   });
   if (!response.ok) throw new Error("Ollama generation responded with HTTP " + response.status);
   const payload = await response.json();
@@ -7031,7 +7036,21 @@ function buildOllamaChatPrompt(context, citedNotes, question) {
   const citationBlock = citedNotes.length
     ? "Related local notes:\n" + citedNotes.map((note) => "- " + note.title + ": " + shorten(cleanLine(note.body || ""), 200)).join("\n") + "\n\n"
     : "";
-  return "You are a local, honest assistant for LifeOS, a personal data OS. Answer briefly using only the given local context; do not invent facts.\n\nActive context: " + context.title + " - " + context.text + "\n\n" + citationBlock + "Question: " + question + "\nAnswer:";
+  // An explicit length cap is load-bearing, not stylistic: against a real qwen3:4b daemon, an
+  // open-ended question with no output-length constraint made the model's own "thinking" phase
+  // ramble unbounded, burning the entire num_predict budget (even at 1600) before any response
+  // was produced. Demanding a short answer up front measurably bounds the model's own reasoning
+  // length so generation finishes naturally instead of truncating - see generateOllamaChatAnswer.
+  return "You are a local, honest assistant for LifeOS, a personal data OS. Answer using ONLY the given local context; do not invent facts. Respond in at most 2 short sentences (max 40 words total) - be extremely concise.\n\nActive context: " + context.title + " - " + context.text + "\n\n" + citationBlock + "Question: " + question + "\nAnswer:";
+}
+
+// Defensive safety net: some providers/proxies inline reasoning as a literal
+// <think>...</think> block in the response text instead of Ollama's native separate
+// "thinking" field (verified against a real qwen3:4b daemon: Ollama keeps it out of
+// payload.response as long as num_predict below leaves enough budget - see there for the
+// actual fix). Strip it if present so the owner never sees a scratchpad as the answer.
+function stripModelThinkingBlocks(text) {
+  return String(text || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
 async function generateOllamaChatAnswer(endpoint, model, prompt) {
@@ -7040,11 +7059,19 @@ async function generateOllamaChatAnswer(endpoint, model, prompt) {
   const response = await fetch(base + "/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: 220 } })
+    // num_predict must cover a reasoning model's internal thinking budget - Ollama returns
+    // that separately in payload.thinking, but too small a total budget truncates before
+    // the real response is ever produced (measured against a real qwen3:4b daemon: 220 was
+    // not always enough for a citation-context answer to finish after thinking).
+    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: 500 } }),
+    // buildOllamaChatPrompt's brevity constraint keeps real generations finishing in well under a
+    // minute on CPU-only hardware (measured ~56s against a real qwen3:4b daemon); this timeout is
+    // a generous multiple of that, not a budget the model is expected to hit.
+    signal: AbortSignal.timeout(150000)
   });
   if (!response.ok) throw new Error("Ollama chat responded with HTTP " + response.status);
   const payload = await response.json();
-  const text = cleanLine(payload.response || "");
+  const text = cleanLine(stripModelThinkingBlocks(payload.response || ""));
   if (!text) throw new Error("Ollama chat returned an empty response");
   return { text, latencyMs: Math.max(1, Date.now() - startedAt) };
 }

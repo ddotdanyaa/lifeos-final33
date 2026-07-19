@@ -185,6 +185,15 @@ async function openSurface(page, testId, visibleTestId) {
     const mobileMore = page.locator('[data-testid="mobile-more-nav"] summary').first();
     if (await mobileMore.isVisible().catch(() => false)) await mobileMore.click();
     target = await firstVisible(testId);
+    // ui/shell.js's mobile "Ещё" panel renders secondary-nav-only surfaces (e.g. providers,
+    // which never appears in the mobile bottom row) with a "mobile-more-" testid prefix, not
+    // "surface-" - without this, opening the panel above reveals the button but this function
+    // kept re-scanning for the desktop testid and hung forever clicking a permanently hidden one.
+    if (!(await target.isVisible().catch(() => false)) && testId.startsWith("surface-")) {
+      const mobileMoreTestId = testId.replace("surface-", "mobile-more-");
+      const mobileMoreTarget = await firstVisible(mobileMoreTestId);
+      if (await mobileMoreTarget.isVisible().catch(() => false)) target = mobileMoreTarget;
+    }
   }
   await target.click();
   await expect(page.getByTestId(visibleTestId)).toBeVisible();
@@ -238,10 +247,10 @@ async function writeFinalScreens(page) {
   await page.screenshot({ path: `${FINAL_DIR}/final-mobile-capture.png`, fullPage: true });
 }
 
-// Skipped: journey J15 probes a real, unmocked local Ollama daemon and expects
-// "models_found" - it only passes on a machine where the owner has actually installed and
-// started Ollama, which this environment doesn't have. Not a code bug; see BLOCKED.md.
-test.skip("P19 final owner journey evidence J01-J24", async ({ page }) => {
+// П-A LIVE_CHAT_REAL_DAEMON un-skipped this journey: J15 mocks the Ollama /api/tags endpoint via
+// page.route, so it never actually needed a real daemon to pass - Ollama is also now genuinely
+// installed and running on this machine (see ollama-real-daemon.spec.mjs for the unmocked proof).
+test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await mkdir(JOURNEY_DIR, { recursive: true });
   await mkdir(FINAL_DIR, { recursive: true });
   await mkdir("docs/qc", { recursive: true });
@@ -516,9 +525,20 @@ test.skip("P19 final owner journey evidence J01-J24", async ({ page }) => {
     const state = window.__lifeosKnowledgeBase.getStateSnapshot();
     return Object.values(state.chatMessages || {}).some((message) => /NO_AI_LOCAL_CHAT_MARKER/.test(message.text || ""));
   })).toBe(true);
-  await page.getByTestId("chat-to-proposal").first().click();
+  // .last(), not .first(): by J16 the chat thread already holds many earlier messages'
+  // own "chat-to-proposal" buttons (J02/J03/J05/...), and the panel auto-scrolls to the newest
+  // message - .first() resolved to the oldest, permanently-scrolled-out-of-view button and hung
+  // retrying "element is outside of the viewport" for the whole test timeout. The button that
+  // belongs to the message this step just sent is the most recently appended one.
+  await page.getByTestId("chat-to-proposal").last().click();
   await page.evaluate(() => window.__lifeosKnowledgeBase.flushForTest());
   await page.reload();
+  // resetLifeOs's reload waits for a settle marker before touching anything else; this reload
+  // skipped that wait, so openSurface below raced the app's post-reload hydration and hung
+  // retrying against a stale/detached pre-render DOM ("element was detached, retrying"). Use the
+  // outer shell wrapper (not command-center, which is Home-specific) since activeSurface persists
+  // as "chat" across reload and the app boots straight back into Chat, not Home.
+  await expect(page.locator(".lifeos-shell-v2")).toBeVisible();
   await openSurface(page, "surface-chat", "chat-panel");
   const chatWithoutAiPersisted = await page.evaluate(() => {
     const state = window.__lifeosKnowledgeBase.getStateSnapshot();
@@ -554,7 +574,10 @@ test.skip("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await page.getByTestId("flow-action").selectOption("task");
   await page.getByTestId("run-flow-builder").click();
   await expect(page.getByTestId("flow-run-row").first()).toContainText("предложение создано");
-  await expect(page.getByTestId("approval-row").first()).toBeVisible();
+  // FlowCanvas only renders "approval-row" for a run with zero pending proposals; a run that
+  // actually created proposals (asserted above) renders "execute-flow-run" instead - that manual
+  // Execute button IS the approval-required gate this journey means to prove (see FlowCanvas.js).
+  await expect(page.getByTestId("execute-flow-run").first()).toBeVisible();
   await finishJourney(page, "J18", "Flows and n8n-like automation", before, {
     sees: "Flow builder uses a visible trigger-condition-action board, dry-runs proposals, records execution history and keeps approval required before mutations.",
     fixed: "P18 upgraded Flows from a plain form to a visible trigger-condition-action builder with approval queue and dry-run proof."

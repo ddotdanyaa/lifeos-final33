@@ -42,10 +42,10 @@ Flow builder uses a visible trigger-condition-action board, dry-runs proposals, 
 ```
 
 ## Graph Edges
-After: 641 edges, 641 with visible reasons.
+After: 781 edges, 781 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: provider.run: ollama probe: Ollama models_found at http://localhost:11434 | ollama.probe: Ollama models_found at http://localhost:11434 | chat.local: Local chat message linked to artifact | chat.proposal: Chat message became proposal: пятерочка 1240 продукты сегодня баланс карта 15200 подписка Яндекс 399 28 июня зарплата... | provider.run: pwa boot: PWA shell checked: service-worker-ready | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Проверка сценария создала предложение: plan | flow.dry-run: Проверка сценария создала предложение: задача
+After: 300 audit events. Tail: chat.local.answer: Local chat answered: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.proposal: Chat message became proposal: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | provider.run: pwa boot: PWA shell checked: service-worker-ready | capability.grant: Capability granted: agent/run (local) | chat.answer.artifact: assistant chat artifact recorded: Локальный организатор подготовил действия для вечерний обзор: голосом записал идею про сон,.... | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Проверка сценария создала предложение: plan | flow.dry-run: Проверка сценария создала предложение: задача
 
 ## Remaining Gated
 None for this local journey.

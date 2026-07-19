@@ -35,17 +35,17 @@ Local chat history persists without AI and messages can become proposal objects.
   "proposalsOpen": 1,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 2,
-  "graphEdges": 4,
-  "graphEdgeReasons": 4
+  "graphNodes": 4,
+  "graphEdges": 6,
+  "graphEdgeReasons": 6
 }
 ```
 
 ## Graph Edges
-After: 625 edges, 625 with visible reasons.
+After: 763 edges, 763 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | inbox.capture: Inbox text captured as artifact | provider.run: ollama probe: Ollama models_found at http://localhost:11434 | ollama.probe: Ollama models_found at http://localhost:11434 | chat.local: Local chat message linked to artifact | chat.proposal: Chat message became proposal: пятерочка 1240 продукты сегодня баланс карта 15200 подписка Яндекс 399 28 июня зарплата... | provider.run: pwa boot: PWA shell checked: service-worker-ready
+After: 300 audit events. Tail: capability.grant: Capability granted: ollama/probe (local) | provider.run: ollama probe: Ollama models_found at http://127.0.0.1:11434 | ollama.probe: Ollama models_found at http://127.0.0.1:11434 | chat.input.artifact: owner chat artifact recorded: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.answer.artifact: assistant chat artifact recorded: Похоже, это связано с локальными артефактами: вечерний обзор: голосом записал идею про сон,...; завтра в 14:00 зал, к... | chat.local.answer: Local chat answered: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.proposal: Chat message became proposal: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | provider.run: pwa boot: PWA shell checked: service-worker-ready
 
 ## Remaining Gated
 None for this local journey.
