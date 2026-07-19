@@ -87,7 +87,7 @@ Research подтвердил: выбор движков v1.0 совпал с л
 
 ## 4. Леджер (Sonnet-сессия отмечает [x] и дату)
 
-- [ ] T1 TOOLING_SPEEDUPS (CLAUDE.md правила скорости + permissions allowlist)
+- [x] T1 TOOLING_SPEEDUPS — 2026-07-19: 3 правила скорости добавлены в CLAUDE.md §3 (параллельные tool-вызовы, фоновые долгие прогоны, целевой спек внутри пакета/полный набор на границе); `.claude/settings.json` создан с allowlist безопасных read-only команд (audit-скрипты, playwright test, git status/log/diff/show, npm run verify, node --check, build-public) для Bash и PowerShell. Ничего стороннего не установлено (T1c). Гейт: `npm run verify` зелёный (продуктовый код не менялся)
 - [ ] П-A LIVE_CHAT_REAL_DAEMON (pull qwen3:4b, live-прогон, `<think>`-санитизация, ollama-real-daemon.spec, un-skip P19)
 - [ ] П-B WHISPER_LOCAL_STT (worker, честная загрузка модели, saveSourceTranscript-путь, e2e с SAPI-фикстурой)
 - [ ] П-C PRODUCT_MAP_TO_GRAPH (скрипт, штатный импорт с preview+receipt, кластер в графе, e2e)

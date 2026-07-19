@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(node tools/audit-*)",
+      "Bash(node smoke.mjs*)",
+      "Bash(npm run verify*)",
+      "Bash(node --check*)",
+      "Bash(node tools/build-public.mjs*)",
+      "Bash(npx playwright test*)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "PowerShell(node tools/audit-*)",
+      "PowerShell(node smoke.mjs*)",
+      "PowerShell(npm run verify*)",
+      "PowerShell(node --check*)",
+      "PowerShell(node tools/build-public.mjs*)",
+      "PowerShell(npx playwright test*)",
+      "PowerShell(git status*)",
+      "PowerShell(git log*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git show*)"
+    ]
+  }
+}

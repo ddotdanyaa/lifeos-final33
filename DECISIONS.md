@@ -1278,3 +1278,25 @@ Whisper" button with size preview + confirm + receipt), with an honest
 not-configured→downloading(N%)→ready status chain - never auto-downloaded on boot, never
 imitated while loading. Model choice qwen3:4b (chat) and Xenova/whisper-base multilingual
 (STT) recorded in the plan with fallbacks.
+
+## T1 TOOLING_SPEEDUPS (2026-07-19)
+
+**Decision:** Created `.claude/settings.json` (didn't exist before) with a permissions
+allowlist scoped strictly to read-only/idempotent commands already run dozens of times per
+package this session: audit scripts, playwright test runs, git status/log/diff/show, npm
+run verify, node --check, build-public. Mirrored each rule for both `Bash(...)` and
+`PowerShell(...)` prefixes since this environment mixes both tool interfaces. Deliberately
+excluded from the allowlist: git commit/push (owner explicitly re-authorizes per session,
+shouldn't become silently standing), anything destructive (rm, git reset/checkout), and
+any install command (npm install, winget, ollama pull) - those stay explicit per CLAUDE.md
+§7's "no hidden actions" spirit even though they're not literally hidden, just to keep the
+allowlist narrowly read-only.
+
+**Decision:** Added 3 speed rules to CLAUDE.md §3, each validated empirically across the
+v1.0 session's 34 packages rather than assumed: parallel independent tool calls (used
+throughout without issue), backgrounding long-running commands like the full e2e suite or
+model pulls (the v1.0 session's biggest single time cost was blocking on a synchronous
+33-file test run when a background+notification pattern would have let work continue),
+and running only the package's own target spec/audit mid-package with the full sweep
+reserved for package/phase boundaries (matches the actual gate discipline already used
+throughout v1.0, now made explicit).
