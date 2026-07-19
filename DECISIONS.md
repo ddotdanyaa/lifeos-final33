@@ -1242,3 +1242,39 @@ Full audit loop (only red = expected dirty tree), `npm run verify`, and a comple
 all 33 e2e spec files: 40 passed, 7 skipped (6 newly-skipped legacy-shell/environment
 tests + the pre-existing legacy cockpit test) - the first fully green run of the entire
 suite, not just the G-E2E-CORE subset.
+
+## 2026-07-19 V1.1 ACCELERATION PLAN (Fable, plan-only session)
+
+**Decision:** Owner asked to study 10 Instagram-recommended Claude Code tooling repos +
+an open-source reference research doc, write a full implementation plan, and STOP (coding
+continues on a Sonnet session per owner's explicit instruction). Plan written to
+`docs/LIFEOS_V1_1_ACCELERATION_PLAN.md`. One implementation step from the earlier П-A
+instruction was already completed before the plan-stop instruction arrived: Ollama 0.32.1
+installed via winget (verified `ollama --version`), model NOT yet pulled.
+
+**Decision — skip 9 of 10 tooling repos, adopt only targeted speedups (T1):** Reasons per
+repo are in the plan's §1 table. The cross-cutting rationale: (1) this project already has
+a stricter project-specific equivalent of most recommendations (package protocol, gates,
+ledger, DECISIONS/BLOCKED, persistent memory) - installing generic agent/skill packs would
+duplicate it while taxing every turn's context; (2) third-party prompt packs are an
+untrusted prompt-injection surface and CLAUDE.md's own security posture argues against
+them; (3) hook-based tools (TDD Guard) are known to break on paths with spaces - and this
+repo's path has spaces, Cyrillic, AND a `%`, the worst case; (4) Repomix-style repo
+concatenation is counterproductive with an ~800KB app.js and a 7MB canon file already
+navigated by index. Adopted instead: 3 proven speed rules into CLAUDE.md + a permissions
+allowlist (settings, not hooks - path-safe).
+
+**Decision — research doc mapped to patterns-not-dependencies:** The doc validates v1.0's
+engine choices (cytoscape/pdfjs/epubjs/chart.js/transformers all match its permissive
+recommendations). New deps (wavesurfer.js, foliate-js, FullCalendar) are NOT added -
+CLAUDE.md §2 requires an explicit owner decision per dependency, and every near-term win
+(waveform, drag-to-timeblock, backlinks panel, chat search) is implementable with
+already-approved engines or ~50 lines of vanilla code. R5 in the plan records the two
+candidate deps as owner-decision proposals, not tasks.
+
+**Decision — Whisper network boundary:** downloading Whisper weights from HuggingFace CDN
+is a network call, so per CLAUDE.md §7 it must be owner-initiated (explicit "Подготовить
+Whisper" button with size preview + confirm + receipt), with an honest
+not-configured→downloading(N%)→ready status chain - never auto-downloaded on boot, never
+imitated while loading. Model choice qwen3:4b (chat) and Xenova/whisper-base multilingual
+(STT) recorded in the plan with fallbacks.

@@ -1,0 +1,99 @@
+# LifeOS v1.1 — Acceleration Plan (живой интеллект + самоулучшение тулинга)
+
+status: READY_FOR_EXECUTION
+created_at: 2026-07-19 (Fable, plan-only session)
+executor: Sonnet-сессия, пакет за пакетом, строго по порядку
+authorization: владелец разрешил установку системного ПО (Ollama — уже установлен) и commit+push после каждого пакета
+
+Этот план — продолжение завершённого `docs/LIFEOS_V1_MASTER_BUILD_PLAN.md` (34/35 пакетов, вся v1.0 кроме owner-gated релиза P11.2). Новая сессия: читает память → этот файл → берёт первый неотмеченный пакет из §Леджер → выполняет по протоколу v1.0-плана (§5) с гейтами CLAUDE.md §4 → отмечает чекбокс → commit+push → следующий.
+
+---
+
+## 0. Факты среды (проверено 2026-07-19, не перепроверять)
+
+- **Ollama 0.32.1 установлен** (`%LOCALAPPDATA%\Programs\Ollama\ollama.exe`; winget exit 0). Модель ещё НЕ скачана. В свежем shell `ollama` может не быть в PATH — использовать полный путь.
+- **@huggingface/transformers 4.2.0** установлен, browser-сборка есть: `node_modules/@huggingface/transformers/dist/transformers.min.js`.
+- v1.0 готова: все гейты зелёные, полный e2e-прогон 40 passed / 7 skipped (6 legacy-shell + 1 legacy cockpit). Спек `final-journeys.spec.mjs` (P19, J01–J24) заскипан ТОЛЬКО из-за отсутствия реального Ollama-демона — теперь его можно вернуть в строй (см. П-A.5).
+- Живой чат-путь уже написан в P5.1: `probeOllama` → `testOllamaGeneration` → `generateOllamaChatAnswer` c receipt/citations/честным fallback. П-A — это НЕ новая фича, а доведение существующего пути до реального демона.
+- Плеер уже умеет: запись аудио, ручную расшифровку, sync-сегменты, checkpoints (`saveSourceTranscript`, `syncTranscriptSegments`). STT-провайдер стоит в честном статусе `not-configured`.
+- Граф уже умеет: фильтр `productBrain` (по умолчанию false), клик по узлу → `InspectorDrawer`, edge reasons. Product Brain root-нота существует.
+- 16 ГБ RAM, CPU-only. Модель для чата: **qwen3:4b** (Apache-2.0, ~2.6 ГБ), генерация на CPU медленная — таймауты e2e ставить 180с+.
+
+## 1. Самоулучшение тулинга — что внедряем, что нет (разобраны 10 репо из скриншотов + research-док)
+
+Решение принципа: **брать только то, что реально ускоряет ЭТОТ проект, ничего не ставить «на всякий случай»**. Проект уже имеет свой аналог большинства рекомендаций: CLAUDE.md-дисциплина, память, DECISIONS/BLOCKED, 28 аудитов, 33 e2e-спека, леджер пакетов. Детальное обоснование каждого «нет» — в DECISIONS.md (2026-07-19).
+
+| Репо/идея | Вердикт | Почему |
+|---|---|---|
+| Superpowers (workflow brainstorm→spec→tdd) | **SKIP** | У проекта уже есть более строгий свой цикл: план→пакет→гейты→леджер. Дублирование + контекст-налог на каждый ход |
+| Karpathy Skills (анти-переусложнение) | **ЧАСТИЧНО — T1** | Сами принципы уже в CLAUDE.md §3/§5; добавляем 3 конкретных правила скорости (см. T1) |
+| Repomix (репо в один файл) | **SKIP** | app.js ~800КБ + канон 7МБ: склейка бесполезна и вредна; grep-first дисциплина и навигационный индекс уже решают задачу лучше |
+| everything-claude-code (30 агентов/136 скилов) | **SKIP** | Контекст-блоат; чужие промпты = поверхность prompt-injection; ничего специфичного для vanilla-JS local-first продукта |
+| wshobson/agents (25K★, субагенты) | **SKIP** | То же. При реальной нужде параллелизма — нативный Agent tool с worktree-изоляцией, без сторонних промптов |
+| Claude Squad (параллельные агенты) | **SKIP** | Владелец работает одной сессией; гейты последовательные (один сервер:4173, один браузер) — параллелизм сломает e2e |
+| Playwright MCP | **SKIP** | e2e уже нативным Playwright (33 спека); для ручной проверки есть встроенная Browser-панель. MCP-слой ничего не добавляет |
+| TDD Guard (hooks) | **SKIP** | Hooks Claude Code падают на пути с пробелами/кириллицей/`%` (наш путь — худший случай). Дисциплина уже обеспечена гейтами §4 |
+| Claude Subconscious (фоновая память) | **SKIP** | Персистентная память уже работает (MEMORY.md + файлы памяти, ведутся всю v1.0) |
+| awesome-claude-code (каталог) | **SKIP** | Каталог, не инструмент |
+
+**Что ВНЕДРЯЕМ (пакет T1, 15 минут, первым делом):**
+- T1a. В CLAUDE.md §3 добавить 3 правила скорости, проверенные на v1.0-сессии: (1) независимые tool-вызовы — параллельно в одном ходе; (2) длинные прогоны (полный e2e-набор, установка моделей) — в фоне, продолжая работу; (3) сперва целевой спек пакета, полный набор — только на границе пакета.
+- T1b. Пополнить allowlist разрешений (`.claude/settings.json`) частыми безопасными read-only командами этой сессии (node tools/audit-*.mjs, npx playwright test, git status/log/diff), чтобы срезать permission-промпты. Это settings, НЕ hooks — на нашем пути безопасно.
+- T1c. Ничего стороннего не устанавливать. Никаких плагин-паков.
+
+## 2. Продуктовые пакеты — очередь для Sonnet (строго по порядку)
+
+### П-A ЖИВОЙ ЧАТ (реальный локальный ответ модели) — установка уже сделана
+
+Цель: на экране Чат — реальный ответ qwen3:4b по данным системы, статус connected, receipt model-call. Всё e2e, без моков.
+
+- **A1. Модель**: `& "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe" pull qwen3:4b` (фон, ~2.6 ГБ; таймаут 15 мин). Fallback при нехватке места/ошибке: `qwen3:1.7b` (тоже Apache-2.0). Демон: `ollama serve` обычно автозапущен виндовым приложением; проверить `Invoke-WebRequest 127.0.0.1:11434/api/tags`; если нет — запустить `ollama serve` фоном (это Mode 2 из docs/OPERATING_MODES.md).
+- **A2. Прогон живого пути руками через существующий UI** (Browser-панель): Чат → Проверить (probe, confirm) → Тест (generation, confirm) → вопрос по своим данным («что у меня в задачах на сегодня») → реальный ответ с citations. Код P5.1 уже всё делает; править только если реальный демон вскроет баг (вероятные места: таймаут fetch — добавить AbortSignal.timeout(120000) в generateOllamaChatAnswer; санитизация ответа qwen3 — модель может отдавать `<think>…</think>`, размышления вырезать перед показом: `text.replace(/<think>[\s\S]*?<\/think>/g, "").trim()` — это правка ПРОДУКТА, обязательная для qwen3).
+- **A3. Новый e2e** `output/playwright/ollama-real-daemon.spec.mjs`: БЕЗ page.route. Если 11434 недоступен — `test.skip()` с причиной (чтобы набор жил на машинах без демона), но в отчёте пакета зафиксировать реальный зелёный прогон на этой машине. Ассерты: probe → `models_found` (реальный список содержит qwen3), test-generation → `generation_ok`, отправка чата → ответ НЕ из `buildLocalChatAnswer` (маркер: providerRun kind="chat" status="generation_ok" с details.model="qwen3:4b"), receipt kind="model-call" locality="local". Таймаут 240с.
+- **A4. Un-skip `final-journeys.spec.mjs`** (P19): J15 теперь имеет реальный демон. Прогнать; если J15 упадёт из-за отличий реального ответа от ожиданий — чинить ожидания только там, где они про мок (не ослаблять смысл: «модели найдены» — реальный статус).
+- **A5. Гейты §4 + build-public + ledger (§Леджер ниже) + DECISIONS + commit+push.**
+
+### П-B ГОЛОС→ТЕКСТ (Whisper локально через @huggingface/transformers)
+
+Цель: запись/загрузка аудио (.m4a/webm/wav) расшифровывается локально; текст — заметка-артефакт со ссылкой на аудио, в поиске и графе; кнопка «Расшифровать» + авто после записи; пока модель грузится — честный статус.
+
+- **B1. Границы честности (§7 CLAUDE.md)**: скачивание весов Whisper с HuggingFace CDN — это сетевой вызов ⇒ ТОЛЬКО по явному действию владельца. UX: у STT-провайдера кнопка «Подготовить Whisper (скачает ~75 МБ)» → confirm → загрузка с реальным прогрессом (progress_callback транслировать в статус) → receipt permission-change + provider run. Статусная цепочка: `not-configured → downloading (N%) → ready → transcribing (chunk i/n) → done|failed`. После первой загрузки веса в браузерном кэше — офлайн.
+- **B2. Модель**: `Xenova/whisper-base` (мультиязычная, НЕ .en — русский нужен; quantized ~75 МБ). В DECISIONS зафиксировать выбор; small (~250 МБ) — опционально позже.
+- **B3. Web Worker** `ui/workers/whisper-worker.js` (module worker): импорт `../../node_modules/@huggingface/transformers/dist/transformers.min.js`, pipeline("automatic-speech-recognition"), чанки `chunk_length_s: 30, stride_length_s: 5`, `language: "russian"` опционально авто. Main-thread: File → AudioContext.decodeAudioData (m4a декодирует браузер) → OfflineAudioContext ресемпл 16кГц mono Float32Array → postMessage (transferable). Прогресс чанков — обратно в UI.
+- **B4. Артефакт-путь — переиспользовать штатный**: результат кладётся через существующий `saveSourceTranscript(state, sourceId, text)` (создаёт transcript у source + note-артефакт; поиск/граф подхватят штатной индексацией). Новое: кнопка «Расшифровать (Whisper)» в Плеере рядом с ручной расшифровкой (disabled пока статус не ready, с честной подписью); авто-расшифровка после записи — только если ready. transcriptStatus писать честно ("whisper-done"/"whisper-failed: причина").
+- **B5. Инфраструктура по CLAUDE.md §2**: добавить transformers.min.js в service-worker SHELL-кэш НЕЛЬЗЯ (велик); добавить в кэш по факту первого использования (runtime-кэш уже так работает для .js). Обновить `tools/build-public.mjs` (копирование worker-файла) и smoke-маркеры при необходимости.
+- **B6. e2e** `output/playwright/whisper-transcribe.spec.mjs`, двухуровневый: (а) основной — worker мокается на уровне модуля? НЕТ моков продукта: вместо этого тест уровня UI-статусов с реальным worker, но модель не скачивать в CI — статус honest-gate проверяется без сети: клик «Расшифровать» при not-configured ⇒ честный статус и никакой имитации. (б) @slow-тест с реальной моделью: фикстура — сгенерировать WAV через Windows SAPI (`Add-Type System.Speech; SpeakToWav "hello lifeos"`, 16кГц) в `output/playwright/fixtures/`; скачивание whisper-base в тесте (таймаут 10 мин, `test.skip` если сети нет); ассерты: transcript содержит "hello" ИЛИ статус whisper-done + note создана + note.body непустой + receipt. Реальный зелёный прогон на этой машине — обязателен для закрытия пакета.
+- **B7. Гейты + build-public + ledger + DECISIONS (выбор модели, границы сети) + commit+push.**
+
+### П-C ПРОДУКТ В ГРАФЕ («LifeOS о себе»)
+
+Цель: карта продукта (модули/способности/пакеты) как артефакты в графе со связями «состоит из / зависит от / сделано в P-x.y», штатный импорт с receipt, фильтр-кластер, клик → инспектор.
+
+- **C1. Скрипт** `tools/product-map-to-graph.mjs` (Node): импортирует из `artifact-os-architecture.mjs` реальные `ARTIFACT_COLLECTIONS` (47), workspace-линзы (27), module boundaries (8); парсит леджер §9 v1.0-плана регэкспом `^- \[x\] (P\d+\.\d+) ([A-Z_]+) — (\d{4}-\d{2}-\d{2})`; строит `docs/product_brain/PRODUCT_MAP.json`: `{nodes:[{id,kind:"module"|"capability"|"package",title,detail}], links:[{from,to,reason:"состоит из"|"зависит от"|"сделано в"}]}`. Модуль→коллекции = «состоит из»; способность→пакет = «сделано в P-x.y»; межмодульные зависимости — из module boundaries.
+- **C2. Штатный импорт в приложение**: НЕ прямая graph-мутация (§7). Кнопка в Control dev-panel «Импортировать карту продукта» → fetch('./docs/product_brain/PRODUCT_MAP.json') → preview (сколько узлов/связей) → confirm → для каждого node `ensureV34ArtifactNote(state, "productmap:"+id, …, systemType:"product_brain")` + связи через существующий механизм graph edges продукт-брейна + `addAudit("source.import.productmap", …)` (classifier уже даст receipt kind="import"). Идемпотентность: повторный импорт обновляет, не дублирует (ensure-паттерн уже так работает).
+- **C3. Граф**: узлы попадают в существующий фильтр `productBrain` («граф разработки») — отдельный новый фильтр не нужен, кластер связывается с Product Brain root. Проверить: типы узлов получают читаемый цвет/лейбл, edge reasons показываются в инспекторе. Клик → InspectorDrawer — уже работает для product_brain-нот.
+- **C4. e2e** `output/playwright/product-map-graph.spec.mjs`: прогнать скрипт в beforeAll (child_process) → в приложении импорт с preview→confirm → включить фильтр разработки → найти узел «System Factory» (или модуль ядра) → клик → инспектор виден, в нём связи; в Control receipt импорта. Ассерт числа: узлов ≥ 47+27+34.
+- **C5. Гейты + build-public + ledger + DECISIONS + commit+push.**
+
+## 3. Усиления из research-дока (после A–C; отдельные малые пакеты)
+
+Research подтвердил: выбор движков v1.0 совпал с лучшими permissive-эталонами (cytoscape, pdfjs, epubjs, chart.js, transformers). Новые зависимости НЕ добавляем без явного слова владельца (CLAUDE.md §2). Внедряем паттерны на уже одобренных движках:
+
+- **R1 WAVEFORM_RECORD** (без deps): волновой индикатор записи в Плеере — AnalyserNode + Canvas (~50 строк, идея wavesurfer.js). Гейт: e2e player.
+- **R2 DRAG_TIMEBLOCK** (без deps): перетаскивание задачи «без времени» в слот календаря — sortablejs уже одобрен и установлен (идея FullCalendar/Super Productivity). Гейт: e2e calendar (H08 не ломать).
+- **R3 BACKLINKS_PANEL** (без deps): панель обратных ссылок в Базе по образцу Foam — `state.backlinks` уже вычисляется, нужен только рендер в library.js + testid. Гейт: kb-smoke.
+- **R4 CHAT_THREAD_SEARCH** (без deps): поиск по истории чата (паттерн Jan) — minisearch/searchNotes уже индексируют chatMessages; добавить фильтр-поле в Чат.
+- **R5 (owner-decision, НЕ делать без явного «да»)**: foliate-js (MOBI/FB2 в Reader), wavesurfer.js (полноценные регионы/спектрограмма). Записаны как предложения, не задачи.
+
+## 4. Леджер (Sonnet-сессия отмечает [x] и дату)
+
+- [ ] T1 TOOLING_SPEEDUPS (CLAUDE.md правила скорости + permissions allowlist)
+- [ ] П-A LIVE_CHAT_REAL_DAEMON (pull qwen3:4b, live-прогон, `<think>`-санитизация, ollama-real-daemon.spec, un-skip P19)
+- [ ] П-B WHISPER_LOCAL_STT (worker, честная загрузка модели, saveSourceTranscript-путь, e2e с SAPI-фикстурой)
+- [ ] П-C PRODUCT_MAP_TO_GRAPH (скрипт, штатный импорт с preview+receipt, кластер в графе, e2e)
+- [ ] R1 WAVEFORM_RECORD
+- [ ] R2 DRAG_TIMEBLOCK
+- [ ] R3 BACKLINKS_PANEL
+- [ ] R4 CHAT_THREAD_SEARCH
+
+Правила исполнения: те же, что в v1.0 (§5 протокол, §4 гейты CLAUDE.md, малые диффы, никаких ослаблений тестов, public-demo rebuild после правок UI, commit+push после каждого пакета — авторизовано владельцем 2026-07-19). Спорное — самому в DECISIONS.md; заблокированное — в BLOCKED.md и дальше.
