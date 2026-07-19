@@ -199,7 +199,10 @@ test("H09 Reader and player are usable with manual fallbacks", async ({ page }) 
     return Object.values(state?.sources || {}).some((source) => String(source.name || "").includes("final-human-audio"));
   }), { timeout: 15000 }).toBeTruthy();
   await openSurface(page, "player");
-  await expect(page.getByTestId("player-panel")).toContainText("ручной текст работает сейчас");
+  // П-B WHISPER_LOCAL_STT reworded this copy to mention the new Whisper path honestly
+  // ("...офлайн после подготовки; ручной текст работает всегда") - manual transcript is
+  // still always available, just described accurately alongside the new capability.
+  await expect(page.getByTestId("player-panel")).toContainText("ручной текст работает всегда");
   await page.locator('textarea[data-testid^="transcript-input-"]').first().fill("Фрагмент: сделать заметку из аудио.");
   await page.locator('[data-testid^="save-transcript-"]').click();
   await expect(page.getByTestId("player-surface")).toContainText("Фрагмент");

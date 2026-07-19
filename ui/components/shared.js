@@ -65,7 +65,10 @@ export function providerLabel(status) {
     "generation_ok": "генерация прошла",
     revoked: "отключено",
     "service-worker-ready": "работает локально",
-    "offline-ready": "работает локально"
+    "offline-ready": "работает локально",
+    downloading: "идёт загрузка модели",
+    ready: "готово локально, офлайн",
+    transcribing: "идёт расшифровка"
   };
   return map[value] || value.replace(/[-_]/g, " ") || "неизвестно";
 }

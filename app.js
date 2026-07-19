@@ -1538,6 +1538,75 @@ function ensureV34ArtifactNote(state, key, title, body, tags) {
   return noteId;
 }
 
+// П-C PRODUCT_MAP_TO_GRAPH: imports tools/product-map-to-graph.mjs's output as real artifacts
+// - NOT ensureV34ArtifactNote (that tags systemType "v34_platform", which lands in the generic
+// "notes" graph filter); this needs systemType "product_brain" so it joins the existing "Dev /
+// Product Brain" graph filter/cluster instead of cluttering the regular notes view.
+function productMapNoteBody(node) {
+  return ["# " + node.title, "", "Вид: " + node.kind, "", node.detail || ""].join("\n");
+}
+
+function ensureProductMapNote(state, mapNodeId, title, body, kind) {
+  const key = "productmap:" + mapNodeId;
+  const existing = Object.values(state.notes || {}).find((note) => !note.deleted && note.systemType === "product_brain" && note.productMapKey === key);
+  const nowValue = now();
+  if (existing) {
+    existing.title = title;
+    existing.body = body;
+    existing.productBrainKind = kind;
+    existing.tags = Array.from(new Set([...(Array.isArray(existing.tags) ? existing.tags : []), "product-map", kind]));
+    existing.updatedAt = nowValue;
+    return existing.id;
+  }
+  const noteId = createNote(state, title, state.activeFolderId, body);
+  state.notes[noteId].systemType = "product_brain";
+  state.notes[noteId].productMapKey = key;
+  state.notes[noteId].productBrainKind = kind;
+  state.notes[noteId].productBrainStatus = "DONE";
+  state.notes[noteId].tags = Array.from(new Set([...(state.notes[noteId].tags || []), "product-map", kind]));
+  return noteId;
+}
+
+// Idempotent by design (ensureProductMapNote re-uses notes by productMapKey): re-running the
+// import updates titles/bodies/edges in place instead of duplicating artifacts.
+function importProductMapIntoState(state, data) {
+  const nodeIdToNoteId = {};
+  for (const node of data.nodes || []) {
+    nodeIdToNoteId[node.id] = ensureProductMapNote(state, node.id, node.title, productMapNoteBody(node), node.kind);
+  }
+  state.control.productMap = {
+    importedAt: now(),
+    generatedAt: cleanLine(data.generatedAt || ""),
+    counts: data.counts && typeof data.counts === "object" ? data.counts : {},
+    nodeIdToNoteId,
+    links: (data.links || []).map((link) => ({ from: String(link.from || ""), to: String(link.to || ""), reason: cleanLine(link.reason || "") })),
+    lastError: ""
+  };
+  addAudit(state, "source.import.productmap", "Карта продукта импортирована: " + (data.nodes || []).length + " узлов, " + (data.links || []).length + " связей", "");
+}
+
+async function importProductMap() {
+  let response;
+  try {
+    response = await fetch("./docs/product_brain/PRODUCT_MAP.json");
+  } catch (error) {
+    await store.commit("Product map import failed", (state) => {
+      state.control.productMap = Object.assign({}, state.control.productMap || {}, { lastError: "Карта продукта недоступна: " + (error && error.message ? error.message : String(error)) });
+    });
+    return;
+  }
+  if (!response.ok) {
+    await store.commit("Product map import failed", (state) => {
+      state.control.productMap = Object.assign({}, state.control.productMap || {}, { lastError: "Карта продукта недоступна: HTTP " + response.status });
+    });
+    return;
+  }
+  const data = await response.json();
+  const confirmed = window.confirm("Импортировать карту продукта: " + (data.nodes || []).length + " узлов, " + (data.links || []).length + " связей?");
+  if (!confirmed) return;
+  await store.commit("Product map imported", (state) => importProductMapIntoState(state, data));
+}
+
 function ensureV34Platform(state) {
   const createdAt = now();
   state.channels = ensureMap(state.channels);
@@ -6389,26 +6458,28 @@ function requestSttGate(state, sourceId) {
   addAudit(state, "provider.stt.gate", "Показана настройка STT для " + source.name + "; аудио никуда не отправлялось.", source.noteId || state.activeNoteId);
 }
 
-function saveSourceTranscript(state, sourceId, transcriptText) {
+function saveSourceTranscript(state, sourceId, transcriptText, options) {
   const source = state.sources[sourceId];
   if (!source) return "";
   const cleanText = String(transcriptText || "").trim();
   if (!cleanText) return "";
+  const isWhisper = options && options.mode === "whisper";
   source.transcriptText = cleanText;
-  source.transcriptStatus = "manual-transcript-ready";
+  source.transcriptStatus = isWhisper ? "whisper-done" : "manual-transcript-ready";
   source.status = "transcript-ready";
   source.updatedAt = now();
   source.analysis = analyzeSourceArtifact(source);
   const title = stripExtension(source.name) + " Расшифровка";
+  const modeLine = isWhisper ? "Режим: локальный Whisper (Xenova/whisper-base)" : "Режим: текст введён владельцем локально";
   const body = [
     "# " + title,
     "",
     "Источник: " + source.name,
-    "Режим: текст введён владельцем локально",
+    modeLine,
     "",
     cleanText
   ].join("\n");
-  const existingNote = source.noteId && state.notes[source.noteId] && !state.notes[source.noteId].deleted && (state.notes[source.noteId].body.includes("Transcript mode:") || state.notes[source.noteId].body.includes("Режим: текст введён владельцем локально"));
+  const existingNote = source.noteId && state.notes[source.noteId] && !state.notes[source.noteId].deleted && /^Режим: /m.test(state.notes[source.noteId].body || "");
   const noteId = existingNote ? source.noteId : createNote(state, title, state.activeFolderId, body);
   if (existingNote) {
     state.notes[noteId].title = title;
@@ -6419,7 +6490,7 @@ function saveSourceTranscript(state, sourceId, transcriptText) {
   syncTranscriptSegments(state, source.id, noteId, cleanText);
   extractKnowledgeFromNote(state, noteId);
   extractHighlightsFromSource(state, source.id);
-  addAudioCheckpoint(state, source.id, "Расшифровка сохранена", "00:00", "Ручная расшифровка стала текстом в базе.");
+  addAudioCheckpoint(state, source.id, "Расшифровка сохранена", "00:00", (isWhisper ? "Локальная расшифровка Whisper" : "Ручная расшифровка") + " стала текстом в базе.");
   addReviewItemOnce(state, "Повторить аудио: " + stripExtension(source.name), {
     sourceId: source.id,
     noteId,
@@ -6428,9 +6499,171 @@ function saveSourceTranscript(state, sourceId, transcriptText) {
   ensureInsight(state, "Аудио стало знанием: " + stripExtension(source.name), "Расшифровка связана с источником и может создавать заметки, задачи, выводы, цитаты, повторение, связи и контроль.", { sourceId: source.id, noteId });
   createActionProposalsForSource(state, source.id);
   addChatMessage(state, "assistant", "Транскрипт связан с аудио, заметкой, графом и действиями.", source.id, noteId);
-  addAudit(state, "transcript.save", "Ручная расшифровка сохранена для " + source.name, noteId);
+  addAudit(state, "transcript.save", (isWhisper ? "Whisper-расшифровка" : "Ручная расшифровка") + " сохранена для " + source.name, noteId);
   rebuildIndexes(state);
   return noteId;
+}
+
+// П-B WHISPER_LOCAL_STT: local speech-to-text via @huggingface/transformers, run in a
+// dedicated Web Worker so the multi-second CPU-bound model load/inference never blocks the UI
+// thread. Model weights are only fetched from HuggingFace's CDN after an explicit owner click
+// (CLAUDE.md §7 - a network call, never automatic); after the first download the runtime cache
+// in service-worker.js (any same-origin .js/.mjs/.onnx/.json GET) makes it work fully offline.
+let whisperWorker = null;
+const whisperRuntime = { status: "idle", percent: 0, error: "", reported: false };
+const whisperTranscribeRuntime = {};
+
+function ensureWhisperWorker() {
+  if (whisperWorker) return whisperWorker;
+  whisperWorker = new Worker("./ui/workers/whisper-worker.js", { type: "module" });
+  whisperWorker.onmessage = (event) => {
+    const data = event.data || {};
+    if (data.type === "progress") {
+      const info = data.info || {};
+      whisperRuntime.status = "loading";
+      if (info.status === "progress" && Number(info.total) > 0) {
+        whisperRuntime.percent = Math.max(0, Math.min(99, Math.round((Number(info.loaded) / Number(info.total)) * 100)));
+      }
+      return;
+    }
+    if (data.type === "ready") {
+      whisperRuntime.status = "ready";
+      whisperRuntime.percent = 100;
+      return;
+    }
+    if (data.type === "error" && !data.requestId) {
+      whisperRuntime.status = "error";
+      whisperRuntime.error = data.message || "unknown worker error";
+      return;
+    }
+    if (data.type === "result" && data.requestId) {
+      const run = whisperTranscribeRuntime[data.requestId];
+      if (run) {
+        run.status = "done";
+        run.text = data.text || "";
+      }
+      return;
+    }
+    if (data.type === "error" && data.requestId) {
+      const run = whisperTranscribeRuntime[data.requestId];
+      if (run) {
+        run.status = "error";
+        run.error = data.message || "unknown transcription error";
+      }
+    }
+  };
+  whisperWorker.onerror = (event) => {
+    whisperRuntime.status = "error";
+    whisperRuntime.error = (event && event.message) || "worker failed to load";
+  };
+  return whisperWorker;
+}
+
+// File -> AudioContext.decodeAudioData (the browser decodes m4a/webm/wav natively) ->
+// OfflineAudioContext resampled to 16kHz mono, the exact input shape Whisper's pipeline expects.
+async function decodeAudioTo16kMono(dataUrl) {
+  const response = await fetch(dataUrl);
+  const arrayBuffer = await response.arrayBuffer();
+  const DecodeCtx = window.AudioContext || window.webkitAudioContext;
+  const decodeCtx = new DecodeCtx();
+  let decoded;
+  try {
+    decoded = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
+  } finally {
+    decodeCtx.close();
+  }
+  const targetRate = 16000;
+  const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * targetRate)), targetRate);
+  const bufferSource = offline.createBufferSource();
+  bufferSource.buffer = decoded;
+  bufferSource.connect(offline.destination);
+  bufferSource.start(0);
+  const rendered = await offline.startRendering();
+  return rendered.getChannelData(0);
+}
+
+async function pollWhisperPrepareProgress() {
+  for (;;) {
+    await store.commit("Whisper model status", (state) => {
+      const percent = whisperRuntime.percent;
+      state.providers.stt = Object.assign({}, state.providers.stt || {}, {
+        status: whisperRuntime.status === "ready" ? "ready" : whisperRuntime.status === "error" ? "error" : "downloading",
+        label: "STT",
+        lastCheckedAt: now(),
+        percent,
+        // "error" (not silently reverting to "not-configured") so the owner can tell "never
+        // tried" apart from "tried and genuinely failed" - CLAUDE.md §7 never hides a real
+        // failure as if nothing happened. Manual transcript keeps working either way.
+        requiredAction: whisperRuntime.status === "error"
+          ? "Загрузка Whisper не удалась: " + whisperRuntime.error + ". Ручная расшифровка работает; можно повторить попытку."
+          : whisperRuntime.status === "ready"
+            ? "Whisper готов локально и работает офлайн. Можно расшифровывать аудио."
+            : "Идёт загрузка модели Whisper (" + percent + "%)…"
+      });
+      if (whisperRuntime.status === "ready" && !whisperRuntime.reported) {
+        whisperRuntime.reported = true;
+        recordProviderRun(state, "stt", "prepare", "ready", "Локальная модель Whisper готова (Xenova/whisper-base), дальше офлайн", {});
+        addAudit(state, "provider.stt.ready", "Whisper подготовлен локально, офлайн после первой загрузки", "");
+      } else if (whisperRuntime.status === "error" && !whisperRuntime.reported) {
+        whisperRuntime.reported = true;
+        recordProviderRun(state, "stt", "prepare", "provider_unavailable", "Загрузка Whisper не удалась: " + whisperRuntime.error, { error: whisperRuntime.error });
+      }
+    });
+    if (whisperRuntime.status === "ready" || whisperRuntime.status === "error") return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+async function pollWhisperTranscribeProgress(requestId, sourceId) {
+  for (;;) {
+    const run = whisperTranscribeRuntime[requestId];
+    if (!run) return;
+    if (run.status === "done") {
+      await store.commit("Whisper transcription saved", (state) => {
+        const noteId = saveSourceTranscript(state, sourceId, run.text, { mode: "whisper" });
+        const source = state.sources[sourceId];
+        recordProviderRun(state, "stt", "transcribe", "whisper-done", "Whisper расшифровал: " + (source ? source.name : sourceId), { sourceId, noteId });
+      });
+      delete whisperTranscribeRuntime[requestId];
+      return;
+    }
+    if (run.status === "error") {
+      await store.commit("Whisper transcription failed", (state) => {
+        const source = state.sources[sourceId];
+        if (source) {
+          source.transcriptStatus = "whisper-failed: " + run.error;
+          source.updatedAt = now();
+        }
+        recordProviderRun(state, "stt", "transcribe", "provider_unavailable", "Whisper расшифровка не удалась: " + run.error, { sourceId, error: run.error });
+        addAudit(state, "transcript.whisper.failed", "Whisper расшифровка не удалась для " + (source ? source.name : sourceId) + ": " + run.error, source ? source.noteId : "");
+      });
+      delete whisperTranscribeRuntime[requestId];
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+async function runWhisperTranscribe(sourceId) {
+  const source = store.state.sources[sourceId];
+  if (!source || !source.dataUrl) return;
+  const requestId = makeId("whisperjob");
+  whisperTranscribeRuntime[requestId] = { status: "running", text: "", error: "" };
+  await store.commit("Whisper transcription started", (state) => {
+    const src = state.sources[sourceId];
+    if (src) {
+      src.transcriptStatus = "whisper-transcribing";
+      src.updatedAt = now();
+    }
+    recordProviderRun(state, "stt", "transcribe", "transcribing", "Локальная расшифровка Whisper начата: " + source.name, { sourceId });
+  });
+  try {
+    const audio = await decodeAudioTo16kMono(source.dataUrl);
+    ensureWhisperWorker().postMessage({ type: "transcribe", requestId, audio, language: "russian" }, [audio.buffer]);
+  } catch (error) {
+    whisperTranscribeRuntime[requestId] = { status: "error", text: "", error: String((error && error.message) || error) };
+  }
+  await pollWhisperTranscribeProgress(requestId, sourceId);
 }
 
 function addGoal(state, title, options) {
@@ -7407,6 +7640,20 @@ function computeGraphProjection(state) {
     const targetId = productBrainNoteIdByKey(row[1]);
     if (sourceId && targetId && state.notes[sourceId] && state.notes[targetId] && !state.notes[sourceId].deleted && !state.notes[targetId].deleted) {
       addGraphEdge(sourceId, targetId, row[2]);
+    }
+  }
+  // П-C PRODUCT_MAP_TO_GRAPH: same mechanism as PRODUCT_BRAIN_LINK_SPECS above, but driven by
+  // the imported tools/product-map-to-graph.mjs data (state.control.productMap) instead of a
+  // hardcoded array, so real edge reasons ("состоит из"/"зависит от"/"сделано в P-x.y") show up
+  // in the inspector exactly like any other graph edge.
+  const productMap = state.control.productMap;
+  if (productMap && productMap.nodeIdToNoteId && Array.isArray(productMap.links)) {
+    for (const link of productMap.links) {
+      const sourceId = productMap.nodeIdToNoteId[link.from];
+      const targetId = productMap.nodeIdToNoteId[link.to];
+      if (sourceId && targetId && state.notes[sourceId] && state.notes[targetId] && !state.notes[sourceId].deleted && !state.notes[targetId].deleted) {
+        addGraphEdge(sourceId, targetId, link.reason);
+      }
     }
   }
   for (const source of Object.values(state.sources || {}).filter((item) => !item.deleted)) {
@@ -13213,6 +13460,8 @@ function humanStatus(value) {
     "transcript-ready": "расшифровка готова",
     "needs-owner-transcript": "нужна расшифровка",
     "stt-provider-gated": "STT подключается отдельно",
+    "whisper-done": "расшифровано локально (Whisper)",
+    "whisper-transcribing": "идёт расшифровка (Whisper)",
     "ocr-manual-required": "чек заполняется вручную",
     "manual-extraction-ready": "извлечение готово",
     "pdf-parser-required": "PDF ждёт парсер",
@@ -13647,14 +13896,23 @@ async function importFilesFromInput(fileList, forcedKind) {
   for (const file of files) {
     payloads.push(await fileToSourcePayload(file, forcedKind));
   }
+  const newAudioSourceIds = [];
   await store.commit("Sources imported", (state) => {
     for (const payload of payloads) {
       const sourceId = addImportedSource(state, payload);
       createActionProposalsForSource(state, sourceId);
       const source = state.sources[sourceId];
       addChatMessage(state, "assistant", "Imported " + source.name + " and prepared next actions.", source.id, source.noteId);
+      if (source.kind === "audio" && source.dataUrl) newAudioSourceIds.push(sourceId);
     }
   });
+  // Auto-transcribe only kicks in if Whisper is already prepared and ready - never triggers a
+  // fresh download on its own (that stays an explicit owner click, per CLAUDE.md §7).
+  if (store.state.providers.stt.status === "ready") {
+    for (const sourceId of newAudioSourceIds) {
+      await runWhisperTranscribe(sourceId);
+    }
+  }
 }
 
 async function importBackupFromInput(fileList) {
@@ -14480,6 +14738,35 @@ async function handleAction(action, id) {
     await store.commit("STT gate requested", (state) => requestSttGate(state, id));
     return;
   }
+  if (action === "prepare-whisper") {
+    if (whisperRuntime.status === "loading" || whisperRuntime.status === "ready") return;
+    const confirmed = window.confirm("Скачать локальную модель распознавания речи Whisper (Xenova/whisper-base, ~75 МБ)? Загрузка один раз, дальше работает офлайн.");
+    if (!confirmed) return;
+    whisperRuntime.status = "loading";
+    whisperRuntime.percent = 0;
+    whisperRuntime.error = "";
+    whisperRuntime.reported = false;
+    await store.commit("Whisper download started", (state) => {
+      state.providers.stt = Object.assign({}, state.providers.stt || {}, {
+        status: "downloading",
+        label: "STT",
+        lastCheckedAt: now(),
+        percent: 0,
+        requiredAction: "Идёт загрузка модели Whisper (0%)…"
+      });
+      recordProviderRun(state, "stt", "prepare", "downloading", "Загрузка локальной модели Whisper начата (Xenova/whisper-base, ~75 МБ)", {});
+      ensureCapabilityGrant(state, "stt", "download", { locality: "local" });
+      addAudit(state, "provider.prepare.stt", "Владелец разрешил загрузку локальной модели Whisper (Xenova/whisper-base, ~75 МБ)", "", { locality: "local" });
+    });
+    ensureWhisperWorker().postMessage({ type: "prepare" });
+    await pollWhisperPrepareProgress();
+    return;
+  }
+  if (action === "transcribe-whisper") {
+    if (store.state.providers.stt.status !== "ready") return;
+    await runWhisperTranscribe(id);
+    return;
+  }
   if (action === "transcript-to-note" || action === "transcript-to-task" || action === "transcript-to-claim" || action === "transcript-to-highlight") {
     const input = document.getElementById("transcript-snippet-" + id);
     const snippet = input ? input.value : "";
@@ -15303,6 +15590,10 @@ async function handleAction(action, id) {
   }
   if (action === "cancel-backup-restore") {
     await store.commit("Backup restore cancelled", (state) => cancelBackupRestore(state));
+    return;
+  }
+  if (action === "import-product-map") {
+    await importProductMap();
     return;
   }
   if (action === "create-rollback-snapshot") {

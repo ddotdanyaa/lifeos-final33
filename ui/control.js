@@ -187,6 +187,20 @@ function trashRows(items) {
   );
 }
 
+function productMapPanel(productMap) {
+  const counts = productMap.counts || {};
+  return [
+    `<div class="product-map-panel" data-testid="product-map-panel">`,
+    `<strong>Карта продукта (LifeOS о себе)</strong>`,
+    productMap.importedAt
+      ? `<span data-testid="product-map-status">${counts.modules || 0} модулей · ${counts.capabilities || 0} способностей · ${counts.collections || 0} коллекций · ${counts.packages || 0} пакетов · ${(productMap.links || []).length} связей</span>`
+      : `<span data-testid="product-map-status">Карта продукта ещё не импортирована.</span>`,
+    productMap.lastError ? `<span data-testid="product-map-error">${escapeHtml(productMap.lastError)}</span>` : "",
+    button("import-product-map", "Импортировать карту продукта", { kind: "ghost", testId: "import-product-map" }),
+    `</div>`
+  ].join("");
+}
+
 export function renderControl(ctx) {
   const audit = ctx.auditLog || [];
   const snapshots = ctx.control?.rollbackSnapshots || [];
@@ -233,7 +247,7 @@ export function renderControl(ctx) {
     `<section class="recovery-list" data-testid="backup-restore-section"><h4>Восстановление бэкапа</h4>${backupRestorePreview(backupRestoreReport)}</section>`,
     `<section class="recovery-list" data-testid="health-registry-section"><h4>Состояние подсистем</h4>${healthRows(healthRegistry)}</section>`,
     renderInspectorDrawer(ctx),
-    `<details class="dev-state-panel" data-testid="dev-state"><summary>Состояние разработки</summary><div data-testid="dev-state-panel"><div data-testid="architecture-contract"><strong>Product Brain</strong><span>Доступен только здесь, в графе через фильтр разработки и в чате через /dev. Artifact OS contract: ввод -> артефакт -> проекции -> граф -> контроль.</span><mark data-testid="architecture-validation">ок</mark>${button("set-surface", "Открыть граф разработки", { id: "graph", kind: "ghost" })}</div></div></details>`,
+    `<details class="dev-state-panel" data-testid="dev-state"><summary>Состояние разработки</summary><div data-testid="dev-state-panel"><div data-testid="architecture-contract"><strong>Product Brain</strong><span>Доступен только здесь, в графе через фильтр разработки и в чате через /dev. Artifact OS contract: ввод -> артефакт -> проекции -> граф -> контроль.</span><mark data-testid="architecture-validation">ок</mark>${button("set-surface", "Открыть граф разработки", { id: "graph", kind: "ghost" })}</div>${productMapPanel(ctx.control?.productMap || {})}</div></details>`,
     `</aside>`,
     `</div>`
   ].join("");

@@ -1,0 +1,1550 @@
+{
+  "generatedAt": "2026-07-19T12:04:52.926Z",
+  "sourceVersion": "v1.0 ledger + artifact-os-architecture.mjs (real parse, not hand-typed)",
+  "counts": {
+    "modules": 8,
+    "capabilities": 27,
+    "collections": 47,
+    "packages": 33,
+    "links": 169
+  },
+  "nodes": [
+    {
+      "id": "module:storage-kernel",
+      "kind": "module",
+      "title": "storage-kernel",
+      "detail": "Файл: app.js · владеет: LocalRepository, ReactiveStore, normalizeState · доказывает: state adapters, schema docs"
+    },
+    {
+      "id": "module:architecture-contract",
+      "kind": "module",
+      "title": "architecture-contract",
+      "detail": "Файл: artifact-os-architecture.mjs · владеет: collections, workspaces, event bus, module boundaries · доказывает: code splitting, module boundaries, schema docs"
+    },
+    {
+      "id": "module:capture-analyzer",
+      "kind": "module",
+      "title": "capture-analyzer",
+      "detail": "Файл: app.js · владеет: analyzeArtifactInput, analyzeSourceArtifact · доказывает: input -> Artifact -> proposals"
+    },
+    {
+      "id": "module:projection-renderers",
+      "kind": "module",
+      "title": "projection-renderers",
+      "detail": "Файл: app.js · владеет: workspace renderers, Data Control, Graph · доказывает: workspace lenses"
+    },
+    {
+      "id": "module:v34-platform-primitives",
+      "kind": "module",
+      "title": "v34-platform-primitives",
+      "detail": "Файл: app.js · владеет: channels, systems, projects, models, smart-home, marketplace · доказывает: system builder, event feed, local pack install"
+    },
+    {
+      "id": "module:v34-workspace-renderers",
+      "kind": "module",
+      "title": "v34-workspace-renderers",
+      "detail": "Файл: ui/v34-platform.js · владеет: feed, systems, builder, models, smart-home, marketplace, design, databases, screen, twin · доказывает: no route shell, owner-visible controls"
+    },
+    {
+      "id": "module:provider-boundaries",
+      "kind": "module",
+      "title": "provider-boundaries",
+      "detail": "Файл: app.js · владеет: Ollama, PWA, STT/OCR gates · доказывает: honest provider gates"
+    },
+    {
+      "id": "module:journey-tests",
+      "kind": "module",
+      "title": "journey-tests",
+      "detail": "Файл: output/playwright · владеет: market-owner, final journeys, owner rescue · доказывает: visual/e2e proof"
+    },
+    {
+      "id": "capability:inbox",
+      "kind": "capability",
+      "title": "inbox",
+      "detail": "daily command center · главное действие: capture"
+    },
+    {
+      "id": "capability:capture",
+      "kind": "capability",
+      "title": "capture",
+      "detail": "inbox review · главное действие: analyze"
+    },
+    {
+      "id": "capability:today",
+      "kind": "capability",
+      "title": "today",
+      "detail": "execute calmly · главное действие: complete-next"
+    },
+    {
+      "id": "capability:calendar",
+      "kind": "capability",
+      "title": "calendar",
+      "detail": "plan time · главное действие: schedule"
+    },
+    {
+      "id": "capability:finance",
+      "kind": "capability",
+      "title": "finance",
+      "detail": "understand money · главное действие: review-transaction"
+    },
+    {
+      "id": "capability:habits",
+      "kind": "capability",
+      "title": "habits",
+      "detail": "track rhythm · главное действие: check-in"
+    },
+    {
+      "id": "capability:goals",
+      "kind": "capability",
+      "title": "goals",
+      "detail": "move life direction · главное действие: choose-next-step"
+    },
+    {
+      "id": "capability:library",
+      "kind": "capability",
+      "title": "library",
+      "detail": "second brain · главное действие: write-note"
+    },
+    {
+      "id": "capability:reader",
+      "kind": "capability",
+      "title": "reader",
+      "detail": "read and extract · главное действие: highlight"
+    },
+    {
+      "id": "capability:player",
+      "kind": "capability",
+      "title": "player",
+      "detail": "listen and transcribe · главное действие: save-transcript"
+    },
+    {
+      "id": "capability:chat",
+      "kind": "capability",
+      "title": "chat",
+      "detail": "artifact conversation · главное действие: send-message"
+    },
+    {
+      "id": "capability:agents",
+      "kind": "capability",
+      "title": "agents",
+      "detail": "agent dry-run · главное действие: run-dry-run"
+    },
+    {
+      "id": "capability:flows",
+      "kind": "capability",
+      "title": "flows",
+      "detail": "automation dry-run · главное действие: run-flow"
+    },
+    {
+      "id": "capability:feed",
+      "kind": "capability",
+      "title": "feed",
+      "detail": "show life event stream · главное действие: inspect-event"
+    },
+    {
+      "id": "capability:systems",
+      "kind": "capability",
+      "title": "systems",
+      "detail": "create any personal system · главное действие: create-system"
+    },
+    {
+      "id": "capability:builder",
+      "kind": "capability",
+      "title": "builder",
+      "detail": "define system primitives · главное действие: materialize-system-contract"
+    },
+    {
+      "id": "capability:projects",
+      "kind": "capability",
+      "title": "projects",
+      "detail": "operate work/projects · главное действие: add-project-item"
+    },
+    {
+      "id": "capability:models",
+      "kind": "capability",
+      "title": "models",
+      "detail": "route local and owner-key AI · главное действие: verify-model-route"
+    },
+    {
+      "id": "capability:smart-home",
+      "kind": "capability",
+      "title": "smart-home",
+      "detail": "track local home devices safely · главное действие: record-device-event"
+    },
+    {
+      "id": "capability:marketplace",
+      "kind": "capability",
+      "title": "marketplace",
+      "detail": "install local system packs · главное действие: install-pack"
+    },
+    {
+      "id": "capability:design",
+      "kind": "capability",
+      "title": "design",
+      "detail": "choose render modes and themes · главное действие: save-design-profile"
+    },
+    {
+      "id": "capability:databases",
+      "kind": "capability",
+      "title": "databases",
+      "detail": "build relational personal systems · главное действие: add-database-row"
+    },
+    {
+      "id": "capability:screen",
+      "kind": "capability",
+      "title": "screen",
+      "detail": "prepare permission-gated screen companion · главное действие: prepare-screen-session"
+    },
+    {
+      "id": "capability:twin",
+      "kind": "capability",
+      "title": "twin",
+      "detail": "recover context and personal memory · главное действие: create-twin-snapshot"
+    },
+    {
+      "id": "capability:graph",
+      "kind": "capability",
+      "title": "graph",
+      "detail": "explain relationships · главное действие: inspect-node"
+    },
+    {
+      "id": "capability:control",
+      "kind": "capability",
+      "title": "control",
+      "detail": "trust and recover · главное действие: export-or-recover"
+    },
+    {
+      "id": "capability:providers",
+      "kind": "capability",
+      "title": "providers",
+      "detail": "connect safely · главное действие: probe-provider"
+    },
+    {
+      "id": "collection:folders",
+      "kind": "collection",
+      "title": "folders",
+      "detail": "vault tree · поверхность: library · в графе"
+    },
+    {
+      "id": "collection:notes",
+      "kind": "collection",
+      "title": "notes",
+      "detail": "markdown note · поверхность: library · в графе"
+    },
+    {
+      "id": "collection:sources",
+      "kind": "collection",
+      "title": "sources",
+      "detail": "source artifact · поверхность: capture · в графе"
+    },
+    {
+      "id": "collection:tasks",
+      "kind": "collection",
+      "title": "tasks",
+      "detail": "today item · поверхность: today · в графе"
+    },
+    {
+      "id": "collection:planBlocks",
+      "kind": "collection",
+      "title": "planBlocks",
+      "detail": "time block · поверхность: calendar · в графе"
+    },
+    {
+      "id": "collection:reminders",
+      "kind": "collection",
+      "title": "reminders",
+      "detail": "reminder row · поверхность: today · в графе"
+    },
+    {
+      "id": "collection:financeAccounts",
+      "kind": "collection",
+      "title": "financeAccounts",
+      "detail": "balance card · поверхность: finance · в графе"
+    },
+    {
+      "id": "collection:financeTransactions",
+      "kind": "collection",
+      "title": "financeTransactions",
+      "detail": "transaction row · поверхность: finance · в графе"
+    },
+    {
+      "id": "collection:budgets",
+      "kind": "collection",
+      "title": "budgets",
+      "detail": "budget envelope · поверхность: finance · в графе"
+    },
+    {
+      "id": "collection:subscriptions",
+      "kind": "collection",
+      "title": "subscriptions",
+      "detail": "bill row · поверхность: finance · в графе"
+    },
+    {
+      "id": "collection:habits",
+      "kind": "collection",
+      "title": "habits",
+      "detail": "check-in row · поверхность: habits · в графе"
+    },
+    {
+      "id": "collection:goals",
+      "kind": "collection",
+      "title": "goals",
+      "detail": "goal progress · поверхность: goals · в графе"
+    },
+    {
+      "id": "collection:insights",
+      "kind": "collection",
+      "title": "insights",
+      "detail": "knowledge insight · поверхность: library · в графе"
+    },
+    {
+      "id": "collection:claims",
+      "kind": "collection",
+      "title": "claims",
+      "detail": "claim card · поверхность: library · в графе"
+    },
+    {
+      "id": "collection:questions",
+      "kind": "collection",
+      "title": "questions",
+      "detail": "learning question · поверхность: library · в графе"
+    },
+    {
+      "id": "collection:reviewItems",
+      "kind": "collection",
+      "title": "reviewItems",
+      "detail": "review queue · поверхность: library · в графе"
+    },
+    {
+      "id": "collection:readingItems",
+      "kind": "collection",
+      "title": "readingItems",
+      "detail": "reading progress · поверхность: reader · в графе"
+    },
+    {
+      "id": "collection:highlights",
+      "kind": "collection",
+      "title": "highlights",
+      "detail": "highlight card · поверхность: reader · в графе"
+    },
+    {
+      "id": "collection:transcriptSegments",
+      "kind": "collection",
+      "title": "transcriptSegments",
+      "detail": "transcript segment · поверхность: player · в графе"
+    },
+    {
+      "id": "collection:audioCheckpoints",
+      "kind": "collection",
+      "title": "audioCheckpoints",
+      "detail": "checkpoint · поверхность: player · в графе"
+    },
+    {
+      "id": "collection:playerNotes",
+      "kind": "collection",
+      "title": "playerNotes",
+      "detail": "audio note · поверхность: player · в графе"
+    },
+    {
+      "id": "collection:proposals",
+      "kind": "collection",
+      "title": "proposals",
+      "detail": "approval card · поверхность: capture · в графе"
+    },
+    {
+      "id": "collection:chatMessages",
+      "kind": "collection",
+      "title": "chatMessages",
+      "detail": "artifact chat · поверхность: chat · в графе"
+    },
+    {
+      "id": "collection:agentRuns",
+      "kind": "collection",
+      "title": "agentRuns",
+      "detail": "dry-run record · поверхность: agents · в графе"
+    },
+    {
+      "id": "collection:flowRuns",
+      "kind": "collection",
+      "title": "flowRuns",
+      "detail": "automation run · поверхность: flows · в графе"
+    },
+    {
+      "id": "collection:flows",
+      "kind": "collection",
+      "title": "flows",
+      "detail": "trigger-condition-action · поверхность: flows · в графе"
+    },
+    {
+      "id": "collection:providerRuns",
+      "kind": "collection",
+      "title": "providerRuns",
+      "detail": "provider receipt · поверхность: providers"
+    },
+    {
+      "id": "collection:providers",
+      "kind": "collection",
+      "title": "providers",
+      "detail": "provider passport · поверхность: providers"
+    },
+    {
+      "id": "collection:savedSearches",
+      "kind": "collection",
+      "title": "savedSearches",
+      "detail": "search lens · поверхность: library · в графе"
+    },
+    {
+      "id": "collection:channels",
+      "kind": "collection",
+      "title": "channels",
+      "detail": "life event lane · поверхность: feed · в графе"
+    },
+    {
+      "id": "collection:systemDefinitions",
+      "kind": "collection",
+      "title": "systemDefinitions",
+      "detail": "system contract · поверхность: systems · в графе"
+    },
+    {
+      "id": "collection:systemRecords",
+      "kind": "collection",
+      "title": "systemRecords",
+      "detail": "custom system object · поверхность: systems · в графе"
+    },
+    {
+      "id": "collection:projects",
+      "kind": "collection",
+      "title": "projects",
+      "detail": "work/project hub · поверхность: projects · в графе"
+    },
+    {
+      "id": "collection:projectItems",
+      "kind": "collection",
+      "title": "projectItems",
+      "detail": "project action/decision · поверхность: projects · в графе"
+    },
+    {
+      "id": "collection:modelProfiles",
+      "kind": "collection",
+      "title": "modelProfiles",
+      "detail": "model route passport · поверхность: models · в графе"
+    },
+    {
+      "id": "collection:smartHomeDevices",
+      "kind": "collection",
+      "title": "smartHomeDevices",
+      "detail": "device row · поверхность: smart-home · в графе"
+    },
+    {
+      "id": "collection:smartHomeEvents",
+      "kind": "collection",
+      "title": "smartHomeEvents",
+      "detail": "device event · поверхность: smart-home · в графе"
+    },
+    {
+      "id": "collection:marketplacePacks",
+      "kind": "collection",
+      "title": "marketplacePacks",
+      "detail": "installable pack · поверхность: marketplace · в графе"
+    },
+    {
+      "id": "collection:installedPacks",
+      "kind": "collection",
+      "title": "installedPacks",
+      "detail": "local package receipt · поверхность: marketplace · в графе"
+    },
+    {
+      "id": "collection:designProfiles",
+      "kind": "collection",
+      "title": "designProfiles",
+      "detail": "render mode/theme · поверхность: design · в графе"
+    },
+    {
+      "id": "collection:customDatabases",
+      "kind": "collection",
+      "title": "customDatabases",
+      "detail": "relational system · поверхность: databases · в графе"
+    },
+    {
+      "id": "collection:databaseRows",
+      "kind": "collection",
+      "title": "databaseRows",
+      "detail": "record row · поверхность: databases · в графе"
+    },
+    {
+      "id": "collection:screenCompanionSessions",
+      "kind": "collection",
+      "title": "screenCompanionSessions",
+      "detail": "permission-gated screen receipt · поверхность: screen · в графе"
+    },
+    {
+      "id": "collection:personalTwinSnapshots",
+      "kind": "collection",
+      "title": "personalTwinSnapshots",
+      "detail": "recovery memory snapshot · поверхность: twin · в графе"
+    },
+    {
+      "id": "collection:auditLog",
+      "kind": "collection",
+      "title": "auditLog",
+      "detail": "human receipt · поверхность: control"
+    },
+    {
+      "id": "collection:control",
+      "kind": "collection",
+      "title": "control",
+      "detail": "export/recover map · поверхность: control"
+    },
+    {
+      "id": "collection:environment",
+      "kind": "collection",
+      "title": "environment",
+      "detail": "local runtime · поверхность: providers"
+    },
+    {
+      "id": "package:P0.1",
+      "kind": "package",
+      "title": "P0.1 CONTEXT_CANON_INTO_REPO",
+      "detail": "2026-07-17: канон в `context/` (00/01/02 + v33 6.6МБ + v34 TXT/PDF)"
+    },
+    {
+      "id": "package:P0.2",
+      "kind": "package",
+      "title": "P0.2 KB_SMOKE_RESCUE",
+      "detail": "2026-07-17: book-workbench/top-control restored in ui/*.js, kb-smoke + G-E2E-CORE + G-ARCH + audits verified green (commit af9a7568)"
+    },
+    {
+      "id": "package:P0.3",
+      "kind": "package",
+      "title": "P0.3 LEDGER_TRUTH_REFRESH",
+      "detail": "2026-07-17: 88/1449 rows moved planned→implemented with EvidencePath (P0-kernel 51/51, P1/P2 Agents 37/54); PRODUCT_BRAIN_OVERVIEW synced"
+    },
+    {
+      "id": "package:P0.5",
+      "kind": "package",
+      "title": "P0.5 APPROVED_ENGINES_INSTALLED",
+      "detail": "2026-07-17: 9 движков установлены, `npm audit` = 0 уязвимостей (override @xmldom/xmldom→0.9.8), гейты зелёные"
+    },
+    {
+      "id": "package:P1.2",
+      "kind": "package",
+      "title": "P1.2 RECEIPT_COVERAGE_MATRIX",
+      "detail": "2026-07-18: addReceipt()/STRONG_MUTATION_RULES wired into addAudit() (single choke point, all ~150 call sites covered automatically), locality field added; extended tools/audit-seven-contracts.mjs (audit:ledger already meant something else, see DECISIO"
+    },
+    {
+      "id": "package:P1.3",
+      "kind": "package",
+      "title": "P1.3 CAPABILITY_LOCALITY",
+      "detail": "2026-07-18: capability grants (resource/action/scope/locality/approval/budget) in state.control.capabilities; ensureCapabilityGrant() wired into recordProviderRun() (single choke point, covers every provider action); Control surface section + revoke ac"
+    },
+    {
+      "id": "package:P2.1",
+      "kind": "package",
+      "title": "P2.1 RENDERER_REGISTRY",
+      "detail": "2026-07-18: RENDERER_REGISTRY/presentArtifact/ViewPreset in artifact-os-architecture.mjs; 4 render-mode functions in ui/components/shared.js; M0 proof (note/agent_report/import_receipt × 4 modes) + ViewPreset controls in Design Studio; found+fixed Desi"
+    },
+    {
+      "id": "package:P2.2",
+      "kind": "package",
+      "title": "P2.2 ARTIFACT_INSPECTOR_UNIVERSAL",
+      "detail": "2026-07-18: ui/components/InspectorDrawer.js (contract fields/receipt trail/relations/renderer switch/export-rollback), embedded in Graph + Control (search/feed route to it via existing focus-graph-node); new output/playwright/presentation-runtime.spec"
+    },
+    {
+      "id": "package:P3.1",
+      "kind": "package",
+      "title": "P3.1 SYSTEM_FIELDS_TYPED",
+      "detail": "2026-07-18: entities are now {name, fields:[{name,type,options,required}]} (text/number/date/select/relation) with validateSystemRecordFields(); createSystemRecord() writes real systemRecords for the first time; Builder UI edits fields + creates record"
+    },
+    {
+      "id": "package:P3.2",
+      "kind": "package",
+      "title": "P3.2 SYSTEM_VIEWS_ACTIONS",
+      "detail": "2026-07-18: list/table/card views via P2.1 registry (per-system ViewPreset reuse), update/state-change actions with receipts (updateSystemRecord/toggleSystemRecordState), date-typed fields project into Today/Calendar; new output/playwright/system-facto"
+    },
+    {
+      "id": "package:P3.3",
+      "kind": "package",
+      "title": "P3.3 SYSTEM_TRIGGERS_LITE",
+      "detail": "2026-07-18: declarative on-create/on-field-change/daily triggers fire dry-run proposals via the existing proposal-apply flow, never mutate directly; new tools/audit-system-factory.mjs (completeness formula); found+documented pre-existing gap (proposals"
+    },
+    {
+      "id": "package:P4.1",
+      "kind": "package",
+      "title": "P4.1 FLOW_EXEC_REAL",
+      "detail": "2026-07-18: executeFlowRun() applies a flowRun's proposals for real against the repository, isolated per-step (try/catch -> health alive/degraded/failed), budget counter + kill switch; found+fixed a real crash bug (flow.budget undefined on same-render "
+    },
+    {
+      "id": "package:P4.2",
+      "kind": "package",
+      "title": "P4.2 AGENT_GUARDED_RUNS",
+      "detail": "2026-07-18: agent runs are preview (proposals only) until approveAgentRun() applies them in a guarded, isolated batch; capability check (agent/run grant, reusing P1.3); run itself is an inspectable agent_report_artifact (ownerType agent-run, P2.1 regis"
+    },
+    {
+      "id": "package:P5.1",
+      "kind": "package",
+      "title": "P5.1 OLLAMA_LIVE",
+      "detail": "2026-07-18: chat routes to a real Ollama /api/generate call only when the owner already explicitly tested generation (status generation_ok); answer includes citations to the notes the prompt cited; per-call receipt (model/locality) via recordProviderRu"
+    },
+    {
+      "id": "package:P5.2",
+      "kind": "package",
+      "title": "P5.2 BYOK_VAULT_ROUTING",
+      "detail": "2026-07-18: BYOK vault (owner-entered, masked everywhere, excluded from export by default); modelProfiles get routingPolicy (local-first/cloud-confirmed) + visible budget/cost; cloud calls require explicit confirm; addAudit/addReceipt now carry a real "
+    },
+    {
+      "id": "package:P5.3",
+      "kind": "package",
+      "title": "P5.3 AI_MEMORY_GATE",
+      "detail": "2026-07-18: extended audit:seven-contracts to statically prove generateOllamaChatAnswer/callModelRoute are pure model-call wrappers (never write notes/claims/insights/graph or auto-apply a proposal); new output/playwright/ai-memory-gate.spec.mjs proves"
+    },
+    {
+      "id": "package:P6.1",
+      "kind": "package",
+      "title": "P6.1 PDF_EPUB_LOCAL",
+      "detail": "2026-07-18: real local parsing wired for the first time since P0.5 installed pdfjs-dist/fflate; parsePdfSource()/parseEpubSource() (fflate's browser-safe esm/browser.js build, not esm/index.mjs which imports node:module) via a new \"Извлечь текст\" butto"
+    },
+    {
+      "id": "package:P6.2",
+      "kind": "package",
+      "title": "P6.2 IMPORT_PIPELINE_RECEIPTS",
+      "detail": "2026-07-18: SHA-256 checksum per import (real dedup, not name/size heuristics); duplicates flagged for explicit owner merge-review (never silently dropped/merged), new Control section; large pastes run as a real cancellable chunked background job (10/c"
+    },
+    {
+      "id": "package:P6.3",
+      "kind": "package",
+      "title": "P6.3 ICS_EML_FILE_IMPORT",
+      "detail": "2026-07-18: parseIcsEvents()/parseEmlMessage() (file-only, zero account/server access); .ics VEVENT blocks become real planBlocks with parsed day/start/end honored as explicit schedule overrides; .eml becomes a readable note (subject/from/date/body, no"
+    },
+    {
+      "id": "package:P6.4",
+      "kind": "package",
+      "title": "P6.4 OBSIDIAN_VAULT_BRIDGE",
+      "detail": "2026-07-18: scanObsidianVaultFiles() reads a real folder-picker upload (webkitdirectory), parses frontmatter tags + wikilink counts per .md file, no writes until explicit confirm; startObsidianScan()/cancelObsidianImport()/confirmObsidianImport() (scan"
+    },
+    {
+      "id": "package:P6.5",
+      "kind": "package",
+      "title": "P6.5 SEMANTIC_SEARCH_GATED",
+      "detail": "2026-07-18: local vector index over notes via real Ollama /api/embeddings, gated so nothing is attempted until the owner explicitly runs \"Тест эмбеддингов\" (embeddingsStatus=\"embeddings_ok\"); \"Построить семантический индекс\" (Providers) fetches one rea"
+    },
+    {
+      "id": "package:P7.1",
+      "kind": "package",
+      "title": "P7.1 TRASH_UNDO_GRACE",
+      "detail": "2026-07-18: unified Trash view in Control (`allTrashRows()`/`ctx.trashItems`) surfaces every soft-deleted item across notes/sources/tasks/reminders/habits/goals/planBlocks + all v34 collections in one place with a real per-row grace countdown (`daysLef"
+    },
+    {
+      "id": "package:P7.2",
+      "kind": "package",
+      "title": "P7.2 EXPORT_ROUNDTRIP_PROOF",
+      "detail": "2026-07-18: `applyBackupRestore()` makes vault-backup import a real full-state replace (the old preview-only stub now stashes the parsed payload in `state.control.backupRestoreReport` for an explicit \"Восстановить бэкап\"/\"Отменить\" confirm step, rollba"
+    },
+    {
+      "id": "package:P7.3",
+      "kind": "package",
+      "title": "P7.3 TWIN_RECOVERY_DRILL",
+      "detail": "2026-07-18: Personal Twin snapshots now carry a real recovery payload (`buildTwinSnapshotPayload()`, same whole-state-clone technique as rollback snapshots, with nested twin payloads stripped to avoid exponential growth) instead of only a text summary;"
+    },
+    {
+      "id": "package:P8.1",
+      "kind": "package",
+      "title": "P8.1 PACK_MANIFEST_ENFORCE",
+      "detail": "2026-07-18: every pack manifest declares the full Package Contract (entities/fields/views/actions + permissions/dataEffects/uninstallSupported/rollbackSupported/trust/compat), validated by `validatePackManifest()` before every install (`installMarketpl"
+    },
+    {
+      "id": "package:P8.2",
+      "kind": "package",
+      "title": "P8.2 TEN_STARTER_PACKS",
+      "detail": "2026-07-18: added 6 new packs (Capture, Daily-Time incl. weekly review + focus sessions, Money, Food-Health, Travel, Builder-AI) alongside the existing 4 (CRM~Social/Work, Learning Hub~Learning-Media, Smart-home~Household, Project cockpit~Work) for 10 "
+    },
+    {
+      "id": "package:P9.1",
+      "kind": "package",
+      "title": "P9.1 HEALTH_REGISTRY_PANEL",
+      "detail": "2026-07-18: `computeHealthRegistry()` normalizes every real subsystem signal (all 14 `state.providers` entries, Ollama embeddings, semantic-index freshness, Storage/IndexedDB headroom) into the 10-state canonical vocabulary (alive/starting/degraded/fai"
+    },
+    {
+      "id": "package:P9.2",
+      "kind": "package",
+      "title": "P9.2 FAILURE_INJECTION",
+      "detail": "2026-07-18: real failure-injection test hooks - `injectProviderFailureForTest(providerId)` (marks a real provider \"error\") and `injectStorageFailureForTest(enabled)` (makes `KnowledgeRepository.save()` genuinely throw); found and fixed a real isolation"
+    },
+    {
+      "id": "package:P10.1",
+      "kind": "package",
+      "title": "P10.1 FIRST_RUN_CALM",
+      "detail": "2026-07-18: audited every primary surface's empty state against \"leads to action\" (Home's guided capture composer + 5 quick-action buttons, Today's per-section inline add-forms, Calendar/Finance guidance text next to their own capture forms) - found al"
+    },
+    {
+      "id": "package:P10.2",
+      "kind": "package",
+      "title": "P10.2 MOBILE_PWA_CONTINUITY",
+      "detail": "2026-07-18: found and fixed a real mobile-navigation gap - 5 of 9 primary surfaces (calendar/finance/library/graph/control) had no mobile-visible path at all (mobile bottom nav only had 5 slots, \"Ещё\" only carried secondaryNav); `renderMobileNav()` now"
+    },
+    {
+      "id": "package:P10.3",
+      "kind": "package",
+      "title": "P10.3 PERF_BUDGETS",
+      "detail": "2026-07-18: `audit-performance-final.mjs` previously only checked that a screenshot file existed (no numeric threshold at all); now reads `docs/qc/PERF_BUDGET_REPORT.json` (written by new `output/playwright/perf-budgets.spec.mjs`, which measures real b"
+    },
+    {
+      "id": "package:P10.4",
+      "kind": "package",
+      "title": "P10.4 UX_COHERENCE",
+      "detail": "2026-07-18: `docs/qc/FINAL_UI_HUMAN_AUDIT.md`'s 9+ scorecard previously only covered the original 15 core workspaces; added honest 9-scored rows for the 11 v34 workspaces built/matured this session (Feed, Systems, Builder, Проекты, Model Hub, Умный дом"
+    },
+    {
+      "id": "package:P11.1",
+      "kind": "package",
+      "title": "P11.1 DOCS_TRUTH_SYNC",
+      "detail": "2026-07-18: DoD-чеклист §3 полностью отмечен по факту (все пункты честно проверены против кода этой сессии); добавлены `docs/OPERATING_MODES.md` (Mode 1 локально / Mode 2 демон / Mode 3 LAN, с честной границей \"нет sync между устройствами\") и `docs/qc/"
+    }
+  ],
+  "links": [
+    {
+      "from": "module:v34-platform-primitives",
+      "to": "capability:systems",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-platform-primitives",
+      "to": "capability:projects",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-platform-primitives",
+      "to": "capability:models",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-platform-primitives",
+      "to": "capability:smart-home",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-platform-primitives",
+      "to": "capability:marketplace",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:feed",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:systems",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:builder",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:models",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:smart-home",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:marketplace",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:design",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:databases",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:screen",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "capability:twin",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:inbox",
+      "to": "collection:sources",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:inbox",
+      "to": "collection:tasks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:inbox",
+      "to": "collection:financeTransactions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:inbox",
+      "to": "collection:habits",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:inbox",
+      "to": "collection:goals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:inbox",
+      "to": "collection:proposals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:capture",
+      "to": "collection:sources",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:capture",
+      "to": "collection:proposals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:capture",
+      "to": "collection:auditLog",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:today",
+      "to": "collection:tasks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:today",
+      "to": "collection:planBlocks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:today",
+      "to": "collection:reminders",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:today",
+      "to": "collection:habits",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:calendar",
+      "to": "collection:planBlocks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:calendar",
+      "to": "collection:tasks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:calendar",
+      "to": "collection:reminders",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:finance",
+      "to": "collection:financeAccounts",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:finance",
+      "to": "collection:financeTransactions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:finance",
+      "to": "collection:budgets",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:finance",
+      "to": "collection:subscriptions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:habits",
+      "to": "collection:habits",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:habits",
+      "to": "collection:goals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:goals",
+      "to": "collection:goals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:goals",
+      "to": "collection:tasks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:goals",
+      "to": "collection:habits",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:goals",
+      "to": "collection:financeTransactions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:library",
+      "to": "collection:notes",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:library",
+      "to": "collection:claims",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:library",
+      "to": "collection:questions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:library",
+      "to": "collection:reviewItems",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:library",
+      "to": "collection:savedSearches",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:reader",
+      "to": "collection:readingItems",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:reader",
+      "to": "collection:highlights",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:reader",
+      "to": "collection:sources",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:player",
+      "to": "collection:sources",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:player",
+      "to": "collection:transcriptSegments",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:player",
+      "to": "collection:audioCheckpoints",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:player",
+      "to": "collection:playerNotes",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:chat",
+      "to": "collection:chatMessages",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:chat",
+      "to": "collection:proposals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:chat",
+      "to": "collection:providerRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:agents",
+      "to": "collection:agentRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:agents",
+      "to": "collection:flowRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:agents",
+      "to": "collection:proposals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:flows",
+      "to": "collection:flows",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:flows",
+      "to": "collection:flowRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:flows",
+      "to": "collection:proposals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:feed",
+      "to": "collection:channels",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:feed",
+      "to": "collection:auditLog",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:feed",
+      "to": "collection:sources",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:feed",
+      "to": "collection:proposals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:feed",
+      "to": "collection:providerRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:systems",
+      "to": "collection:systemDefinitions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:systems",
+      "to": "collection:systemRecords",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:systems",
+      "to": "collection:installedPacks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:builder",
+      "to": "collection:systemDefinitions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:builder",
+      "to": "collection:systemRecords",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:builder",
+      "to": "collection:flows",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:builder",
+      "to": "collection:agentRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:projects",
+      "to": "collection:projects",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:projects",
+      "to": "collection:projectItems",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:projects",
+      "to": "collection:tasks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:projects",
+      "to": "collection:planBlocks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:projects",
+      "to": "collection:notes",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:models",
+      "to": "collection:modelProfiles",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:models",
+      "to": "collection:providers",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:models",
+      "to": "collection:providerRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:smart-home",
+      "to": "collection:smartHomeDevices",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:smart-home",
+      "to": "collection:smartHomeEvents",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:smart-home",
+      "to": "collection:providers",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:marketplace",
+      "to": "collection:marketplacePacks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:marketplace",
+      "to": "collection:installedPacks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:marketplace",
+      "to": "collection:systemDefinitions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:design",
+      "to": "collection:designProfiles",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:design",
+      "to": "collection:systemDefinitions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:databases",
+      "to": "collection:customDatabases",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:databases",
+      "to": "collection:databaseRows",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:databases",
+      "to": "collection:systemDefinitions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:screen",
+      "to": "collection:screenCompanionSessions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:screen",
+      "to": "collection:providers",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:screen",
+      "to": "collection:providerRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:twin",
+      "to": "collection:personalTwinSnapshots",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:twin",
+      "to": "collection:auditLog",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:twin",
+      "to": "collection:notes",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:twin",
+      "to": "collection:sources",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:graph",
+      "to": "collection:notes",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:graph",
+      "to": "collection:sources",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:graph",
+      "to": "collection:tasks",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:graph",
+      "to": "collection:financeTransactions",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:graph",
+      "to": "collection:habits",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:graph",
+      "to": "collection:goals",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:control",
+      "to": "collection:auditLog",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:control",
+      "to": "collection:control",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:control",
+      "to": "collection:providerRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:providers",
+      "to": "collection:providers",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:providers",
+      "to": "collection:providerRuns",
+      "reason": "состоит из"
+    },
+    {
+      "from": "capability:providers",
+      "to": "collection:environment",
+      "reason": "состоит из"
+    },
+    {
+      "from": "module:storage-kernel",
+      "to": "module:architecture-contract",
+      "reason": "зависит от"
+    },
+    {
+      "from": "module:capture-analyzer",
+      "to": "module:architecture-contract",
+      "reason": "зависит от"
+    },
+    {
+      "from": "module:projection-renderers",
+      "to": "module:architecture-contract",
+      "reason": "зависит от"
+    },
+    {
+      "from": "module:v34-platform-primitives",
+      "to": "module:architecture-contract",
+      "reason": "зависит от"
+    },
+    {
+      "from": "module:v34-workspace-renderers",
+      "to": "module:architecture-contract",
+      "reason": "зависит от"
+    },
+    {
+      "from": "module:provider-boundaries",
+      "to": "module:architecture-contract",
+      "reason": "зависит от"
+    },
+    {
+      "from": "module:journey-tests",
+      "to": "module:architecture-contract",
+      "reason": "зависит от"
+    },
+    {
+      "from": "module:journey-tests",
+      "to": "module:storage-kernel",
+      "reason": "зависит от"
+    },
+    {
+      "from": "capability:library",
+      "to": "package:P0.2",
+      "reason": "сделано в P0.2"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P1.2",
+      "reason": "сделано в P1.2"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P1.3",
+      "reason": "сделано в P1.3"
+    },
+    {
+      "from": "capability:design",
+      "to": "package:P2.1",
+      "reason": "сделано в P2.1"
+    },
+    {
+      "from": "capability:graph",
+      "to": "package:P2.2",
+      "reason": "сделано в P2.2"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P2.2",
+      "reason": "сделано в P2.2"
+    },
+    {
+      "from": "capability:systems",
+      "to": "package:P3.1",
+      "reason": "сделано в P3.1"
+    },
+    {
+      "from": "capability:systems",
+      "to": "package:P3.2",
+      "reason": "сделано в P3.2"
+    },
+    {
+      "from": "capability:systems",
+      "to": "package:P3.3",
+      "reason": "сделано в P3.3"
+    },
+    {
+      "from": "capability:flows",
+      "to": "package:P4.1",
+      "reason": "сделано в P4.1"
+    },
+    {
+      "from": "capability:agents",
+      "to": "package:P4.2",
+      "reason": "сделано в P4.2"
+    },
+    {
+      "from": "capability:chat",
+      "to": "package:P5.1",
+      "reason": "сделано в P5.1"
+    },
+    {
+      "from": "capability:models",
+      "to": "package:P5.1",
+      "reason": "сделано в P5.1"
+    },
+    {
+      "from": "capability:models",
+      "to": "package:P5.2",
+      "reason": "сделано в P5.2"
+    },
+    {
+      "from": "capability:chat",
+      "to": "package:P5.3",
+      "reason": "сделано в P5.3"
+    },
+    {
+      "from": "capability:models",
+      "to": "package:P5.3",
+      "reason": "сделано в P5.3"
+    },
+    {
+      "from": "capability:reader",
+      "to": "package:P6.1",
+      "reason": "сделано в P6.1"
+    },
+    {
+      "from": "capability:capture",
+      "to": "package:P6.2",
+      "reason": "сделано в P6.2"
+    },
+    {
+      "from": "capability:calendar",
+      "to": "package:P6.3",
+      "reason": "сделано в P6.3"
+    },
+    {
+      "from": "capability:capture",
+      "to": "package:P6.3",
+      "reason": "сделано в P6.3"
+    },
+    {
+      "from": "capability:library",
+      "to": "package:P6.4",
+      "reason": "сделано в P6.4"
+    },
+    {
+      "from": "capability:library",
+      "to": "package:P6.5",
+      "reason": "сделано в P6.5"
+    },
+    {
+      "from": "capability:models",
+      "to": "package:P6.5",
+      "reason": "сделано в P6.5"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P7.1",
+      "reason": "сделано в P7.1"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P7.2",
+      "reason": "сделано в P7.2"
+    },
+    {
+      "from": "capability:twin",
+      "to": "package:P7.3",
+      "reason": "сделано в P7.3"
+    },
+    {
+      "from": "capability:marketplace",
+      "to": "package:P8.1",
+      "reason": "сделано в P8.1"
+    },
+    {
+      "from": "capability:marketplace",
+      "to": "package:P8.2",
+      "reason": "сделано в P8.2"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P9.1",
+      "reason": "сделано в P9.1"
+    },
+    {
+      "from": "capability:feed",
+      "to": "package:P9.1",
+      "reason": "сделано в P9.1"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P9.2",
+      "reason": "сделано в P9.2"
+    },
+    {
+      "from": "capability:inbox",
+      "to": "package:P10.1",
+      "reason": "сделано в P10.1"
+    },
+    {
+      "from": "capability:today",
+      "to": "package:P10.1",
+      "reason": "сделано в P10.1"
+    },
+    {
+      "from": "capability:calendar",
+      "to": "package:P10.1",
+      "reason": "сделано в P10.1"
+    },
+    {
+      "from": "capability:finance",
+      "to": "package:P10.1",
+      "reason": "сделано в P10.1"
+    },
+    {
+      "from": "capability:providers",
+      "to": "package:P10.2",
+      "reason": "сделано в P10.2"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P10.3",
+      "reason": "сделано в P10.3"
+    },
+    {
+      "from": "capability:feed",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:systems",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:builder",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:projects",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:models",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:smart-home",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:marketplace",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:design",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:databases",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:screen",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:twin",
+      "to": "package:P10.4",
+      "reason": "сделано в P10.4"
+    },
+    {
+      "from": "capability:control",
+      "to": "package:P11.1",
+      "reason": "сделано в P11.1"
+    }
+  ]
+}
