@@ -49,6 +49,24 @@ function semanticSearchSection(ctx) {
   ].join("");
 }
 
+// R3 BACKLINKS_PANEL: Foam-style incoming-links panel. state.backlinks (noteId -> [linking
+// note ids]) is already computed on every commit; this just resolves and renders it.
+function renderBacklinksPanel(ctx, noteId) {
+  const backlinkIds = (ctx.backlinks && ctx.backlinks[noteId]) || [];
+  const notesById = new Map((ctx.notes || []).map((note) => [note.id, note]));
+  const backlinkNotes = backlinkIds.map((id) => notesById.get(id)).filter(Boolean);
+  return [
+    `<section class="info-panel library-backlinks-panel" data-testid="library-backlinks-panel">`,
+    `<div class="section-title">Обратные ссылки</div>`,
+    safeList(
+      backlinkNotes,
+      (note) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(note.id)}" data-testid="backlink-row"><strong>${escapeHtml(note.title || "Заметка")}</strong></button>`,
+      `<div class="empty-inline" data-testid="backlinks-empty">Пока никто не ссылается на эту заметку.</div>`
+    ),
+    `</section>`
+  ].join("");
+}
+
 function renderControlTrail(ctx, noteId) {
   const forNote = (list) => (list || []).filter((item) => item.noteId === noteId);
   const rows = [
@@ -102,6 +120,7 @@ export function renderLibrary(ctx) {
     `</div>`,
     renderBookWorkbenchPanel(ctx),
     semanticSearchSection(ctx),
+    active ? renderBacklinksPanel(ctx, active.id) : "",
     active ? renderControlTrail(ctx, active.id) : ""
   ].join("");
   return renderWorkspaceLayout("library", "База знаний", "Заметки, wikilinks, backlinks, источники и карточки знания.", body, { testId: "workspace-library", kicker: "Знания" });

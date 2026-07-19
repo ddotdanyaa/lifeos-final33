@@ -1486,3 +1486,21 @@ reflect a real product issue (verified directly via `getBoundingClientRect()` th
 now correctly non-overlapping and evenly spaced). The e2e test asserts the task ends up
 with *some* valid `HH:00` time and is removed from "Без времени," which proves the
 drag->reschedule pipeline runs for real without being fragile to exact pixel targeting.
+
+## R3 BACKLINKS_PANEL (2026-07-19)
+
+**Finding - the plan's premise was half right:** `state.backlinks` genuinely was already
+computed on every commit (`rebuildIndexes`), but the live shell's context builder
+(`buildNewShellContext`) never actually passed it to `ctx` at all - `ui/library.js` had no
+way to reach it even though the data existed. Added `backlinks: state.backlinks || {}` to
+the context alongside the render (`renderBacklinksPanel`), resolving ids against `ctx.notes`
+(already available) rather than adding a second lookup path.
+
+**Decision - test creates real linked notes through the UI, not via a test hook:** the
+e2e test drives `new-note` (handling the resulting `window.prompt` via a persistent
+`page.on("dialog", ...)` queue - a per-click `page.waitForEvent("dialog")` was tried first
+and hung, since the blocking native prompt fires as part of the same synchronous click
+handler and can race a one-shot listener) and types a real `[[wikilink]]` into `note-body`,
+then verifies the backlink shows up on the target note and is absent on the source - proving
+the actual wikilink-parsing -> backlinks-computation -> render pipeline, not a mocked
+shortcut.
