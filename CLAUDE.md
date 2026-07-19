@@ -16,7 +16,7 @@
 
 ## 3. Автономная работа (execution discipline)
 
-- **План — источник истины:** [docs/LIFEOS_V1_MASTER_BUILD_PLAN.md](docs/LIFEOS_V1_MASTER_BUILD_PLAN.md) (v1.0, завершён), затем [docs/LIFEOS_V1_1_ACCELERATION_PLAN.md](docs/LIFEOS_V1_1_ACCELERATION_PLAN.md) (v1.1, текущая очередь). Бери первый неотмеченный пакет, объявляй заголовок ПЕРЕД кодом, отмечай чекбокс после.
+- **План — источник истины:** [docs/LIFEOS_V1_MASTER_BUILD_PLAN.md](docs/LIFEOS_V1_MASTER_BUILD_PLAN.md) (v1.0, завершён), [docs/LIFEOS_V1_1_ACCELERATION_PLAN.md](docs/LIFEOS_V1_1_ACCELERATION_PLAN.md) (v1.1, завершён), затем [docs/LIFEOS_V1_2_DAILY_USE_PLAN.md](docs/LIFEOS_V1_2_DAILY_USE_PLAN.md) (v1.2, текущая очередь — порядок пакетов строго как в его §3/§4, не по алфавиту/номеру). Бери первый неотмеченный пакет, объявляй заголовок ПЕРЕД кодом, отмечай чекбокс после.
 - Маленькие пакеты, маленькие diff. Сначала ищи существующий helper, потом пиши новый. Никакого широкого рефактора вне пакета.
 - **Никогда не заявляй «готово»** без прогнанных гейтов, receipt и risk note.
 - **Не ослабляй тесты/аудиты ради зелёного.** Контракт меняется только вместе с намеренным изменением продукта, с обоснованием в отчёте.
