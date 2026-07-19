@@ -32,12 +32,12 @@ Twenty typo-heavy and mixed-language inputs create source artifacts and proposal
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 20,
-  "proposalsOpen": 100,
+  "proposalsOpen": 97,
   "proposalsApplied": 0,
   "auditEvents": 214,
-  "graphNodes": 236,
-  "graphEdges": 430,
-  "graphEdgeReasons": 430
+  "graphNodes": 233,
+  "graphEdges": 424,
+  "graphEdgeReasons": 424
 }
 ```
 

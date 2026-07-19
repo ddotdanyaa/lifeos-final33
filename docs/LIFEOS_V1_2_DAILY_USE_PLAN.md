@@ -167,7 +167,38 @@ planBlocks), никаких новых источников правды.
 
 ## 4. Леджер (отмечать [x] и дату по мере закрытия пакетов)
 
-- [ ] U0 DESIGN_SYSTEM
+- [x] U0 DESIGN_SYSTEM (2026-07-19) — токены (`--text-*`, `--space-*`, `--radius-*`,
+  `--shadow-sm/lg`) добавлены в `:root` (styles.css), расширяя существующую семантическую
+  палитру, а не заменяя её. Тёмная тема: `--paper/--surface/--ink/--muted/--line/--shadow*`
+  переопределены и через `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }`
+  (системный сигнал по умолчанию), и через явный `:root[data-theme="dark"]` (выбор владельца
+  должен побеждать в обе стороны). Переключатель темы: кнопка в шапке (`ui/shell.js`,
+  `data-testid="theme-toggle"`) циклит system → light → dark → system через новый экшен
+  `toggle-theme` → `state.theme` (добавлено в `createInitialState`/`normalizeState` по обеим
+  точкам, как того требует normalizeState-gotcha) → `applyTheme(state)` в `render()`
+  (app.js) выставляет `document.documentElement.dataset.theme`. Проверено вручную в браузере:
+  переключение реально меняет `--paper`/`--ink` и т.д. Плотность: `.workspace-head h2` (34px
+  плоско, общий для ВСЕХ workspace через `renderWorkspaceLayout`) и `.home-hero-copy h1`
+  (clamp 34-58px) сведены к токену `--text-2xl` (28px); `.workspace-v2`/`.workspace-head`
+  padding/gap переведены на `--space-*`. Единые компоненты: карточки (`.workspace-v2`,
+  `.mini-summary-card`, `.human-answer-card` и т.д.) уже делят один блок правил в styles.css —
+  не потребовалось разводить дублирование, только притормозить масштаб заголовков. **Побочная
+  находка и фикс** (не в плане, но напрямую вызвана добавлением 4-й кнопки в шапку): у
+  `.lifeos-public-header` было всего 3 grid-колонки, но 5-6 прямых детей (бренд, поиск, Ввод,
+  Контроль, [Заметка], Тема, статус) — лишние молча переносились на вторую grid-строку,
+  которая физически выше, чем фиксированная `height: 74px` шапки, и наезжала на контент под
+  шапкой (видно на `docs/qc/screens/U0/home-before.png`). Это существовало ДО U0 (Контроль +
+  save-status уже переполняли 3 колонки), но с новой кнопкой стало более заметным. Исправлено
+  оборачиванием всех кнопок шапки в один `.header-actions-v2` flex-контейнер — теперь это один
+  grid-элемент, а не N. **Гейты**: `npm run verify` зелёный; все 27 `tools/audit-*.mjs`
+  зелёные; `final-human-product.spec.mjs` H10 (no-overflow) зелёный;
+  `mobile-pwa-continuity.spec.mjs` зелёный отдельно (offline-smoke тест дал один флейк-фейл
+  при прогоне сразу после тяжёлого `final-journeys.spec.mjs` — не воспроизводится в изоляции,
+  не связано с этим пакетом); `final-journeys.spec.mjs` P19 (24 owner journeys) зелёный;
+  `node tools/build-public.mjs` выполнен. Скриншоты до/после (Дом, Сегодня, Чат, Деньги, Граф,
+  моб. навигация) в `docs/qc/screens/U0/`. UX-scorecard (`docs/qc/FINAL_UI_HUMAN_AUDIT.md`)
+  обновлён с датированной заметкой (оценки не изменились — это визуальный, не функциональный
+  пакет).
 - [ ] U1 TODAY_HOME
 - [ ] U2 MONEY_FAST
 - [ ] U4 CHAT_ACTIONS

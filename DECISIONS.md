@@ -1530,3 +1530,55 @@ not something introduced here.
 **This closes every ledger item in `docs/LIFEOS_V1_1_ACCELERATION_PLAN.md` §4**: T1, П-A,
 П-B (architecture complete, real model load blocked by a documented external ONNX Runtime
 issue), П-C, R1, R2, R3, R4 - all ticked with dated, gate-verified entries.
+
+## U0 DESIGN_SYSTEM (2026-07-19) - opens the v1.2 daily-use plan
+
+**Decision - extend the existing token system, don't replace it:** `styles.css` already had
+a real semantic color layer (`--paper`, `--surface`, `--ink`, `--muted`, `--line`, `--color-*`)
+from earlier packages. Rather than introducing a parallel design-token system, U0 added the
+missing scale layers only - `--text-*` (type scale), `--space-*` (4/8 spacing), `--radius-*`,
+`--shadow-sm/lg` - and a dark-mode variant of the existing semantic variables. This keeps one
+token system instead of two competing ones.
+
+**Decision - dark theme wins in both directions:** the dark override is written twice - once
+as `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {...} }` (OS-level
+default) and once as `:root[data-theme="dark"]` (explicit owner choice via the new header
+toggle). This matches the artifact-design skill's theme-awareness convention, applied here to
+the product's own CSS. The toggle button cycles system -> light -> dark -> system and
+persists via `state.theme` (normal `store.commit()`, not a lightweight bypass, since it's a
+discrete click not a per-keystroke update).
+
+**Finding - `renderEditor` and everything nested in it (`renderWorkspaceHero`,
+`renderTodayWorkspace`, `renderChatWorkspace`, `renderInboxReviewWorkspace`,
+`renderReaderWorkspace`, `renderAgentsWorkspace`, `renderOwnerHome`, `renderCommandCenterV5`,
+`renderHumanChatHome`) in app.js is entirely dead code** - `renderEditor` itself is never
+called anywhere. This is the same dead-legacy-render-function pattern this session already
+hit with `renderCalendarPanelLegacy`/`V5` (R2) and `renderDataControlPanelV2` (П-C). Confirmed
+by tracing every caller up from `renderWorkspaceHero`'s usages before touching any of the
+`.workspace-hero`/`font-size: 34px` CSS that (wrongly) looked like the obvious target for
+U0's heading-size fix. The REAL live heading is `.workspace-head h2` (used by every surface
+via `ui/components/WorkspaceLayout.js`'s `renderWorkspaceLayout`) and `.home-hero-copy h1`
+(`ui/home.js`) - those are what U0 actually edited. The dead `.workspace-hero` CSS (3
+duplicate blocks) and `renderEditor`'s ~10 helper functions were left untouched since deleting
+unreachable code was out of U0's scope, but are a legitimate future cleanup target.
+
+**Finding and fix - pre-existing header overflow bug, surfaced (not caused) by U0:**
+`.lifeos-public-header` is a 3-column CSS grid, but `ui/shell.js` renders 5-6 direct-child
+buttons/spans into it (brand, search, Ввод, Контроль, conditional Заметка, save-status - now
+plus the new Тема button). Grid auto-placement silently wraps items past column 3 onto an
+implicit second row, which is taller than the header's fixed `height: 74px`, so the wrapped
+row rendered outside the header and overlapped the page content below it. This existed before
+U0 (Контроль + save-status already overflowed 3 columns) but became clearly visible once a
+4th button was added - visible in `docs/qc/screens/U0/home-before.png`. Fixed by wrapping all
+header action buttons in a single `.header-actions-v2` flex container in `ui/shell.js`, so the
+grid only ever sees 3 real children; added a mobile media-query override so the same
+container wraps safely (not overlapping) at narrow widths where the header is `height: auto`
+and the desktop-only sticky nav offset doesn't apply.
+
+**Gate note - `mobile-pwa-continuity.spec.mjs`'s offline-smoke test flaked once** when run
+immediately after the ~5-minute `final-journeys.spec.mjs` in the same worker (service-worker
+cache state likely still settling from the prior test's reload). Re-ran `mobile-pwa-
+continuity.spec.mjs` alone twice - passed both times. Treated as pre-existing test-ordering
+flakiness, not a U0 regression, consistent with this session's established practice of not
+chasing synthetic-environment flakes that don't reproduce in isolation (see R2/R3 in the
+v1.1 ledger).

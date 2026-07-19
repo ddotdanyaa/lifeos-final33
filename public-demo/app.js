@@ -1013,6 +1013,7 @@ function createInitialState() {
     activeSurface: "inbox",
     searchQuery: "",
     chatSearchQuery: "",
+    theme: "system",
     commandPaletteOpen: false,
     commandPaletteQuery: "",
     savedSearches: {},
@@ -2420,6 +2421,7 @@ function normalizeState(input) {
     activeSurface: base.activeSurface || "inbox",
     searchQuery: base.searchQuery || "",
     chatSearchQuery: base.chatSearchQuery || "",
+    theme: base.theme === "dark" || base.theme === "light" ? base.theme : "system",
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
     commandPaletteQuery: cleanLine(base.commandPaletteQuery || ""),
     savedSearches: base.savedSearches && typeof base.savedSearches === "object" ? base.savedSearches : {},
@@ -8841,6 +8843,13 @@ function scrollChatThreadToLatest() {
   if (thread) thread.scrollTop = thread.scrollHeight;
 }
 
+function applyTheme(state) {
+  const theme = state.theme === "dark" || state.theme === "light" ? state.theme : "";
+  if (document.documentElement.dataset.theme !== theme) {
+    document.documentElement.dataset.theme = theme;
+  }
+}
+
 function render() {
   if (!store) return;
   if (graphEngine) {
@@ -8849,6 +8858,7 @@ function render() {
   }
   const state = store.state;
   const activeNote = getActiveNote(state);
+  applyTheme(state);
   app.innerHTML = renderNewShell(buildNewShellContext(state, activeNote, { saveState: store.saveState }));
   if (state.commandPaletteOpen) {
     const input = document.getElementById("command-palette-query");
@@ -9032,6 +9042,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     chatMessages: visibleChatMessages(state),
     chatSearchQuery: state.chatSearchQuery || "",
     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
+    theme: state.theme === "dark" || state.theme === "light" ? state.theme : "system",
     commandMessage: state.commandMessage || "",
     commandPaletteHtml: renderCommandPalette(state),
     control: state.control || {},
@@ -14277,6 +14288,14 @@ async function handleAction(action, id) {
         actionType: actionInput ? actionInput.value : "task"
       });
       if (!result.ok) state.commandMessage = result.errors.join("; ");
+    });
+    return;
+  }
+  if (action === "toggle-theme") {
+    await store.commit("Тема изменена", (state) => {
+      const order = ["system", "light", "dark"];
+      const next = order[(order.indexOf(state.theme) + 1) % order.length];
+      state.theme = next;
     });
     return;
   }
