@@ -6733,6 +6733,202 @@ audio {
   grid-row: 1 / span 2;
 }
 
+/* Срез 5.5 (v1.4, frontend-design pass): диалог-герой в стиле ChatGPT/Claude - настройки
+   компактной полоской сверху, разговор во всю ширину/высоту, композер прижат к низу. */
+.chat-modern {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.chat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--line-hairline);
+  background: var(--bg-surface-2);
+  font-size: var(--text-xs);
+}
+
+.chat-toolbar-context {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.chat-toolbar-context span {
+  color: var(--text-muted);
+}
+
+.chat-toolbar-context strong {
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.chat-toolbar-search {
+  flex: 1 1 160px;
+  min-width: 120px;
+}
+
+.chat-toolbar-search input {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  padding: 6px 12px;
+  font-size: var(--text-xs);
+  outline: none;
+}
+
+.chat-toolbar-search input:focus {
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: var(--focus-ring);
+}
+
+.chat-toolbar-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chat-mode-chip {
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-weight: 600;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+:root[data-theme="dark"] .chat-mode-chip {
+  color: #93c5fd;
+  background: rgba(96, 165, 250, 0.14);
+}
+
+.chat-model-note,
+.chat-ollama-chip {
+  color: var(--text-muted);
+}
+
+.chat-toolbar-model .ui-btn {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: var(--text-xs);
+  box-shadow: none;
+}
+
+.chat-toolbar-more summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  list-style: none;
+}
+
+.chat-toolbar-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-toolbar-more-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.chat-endpoint-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-endpoint-field span {
+  color: var(--text-muted);
+}
+
+.chat-endpoint-field input {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  padding: 4px 8px;
+  font-size: var(--text-xs);
+  width: 180px;
+}
+
+.chat-modern .chat-thread {
+  height: min(58vh, 620px);
+  overflow-y: auto;
+  display: grid;
+  align-content: end;
+  gap: 14px;
+  padding: 22px max(18px, calc((100% - 900px) / 2));
+  scroll-behavior: smooth;
+  min-height: 260px;
+}
+
+.chat-modern .chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 14px max(18px, calc((100% - 900px) / 2));
+  border-top: 1px solid var(--line-hairline);
+  background: var(--bg-surface);
+  flex-wrap: wrap;
+}
+
+.chat-modern .chat-composer textarea {
+  flex: 1 1 auto;
+  min-height: 46px;
+  max-height: 180px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  color: var(--text-main);
+  padding: 12px 14px;
+  font-size: 15px;
+  resize: none;
+}
+
+.chat-modern .chat-composer textarea:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.4);
+  background: var(--bg-surface);
+  box-shadow: var(--focus-ring);
+}
+
+.chat-dev-hint {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.chat-dev-hint summary {
+  cursor: pointer;
+  list-style: none;
+  opacity: 0.6;
+}
+
+.chat-dev-hint summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-empty-hint {
+  opacity: 0.85;
+}
+
 .chat-thread {
   overflow: auto;
   display: grid;

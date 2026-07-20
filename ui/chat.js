@@ -78,16 +78,35 @@ export function renderChat(ctx) {
   const selectedModel = ctx.ollama?.selectedModel || (ctx.ollama?.models || [])[0] || "";
   const latency = ctx.ollama?.lastLatencyMs ? `${ctx.ollama.lastLatencyMs}ms` : "";
   const endpoint = ctx.ollama?.endpoint || "http://127.0.0.1:11434";
+  // Срез 5.5 (v1.4, frontend-design pass): диалог — герой (широкий, во всю высоту, по
+  // центру как ChatGPT/Claude), а конфиг Ollama — приглушённая компактная полоска сверху,
+  // а не колонка в пол-экрана. Все testid сохранены; probe/test остаются видимыми (их
+  // кликают тесты), редкие поля (эмбеддинги/адрес) — в раскрывающемся, но по умолчанию
+  // открытом блоке, чтобы клики тестов не ломались.
+  const embeddingsLabel = ctx.ollama?.embeddingsStatus === "embeddings_ok"
+    ? "проверены (" + (ctx.ollama.embeddingsModel || "") + ")"
+    : ctx.ollama?.embeddingsStatus === "provider_unavailable" ? "недоступны" : "не проверены";
   const body = [
-    `<div class="chat-thread-layout" data-testid="chat-panel">`,
-    `<aside class="chat-context-card"><span>Контекст ответа</span><strong>${escapeHtml(activeTitle)}</strong><p>Чат отвечает локально по активному артефакту, задачам, предложениям, системам, поиску, истории и графу. Модель включается только после проверки генерации.</p><div class="local-ai-strip"><span>Режим</span><strong data-testid="chat-mode">${escapeHtml(chatMode)}</strong></div><div class="local-ai-strip"><span>Модель</span><strong data-testid="local-model-status" data-raw-status="${escapeHtml(ollamaStatus)}" data-generation-status="${escapeHtml(generationStatus)}">${escapeHtml(localModelStatus)}</strong><em data-testid="chat-fallback-mode">${escapeHtml(selectedModel || latency ? [selectedModel, generationStatus || "generation:not-run", latency].filter(Boolean).join(" · ") : "fallback: Local Rules")}</em></div><div class="local-ai-strip"><span>Ollama</span><strong data-testid="ollama-status" data-raw-status="${escapeHtml(ollamaStatus)}">${escapeHtml(providerLabel(ollamaStatus))}</strong>${button("probe-ollama", "Проверить", { kind: "ghost", testId: "probe-ollama" })}${button("test-ollama-generation", "Тест", { kind: "ghost", testId: "test-ollama-generation" })}</div><div class="local-ai-strip"><span>Эмбеддинги</span><strong data-testid="ollama-embeddings-status" data-raw-status="${escapeHtml(ctx.ollama?.embeddingsStatus || "unchecked")}">${escapeHtml(ctx.ollama?.embeddingsStatus === "embeddings_ok" ? "проверены (" + (ctx.ollama.embeddingsModel || "") + ")" : ctx.ollama?.embeddingsStatus === "provider_unavailable" ? "недоступны" : "не проверены")}</strong>${button("test-ollama-embeddings", "Тест эмбеддингов", { kind: "ghost", testId: "test-ollama-embeddings" })}</div><label class="local-ai-strip"><span>Адрес</span><input id="ollama-endpoint" data-testid="ollama-endpoint" value="${escapeHtml(endpoint)}" autocomplete="off" aria-label="Ollama endpoint"></label></aside>`,
-    `<label class="chat-thread-search-label"><span>Поиск по истории чата</span><input id="chat-thread-search" data-testid="chat-thread-search" value="${escapeHtml(chatSearchQuery)}" autocomplete="off" placeholder="Найти в истории чата…" aria-label="Поиск по истории чата"></label>`,
+    `<div class="chat-modern" data-testid="chat-panel">`,
+    `<div class="chat-toolbar">`,
+    `<div class="chat-toolbar-context"><span>Контекст</span><strong>${escapeHtml(activeTitle)}</strong></div>`,
+    `<label class="chat-toolbar-search"><input id="chat-thread-search" data-testid="chat-thread-search" value="${escapeHtml(chatSearchQuery)}" autocomplete="off" placeholder="Поиск по истории…" aria-label="Поиск по истории чата"></label>`,
+    `<div class="chat-toolbar-model">`,
+    `<span class="chat-mode-chip" data-testid="chat-mode" data-raw-status="${escapeHtml(ollamaStatus)}">${escapeHtml(chatMode)}</span>`,
+    `<span class="chat-model-note" data-testid="local-model-status" data-raw-status="${escapeHtml(ollamaStatus)}" data-generation-status="${escapeHtml(generationStatus)}">${escapeHtml(localModelStatus)}</span>`,
+    `<span class="chat-model-note" data-testid="chat-fallback-mode" hidden>${escapeHtml(selectedModel || latency ? [selectedModel, generationStatus || "generation:not-run", latency].filter(Boolean).join(" · ") : "fallback: Local Rules")}</span>`,
+    `<span class="chat-ollama-chip" data-testid="ollama-status" data-raw-status="${escapeHtml(ollamaStatus)}">Ollama: ${escapeHtml(providerLabel(ollamaStatus))}</span>`,
+    button("probe-ollama", "Проверить", { kind: "ghost", testId: "probe-ollama" }),
+    button("test-ollama-generation", "Тест", { kind: "ghost", testId: "test-ollama-generation" }),
+    `<details class="chat-toolbar-more" open><summary>Ещё</summary><div class="chat-toolbar-more-body"><span class="chat-model-note" data-testid="ollama-embeddings-status" data-raw-status="${escapeHtml(ctx.ollama?.embeddingsStatus || "unchecked")}">Эмбеддинги: ${escapeHtml(embeddingsLabel)}</span>${button("test-ollama-embeddings", "Тест эмбеддингов", { kind: "ghost", testId: "test-ollama-embeddings" })}<label class="chat-endpoint-field"><span>Адрес</span><input id="ollama-endpoint" data-testid="ollama-endpoint" value="${escapeHtml(endpoint)}" autocomplete="off" aria-label="Ollama endpoint"></label></div></details>`,
+    `</div>`,
+    `</div>`,
     `<section class="chat-thread" data-testid="chat-thread">`,
     isSearching && !messages.length
       ? `<div class="empty-inline" data-testid="chat-thread-search-empty">Ничего не найдено по «${escapeHtml(chatSearchQuery.trim())}».</div>`
-      : safeList(messages, (message) => `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : ""}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${escapeHtml(compactText(message.text || message.content || "", 760))}</p>${chatProposalPreview(ctx, message)}</article>`, `<article class="chat-message assistant"><span>LifeOS</span><p>Напиши сообщение: оно станет локальным артефактом, попадёт в историю, поиск, граф, ленту и Data Control.</p></article>`),
+      : safeList(messages, (message) => `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : ""}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${escapeHtml(compactText(message.text || message.content || "", 760))}</p>${chatProposalPreview(ctx, message)}</article>`, `<article class="chat-message assistant chat-empty-hint"><span>LifeOS</span><p>Спроси о своих данных: «сколько я заработал за неделю?», «какая была последняя смена?», «стоит ли завтра работать?»</p></article>`),
     `</section>`,
-    `<footer class="chat-composer" data-testid="chat-composer"><textarea id="chat-input" data-testid="chat-input" rows="2" placeholder="Напиши вопрос, я отвечу по локальному контексту…" aria-label="Сообщение в чат" spellcheck="true"></textarea>${button("send-chat", "Отправить", { kind: "primary", testId: "send-chat" })}<details><summary>Спросить о разработке</summary><p>Команда /dev отвечает из внутреннего состояния разработки.</p></details></footer>`,
+    `<footer class="chat-composer" data-testid="chat-composer"><textarea id="chat-input" data-testid="chat-input" rows="1" placeholder="Спроси о своих данных или запиши мысль…" aria-label="Сообщение в чат" spellcheck="true"></textarea>${button("send-chat", "Отправить", { kind: "primary", testId: "send-chat" })}<details class="chat-dev-hint"><summary>/dev</summary><p>Команда /dev отвечает из внутреннего состояния разработки.</p></details></footer>`,
     `</div>`
   ].join("");
   return renderWorkspaceLayout("chat", "Чат", "Локальный диалог по текущему контексту: отвечает, объясняет, ищет и помогает превратить сообщение в действие.", body, { testId: "workspace-chat", kicker: "Диалог" });
