@@ -1,8 +1,18 @@
 :root {
   /* U0 DESIGN_SYSTEM tokens (2026-07-19): type scale, 4/8 spacing, radii. Extends the
-     existing semantic color palette below rather than replacing it - --color-*/--paper/
-     --surface/etc. were already a real token system, just missing scale/spacing/radius
-     tokens and a dark variant (added lower down via :root[data-theme="dark"]). */
+     existing semantic color palette below rather than replacing it - --color-* and --paper
+     --surface etc. were already a real token system, just missing scale/spacing/radius
+     tokens and a dark variant (added lower down via :root[data-theme="dark"]).
+     BUG FOUND AND FIXED 2026-07-20: this comment used to end one property name with a bare
+     asterisk directly followed by a slash (no space between them) before continuing the
+     sentence - that two-character combination is the real CSS comment-terminator, wherever
+     it appears, even mid-sentence and even inside quotes. It silently ended this comment
+     three lines early, so everything until the next such combination further down was parsed
+     as actual CSS, not a comment - and the parser's error-recovery swallowed the very next
+     declaration (--text-xs) while resyncing. That property never actually applied anywhere
+     in this app, in any theme, since U0. Found while diagnosing why dark mode wasn't visibly
+     changing anything (see the V-REDESIGN block far below, which had the exact same mistake
+     in its own brand-new comment - be careful never to reintroduce it while editing either). */
   --text-xs: 12px;
   --text-sm: 13px;
   --text-base: 15px;
@@ -24,6 +34,15 @@
   --radius-lg: 16px;
   --shadow-sm: 0 4px 12px rgba(18, 25, 38, 0.08);
   --shadow-lg: 0 28px 64px rgba(18, 25, 38, 0.16);
+  /* V-REDESIGN premium primitives (2026-07-20): a snappier easing curve and a proper
+     layered-shadow scale (Linear/Raycast use 2-3 stacked low-opacity shadows for "soft"
+     elevation rather than one big blurry one) - additive, existing tokens above unchanged. */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --radius-xl: 20px;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-float: 0 2px 4px rgba(16, 24, 40, 0.04), 0 12px 24px rgba(16, 24, 40, 0.08);
+  --shadow-modal: 0 8px 16px rgba(16, 24, 40, 0.08), 0 24px 48px rgba(16, 24, 40, 0.14);
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.32);
   color-scheme: light;
   --paper: #eef2f5;
   --surface: #ffffff;
@@ -72,6 +91,10 @@
     --shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
     --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.5);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-float: 0 2px 4px rgba(0, 0, 0, 0.3), 0 12px 24px rgba(0, 0, 0, 0.4);
+    --shadow-modal: 0 8px 16px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.5);
+    --focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.4);
   }
 }
 :root[data-theme="dark"] {
@@ -85,6 +108,10 @@
   --shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-float: 0 2px 4px rgba(0, 0, 0, 0.3), 0 12px 24px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 8px 16px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.4);
 }
 
 /* Public-grade chat-first rescue layer */
@@ -5525,12 +5552,31 @@ audio {
 }
 /* LifeOS public-grade shell v2. The old cockpit styles stay below for legacy/dev
    surfaces, but the visible product is governed by this block. */
+/* V-REDESIGN premium pass (2026-07-20): refined toward a Linear/Raycast-grade neutral
+   palette - cooler near-neutral grays, hairline borders instead of solid gray ones, a
+   dedicated "sunken" surface tier for nested rows (--bg-surface-2) so cards read as one
+   coherent system instead of ad-hoc hex colors scattered per component. FIX: the --bg-,
+   --text- and --line-soft tokens (the ones the entire visible shell actually consumes)
+   previously had NO dark-theme override at all - only the older --paper, --surface, --ink
+   set further up did, which almost nothing here reads. That meant toggling dark mode barely
+   changed anything visible. Fixed via the new :root[data-theme="dark"] block right below,
+   mirroring the existing U0 pattern (explicit choice wins over prefers-color-scheme, both
+   directions). Token names are unchanged so nothing downstream needed touching.
+   CAUTION FOR FUTURE EDITS: never write an asterisk directly followed by a slash inside a
+   CSS comment, with no space between them - that combination closes the comment early,
+   wherever it falls in the sentence. This exact mistake (in the U0 comment above, and
+   briefly repeated right here before this note existed) silently broke --text-xs and this
+   entire token block for two sessions - see the fix note on the :root block at the top of
+   this file. */
 :root {
-  --bg-app: #f5f7fb;
+  --bg-app: #f6f7f9;
   --bg-surface: #ffffff;
-  --text-main: #111827;
-  --text-muted: #667085;
-  --line-soft: #d8dee8;
+  --bg-surface-2: #f3f4f7;
+  --bg-surface-hover: #eef0f3;
+  --text-main: #0d1017;
+  --text-muted: #6b7280;
+  --line-soft: rgba(15, 23, 42, 0.09);
+  --line-hairline: rgba(15, 23, 42, 0.06);
   --accent-capture: #0ea5e9;
   --accent-task: #f59e0b;
   --accent-calendar: #f97316;
@@ -5546,25 +5592,47 @@ audio {
   --accent-control: #be123c;
 }
 
+:root[data-theme="dark"] {
+  --bg-app: #0a0b0e;
+  --bg-surface: #131418;
+  --bg-surface-2: #1a1c21;
+  --bg-surface-hover: #21242b;
+  --text-main: #eef0f4;
+  --text-muted: #8b909c;
+  --line-soft: rgba(255, 255, 255, 0.08);
+  --line-hairline: rgba(255, 255, 255, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-app: #0a0b0e;
+    --bg-surface: #131418;
+    --bg-surface-2: #1a1c21;
+    --bg-surface-hover: #21242b;
+    --text-main: #eef0f4;
+    --text-muted: #8b909c;
+    --line-soft: rgba(255, 255, 255, 0.08);
+    --line-hairline: rgba(255, 255, 255, 0.06);
+  }
+}
+
 .lifeos-shell-v2 {
   min-height: 100vh;
   color: var(--text-main);
-  background:
-    radial-gradient(circle at 20% -10%, rgba(14, 165, 233, 0.16), transparent 30%),
-    linear-gradient(180deg, #f8fbff 0%, var(--bg-app) 44%, #eef3f8 100%);
+  background: var(--bg-app);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
 }
 
 .lifeos-public-header {
-  height: 74px;
+  height: 68px;
   display: grid;
   grid-template-columns: minmax(180px, 280px) minmax(240px, 1fr) auto;
   gap: 18px;
   align-items: center;
   padding: 0 28px;
-  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
-  background: rgba(255, 255, 255, 0.82);
+  border-bottom: 1px solid var(--line-hairline);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
   backdrop-filter: blur(14px);
   position: relative;
   z-index: 2;
@@ -5573,7 +5641,8 @@ audio {
 .lifeos-public-header strong,
 .nav-brand strong {
   display: block;
-  font-size: 20px;
+  font-size: 17px;
+  font-weight: 700;
   line-height: 1.1;
 }
 
@@ -5593,15 +5662,24 @@ audio {
   align-items: center;
   gap: 10px;
   border: 1px solid var(--line-soft);
-  background: #fff;
-  border-radius: 16px;
-  padding: 10px 14px;
+  background: var(--bg-surface-2);
+  border-radius: 12px;
+  padding: 9px 14px;
+  transition: border-color 140ms var(--ease), background 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+
+.global-search-v2:focus-within {
+  border-color: rgba(37, 99, 235, 0.4);
+  background: var(--bg-surface);
+  box-shadow: var(--focus-ring);
 }
 
 .global-search-v2 input {
   border: 0;
   outline: 0;
-  font-size: 15px;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 14px;
   min-width: 0;
 }
 
@@ -5614,12 +5692,13 @@ audio {
 }
 
 .save-status-v2 {
-  border: 1px solid rgba(22, 163, 74, 0.22);
-  color: #166534;
-  background: #ecfdf3;
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  color: #15803d;
+  background: rgba(22, 163, 74, 0.1);
   border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .lifeos-frame-v2 {
@@ -5634,54 +5713,80 @@ audio {
 
 .lifeos-nav-v2 {
   position: sticky;
-  top: 98px;
-  height: calc(100vh - 122px);
+  top: 92px;
+  height: calc(100vh - 116px);
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 14px;
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  padding: 10px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
   overflow: auto;
 }
 
 .lifeos-nav-v2 nav,
 .nav-more div {
   display: grid;
-  gap: 6px;
+  gap: 2px;
 }
 
 .nav-item,
 .ui-btn {
-  min-height: 42px;
-  border: 1px solid rgba(17, 24, 39, 0.1);
-  border-radius: 12px;
-  background: #fff;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-main);
   font: inherit;
   font-size: 14px;
-  padding: 10px 13px;
+  padding: 9px 12px;
   cursor: pointer;
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
+  transition: transform 120ms var(--ease), box-shadow 120ms var(--ease), border-color 120ms var(--ease), background 120ms var(--ease), color 120ms var(--ease);
+}
+
+.ui-btn {
+  border-color: var(--line-soft);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .nav-item {
   text-align: left;
-  font-weight: 650;
+  font-weight: 550;
+  position: relative;
+  color: var(--text-muted);
 }
 
-.nav-item:hover,
+.nav-item:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-main);
+}
+
 .ui-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow-float);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.nav-item:focus-visible,
+.ui-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .nav-item.active {
-  border-color: rgba(37, 99, 235, 0.28);
-  background: #eef4ff;
-  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  font-weight: 650;
+  box-shadow: inset 2.5px 0 0 #2563eb;
+}
+
+:root[data-theme="dark"] .nav-item.active {
+  background: rgba(96, 165, 250, 0.14);
+  color: #93c5fd;
+  box-shadow: inset 2.5px 0 0 #60a5fa;
 }
 
 .mini-summary-card span,
@@ -5728,58 +5833,68 @@ audio {
 
 .ui-btn-primary {
   border-color: transparent;
-  background: #111827;
+  background: #2563eb;
   color: #fff;
-  font-weight: 750;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.16), 0 1px 3px rgba(37, 99, 235, 0.24);
+}
+
+.ui-btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2), 0 8px 16px rgba(37, 99, 235, 0.24);
 }
 
 .ui-btn:disabled,
 .ui-btn[disabled] {
   cursor: not-allowed;
   opacity: 1;
-  border-color: #cbd5e1;
-  background: #f3f6fb;
-  color: #64748b;
+  border-color: var(--line-soft);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
   box-shadow: none;
   transform: none;
 }
 
 .ui-btn-primary:disabled,
 .ui-btn-primary[disabled] {
-  border-color: #cbd5e1;
-  background: #eef2f7;
-  color: #64748b;
+  border-color: var(--line-soft);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  box-shadow: none;
 }
 
 .ui-btn-calm {
-  border-color: rgba(14, 165, 233, 0.28);
-  background: #eaf8ff;
-  color: #075985;
-  font-weight: 700;
+  border-color: rgba(14, 165, 233, 0.24);
+  background: rgba(14, 165, 233, 0.1);
+  color: #0369a1;
+  font-weight: 600;
+}
+
+:root[data-theme="dark"] .ui-btn-calm {
+  color: #7dd3fc;
 }
 
 .ui-btn-ghost {
   background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
-.ui-btn-danger {
-  border-color: rgba(190, 18, 60, 0.24);
-  background: #fff1f2;
-  color: #9f1239;
-}
-
-.ui-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.ui-btn-ghost:hover {
+  background: var(--bg-surface-hover);
+  border-color: transparent;
+  box-shadow: none;
   transform: none;
 }
 
-.ui-btn-primary:disabled,
-.ui-btn-primary[disabled] {
-  opacity: 1;
-  border-color: #cbd5e1;
-  background: #eef2f7;
-  color: #64748b;
+.ui-btn-danger {
+  border-color: rgba(190, 18, 60, 0.2);
+  background: rgba(190, 18, 60, 0.08);
+  color: #be123c;
+}
+
+:root[data-theme="dark"] .ui-btn-danger {
+  color: #fb7185;
 }
 
 .lifeos-main-v2 {
@@ -5833,9 +5948,9 @@ audio {
 .workspace-v2,
 .primary-action-card {
   background: var(--bg-surface);
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  border-radius: 22px;
-  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .assistant-composer {
@@ -5846,21 +5961,30 @@ audio {
 }
 
 .assistant-composer label {
-  font-size: 26px;
-  font-weight: 800;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 .assistant-composer textarea {
   min-height: 178px;
   width: 100%;
   border: 1px solid var(--line-soft);
-  border-radius: 18px;
-  padding: 18px;
+  border-radius: var(--radius-md);
+  padding: 16px;
   resize: vertical;
-  font-size: 18px;
-  line-height: 1.45;
-  outline-color: var(--accent-capture);
-  background: #fbfdff;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-main);
+  background: var(--bg-surface-2);
+  transition: border-color 140ms var(--ease), background 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+
+.assistant-composer textarea:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.4);
+  background: var(--bg-surface);
+  box-shadow: var(--focus-ring);
 }
 
 .assistant-quick-actions,
@@ -5901,8 +6025,8 @@ audio {
   display: grid;
   gap: 10px;
   padding: 16px;
-  border-radius: 16px;
-  background: #f8fafc;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
 }
 
 .human-main-action .ui-btn {
@@ -5925,14 +6049,20 @@ audio {
 }
 
 .mini-summary-card {
-  border: 0;
-  border-radius: 16px;
-  background: #f8fafc;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
   display: grid;
   gap: 5px;
   text-align: left;
   padding: 14px;
   cursor: pointer;
+  transition: transform 120ms var(--ease), background 120ms var(--ease), border-color 120ms var(--ease);
+}
+
+.mini-summary-card:hover {
+  transform: translateY(-1px);
+  background: var(--bg-surface-hover);
 }
 
 .mini-summary-card strong {
@@ -5941,11 +6071,11 @@ audio {
 }
 
 .mini-summary-card.money {
-  background: #ecfdf3;
+  background: rgba(22, 163, 74, 0.08);
 }
 
 .mini-summary-card.habits {
-  background: #f5f3ff;
+  background: rgba(124, 58, 237, 0.08);
 }
 
 .human-toast {
@@ -5996,14 +6126,16 @@ audio {
   gap: var(--space-4);
   align-items: flex-start;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  border-bottom: 1px solid var(--line-hairline);
   padding-bottom: var(--space-3);
 }
 
 .workspace-head h2 {
   margin: var(--space-1) 0;
   font-size: var(--text-2xl);
+  font-weight: 700;
   line-height: var(--line-height-tight);
+  color: var(--text-main);
 }
 
 .workspace-head p {
@@ -6033,9 +6165,9 @@ audio {
 .agent-command,
 .flow-stage,
 .agent-history {
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  border-radius: 18px;
-  background: #fbfdff;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
   padding: 16px;
 }
 
@@ -6052,14 +6184,27 @@ audio {
   gap: 12px;
   align-items: center;
   padding: 12px;
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  border-radius: 14px;
-  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
   margin-bottom: 8px;
+  transition: border-color 120ms var(--ease), box-shadow 120ms var(--ease);
+}
+
+.today-task-row:hover,
+.habit-card:hover,
+.goal-card:hover,
+.money-row:hover,
+.budget-row:hover,
+.subscription-row:hover,
+.control-event:hover,
+.run-row:hover {
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: var(--shadow-card);
 }
 
 .today-task-row.is-done {
-  opacity: 0.62;
+  opacity: 0.6;
 }
 
 .round-check,
@@ -6068,16 +6213,21 @@ audio {
   height: 30px;
   border-radius: 999px;
   border: 2px solid var(--accent-task);
-  background: #fff8ed;
+  background: rgba(245, 158, 11, 0.12);
   color: #92400e;
+}
+
+:root[data-theme="dark"] .round-check,
+:root[data-theme="dark"] .habit-check span {
+  color: #fcd34d;
 }
 
 .weak-day-box,
 .overdue-note,
 .empty-state,
 .empty-inline {
-  border-radius: 14px;
-  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
   color: var(--text-muted);
   padding: 12px;
   display: grid;
@@ -6095,7 +6245,7 @@ audio {
   border: 1px solid var(--line-soft);
   border-radius: 999px;
   padding: 4px;
-  background: #fff;
+  background: var(--bg-surface);
 }
 
 .calendar-tabs button {
@@ -6122,8 +6272,8 @@ audio {
   gap: 10px;
   align-items: center;
   border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: 16px;
-  background: #fff7ed;
+  border-radius: var(--radius-md);
+  background: rgba(245, 158, 11, 0.1);
   color: #7c2d12;
   padding: 12px 14px;
 }
@@ -6144,24 +6294,34 @@ audio {
   font-style: normal;
 }
 
+:root[data-theme="dark"] .calendar-load-state,
+:root[data-theme="dark"] .calendar-load-state strong {
+  color: #fcd34d;
+}
+
+:root[data-theme="dark"] .calendar-load-state span,
+:root[data-theme="dark"] .calendar-load-state em {
+  color: #fbbf24;
+}
+
 .hourly-time-grid {
   border: 1px solid var(--line-soft);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  background: #fff;
+  background: var(--bg-surface);
 }
 
 .planning-hour {
   display: grid;
   grid-template-columns: 72px 1fr;
   min-height: 62px;
-  border-bottom: 1px solid rgba(17, 24, 39, 0.07);
+  border-bottom: 1px solid var(--line-hairline);
 }
 
 .planning-hour time {
   padding: 12px;
   color: var(--text-muted);
-  background: #fff7ed;
+  background: var(--bg-surface-2);
 }
 
 .planning-hour-items {
@@ -6173,8 +6333,9 @@ audio {
 .calendar-agenda-strip button {
   width: 100%;
   border: 1px solid rgba(249, 115, 22, 0.22);
-  border-radius: 12px;
-  background: #fff7ed;
+  border-radius: var(--radius-sm);
+  background: rgba(249, 115, 22, 0.08);
+  color: var(--text-main);
   text-align: left;
   padding: 10px;
   margin-bottom: 6px;
@@ -6182,9 +6343,9 @@ audio {
 
 .unscheduled-bucket {
   border: 1px dashed rgba(249, 115, 22, 0.34);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   padding: 14px;
-  background: #fffaf5;
+  background: rgba(249, 115, 22, 0.04);
 }
 
 .calendar-agenda-strip {
@@ -6202,9 +6363,16 @@ audio {
   display: grid;
   gap: 8px;
   padding: 22px;
-  border-radius: 22px;
-  color: #052e16;
-  background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+  border-radius: var(--radius-lg);
+  color: #14532d;
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.14), rgba(22, 163, 74, 0.06));
+  border: 1px solid rgba(22, 163, 74, 0.16);
+}
+
+:root[data-theme="dark"] .money-hero {
+  color: #86efac;
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.2), rgba(22, 163, 74, 0.08));
+  border-color: rgba(74, 222, 128, 0.22);
 }
 
 .money-hero strong {
@@ -6220,9 +6388,9 @@ audio {
 }
 
 .finance-weekly {
-  border: 1px solid rgba(17, 24, 39, 0.08);
+  border: 1px solid var(--line-hairline);
   border-radius: var(--radius-md);
-  background: #fbfdff;
+  background: var(--bg-surface-2);
   padding: var(--space-4);
   margin-top: var(--space-4);
 }
@@ -6245,9 +6413,9 @@ audio {
 }
 
 .money-metrics div {
-  border: 1px solid rgba(22, 163, 74, 0.16);
-  border-radius: 16px;
-  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
   padding: 14px;
 }
 
@@ -6342,7 +6510,8 @@ audio {
   inset: 50% auto auto 50%;
   transform: rotate(calc(var(--i) * 60deg)) translate(calc(var(--score) * 1.1px)) rotate(calc(var(--i) * -60deg));
   font-size: 12px;
-  background: #fff;
+  background: var(--bg-surface);
+  color: var(--text-main);
   border: 1px solid rgba(124, 58, 237, 0.14);
   border-radius: 999px;
   padding: 5px 8px;
@@ -6365,9 +6534,10 @@ audio {
 .chat-thread,
 .chat-composer,
 .providers-layout .provider-setup-card {
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  border-radius: 18px;
-  background: #fbfdff;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-main);
   padding: 16px;
 }
 
@@ -6383,8 +6553,9 @@ audio {
 .reader-list button,
 .audio-list button {
   border: 1px solid rgba(79, 70, 229, 0.14);
-  border-radius: 14px;
-  background: #fff;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
   padding: 12px;
   text-align: left;
 }
@@ -6408,12 +6579,35 @@ audio {
   min-height: 640px;
   font: 18px/1.68 Georgia, "Times New Roman", serif;
   background: #fffaf0;
+  color: #292118;
+}
+
+/* Deliberately kept a warm "paper" tone rather than switching to the neutral --bg-surface-2
+   dark tone - a dark, warm sepia (not neutral gray) is the conventional "reading mode" look
+   e-readers use, and stays legible/comfortable for long reading sessions either way. */
+:root[data-theme="dark"] .reading-page {
+  background: #211c14;
+  color: #e8dfd0;
 }
 
 .reading-page header {
   border-bottom: 1px solid rgba(183, 121, 31, 0.18);
   margin-bottom: 18px;
   padding-bottom: 12px;
+}
+
+.reader-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.reader-nav span {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
 }
 
 .player-surface {
@@ -6465,9 +6659,10 @@ audio {
 .chat-message {
   width: min(860px, 88%);
   max-width: none;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   padding: 14px 16px;
-  background: #eef4ff;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--text-main);
   font-size: 15px;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -6476,8 +6671,12 @@ audio {
 .chat-message.owner {
   justify-self: end;
   width: min(620px, 76%);
-  background: #111827;
+  background: #17223e;
   color: #fff;
+}
+
+:root[data-theme="dark"] .chat-message {
+  background: rgba(96, 165, 250, 0.1);
 }
 
 .chat-message span {
@@ -6505,16 +6704,21 @@ audio {
   gap: var(--space-1);
   margin-top: var(--space-3);
   padding: var(--space-3);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius-sm);
-  background: #fff;
-  color: var(--ink);
+  background: var(--bg-surface);
+  color: var(--text-main);
 }
 
 .chat-proposal-preview.applied {
   padding: var(--space-2) var(--space-3);
-  color: #166534;
-  background: #ecfdf3;
+  color: #15803d;
+  background: rgba(22, 163, 74, 0.1);
   font-size: var(--text-sm);
+}
+
+:root[data-theme="dark"] .chat-proposal-preview.applied {
+  color: #86efac;
 }
 
 .chat-proposal-type {
@@ -6550,8 +6754,9 @@ audio {
 .agent-risk {
   display: grid;
   gap: 4px;
-  border-radius: 14px;
-  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-main);
   padding: 12px;
 }
 
@@ -6805,9 +7010,9 @@ audio {
   gap: 10px;
   align-items: end;
   padding: 10px;
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
 }
 
 .v34-form label {
@@ -6823,10 +7028,10 @@ audio {
 .v34-form select {
   width: 100%;
   min-height: 40px;
-  border: 1px solid rgba(17, 24, 39, 0.14);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--text);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
   padding: 8px 10px;
   font: inherit;
 }
@@ -6944,9 +7149,9 @@ audio {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
   gap: 8px 12px;
-  border: 1px solid rgba(17, 24, 39, 0.08);
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
   padding: 12px;
 }
 
@@ -6994,10 +7199,10 @@ audio {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
     padding: 8px;
-    border: 1px solid rgba(17, 24, 39, 0.1);
+    border: 1px solid var(--line-hairline);
     border-radius: 20px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.2);
+    background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+    box-shadow: var(--shadow-float);
   }
 
   .mobile-bottom-nav .nav-item {
@@ -7018,11 +7223,11 @@ audio {
   .mobile-more-nav summary {
     min-height: 40px;
     list-style: none;
-    border: 1px solid rgba(17, 24, 39, 0.12);
+    border: 1px solid var(--line-soft);
     border-radius: 999px;
-    background: #ffffff;
-    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
-    color: #0f172a;
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-float);
+    color: var(--text-main);
     cursor: pointer;
     font-weight: 800;
     padding: 10px 14px;

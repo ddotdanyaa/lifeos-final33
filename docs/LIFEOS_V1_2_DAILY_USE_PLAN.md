@@ -295,5 +295,27 @@ planBlocks), никаких новых источников правды.
   characteristic with this session's own pre-existing Whisper real-model test, not new);
   `node tools/build-public.mjs` run. Screenshots in `docs/qc/screens/U3/` (Дом/Плеер
   до/после). DECISIONS.md/BLOCKED.md carry the full technical trail.
-- [ ] U5 READER
+- [x] U5 READER (2026-07-20) — real page-by-page (PDF, via already-used `pdfjs-dist`) and
+  chapter-by-chapter (EPUB, via the existing hand-rolled `fflate` spine parser extended to
+  keep per-chapter text instead of only a joined blob — see DECISIONS.md for why epubjs was
+  not adopted for this) navigation with persisted position. `readingItems` gained
+  `unitIndex`/`unitTotal` (page/chapter position + total, generic across both formats);
+  `sources` gained `pageTexts`/`chapterTexts` (per-unit text) and `positionSeconds` (audio) —
+  no new collection, per the plan. A bookmark is a `highlight` that remembers the `unitIndex`
+  it was captured at ("Добавить цитату" already existed; new "Перейти" button — `go-to-highlight`
+  action — navigates back to it). Audio position persists on `pause` (not continuously — a full
+  re-render destroys/recreates the `<audio>` element on every `store.commit`, so saving on every
+  `timeupdate` tick would reset playback constantly; see DECISIONS.md), restored on mount via a
+  new `mountAudioPlayer()` (same lazy-mount pattern as `mountFinanceChart`). Audio checkpoints
+  (bookmarks) gained a rendered list with a "Перейти" seek button — previously create-only, with
+  no way to get back to a bookmarked moment. **Гейт**: new
+  `output/playwright/reader-position-bookmarks.spec.mjs` (3 tests, real fixtures — a 3-page PDF
+  and 3-chapter EPUB generated the same way `test-fixture.pdf`/`.epub` already are, plus the
+  real `hello-lifeos.wav` from U3) — PDF/EPUB position survives leaving and returning to the
+  Reader surface, a bookmark navigates back; audio position survives the same for Player,
+  checkpoint bookmark seeks back — all passed first run, no mocks. `pdf-epub-local.spec.mjs`
+  (P6.1) + full `final-human-product.spec.mjs` (H01-H10) + `human-public` + `owner-rescue`
+  re-run green (no regression from the `parsePdfSource`/`parseEpubSource`/`addHighlight`
+  signature changes). `node tools/build-public.mjs` run. Screenshots in `docs/qc/screens/U5/`
+  (Чтение/Плеер до/после). DECISIONS.md carries the full technical trail.
 - [ ] U6 EVENING_SUMMARY

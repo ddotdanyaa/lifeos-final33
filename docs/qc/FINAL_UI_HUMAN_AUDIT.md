@@ -24,6 +24,16 @@ hidden, matching CLAUDE.md §7. Scores unchanged (Player was already 9s) - see
 `docs/qc/screens/U3/player-before.png` vs `player-after.png` (before = the original single
 Whisper gate; after = all three engines' honest status side by side).
 
+Updated: 2026-07-20 after `U5 READER` (v1.2 plan) — Reader gained real page-by-page (PDF) and
+chapter-by-chapter (EPUB) navigation with position that survives leaving and returning to the
+surface (page/chapter index persisted on the existing `readingItems` object, no new
+collection), plus a "Перейти" bookmark button that jumps back to a highlight's saved position.
+Player's audio checkpoints (previously create-only, per `PlayerSurface.js`) now render as a
+list with their own "Перейти" seek button, and playback position now survives a re-render
+(saved on `pause`, restored on mount - see DECISIONS.md for why not continuously). Proven by
+new `output/playwright/reader-position-bookmarks.spec.mjs`, no mocks. Scores unchanged (Reader
+and Player were already 9s) — see `docs/qc/screens/U5/*-before.png` vs `*-after.png`.
+
 Scores are deliberately strict. A score below 9 is a local product gate unless the remaining limitation is an external/provider setup with an honest UI gate and local fallback.
 
 | Workspace | Clarity | Visual hierarchy | First action speed | Object connection | Reload state | Mobile | Language | Provider honesty | Data Control | Status |

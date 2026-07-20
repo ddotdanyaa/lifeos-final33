@@ -2703,6 +2703,11 @@ function normalizeState(input) {
     source.status = cleanLine(source.status || "stored");
     source.parserStatus = cleanLine(source.parserStatus || source.status || "stored");
     source.analysis = normalizeArtifactAnalysis(source.analysis, source);
+    // U5 READER: per-page/per-chapter text kept alongside the flat `text` blob so the
+    // reader can render one unit at a time instead of always showing the whole book.
+    source.pageTexts = Array.isArray(source.pageTexts) ? source.pageTexts.map((page) => String(page || "")) : [];
+    source.chapterTexts = Array.isArray(source.chapterTexts) ? source.chapterTexts.map((chapter) => String(chapter || "")) : [];
+    source.positionSeconds = Number.isFinite(Number(source.positionSeconds)) ? Math.max(0, Number(source.positionSeconds)) : 0;
     source.deleted = Boolean(source.deleted);
     source.createdAt = source.createdAt || now();
     source.updatedAt = source.updatedAt || source.createdAt;
@@ -2865,6 +2870,10 @@ function normalizeState(input) {
     readingItem.kind = cleanLine(readingItem.kind || "book");
     readingItem.status = ["queued", "reading", "done", "gated"].includes(readingItem.status) ? readingItem.status : "queued";
     readingItem.progress = Number.isFinite(Number(readingItem.progress)) ? Math.max(0, Math.min(100, Number(readingItem.progress))) : 0;
+    // U5 READER: unitIndex is the currently-open page (PDF) or chapter (EPUB); unitTotal
+    // is set once text is extracted. progress% is derived from these, not a separate truth.
+    readingItem.unitIndex = Number.isFinite(Number(readingItem.unitIndex)) ? Math.max(0, Math.floor(Number(readingItem.unitIndex))) : 0;
+    readingItem.unitTotal = Number.isFinite(Number(readingItem.unitTotal)) ? Math.max(0, Math.floor(Number(readingItem.unitTotal))) : 0;
     readingItem.parserStatus = cleanLine(readingItem.parserStatus || "");
     readingItem.deleted = Boolean(readingItem.deleted);
     readingItem.createdAt = readingItem.createdAt || now();
@@ -2876,6 +2885,8 @@ function normalizeState(input) {
     highlight.sourceId = state.sources[highlight.sourceId] && !state.sources[highlight.sourceId].deleted ? highlight.sourceId : "";
     highlight.noteId = state.notes[highlight.noteId] && !state.notes[highlight.noteId].deleted ? highlight.noteId : "";
     highlight.readingItemId = state.readingItems[highlight.readingItemId] && !state.readingItems[highlight.readingItemId].deleted ? highlight.readingItemId : "";
+    // U5 READER: the page/chapter a highlight was captured at, so "navigate to" can jump back.
+    highlight.unitIndex = Number.isFinite(Number(highlight.unitIndex)) ? Math.max(0, Math.floor(Number(highlight.unitIndex))) : 0;
     highlight.status = highlight.status === "archived" ? "archived" : "open";
     highlight.deleted = Boolean(highlight.deleted);
     highlight.createdAt = highlight.createdAt || now();
@@ -3752,11 +3763,13 @@ async function parsePdfSource(dataUrl) {
   for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
     const page = await doc.getPage(pageNumber);
     const content = await page.getTextContent();
-    pageTexts.push(content.items.map((item) => item.str).join(" "));
+    pageTexts.push(cleanLine(content.items.map((item) => item.str).join(" ")));
   }
   const text = cleanLine(pageTexts.join("\n\n"));
   if (!text) throw new Error("PDF parsed but contained no extractable text (likely scanned images).");
-  return { text, pagesRead: maxPages, totalPages: doc.numPages };
+  // U5 READER: pageTexts is kept per-page (not just joined) so the reader can show and
+  // navigate one page at a time; position = page number, honestly capped at pages actually read.
+  return { text, pageTexts, pagesRead: maxPages, totalPages: doc.numPages };
 }
 
 function stripHtmlToText(html) {
@@ -3809,7 +3822,10 @@ async function parseEpubSource(dataUrl) {
   }
   const text = cleanLine(chapterTexts.join("\n\n"));
   if (!text) throw new Error("EPUB parsed but no chapter text could be extracted.");
-  return { text, chapters: orderedPaths.length };
+  // U5 READER: chapterTexts kept per-chapter (spine order) so the reader can navigate
+  // chapter by chapter; position = chapter index (percent-of-book is the honest fallback for
+  // "CFI or percent" from a hand-rolled parser with no true CFI addressing - see DECISIONS.md).
+  return { text, chapterTexts, chapterCount: orderedPaths.length };
 }
 
 function inferSourceKind(name, mime, forcedKind) {
@@ -4708,6 +4724,9 @@ function addImportedSource(state, payload) {
     parserStatus: cleanLine(payload.parserStatus || payload.status || "stored"),
     checksum: cleanLine(payload.checksum || ""),
     analysis: {},
+    pageTexts: [],
+    chapterTexts: [],
+    positionSeconds: 0,
     deleted: false,
     createdAt,
     updatedAt: createdAt
@@ -4997,7 +5016,10 @@ function createChatMessageProposal(state, messageId, text) {
     quote: chosen.quote || text,
     confidence: chosen.confidence,
     group: chosen.group,
-    fields: Object.assign({}, chosen.fields, { chatMessageId: message.id, source: "local-chat" })
+    // mutationMode marks every proposal this app creates as gated behind explicit apply,
+    // never auto-applied (CLAUDE.md §7) - the other 3 addProposal call sites already set
+    // this; chat proposals were missing it (found via a full-suite run, see DECISIONS.md).
+    fields: Object.assign({}, chosen.fields, { chatMessageId: message.id, source: "local-chat", mutationMode: "proposal-only" })
   });
   message.proposalId = proposalId;
   return proposalId;
@@ -5779,6 +5801,9 @@ function addHighlight(state, title, text, options) {
   const noteId = opts.noteId && state.notes[opts.noteId] && !state.notes[opts.noteId].deleted ? opts.noteId : sourceId && state.sources[sourceId] ? state.sources[sourceId].noteId : state.activeNoteId || "";
   const id = makeId("highlight");
   const createdAt = now();
+  // U5 READER: a bookmark is just a highlight that remembers the page/chapter it was made
+  // at, so "navigate to bookmark" reuses ensureReadingItemForSource + setReadingUnitIndex.
+  const readingItem = readingItemId ? state.readingItems[readingItemId] : null;
   state.highlights[id] = {
     id,
     title: cleanLine(title || shorten(cleanText, 72)),
@@ -5786,6 +5811,7 @@ function addHighlight(state, title, text, options) {
     sourceId,
     noteId,
     readingItemId,
+    unitIndex: Number.isFinite(Number(opts.unitIndex)) ? Math.max(0, Math.floor(Number(opts.unitIndex))) : readingItem ? readingItem.unitIndex || 0 : 0,
     status: "open",
     deleted: false,
     createdAt,
@@ -5862,6 +5888,19 @@ function updateReadingProgress(state, readingItemId, progress) {
   item.status = item.progress >= 100 ? "done" : item.progress > 0 ? "reading" : item.status;
   item.updatedAt = now();
   addAudit(state, "reading.progress", "Reading progress " + item.progress + "%: " + item.title, item.noteId);
+}
+
+// U5 READER: real page/chapter navigation. unitIndex is clamped to [0, unitTotal-1]; progress%
+// is derived from it so the existing progress bar/status stay truthful without a second source.
+function setReadingUnitIndex(state, readingItemId, unitIndex) {
+  const item = state.readingItems[readingItemId];
+  if (!item || item.deleted || !item.unitTotal) return;
+  const clamped = Math.max(0, Math.min(item.unitTotal - 1, Math.floor(Number(unitIndex) || 0)));
+  item.unitIndex = clamped;
+  item.progress = Math.round(((clamped + 1) / item.unitTotal) * 100);
+  item.status = item.progress >= 100 ? "done" : item.progress > 0 ? "reading" : item.status;
+  item.updatedAt = now();
+  addAudit(state, "reading.position", "Позиция чтения " + (clamped + 1) + "/" + item.unitTotal + ": " + item.title, item.noteId);
 }
 
 function turnHighlightIntoClaim(state, highlightId) {
@@ -6413,6 +6452,14 @@ function audioCheckpointsForSource(state, sourceId) {
   return Object.values(state.audioCheckpoints || {})
     .filter((checkpoint) => !checkpoint.deleted && checkpoint.sourceId === sourceId)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+// U5 READER: checkpoints are typed free-form ("00:30", "1:23:45", or bare seconds); this is
+// the one place that turns that text back into a seekable number.
+function parseTimecodeToSeconds(timecode) {
+  const parts = String(timecode || "").trim().split(":").map((part) => Number(part));
+  if (!parts.length || parts.some((part) => !Number.isFinite(part))) return NaN;
+  return parts.reduce((total, part) => total * 60 + part, 0);
 }
 
 function playerNotesForSource(state, sourceId) {
@@ -9336,6 +9383,7 @@ function render() {
   mountGraph();
   mountCalendarDragDrop();
   mountFinanceChart();
+  mountAudioPlayer();
   scrollChatThreadToLatest();
   updateSaveStatus();
 }
@@ -9502,6 +9550,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     activeNote: publicActiveNote,
     answer: buildHumanCaptureAnswer(state),
     auditLog: state.auditLog || [],
+    audioCheckpoints: Object.values(state.audioCheckpoints || {}).filter((item) => !item.deleted),
     audioSources: sources.filter((source) => source.kind === "audio"),
     bookSources: sources.filter(isBookSource),
     budgets: Object.values(state.budgets || {}).filter((item) => !item.deleted),
@@ -14449,6 +14498,31 @@ async function mountCalendarDragDrop() {
   }
 }
 
+// U5 READER: a full re-render destroys and recreates the <audio> element (see render()),
+// so continuous position saving would fight the render cycle every tick. `pause` is the one
+// moment that's both a real user action and rare enough not to cause an audible reset while
+// playing - see DECISIONS.md for why this, and not timeupdate, is the save trigger.
+function mountAudioPlayer() {
+  const player = document.querySelector('[data-testid="audio-player"]');
+  if (!player || !store) return;
+  const sourceId = player.dataset.sourceId || "";
+  const source = sourceId ? store.state.sources[sourceId] : null;
+  if (!source) return;
+  const restore = () => {
+    if (source.positionSeconds > 0 && source.positionSeconds < (player.duration || Infinity)) {
+      player.currentTime = source.positionSeconds;
+    }
+  };
+  if (player.readyState >= 1) restore();
+  else player.addEventListener("loadedmetadata", restore, { once: true });
+  player.addEventListener("pause", () => {
+    store.commit("Audio position saved", (state) => {
+      const current = state.sources[sourceId];
+      if (current) current.positionSeconds = player.currentTime || 0;
+    });
+  });
+}
+
 let financeChartInstance = null;
 
 // U2 MONEY_FAST: real weekly chart via chart.js (already approved/installed, first actual
@@ -15490,6 +15564,16 @@ async function handleAction(action, id) {
     });
     return;
   }
+  // U5 READER: a bookmark you can navigate to. Seeking the <audio> element is a pure DOM
+  // action (no state change, so no commit/re-render, which would tear the player down mid-seek).
+  if (action === "seek-audio-checkpoint") {
+    const checkpoint = store.state.audioCheckpoints[id];
+    if (!checkpoint) return;
+    const seconds = parseTimecodeToSeconds(checkpoint.timecode);
+    const player = document.querySelector('[data-testid="audio-player"]');
+    if (player && Number.isFinite(seconds)) player.currentTime = seconds;
+    return;
+  }
   if (action === "request-stt-gate") {
     await store.commit("STT gate requested", (state) => requestSttGate(state, id));
     return;
@@ -15920,11 +16004,38 @@ async function handleAction(action, id) {
         current.parserStatus = "text-ready";
         current.status = "text-ready";
         current.parserError = "";
+        // U5 READER: pageTexts/chapterTexts feed real per-unit navigation; unitTotal is the
+        // count of units actually navigable (both parsers honestly cap what they read - see
+        // parsePdfSource/parseEpubSource), not the raw doc/spine count, so navigation never
+        // lands on a page/chapter with no text behind it.
+        current.pageTexts = ext === "pdf" ? result.pageTexts : [];
+        current.chapterTexts = ext === "epub" ? result.chapterTexts : [];
+        const readingItemId = ensureReadingItemForSource(state, id);
+        const readingItem = state.readingItems[readingItemId];
+        if (readingItem) {
+          readingItem.unitTotal = ext === "pdf" ? result.pageTexts.length : result.chapterTexts.length;
+          readingItem.unitIndex = 0;
+        }
         addAudit(state, "source.update", "Текст извлечён из " + current.name + " (" + ext.toUpperCase() + ")", current.noteId);
       } else {
         current.parserError = failure;
         addAudit(state, "source.extract.failed", "Не удалось извлечь текст из " + current.name + ": " + failure, current.noteId);
       }
+    });
+    return;
+  }
+  if (action === "reader-prev-unit" || action === "reader-next-unit") {
+    const direction = action === "reader-prev-unit" ? -1 : 1;
+    await store.commit("Reading position changed", (state) => {
+      const item = state.readingItems[id];
+      if (item) setReadingUnitIndex(state, id, (item.unitIndex || 0) + direction);
+    });
+    return;
+  }
+  if (action === "go-to-highlight") {
+    await store.commit("Navigated to bookmark", (state) => {
+      const highlight = state.highlights[id];
+      if (highlight && highlight.readingItemId) setReadingUnitIndex(state, highlight.readingItemId, highlight.unitIndex || 0);
     });
     return;
   }
@@ -15937,10 +16048,12 @@ async function handleAction(action, id) {
     const text = input ? input.value : "";
     await store.commit("Highlight added", (state) => {
       const source = state.sources[id];
+      const readingItemId = ensureReadingItemForSource(state, id);
       addHighlight(state, text, text, {
         sourceId: id,
         noteId: source ? source.noteId : state.activeNoteId,
-        readingItemId: ensureReadingItemForSource(state, id)
+        readingItemId,
+        unitIndex: state.readingItems[readingItemId] ? state.readingItems[readingItemId].unitIndex || 0 : 0
       });
     });
     return;

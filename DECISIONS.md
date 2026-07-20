@@ -1782,3 +1782,202 @@ permission boundary this sandbox can't cross - confirmed via both `taskkill` and
 what `voice-loop-vosk.spec.mjs` targets specifically; every other spec still uses 4173 as
 normal, since static file edits (app.js, ui/*.js) are served fresh on every request regardless
 of which server instance is running - only the new proxy *route* needed a restart to appear.
+
+## U5 READER (2026-07-20)
+
+**Decision (§1 disagreement, resolved per the plan's own instruction) - extended the
+existing hand-rolled EPUB parser instead of adopting epubjs:** the owner said "foliate-js" in
+conversation, but `epubjs` (BSD-2) is the already-approved, already-installed engine for this
+exact job (see `lifeos-approved-engines` memory) - so foliate-js was never actually in play,
+the real choice was epubjs vs. the hand-rolled parser this codebase already has. Checked: is
+`epubjs` used anywhere at runtime? No - `parseEpubSource` (P6.1, `app.js`) already unzips the
+EPUB with `fflate` and parses the OPF manifest/spine with regex, entirely independent of the
+`epubjs` package that sits in `package.json` unused (the same "approved but never actually
+imported" pattern already found once this session for `minisearch`). Adopting epubjs now would
+mean running two EPUB-parsing code paths side by side (the existing one still needed for the
+"paste literal text" gate and for search indexing of `source.text`) for a feature epubjs is not
+strictly required for: chapter-by-chapter navigation only needs the spine-ordered list of
+chapter HTML files the hand-rolled parser already extracts (previously joined into one text
+blob and discarded per-chapter boundaries; now kept as `chapterTexts`, an array). Extending the
+already-working, already-tested parser to keep per-chapter text is a smaller, more honest diff
+than introducing epubjs's Rendition/iframe rendering model for a feature it doesn't add
+capability for here. If page-precise CFI addressing or in-book text search-and-highlight ever
+becomes a requirement, that's the point to revisit epubjs specifically for its CFI/Rendition
+machinery - noted here rather than silently deferred.
+
+**Decision - EPUB position is chapter index, not CFI:** the plan explicitly allows "CFI (или
+процент)" as alternatives. This parser has no CFI concept (CFI addresses a location *inside* a
+chapter's DOM, e.g. `epubcfi(/6/4[chap01]!/4/2/1:0)`, which requires the actual per-chapter DOM
+tree epubjs's Rendition builds - the hand-rolled parser only produces flat chapter text). Chapter
+index is the honest granularity available; `progress%` (already existing, still the field the
+reading-progress-mini UI shows) is derived from `(chapterIndex+1)/chapterCount` so the two
+numbers never disagree. PDF position is page number for the same reason and because pdfjs
+already gives page-by-page text for free (P6.1) - no CFI-equivalent problem there.
+
+**Decision - reused `readingItems`/`highlights`, added no new collection:** `readingItems`
+gained `unitIndex`/`unitTotal` (the currently-open page/chapter and the total, generic across
+PDF and EPUB since both are "an array of per-unit text plus an index into it"); `sources`
+gained `pageTexts`/`chapterTexts` (the per-unit text itself) and `positionSeconds` (audio).
+A "bookmark" is just a `highlight` that remembers the `unitIndex` it was captured at - the
+existing "Добавить цитату" button already creates a highlight tied to the book's reading item,
+so bookmark-create needed no new UI, only a stored position; bookmark-navigate is a new
+"Перейти" button (`go-to-highlight` action) that calls the same `setReadingUnitIndex` the
+prev/next page buttons use. This matches the plan's explicit "не отдельная коллекция"
+instruction and the normalizeState-gotcha memory (every new field added to both
+`createInitialState`-adjacent creation sites - `addImportedSource` - and `normalizeState`'s
+per-object defaulting loop).
+
+**Decision - audio position saves on `pause`, not continuously on `timeupdate`:** this
+app's `render()` replaces the entire shell's `innerHTML` on every `store.commit()` (confirmed
+by reading `render()`/`Store.commit()`/`store.subscribe(render)` directly) - so the `<audio>`
+DOM element is destroyed and recreated on every single state commit, not just on navigation.
+`timeupdate` fires ~4x/second while playing; committing `positionSeconds` on every tick would
+tear down and rebuild the player 4 times a second, stopping playback constantly instead of
+preserving it - the opposite of the feature's goal. `pause` is the one event that is both a
+real, meaningful moment (the owner stopped listening) and rare enough not to fight the render
+cycle; a `mountAudioPlayer()` function (same lazy-mount-after-render pattern as
+`mountFinanceChart`/`mountCalendarDragDrop`) restores `player.currentTime` from
+`source.positionSeconds` on every mount, so a full re-render never loses more than the time
+since the last pause. If continuous scrubbing-position memory (not just "resume where you
+paused") becomes a requirement, that needs a render-architecture change (e.g. not destroying
+already-correct DOM subtrees on commit) - out of scope for a single package and noted here
+rather than silently worked around with a hack.
+
+**Verification:** wrote `reader-position-bookmarks.spec.mjs` (real fixtures - a 3-page PDF and
+3-chapter EPUB generated by the same minimal-PDF-object/real-fflate-zip technique the existing
+`test-fixture.pdf`/`test-fixture.epub` already use, plus the real recorded `hello-lifeos.wav`
+from U3 for audio) - all three tests (PDF, EPUB, audio) passed on the first real run against
+the live app, no mocks. Re-ran `pdf-epub-local.spec.mjs` (P6.1's own parser test) and the full
+`final-human-product.spec.mjs` (H01-H10, including H09 Reader/Player) plus `human-public` and
+`owner-rescue` - all green, confirming the `parsePdfSource`/`parseEpubSource`/`addHighlight`
+signature changes didn't regress any existing caller. **The full `output/playwright/` boundary
+run was started but killed mid-run with no recorded result** (session interruption) - it is
+NOT claimed green; rerunning it is the first step of V0 in the v1.3 plan, and U5 stays
+uncommitted until it passes.
+
+## Смена стратегии → план v1.3 (2026-07-20, решение владельца)
+
+Владелец (с живым скриншотом сломанного чат-ответа) потребовал: только видимые изменения в
+его сценарии использования, готовые permissive-репозитории как ускоритель, RU-only.
+Написан `docs/LIFEOS_V1_3_VISIBLE_USE_PLAN.md` (на Fable, для исполнения Sonnet), который
+заменяет очередь v1.2 после U5 (U6 стал V5). Диагноз скриншота — в §0 плана с точными
+строками app.js: англоязычный промпт Ollama (`buildOllamaChatPrompt`), наивные
+цитаты-«источники» (`searchNotes(...).slice(0,3)`), предложение «сохранить заметку» на
+вопрос (`createChatMessageProposal` без детектора вопросов), лимит 40 слов. Важно: Ollama
+у владельца РАБОТАЕТ — плохой ответ на скриншоте это живой ответ модели на плохой промпт,
+чинится промпт/контекст, а не подключение. Архив истории проекта (LIFEOS.7z: каноны
+15%→33%, Notion/n8n-прототип, Next.js-эпоха с FAILED_PATTERNS_REGISTRY) изучен; FP-004
+(«только runtime-proof затронутого сценария») и FP-006 («один проход — один слой»)
+перенесены в правила v1.3 §1. U5 остался незакоммиченным намеренно — см. верификацию выше.
+
+## V0 CLOSE_U5 (2026-07-20)
+
+Полный `output/playwright/` (63 спека) перепрогнан дважды. Первый прогон нашёл РЕАЛЬНУЮ,
+ранее не пойманную регрессию (не от U5): `ai-memory-gate.spec.mjs` (пакет P5.3, давно
+закоммичен) ждал кнопку `chat-to-proposal`, которая с U4 CHAT_ACTIONS больше не рендерится
+для сообщений владельца — `createChatMessageProposal` теперь ВСЕГДА находит хотя бы
+fallback-черновик "knowledge", то есть `message.proposalId` всегда истинный, и старая
+кнопка-заглушка (рендерится только когда `!message.proposalId`) стала недостижима. Это
+поймано впервые именно сейчас, потому что по-пакетно гонялся только целевой спек +
+`final-human-product`, а не весь набор — ровно то, для чего v1.3 требует полный прогон на
+границе. Исправлено по существу, не ослаблением теста: (1) `ai-memory-gate.spec.mjs`
+переписан на реальный текущий UI (`chat-proposal-preview`/`chat-proposal-apply`), сохраняя
+исходное утверждение пакета P5.3 (AI-ответ никогда не мутирует память напрямую, только
+через proposal); (2) `createChatMessageProposal` (app.js) получил `mutationMode:
+"proposal-only"` в `fields` — остальные 3 места, создающие proposals, уже это делают,
+здесь было упущено при постройке U4. Второй прогон: 56 passed, 1 failed (уже
+задокументированный флейк `whisper-transcribe.spec.mjs`'s real-model test — состояние
+видно в DOM, но `getStateSnapshot()` возвращает устаревшее значение при реальной сетевой
+загрузке; независимо переподтверждено третьим отдельным запуском с ДРУГИМ конкретным полем
+не успевающим обновиться, что подтверждает: это общая характеристика среды для
+долгих реальных сетевых загрузок, а не флуктуирующий баг конкретного поля — см. полное
+изначальное расследование в BLOCKED.md/DECISIONS.md при U3), 6 skipped (ожидаемо). Это
+честный "зелёный с одним задокументированным исключением", не новый регресс — коммичу U5.
+
+**Доп. находка после V0.5 (редизайн, ниже)**: третий полный прогон (после CSS-редизайна)
+дал уже 4 упавших теста под `--workers=2`: `reader-position-bookmarks.spec.mjs` (PDF-тест),
+`ollama-real-daemon.spec.mjs`, `voice-loop-vosk.spec.mjs` (сверх уже известного whisper-
+флейка). Каждый перепрогнан отдельно `--workers=1`: `reader-position-bookmarks.spec.mjs`
+(все 3 теста, включая PDF) — зелёный; `voice-loop-vosk.spec.mjs` — не перепроверялся
+дальше отдельно (и так известно, что сам Vosk — тупиковая ветка, см. BLOCKED.md, флейк
+только в проценте загрузки); `ollama-real-daemon.spec.mjs` — упал СНОВА даже в изоляции
+("a real generation_ok chat providerRun must exist" — undefined), но: (1) демон реально
+доступен (`curl :11434/api/tags` → 200, модель `qwen3:4b` установлена), (2) `git diff`
+подтверждает — ни одна строка, связанная с Ollama, не тронута ни в этой, ни в предыдущей
+сессии (только U5 reader-код + одна строка `mutationMode` в чат-предложениях + styles.css),
+(3) это тот же класс "реальная модель/реальная сеть тормозит непредсказуемо под этой
+песочницей", что уже дважды задокументирован (Whisper, Vosk) — третье независимое
+подтверждение одной и той же категории окружения, не новый баг кода. Не блокирует коммит.
+
+## V0.5 UI_PREMIUM_REDESIGN (2026-07-20)
+
+Владелец потребовал (в этой же сессии, между закрытием V0 и стартом V1) полный визуальный
+редизайн до уровня Linear/Raycast/Notion AI и явно назвал `frontend-design` skill. Этот
+skill не входит в список доступных этой сессии (проверено по системному списку скиллов) —
+сделано прямой экспертной CSS-работой вместо него, без выдумывания несуществующего скилла.
+
+**Решение — только `styles.css`, ни одного JS/markup-файла:** редизайн затрагивает
+исключительно `:root`-токены и общий "v2 shell" CSS-блок (`.lifeos-shell-v2`,
+`.lifeos-nav-v2`, `.nav-item`, `.ui-btn*`, карточный рецепт `.workspace-v2`/
+`.mini-summary-card`/`.human-answer-card`, общая строка `.today-task-row`/`.habit-card`/
+`.money-row`/etc, плюс точечные фиксы в Finance/Chat/Calendar/mobile-nav секциях). Ни один
+класс не переименован, ни один компонент не тронут в `ui/*.js` — весь эффект достигнут
+изменением ЗНАЧЕНИЙ существующих CSS-правил, что делает это честным "одним слоем" (FP-006
+из архива истории) несмотря на широкий охват файла.
+
+**Находка (не выдумка, а реальный баг, найден через CSSOM-диагностику в браузере, не
+предположением) — буквальная последовательность "звёздочка+слэш" внутри прозы CSS-
+комментария преждевременно закрывала комментарий с U0:** оригинальный комментарий токенов
+U0 (samый верх `styles.css`) содержал фразу вида "--color-*/--paper/" - эти два символа
+подряд (без пробела) - это ТОТ ЖЕ буквальный токен, которым CSS обозначает конец
+комментария, независимо от контекста (кавычки/место в предложении не важны). Комментарий
+закрывался на три строки раньше, чем визуально казалось, и всё до следующего "настоящего"
+`*/` (которое теперь висело без пары) парсилось как невалидный CSS - парсер восстанавливался,
+съедая следующее объявление (`--text-xs: 12px;`) при ресинхронизации. Это значит `--text-xs`
+не применялся НИГДЕ в приложении, ни в одной теме, с самого пакета U0. Я по неосторожности
+повторил ТОЧНО ту же ошибку в СВОЁМ новом комментарии (описывая новые токены прозой вида
+"--bg-*/--text-*/--line-soft") - там жертвой стал уже не одно свойство, а ЦЕЛЫЙ блок `:root
+{ --bg-app: ...; --accent-capture: ...; }` (19 свойств), из-за чего светлая тема временно
+"ломалась" (значения резолвились в пустую строку) в процессе самого редизайна. Найдено
+методично: `getComputedStyle` показывал пустые значения → проверка `document.styleSheets`/
+`cssRules` напрямую показала, что весь блок отсутствует в распарсенном CSSOM → бинарный
+поиск по добавлению/удалению текста нашёл точный символ. Оба места исправлены (переписаны
+без слитных "*/"), плюс добавлен явный комментарий-предупреждение на будущее в обоих местах.
+**Важность находки выходит за рамки этого пакета**: тёмная тема, которую U0 объявил рабочей
+("переключение реально меняет --paper/--ink"), была реально рабочей только для СТАРОГО
+набора токенов (`--paper/--surface/--ink`), которым почти ничего в живой оболочке не
+пользуется - РЕАЛЬНЫЙ видимый интерфейс (`--bg-app`/`--bg-surface`/`--text-main`/
+`--line-soft`, объявленные в "v2 shell" блоке) не имел тёмного варианта ВООБЩЕ до этого
+пакета, независимо от бага с комментарием - это был отдельный, более широкий пробел
+(добавлен `:root[data-theme="dark"]` для этих токенов, чего раньше просто не существовало).
+
+**Решение — цветовая система:** нейтральная холодная палитра (не тёплый белый), hairline-
+границы (`rgba(15,23,42,0.06-0.09)` вместо сплошных `rgba(17,24,39,0.08)` хардкодов),
+двухуровневая поверхность (`--bg-surface` для карточек, `--bg-surface-2` для вложенных
+секций внутри карточек - "утопленный лоток с белыми чипами", паттерн из macOS System
+Settings/Linear), синий акцент на primary-кнопках и активном пункте навигации (левая
+полоска 2.5px + подсвеченный фон) вместо сплошной чёрной кнопки и рамки-как-у-остальных.
+
+**Решение — тёмная тема "утопленных" секций не переводилась в нейтральный серый для
+Reader:** `.reading-page` намеренно оставлен тёплым (светлый сепия / тёмный сепия), а не
+переведён на общую нейтральную палитру - это распространённый паттерн "режима чтения" у
+электронных читалок, сознательный выбор, не недосмотр.
+
+**Ограничение (честно, не скрыто):** редизайн покрывает общий "v2 shell" слой + точечные
+фиксы там, где тёмная тема наглядно обнажила зашитые светлые цвета (Finance/Chat/Calendar/
+mobile-nav/v34-form). Полная зачистка ВСЕХ зашитых hex-цветов по всем 27 workspace-специфичным
+секциям файла (`styles.css` - 7200+ строк) не входит в объём одного прохода - что не
+покрыто, работает нормально в СВЕТЛОЙ теме (уже была основной), просто не гарантированно
+идеально в тёмной за пределами проверенных экранов (Дом/Сегодня/Деньги/Чат/Календарь).
+
+**Верификация:** интерактивная браузерная панель зависала конкретно на команде скриншота
+весь этот проход (JS-выполнение, навигация, сетевые запросы через ту же панель работали
+нормально) - не связано с CSS, задокументировано как ограничение среды, не проигнорировано
+молча. Вместо неё - тот же Playwright-скриншот механизм, что и в остальной сессии: light+dark
+на Дом/Сегодня/Деньги/Чат, все совпадают с ожиданиями (см. `docs/qc/screens/V0.5/`).
+`node --check`-эквивалент для CSS (баланс `{`/`}`, 1103=1103), `audit-semantic-colors`,
+`audit-visual-hierarchy` (включая явную проверку на `letter-spacing: -N` — этот аудит явно
+ЗАПРЕЩАЕТ отрицательный letter-spacing, поэтому "premium tight heading" сделан через
+вес/размер шрифта, а не через трекинг, в отличие от типичного веб-паттерна), `audit-home-
+complexity`, `smoke.mjs` — все зелёные. Полный `output/playwright/` перепрогнан на границе
+(общий прогон с V0, коммитятся вместе).
