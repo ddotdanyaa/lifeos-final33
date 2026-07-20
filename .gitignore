@@ -1,6 +1,7 @@
 .playwright-cli/
 .server.*.log
 node_modules/
+vendor/
 .env
 .env.*
 *.local

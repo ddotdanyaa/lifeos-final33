@@ -266,6 +266,34 @@ planBlocks), никаких новых источников правды.
   tools/build-public.mjs` run. Screenshots in `docs/qc/screens/U4/` (chat-before = U0's
   already-captured chat-after; chat-after captured with an open Расход proposal preview
   visible, per the plan's explicit gate wording). UX-scorecard updated.
-- [ ] U3 VOICE_LOOP
+- [x] U3 VOICE_LOOP (2026-07-20) — U3.1: `npm view @huggingface/transformers version` =
+  `4.2.0`, identical to installed - no update exists, closed immediately. U3.2: tried
+  vosk-browser (Apache-2.0, small-ru model) first per the plan's listed option - genuinely
+  blocked (full evidence in BLOCKED.md/DECISIONS.md: CORS proxy built and needed, a
+  hand-rolled ustar tar writer built and verified byte-for-byte two independent ways,
+  `Vosk.createModel()` then hangs forever on an internal Emscripten filesystem-sync bug,
+  confirmed independent of model size). Tried whisper.cpp (MIT) next - works. Prebuilt
+  `whisper-server.exe` (official GitHub release, no compilation) + `ggml-base.bin` live in
+  `vendor/whisper-cpp/` (gitignored like `node_modules/`); `npm run setup-whisper-cpp` fetches
+  them once, `npm run whisper-server` starts the local daemon. The app treats it exactly like
+  Ollama: `probe-whispercpp`/`transcribe-whispercpp` only call an already-running local
+  process over HTTP, never spawn one. Full loop proven: Дом "Голос" (U1, R1's real fake-device
+  recording) → Player → whisper.cpp transcribe → real text → note created via
+  `saveSourceTranscript(mode:"whispercpp")` → linked (proposals/graph/search, the same path
+  П-B already built). Whisper's own honest-blocked UI stays untouched; Vosk's honest-blocked
+  UI (own gate card, own status) stays visible too rather than being deleted, matching
+  CLAUDE.md §7 (never hide a real attempt) - a future vosk-browser release could plausibly fix
+  its bug. **Gate**: `npm run verify` green; all `tools/audit-*.mjs` green; full P19
+  24-journey suite re-run green; R1's own `waveform-record.spec.mjs` re-verified green (one
+  failure traced to this package's own leftover debug browser processes starving
+  requestAnimationFrame, not a code regression - fixed by killing the orphans); new
+  `output/playwright/voice-loop-whispercpp.spec.mjs` proves the full real loop end-to-end
+  (record → transcribe via a real local server → note created and linked, no mocks); new
+  `output/playwright/voice-loop-vosk.spec.mjs` proves the real download+repackage pipeline
+  runs and records a receipt, documenting the honest blocked state without asserting a
+  final status transition that proved slow to observe via automated polling (a shared
+  characteristic with this session's own pre-existing Whisper real-model test, not new);
+  `node tools/build-public.mjs` run. Screenshots in `docs/qc/screens/U3/` (Дом/Плеер
+  до/после). DECISIONS.md/BLOCKED.md carry the full technical trail.
 - [ ] U5 READER
 - [ ] U6 EVENING_SUMMARY

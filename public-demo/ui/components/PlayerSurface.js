@@ -5,6 +5,40 @@ function sttProvider(ctx) {
   return row ? row.provider : { status: "not-configured", requiredAction: "Ручная расшифровка работает сейчас." };
 }
 
+// U3 VOICE_LOOP: tried vosk-browser (Apache-2.0, small-ru) first, per the plan's own listed
+// option - genuinely blocked (see DECISIONS.md: its WASM model extracts the repackaged model
+// correctly, then hangs on an internal filesystem sync with no error). whisper.cpp (below) is
+// the engine that actually works; Vosk's honest blocked status stays visible rather than being
+// silently deleted, matching how Whisper's own blocked status stays visible too.
+function voskProvider(ctx) {
+  const row = (ctx.providers || []).find((item) => item.key === "vosk");
+  return row ? row.provider : { status: "not-configured", requiredAction: "Ручная расшифровка работает сейчас." };
+}
+
+function voskStatusLabel(audio) {
+  const status = String(audio.transcriptStatus || "");
+  if (status === "vosk-transcribing") return "идёт расшифровка Vosk…";
+  if (status === "vosk-done") return "расшифровано Vosk";
+  if (status.startsWith("vosk-failed")) return status.replace("vosk-failed: ", "не удалось: ");
+  return "";
+}
+
+// whisper.cpp (MIT) - the engine that actually works end to end. A local HTTP daemon the
+// owner starts (npm run whisper-server), treated exactly like Ollama: the app only probes and
+// calls it, never spawns/manages the process itself.
+function whisperCppProvider(ctx) {
+  const row = (ctx.providers || []).find((item) => item.key === "whispercpp");
+  return row ? row.provider : { status: "not-configured", requiredAction: "Запусти локальный сервер: npm run whisper-server" };
+}
+
+function whisperCppStatusLabel(audio) {
+  const status = String(audio.transcriptStatus || "");
+  if (status === "whispercpp-transcribing") return "идёт расшифровка whisper.cpp…";
+  if (status === "whispercpp-done") return "расшифровано whisper.cpp";
+  if (status.startsWith("whispercpp-failed")) return status.replace("whispercpp-failed: ", "не удалось: ");
+  return "";
+}
+
 function segmentsFor(ctx, sourceId) {
   return (ctx.transcriptSegments || []).filter((segment) => segment.sourceId === sourceId).sort((a, b) => a.index - b.index);
 }
@@ -46,11 +80,15 @@ export function renderPlayerSurface(ctx) {
   const active = audios[0] || null;
   const stt = sttProvider(ctx);
   const sttReady = stt.status === "ready";
+  const vosk = voskProvider(ctx);
+  const voskReady = vosk.status === "ready";
+  const whispercpp = whisperCppProvider(ctx);
+  const whisperCppReady = whispercpp.status === "reachable";
   return [
     `<div class="player-surface" data-testid="player-surface">`,
     `<aside class="audio-list">`,
     `<h3>Аудио</h3>`,
-    safeList(audios, (audio) => `<article class="audio-card" data-testid="audio-card"><strong>${escapeHtml(audio.name || "Аудио")}</strong><span>${escapeHtml(whisperStatusLabel(audio))}</span>${button("open-source-note", "Открыть источник", { id: audio.id, kind: "ghost" })}${button("transcribe-whisper", "Расшифровать (Whisper)", { id: audio.id, kind: "ghost", testId: `transcribe-whisper-${audio.id}`, disabled: !sttReady || audio.transcriptStatus === "whisper-transcribing", title: sttReady ? "" : "Сначала подготовь Whisper ниже" })}<label class="transcript-editor-label">Ручная расшифровка<textarea class="transcript-box" data-testid="transcript-input-${escapeHtml(audio.id)}" id="transcript-${escapeHtml(audio.id)}" spellcheck="true">${escapeHtml(audio.transcriptText || "")}</textarea></label>${button("save-transcript", "Сохранить расшифровку", { id: audio.id, kind: "primary", testId: `save-transcript-${audio.id}` })}${safeList(segmentsFor(ctx, audio.id), renderSegmentRow, "")}<div class="checkpoint-row"><input id="checkpoint-time-${escapeHtml(audio.id)}" data-testid="checkpoint-time" aria-label="Время закладки" placeholder="00:30"><input id="checkpoint-title-${escapeHtml(audio.id)}" data-testid="checkpoint-title" aria-label="Название закладки" placeholder="Что важно">${button("add-audio-checkpoint", "Добавить закладку", { id: audio.id, kind: "ghost", testId: "add-audio-checkpoint" })}</div><textarea id="transcript-snippet-${escapeHtml(audio.id)}" data-testid="transcript-snippet" aria-label="Transcript snippet" placeholder="Фрагмент для заметки, задачи или вывода"></textarea><div class="knowledge-actions">${button("transcript-to-task", "В задачу", { id: audio.id, kind: "ghost", testId: "transcript-to-task" })}${button("transcript-to-claim", "В вывод", { id: audio.id, kind: "ghost", testId: "transcript-to-claim" })}${button("transcript-to-note", "В заметку", { id: audio.id, kind: "ghost", testId: "transcript-to-note" })}</div></article>`, `<div class="empty-inline">Добавь аудио.</div>`),
+    safeList(audios, (audio) => `<article class="audio-card" data-testid="audio-card"><strong>${escapeHtml(audio.name || "Аудио")}</strong><span>${escapeHtml(whisperStatusLabel(audio))}</span>${voskStatusLabel(audio) ? `<span>${escapeHtml(voskStatusLabel(audio))}</span>` : ""}${whisperCppStatusLabel(audio) ? `<span>${escapeHtml(whisperCppStatusLabel(audio))}</span>` : ""}${button("open-source-note", "Открыть источник", { id: audio.id, kind: "ghost" })}${button("transcribe-whisper", "Расшифровать (Whisper)", { id: audio.id, kind: "ghost", testId: `transcribe-whisper-${audio.id}`, disabled: !sttReady || audio.transcriptStatus === "whisper-transcribing", title: sttReady ? "" : "Сначала подготовь Whisper ниже" })}${button("transcribe-vosk", "Расшифровать (Vosk)", { id: audio.id, kind: "ghost", testId: `transcribe-vosk-${audio.id}`, disabled: !voskReady || audio.transcriptStatus === "vosk-transcribing", title: voskReady ? "" : "Сначала подготовь Vosk ниже" })}${button("transcribe-whispercpp", "Расшифровать (whisper.cpp)", { id: audio.id, kind: "ghost", testId: `transcribe-whispercpp-${audio.id}`, disabled: !whisperCppReady || audio.transcriptStatus === "whispercpp-transcribing", title: whisperCppReady ? "" : "Сначала проверь whisper.cpp ниже" })}<label class="transcript-editor-label">Ручная расшифровка<textarea class="transcript-box" data-testid="transcript-input-${escapeHtml(audio.id)}" id="transcript-${escapeHtml(audio.id)}" spellcheck="true">${escapeHtml(audio.transcriptText || "")}</textarea></label>${button("save-transcript", "Сохранить расшифровку", { id: audio.id, kind: "primary", testId: `save-transcript-${audio.id}` })}${safeList(segmentsFor(ctx, audio.id), renderSegmentRow, "")}<div class="checkpoint-row"><input id="checkpoint-time-${escapeHtml(audio.id)}" data-testid="checkpoint-time" aria-label="Время закладки" placeholder="00:30"><input id="checkpoint-title-${escapeHtml(audio.id)}" data-testid="checkpoint-title" aria-label="Название закладки" placeholder="Что важно">${button("add-audio-checkpoint", "Добавить закладку", { id: audio.id, kind: "ghost", testId: "add-audio-checkpoint" })}</div><textarea id="transcript-snippet-${escapeHtml(audio.id)}" data-testid="transcript-snippet" aria-label="Transcript snippet" placeholder="Фрагмент для заметки, задачи или вывода"></textarea><div class="knowledge-actions">${button("transcript-to-task", "В задачу", { id: audio.id, kind: "ghost", testId: "transcript-to-task" })}${button("transcript-to-claim", "В вывод", { id: audio.id, kind: "ghost", testId: "transcript-to-claim" })}${button("transcript-to-note", "В заметку", { id: audio.id, kind: "ghost", testId: "transcript-to-note" })}</div></article>`, `<div class="empty-inline">Добавь аудио.</div>`),
     button("import-audio", "Добавить аудио", { kind: "primary", testId: "player-import-audio" }),
     renderRecordPanel(ctx.control?.audioRecordingStatus),
     `</aside>`,
@@ -58,8 +96,10 @@ export function renderPlayerSurface(ctx) {
     `<div class="player-art"><span>▶</span></div>`,
     `<h3>${escapeHtml(active?.name || "Плеер")}</h3>`,
     active?.dataUrl ? `<audio controls src="${escapeHtml(active.dataUrl)}" data-testid="audio-player"></audio>` : `<div class="audio-fake-controls"><button>▶</button><div></div><time>00:00</time></div>`,
-    `<p>Аудио сохраняется локально. Whisper расшифровывает офлайн после подготовки; ручной текст работает всегда.</p>`,
-    `<div class="stt-gate" data-testid="stt-gate" data-raw-status="${escapeHtml(stt.status || "not-configured")}"><div><strong>STT</strong><span>${escapeHtml(providerLabel(stt.status))}${stt.status === "downloading" && Number.isFinite(stt.percent) ? " · " + stt.percent + "%" : ""}</span></div><p>${escapeHtml(stt.requiredAction || "нужна настройка; ручной режим работает")}</p>${sttReady ? "" : button("prepare-whisper", "Подготовить Whisper (скачает ~75 МБ)", { kind: "primary", testId: "prepare-whisper", disabled: stt.status === "downloading" })}</div>`,
+    `<p>Аудио сохраняется локально. whisper.cpp расшифровывает офлайн через локальный сервер и работает; Whisper и Vosk честно заблокированы отдельными внешними проблемами (ONNX Runtime и WASM-библиотека соответственно); ручной текст работает всегда.</p>`,
+    `<div class="stt-gate" data-testid="stt-gate" data-raw-status="${escapeHtml(stt.status || "not-configured")}"><div><strong>STT (Whisper)</strong><span>${escapeHtml(providerLabel(stt.status))}${stt.status === "downloading" && Number.isFinite(stt.percent) ? " · " + stt.percent + "%" : ""}</span></div><p>${escapeHtml(stt.requiredAction || "нужна настройка; ручной режим работает")}</p>${sttReady ? "" : button("prepare-whisper", "Подготовить Whisper (скачает ~75 МБ)", { kind: "primary", testId: "prepare-whisper", disabled: stt.status === "downloading" })}</div>`,
+    `<div class="stt-gate" data-testid="vosk-gate" data-raw-status="${escapeHtml(vosk.status || "not-configured")}"><div><strong>STT (Vosk)</strong><span>${escapeHtml(providerLabel(vosk.status))}${vosk.status === "downloading" && Number.isFinite(vosk.percent) ? " · " + vosk.percent + "%" : ""}</span></div><p>${escapeHtml(vosk.requiredAction || "нужна настройка; ручной режим работает")}</p>${voskReady ? "" : button("prepare-vosk", "Подготовить Vosk (скачает ~46 МБ)", { kind: "primary", testId: "prepare-vosk", disabled: vosk.status === "downloading" })}</div>`,
+    `<div class="stt-gate" data-testid="whispercpp-gate" data-raw-status="${escapeHtml(whispercpp.status || "not-configured")}"><div><strong>STT (whisper.cpp)</strong><span>${escapeHtml(providerLabel(whispercpp.status))}</span></div><p>${escapeHtml(whispercpp.requiredAction || "нужна настройка; ручной режим работает")}</p><label class="local-ai-strip"><span>Адрес</span><input id="whispercpp-endpoint" data-testid="whispercpp-endpoint" value="${escapeHtml(whispercpp.endpoint || "http://127.0.0.1:8090")}" autocomplete="off" aria-label="whisper.cpp endpoint"></label>${button("probe-whispercpp", "Проверить whisper.cpp", { kind: "primary", testId: "probe-whispercpp" })}</div>`,
     `</section>`,
     `<section class="transcript-editor">`,
     `<h3>Разбор фрагмента</h3>`,

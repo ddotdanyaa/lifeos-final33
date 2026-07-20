@@ -12,6 +12,18 @@ Updated: 2026-07-20 after `U2 MONEY_FAST` (v1.2 plan) — fixed the exact captur
 
 Updated: 2026-07-20 after `U4 CHAT_ACTIONS` (v1.2 plan) — closes the `BLOCKED.md` gap ("Proposals are not rendered anywhere in the live chat-first shell"): every owner chat message now gets a real, correctly-typed proposal (`createChatMessageProposal` in app.js, reusing `analyzeArtifactInput` + `addProposal` - the same classifier and store U2 just fixed, not a second one) rendered inline in the chat thread (`ui/chat.js`) with Применить/Отклонить buttons wired to the already-existing `apply-proposal`/`dismiss-proposal` handlers. Proven for all 4 plan scenarios (трата/задача/напоминание/заметка) by `output/playwright/chat-actions.spec.mjs` - each produces the correct proposal type and, on Apply, a real object (financeTransactions/tasks/reminders/insights) plus an audit-log entry. Scores unchanged (Chat was already 9s) - see `docs/qc/screens/U4/chat-before.png` vs `chat-after.png` (the after-shot shows an open Расход proposal preview, per the plan's gate).
 
+Updated: 2026-07-20 after `U3 VOICE_LOOP` (v1.2 plan) — the voice loop now genuinely works end
+to end: Дом "Голос" (U1, real fake-device recording from R1) → Плеер → whisper.cpp (MIT, a
+local HTTP daemon treated exactly like Ollama - the app only probes/calls an already-running
+process) → real transcribed text → note created and linked (proposals/graph/search), proven
+with no mocks by `output/playwright/voice-loop-whispercpp.spec.mjs`. Tried vosk-browser first
+per the plan's listed option; genuinely blocked by a bug in that unmaintained library itself
+(full evidence in BLOCKED.md/DECISIONS.md - not a guess). Whisper's and Vosk's own honest
+blocked statuses stay visible in the Player surface (3 STT gate cards total) rather than being
+hidden, matching CLAUDE.md §7. Scores unchanged (Player was already 9s) - see
+`docs/qc/screens/U3/player-before.png` vs `player-after.png` (before = the original single
+Whisper gate; after = all three engines' honest status side by side).
+
 Scores are deliberately strict. A score below 9 is a local product gate unless the remaining limitation is an external/provider setup with an honest UI gate and local fallback.
 
 | Workspace | Clarity | Visual hierarchy | First action speed | Object connection | Reload state | Mobile | Language | Provider honesty | Data Control | Status |
@@ -24,7 +36,7 @@ Scores are deliberately strict. A score below 9 is a local product gate unless t
 | Habits / Goals | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_REVALIDATED: computed balance wheel, domain cards, weak-domain explanation and next action |
 | Library | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_REVALIDATED: Product Brain and knowledge artifacts are visible as second-brain objects |
 | Reader | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_WITH_PDF_EPUB_GATE: TXT/MD reader, progress/highlights, PDF/EPUB honest parser gate |
-| Player | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_WITH_STT_GATE: audio controls, manual transcript, checkpoints and STT honest gate |
+| Player | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_WITH_STT_GATE: audio controls, manual transcript, checkpoints and 3 honest STT gates (Whisper/Vosk blocked, whisper.cpp works) |
 | Chat | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_WITH_OLLAMA_GATE: local message history and Product Brain deterministic answers work without Ollama |
 | Agents / Flows | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_REVALIDATED: dry-run safety boundary, approval queue and trigger-condition-action canvas |
 | Graph | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | PASS_REVALIDATED: global/local graph, Product Brain filter, search, inspector and edge reasons |

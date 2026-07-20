@@ -1718,3 +1718,67 @@ to `buildNewShellContext`'s returned ctx (`Object.values(state.proposals || {})`
 classifier/proposal code U2 did (`analyzeArtifactInput`, `addProposal`) plus a new ctx field
 consumed by every surface via `buildNewShellContext`, so re-ran the full 24-journey regression
 suite rather than just the new spec - green, no regressions.
+
+## U3 VOICE_LOOP (2026-07-20)
+
+**Decision - U3.1 closed immediately, no update available:** `npm view @huggingface/transformers
+version` returns `4.2.0`, identical to the already-installed version - there is no newer
+release in the same major line (or any line) to test. Per the plan's own instruction ("если
+чинит - закрыть пакет... если баг остаётся" implying "try the update, see what happens"),
+with nothing to update to, moved straight to U3.2.
+
+**Decision - tried vosk-browser first (the plan's first-listed U3.2 option), found it
+genuinely blocked, then tried whisper.cpp (the plan's second option) and it works:** full
+diagnostic detail for the vosk-browser blocker is in `BLOCKED.md` (CORS proxy needed, custom
+tar-writer needed and verified byte-for-byte two independent ways, `Vosk.createModel()` hangs
+forever on an internal Emscripten FS-sync failure with no size dependency). This is a real bug
+in an unmaintained (since Dec 2022) library, not a guess or a shortcut - each claim above was
+verified with direct evidence (system `tar` output, SHA256 comparison, console instrumentation
+timestamps) before being accepted, matching this session's standard for external blockers.
+
+**Decision - whisper.cpp integrated as a local HTTP daemon, treated exactly like Ollama:**
+whisper.cpp (MIT) ships a prebuilt Windows server binary (`whisper-server.exe`, from the
+official GitHub release, no compilation needed) using its own native GGML inference engine -
+no ONNX Runtime (sidesteps Whisper's blocker) and no browser WASM/virtual-FS (sidesteps
+vosk-browser's blocker). Verified end-to-end with a real synthetic-tone WAV via curl before
+writing any app.js integration code. Binary + a ggml-base.bin model live in `vendor/whisper-cpp/`
+(gitignored, like `node_modules/` - a large third-party binary, not source code); `npm run
+setup-whisper-cpp` (new `tools/setup-whisper-cpp.mjs`) downloads them once, `npm run
+whisper-server` starts the daemon. The app only probes (`probe-whispercpp`) and calls
+(`transcribe-whispercpp`) it over HTTP - it never spawns or manages the process, identical to
+how this app already treats a local Ollama daemon, so this isn't a new architectural pattern.
+
+**Finding - `state.providers.<key>.status` can be slow to become visible via
+`getStateSnapshot()`/DOM polling for a specific class of scenario (a fast real download
+immediately followed by a slow/failing async step), independent of the new Vosk code:**
+spent significant time convinced this was a bug in `ensureVoskModel`'s new timeout-race logic,
+until direct console instrumentation proved the race itself fires correctly (the `.catch()`
+handler runs with the right message at the right time) while the state snapshot still showed
+the pre-timeout value for tens of seconds afterward. Re-running this session's own **pre-existing,
+untouched** `whisper-transcribe.spec.mjs` "honest either way" test independently reproduced the
+identical symptom for Whisper's own download (already documented in `BLOCKED.md`'s addendum as
+expected variability, written before this package existed) - strong evidence this is a shared
+characteristic of long-running real-network-download flows in this test environment, not a
+regression this package introduced. Did not chase it further given the vosk-browser feature
+itself is already a confirmed dead end regardless of this secondary question;
+`voice-loop-vosk.spec.mjs` asserts what's reliably observable (download+repackage reaching
+100%, a receipt recorded) rather than the exact final status transition.
+
+**Finding, self-inflicted and fixed - orphaned browser processes caused a real, unrelated
+test failure:** `waveform-record.spec.mjs` (R1's own test, completely untouched this package)
+failed twice claiming the canvas waveform never draws. Root cause: several `chrome-headless-shell.exe`
+processes from this package's own debugging (scripts that didn't reach `browser.close()`
+before being killed/backgrounded) were still running and competing for resources, most likely
+starving `requestAnimationFrame` callbacks of time to actually paint. Killing the orphaned
+processes made the test pass again immediately, confirming the recording/waveform code itself
+was never touched or broken - a lesson to `taskkill`/close any ad-hoc debug browser instances
+before treating a failing pre-existing test as a regression.
+
+**Note - two dev server instances, temporarily:** the long-running `node server.mjs` process
+already listening on port 4173 in this environment could not be restarted (an OS-level
+permission boundary this sandbox can't cross - confirmed via both `taskkill` and PowerShell
+`Stop-Process`, both denied), so it's still serving the pre-`/vosk-model-proxy` version of
+`server.mjs`. A second instance (`PORT=4174 node server.mjs`) has the current code and is
+what `voice-loop-vosk.spec.mjs` targets specifically; every other spec still uses 4173 as
+normal, since static file edits (app.js, ui/*.js) are served fresh on every request regardless
+of which server instance is running - only the new proxy *route* needed a restart to appear.

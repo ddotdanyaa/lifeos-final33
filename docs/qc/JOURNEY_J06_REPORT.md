@@ -42,7 +42,7 @@ Receipt screenshot shows an image/manual extraction path with an honest OCR gate
 ```
 
 ## Graph Edges
-After: 555 edges, 555 with visible reasons.
+After: 549 edges, 549 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка | provider.run: import file: Импорт: market-home.png (image) | source.import: Source imported: market-home.png (image) | chat.answer.artifact: assistant chat artifact recorded: Imported market-home.png and prepared next actions. | finance.transaction: Finance expense: Аптека 890 RUB | receipt.manual: Manual receipt expense saved from market-home.png

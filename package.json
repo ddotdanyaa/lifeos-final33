@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node server.mjs",
     "smoke": "node smoke.mjs",
+    "setup-whisper-cpp": "node tools/setup-whisper-cpp.mjs",
+    "whisper-server": "vendor\\whisper-cpp\\Release\\whisper-server.exe --model vendor\\whisper-cpp\\ggml-base.bin --language ru --port 8090",
     "e2e": "playwright test output/playwright/human-public.spec.mjs output/playwright/final-human-product.spec.mjs --workers=1 --reporter=line",
     "e2e:owner": "playwright test output/playwright/owner-rescue.spec.mjs --reporter=line",
     "e2e:journeys": "playwright test output/playwright/final-journeys.spec.mjs --reporter=line",
@@ -75,6 +77,7 @@
     "minisearch": "^7.2.0",
     "pdfjs-dist": "^6.1.200",
     "sortablejs": "^1.15.7",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "vosk-browser": "^0.0.8"
   }
 }

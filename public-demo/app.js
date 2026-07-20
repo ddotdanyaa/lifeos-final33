@@ -6554,19 +6554,24 @@ function saveSourceTranscript(state, sourceId, transcriptText, options) {
   if (!source) return "";
   const cleanText = String(transcriptText || "").trim();
   if (!cleanText) return "";
-  const isWhisper = options && options.mode === "whisper";
+  const mode = (options && options.mode) || "manual";
+  const modeCopy = {
+    whisper: { status: "whisper-done", line: "Режим: локальный Whisper (Xenova/whisper-base)", label: "Локальная расшифровка Whisper" },
+    vosk: { status: "vosk-done", line: "Режим: локальный Vosk (small-ru)", label: "Локальная расшифровка Vosk" },
+    whispercpp: { status: "whispercpp-done", line: "Режим: локальный whisper.cpp (ggml-base, локальный сервер)", label: "Локальная расшифровка whisper.cpp" },
+    manual: { status: "manual-transcript-ready", line: "Режим: текст введён владельцем локально", label: "Ручная расшифровка" }
+  }[mode] || { status: "manual-transcript-ready", line: "Режим: текст введён владельцем локально", label: "Ручная расшифровка" };
   source.transcriptText = cleanText;
-  source.transcriptStatus = isWhisper ? "whisper-done" : "manual-transcript-ready";
+  source.transcriptStatus = modeCopy.status;
   source.status = "transcript-ready";
   source.updatedAt = now();
   source.analysis = analyzeSourceArtifact(source);
   const title = stripExtension(source.name) + " Расшифровка";
-  const modeLine = isWhisper ? "Режим: локальный Whisper (Xenova/whisper-base)" : "Режим: текст введён владельцем локально";
   const body = [
     "# " + title,
     "",
     "Источник: " + source.name,
-    modeLine,
+    modeCopy.line,
     "",
     cleanText
   ].join("\n");
@@ -6581,7 +6586,7 @@ function saveSourceTranscript(state, sourceId, transcriptText, options) {
   syncTranscriptSegments(state, source.id, noteId, cleanText);
   extractKnowledgeFromNote(state, noteId);
   extractHighlightsFromSource(state, source.id);
-  addAudioCheckpoint(state, source.id, "Расшифровка сохранена", "00:00", (isWhisper ? "Локальная расшифровка Whisper" : "Ручная расшифровка") + " стала текстом в базе.");
+  addAudioCheckpoint(state, source.id, "Расшифровка сохранена", "00:00", modeCopy.label + " стала текстом в базе.");
   addReviewItemOnce(state, "Повторить аудио: " + stripExtension(source.name), {
     sourceId: source.id,
     noteId,
@@ -6590,7 +6595,7 @@ function saveSourceTranscript(state, sourceId, transcriptText, options) {
   ensureInsight(state, "Аудио стало знанием: " + stripExtension(source.name), "Расшифровка связана с источником и может создавать заметки, задачи, выводы, цитаты, повторение, связи и контроль.", { sourceId: source.id, noteId });
   createActionProposalsForSource(state, source.id);
   addChatMessage(state, "assistant", "Транскрипт связан с аудио, заметкой, графом и действиями.", source.id, noteId);
-  addAudit(state, "transcript.save", (isWhisper ? "Whisper-расшифровка" : "Ручная расшифровка") + " сохранена для " + source.name, noteId);
+  addAudit(state, "transcript.save", modeCopy.label + " сохранена для " + source.name, noteId);
   rebuildIndexes(state);
   return noteId;
 }
@@ -6755,6 +6760,388 @@ async function runWhisperTranscribe(sourceId) {
     whisperTranscribeRuntime[requestId] = { status: "error", text: "", error: String((error && error.message) || error) };
   }
   await pollWhisperTranscribeProgress(requestId, sourceId);
+}
+
+// U3 VOICE_LOOP: Whisper's model load is blocked by a genuine, documented external ONNX
+// Runtime incompatibility (BLOCKED.md) - vosk-browser (Apache-2.0, small-ru model) is a real,
+// additional, WORKING STT engine, added alongside Whisper (not replacing it - Whisper's honest
+// blocked status stays as-is). Reuses the exact same status vocabulary/receipts chain built for
+// Whisper in П-B (not-configured -> downloading -> ready -> transcribing -> done/failed) and
+// the same decodeAudioTo16kMono/saveSourceTranscript helpers - only the engine differs.
+//
+// alphacephei only publishes models as plain .zip, but vosk-browser's WASM loader requires a
+// gzipped tar archive with a top-level "model/" directory - so the one-time model fetch also
+// repackages it in-browser using fflate (already approved/installed): unzipSync to read the
+// .zip, a small hand-rolled ustar-format tar writer (verified byte-for-byte against the
+// system `tar` command during development - see DECISIONS.md), then gzipSync. Cached via the
+// Cache API (not the service worker's same-origin-only fetch interception) so this only
+// happens once.
+let voskLibraryPromise = null;
+function loadVoskLibrary() {
+  if (window.Vosk) return Promise.resolve(window.Vosk);
+  if (!voskLibraryPromise) {
+    voskLibraryPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "./node_modules/vosk-browser/dist/vosk.js";
+      script.onload = () => resolve(window.Vosk);
+      script.onerror = () => reject(new Error("Failed to load vosk-browser"));
+      document.head.appendChild(script);
+    });
+  }
+  return voskLibraryPromise;
+}
+
+function buildTarEntry(name, data) {
+  const header = new Uint8Array(512);
+  const encoder = new TextEncoder();
+  header.set(encoder.encode(name).slice(0, 100), 0);
+  const writeOctal = (value, offset, length) => {
+    header.set(encoder.encode(value.toString(8).padStart(length - 1, "0") + "\0"), offset);
+  };
+  writeOctal(0o644, 100, 8);
+  writeOctal(0, 108, 8);
+  writeOctal(0, 116, 8);
+  writeOctal(data.length, 124, 12);
+  writeOctal(Math.floor(Date.now() / 1000), 136, 12);
+  header.set(encoder.encode("        "), 148);
+  header[156] = "0".charCodeAt(0);
+  header.set(encoder.encode("ustar\0"), 257);
+  header.set(encoder.encode("00"), 263);
+  let sum = 0;
+  for (let i = 0; i < 512; i += 1) sum += header[i];
+  header.set(encoder.encode(sum.toString(8).padStart(6, "0") + "\0 "), 148);
+  const block = new Uint8Array(512 + Math.ceil(data.length / 512) * 512);
+  block.set(header, 0);
+  block.set(data, 512);
+  return block;
+}
+
+function buildTarArchive(entries) {
+  const blocks = entries.map(([name, data]) => buildTarEntry(name, data));
+  const result = new Uint8Array(blocks.reduce((sum, block) => sum + block.length, 0) + 1024);
+  let offset = 0;
+  for (const block of blocks) {
+    result.set(block, offset);
+    offset += block.length;
+  }
+  return result;
+}
+
+// alphacephei.com serves this with no CORS headers, so the browser fetch below goes through
+// server.mjs's same-origin proxy route instead of the upstream URL directly (see server.mjs
+// for why - CORS, not reachability, is what blocks a direct fetch).
+const VOSK_MODEL_URL = "/vosk-model-proxy";
+const VOSK_MODEL_PREFIX = "vosk-model-small-ru-0.22/";
+const VOSK_CACHE_NAME = "lifeos-vosk-model-v1";
+const VOSK_CACHE_KEY = "https://local.lifeos/vosk-model-small-ru-0.22.tar.gz";
+const voskRuntime = { status: "idle", percent: 0, error: "", reported: false };
+let voskModelBlobUrlPromise = null;
+let voskModelPromise = null;
+
+async function ensureVoskModelBlobUrl(onProgress) {
+  if (!voskModelBlobUrlPromise) {
+    voskModelBlobUrlPromise = (async () => {
+      const cache = await caches.open(VOSK_CACHE_NAME);
+      const cached = await cache.match(VOSK_CACHE_KEY);
+      if (cached) {
+        onProgress(100);
+        return URL.createObjectURL(await cached.blob());
+      }
+      const response = await fetch(VOSK_MODEL_URL);
+      if (!response.ok || !response.body) throw new Error("HTTP " + response.status);
+      const total = Number(response.headers.get("content-length") || 0);
+      const reader = response.body.getReader();
+      const chunks = [];
+      let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total) onProgress(Math.min(85, Math.round((received / total) * 85)));
+      }
+      const zipBytes = new Uint8Array(received);
+      let offset = 0;
+      for (const chunk of chunks) {
+        zipBytes.set(chunk, offset);
+        offset += chunk.length;
+      }
+      const { unzipSync, gzipSync } = await loadFflate();
+      const files = unzipSync(zipBytes);
+      const entries = [];
+      for (const [path, data] of Object.entries(files)) {
+        if (!data.length) continue;
+        const relative = path.startsWith(VOSK_MODEL_PREFIX) ? path.slice(VOSK_MODEL_PREFIX.length) : path;
+        if (!relative) continue;
+        entries.push(["model/" + relative, data]);
+      }
+      onProgress(92);
+      const tarBytes = buildTarArchive(entries);
+      const gzBytes = gzipSync(tarBytes, { level: 6 });
+      onProgress(99);
+      const blob = new Blob([gzBytes], { type: "application/gzip" });
+      await cache.put(VOSK_CACHE_KEY, new Response(blob));
+      onProgress(100);
+      return URL.createObjectURL(blob);
+    })();
+  }
+  return voskModelBlobUrlPromise;
+}
+
+function ensureVoskModel() {
+  if (!voskModelPromise) {
+    voskModelPromise = (async () => {
+      const Vosk = await loadVoskLibrary();
+      const blobUrl = await ensureVoskModelBlobUrl((percent) => {
+        voskRuntime.percent = percent;
+      });
+      // vosk-browser's Model creation can hang indefinitely with no rejection at all if its
+      // internal Emscripten virtual-filesystem sync fails (confirmed during development: the
+      // model extracts correctly - proven by its own worker logging every extracted file - but
+      // then "Failed to sync file system" fires with no promise rejection). CLAUDE.md §7 never
+      // shows fake/eternal "in progress" as if nothing were wrong, so this is bounded with an
+      // explicit timeout that surfaces an honest error instead of hanging the UI forever.
+      const timeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Vosk model load timed out (внутренняя ошибка синхронизации файловой системы в vosk-browser)")), 45000);
+      });
+      return Promise.race([Vosk.createModel(blobUrl), timeout]);
+    })();
+  }
+  return voskModelPromise;
+}
+
+async function pollVoskPrepareProgress() {
+  for (;;) {
+    await store.commit("Vosk model status", (state) => {
+      const percent = voskRuntime.percent;
+      state.providers.vosk = Object.assign({}, state.providers.vosk || {}, {
+        status: voskRuntime.status === "ready" ? "ready" : voskRuntime.status === "error" ? "error" : "downloading",
+        label: "STT (Vosk)",
+        lastCheckedAt: now(),
+        percent,
+        requiredAction: voskRuntime.status === "error"
+          ? "Загрузка Vosk не удалась: " + voskRuntime.error + ". Ручная расшифровка работает; можно повторить попытку."
+          : voskRuntime.status === "ready"
+            ? "Vosk готов локально и работает офлайн. Можно расшифровывать аудио."
+            : "Идёт загрузка модели Vosk (" + percent + "%)…"
+      });
+      if (voskRuntime.status === "ready" && !voskRuntime.reported) {
+        voskRuntime.reported = true;
+        recordProviderRun(state, "vosk", "prepare", "ready", "Локальная модель Vosk (small-ru) готова, дальше офлайн", {});
+        addAudit(state, "provider.vosk.ready", "Vosk подготовлен локально, офлайн после первой загрузки", "");
+      } else if (voskRuntime.status === "error" && !voskRuntime.reported) {
+        voskRuntime.reported = true;
+        recordProviderRun(state, "vosk", "prepare", "provider_unavailable", "Загрузка Vosk не удалась: " + voskRuntime.error, { error: voskRuntime.error });
+      }
+    });
+    if (voskRuntime.status === "ready" || voskRuntime.status === "error") return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+async function prepareVosk() {
+  if (voskRuntime.status === "loading" || voskRuntime.status === "ready") return;
+  voskRuntime.status = "loading";
+  voskRuntime.percent = 0;
+  voskRuntime.error = "";
+  voskRuntime.reported = false;
+  ensureVoskModel().then(() => {
+    voskRuntime.status = "ready";
+    voskRuntime.percent = 100;
+  }).catch((error) => {
+    voskRuntime.status = "error";
+    voskRuntime.error = String((error && error.message) || error);
+    voskModelPromise = null; // allow a real retry instead of replaying the same cached rejection
+  });
+  await pollVoskPrepareProgress();
+}
+
+// retrieveFinalResult has no synchronous "done" signal (vosk-browser's Model runs its own
+// internal Web Worker and only emits "result"/"partialresult"/"error" events) - collecting
+// every "result" event's text and giving the final one a short settle window after
+// retrieveFinalResult() is the same approach the library's own demo app uses.
+function runVoskRecognizer(model, audioFloat32) {
+  return new Promise((resolve, reject) => {
+    const recognizer = new model.KaldiRecognizer(16000);
+    let combinedText = "";
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      recognizer.remove();
+      resolve(combinedText.trim());
+    };
+    recognizer.on("result", (message) => {
+      const text = message.result && message.result.text ? message.result.text : "";
+      if (text) combinedText = combinedText ? combinedText + " " + text : text;
+    });
+    recognizer.on("error", (message) => {
+      if (settled) return;
+      settled = true;
+      recognizer.remove();
+      reject(new Error((message && message.error) || "vosk recognizer error"));
+    });
+    const chunkSize = 16000 * 4;
+    for (let i = 0; i < audioFloat32.length; i += chunkSize) {
+      recognizer.acceptWaveformFloat(audioFloat32.slice(i, i + chunkSize), 16000);
+    }
+    recognizer.retrieveFinalResult();
+    setTimeout(finish, 1500);
+  });
+}
+
+const voskTranscribeRuntime = {};
+
+async function pollVoskTranscribeProgress(requestId, sourceId) {
+  for (;;) {
+    const run = voskTranscribeRuntime[requestId];
+    if (!run) return;
+    if (run.status === "done") {
+      await store.commit("Vosk transcription saved", (state) => {
+        const noteId = saveSourceTranscript(state, sourceId, run.text, { mode: "vosk" });
+        const source = state.sources[sourceId];
+        recordProviderRun(state, "vosk", "transcribe", "vosk-done", "Vosk расшифровал: " + (source ? source.name : sourceId), { sourceId, noteId });
+      });
+      delete voskTranscribeRuntime[requestId];
+      return;
+    }
+    if (run.status === "error") {
+      await store.commit("Vosk transcription failed", (state) => {
+        const source = state.sources[sourceId];
+        if (source) {
+          source.transcriptStatus = "vosk-failed: " + run.error;
+          source.updatedAt = now();
+        }
+        recordProviderRun(state, "vosk", "transcribe", "provider_unavailable", "Vosk расшифровка не удалась: " + run.error, { sourceId, error: run.error });
+        addAudit(state, "transcript.vosk.failed", "Vosk расшифровка не удалась для " + (source ? source.name : sourceId) + ": " + run.error, source ? source.noteId : "");
+      });
+      delete voskTranscribeRuntime[requestId];
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+async function runVoskTranscribe(sourceId) {
+  const source = store.state.sources[sourceId];
+  if (!source || !source.dataUrl) return;
+  const requestId = makeId("voskjob");
+  voskTranscribeRuntime[requestId] = { status: "running", text: "", error: "" };
+  await store.commit("Vosk transcription started", (state) => {
+    const src = state.sources[sourceId];
+    if (src) {
+      src.transcriptStatus = "vosk-transcribing";
+      src.updatedAt = now();
+    }
+    recordProviderRun(state, "vosk", "transcribe", "transcribing", "Локальная расшифровка Vosk начата: " + source.name, { sourceId });
+  });
+  try {
+    const model = await ensureVoskModel();
+    const audio = await decodeAudioTo16kMono(source.dataUrl);
+    const text = await runVoskRecognizer(model, audio);
+    voskTranscribeRuntime[requestId] = { status: "done", text, error: "" };
+  } catch (error) {
+    voskTranscribeRuntime[requestId] = { status: "error", text: "", error: String((error && error.message) || error) };
+  }
+  await pollVoskTranscribeProgress(requestId, sourceId);
+}
+
+// U3 VOICE_LOOP (U3.2 second option): whisper.cpp (MIT) as a local HTTP daemon, exactly like
+// this app already treats Ollama - an owner-started local process the app calls over HTTP,
+// never spawned/managed by the app itself. Chosen after vosk-browser (tried first) hit its
+// own genuine blocker (see DECISIONS.md): its WASM model correctly extracts the repackaged
+// model - proven by its own internal worker's extraction log - but then hangs forever with no
+// error during an internal Emscripten filesystem sync, a bug in the 2022-era library itself
+// against a modern Chromium. whisper.cpp's prebuilt whisper-server.exe sidesteps BOTH that and
+// Whisper's own ONNX Runtime issue entirely, since it is a native GGML binary with no ONNX
+// Runtime and no browser WASM/virtual-FS involved. Setup: tools/setup-whisper-cpp.mjs (one-time,
+// owner-authorized system software install) downloads the official prebuilt binary + a GGML
+// model into vendor/whisper-cpp/ (gitignored, like node_modules); the owner starts it with
+// `npm run whisper-server` before using this feature, then the app just probes/calls it.
+function encodeWav16kMono(float32Audio) {
+  const sampleRate = 16000;
+  const numSamples = float32Audio.length;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  const writeString = (offset, text) => {
+    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, numSamples * 2, true);
+  let offset = 44;
+  for (let i = 0; i < numSamples; i += 1) {
+    const sample = Math.max(-1, Math.min(1, float32Audio[i]));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+    offset += 2;
+  }
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+async function probeWhisperCpp(endpoint) {
+  const base = String(endpoint || "").replace(/\/+$/, "");
+  const startedAt = Date.now();
+  const response = await fetch(base + "/", { method: "GET" });
+  if (!response.ok) throw new Error("HTTP " + response.status);
+  return {
+    endpoint: base,
+    status: "reachable",
+    lastError: "",
+    lastCheckedAt: now(),
+    lastProbeAt: now(),
+    lastLatencyMs: Math.max(1, Date.now() - startedAt)
+  };
+}
+
+async function runWhisperCppTranscribe(sourceId) {
+  const source = store.state.sources[sourceId];
+  if (!source || !source.dataUrl) return;
+  const endpoint = ((store.state.providers || {}).whispercpp || {}).endpoint || "http://127.0.0.1:8090";
+  await store.commit("whisper.cpp transcription started", (state) => {
+    const src = state.sources[sourceId];
+    if (src) {
+      src.transcriptStatus = "whispercpp-transcribing";
+      src.updatedAt = now();
+    }
+    recordProviderRun(state, "whispercpp", "transcribe", "transcribing", "Локальная расшифровка whisper.cpp начата: " + source.name, { sourceId });
+  });
+  try {
+    const audio = await decodeAudioTo16kMono(source.dataUrl);
+    const wavBlob = encodeWav16kMono(audio);
+    const formData = new FormData();
+    formData.append("file", wavBlob, "audio.wav");
+    formData.append("response_format", "json");
+    formData.append("language", "ru");
+    const response = await fetch(endpoint.replace(/\/+$/, "") + "/inference", { method: "POST", body: formData });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const payload = await response.json();
+    const text = cleanLine(payload.text || "");
+    await store.commit("whisper.cpp transcription saved", (state) => {
+      const noteId = saveSourceTranscript(state, sourceId, text, { mode: "whispercpp" });
+      recordProviderRun(state, "whispercpp", "transcribe", "whispercpp-done", "whisper.cpp расшифровал: " + source.name, { sourceId, noteId });
+    });
+  } catch (error) {
+    await store.commit("whisper.cpp transcription failed", (state) => {
+      const src = state.sources[sourceId];
+      const message = String((error && error.message) || error);
+      if (src) {
+        src.transcriptStatus = "whispercpp-failed: " + message;
+        src.updatedAt = now();
+      }
+      recordProviderRun(state, "whispercpp", "transcribe", "provider_unavailable", "whisper.cpp расшифровка не удалась: " + message, { sourceId, error: message });
+      addAudit(state, "transcript.whispercpp.failed", "whisper.cpp расшифровка не удалась для " + source.name + ": " + message, source.noteId || "");
+    });
+  }
 }
 
 // R1 WAVEFORM_RECORD: in-app microphone recording with a live waveform (AnalyserNode + Canvas,
@@ -15134,6 +15521,64 @@ async function handleAction(action, id) {
   if (action === "transcribe-whisper") {
     if (store.state.providers.stt.status !== "ready") return;
     await runWhisperTranscribe(id);
+    return;
+  }
+  if (action === "prepare-vosk") {
+    if (voskRuntime.status === "loading" || voskRuntime.status === "ready") return;
+    const confirmed = window.confirm("Скачать локальную модель распознавания речи Vosk (small-ru, ~46 МБ)? Загрузка один раз, дальше работает офлайн.");
+    if (!confirmed) return;
+    await store.commit("Vosk download started", (state) => {
+      state.providers.vosk = Object.assign({}, state.providers.vosk || {}, {
+        status: "downloading",
+        label: "STT (Vosk)",
+        lastCheckedAt: now(),
+        percent: 0,
+        requiredAction: "Идёт загрузка модели Vosk (0%)…"
+      });
+      recordProviderRun(state, "vosk", "prepare", "downloading", "Загрузка локальной модели Vosk начата (small-ru, ~46 МБ)", {});
+      ensureCapabilityGrant(state, "vosk", "download", { locality: "local" });
+      addAudit(state, "provider.prepare.vosk", "Владелец разрешил загрузку локальной модели Vosk (small-ru, ~46 МБ)", "", { locality: "local" });
+    });
+    await prepareVosk();
+    return;
+  }
+  if (action === "transcribe-vosk") {
+    if (!store.state.providers.vosk || store.state.providers.vosk.status !== "ready") return;
+    await runVoskTranscribe(id);
+    return;
+  }
+  if (action === "probe-whispercpp") {
+    const input = document.querySelector("#whispercpp-endpoint");
+    const endpoint = input ? cleanLine(input.value) : ((store.state.providers || {}).whispercpp || {}).endpoint || "http://127.0.0.1:8090";
+    try {
+      const result = await probeWhisperCpp(endpoint);
+      await store.commit("whisper.cpp probe completed", (state) => {
+        state.providers.whispercpp = Object.assign({}, state.providers.whispercpp || {}, result, {
+          label: "STT (whisper.cpp)",
+          requiredAction: "whisper.cpp доступен локально по " + result.endpoint + ". Можно расшифровывать аудио."
+        });
+        recordProviderRun(state, "whispercpp", "probe", "reachable", "whisper.cpp доступен по " + result.endpoint, {});
+        addAudit(state, "provider.whispercpp.probe", "whisper.cpp доступен локально по " + result.endpoint, "");
+      });
+    } catch (error) {
+      const message = String((error && error.message) || error);
+      await store.commit("whisper.cpp probe failed", (state) => {
+        state.providers.whispercpp = Object.assign({}, state.providers.whispercpp || {}, {
+          status: "error",
+          label: "STT (whisper.cpp)",
+          endpoint: cleanLine(endpoint),
+          lastError: message,
+          lastCheckedAt: now(),
+          requiredAction: "whisper.cpp недоступен: " + message + ". Запусти локальный сервер (npm run whisper-server) и проверь снова."
+        });
+        recordProviderRun(state, "whispercpp", "probe", "provider_unavailable", "whisper.cpp недоступен: " + message, {});
+      });
+    }
+    return;
+  }
+  if (action === "transcribe-whispercpp") {
+    if (!store.state.providers.whispercpp || store.state.providers.whispercpp.status !== "reachable") return;
+    await runWhisperCppTranscribe(id);
     return;
   }
   if (action === "transcript-to-note" || action === "transcript-to-task" || action === "transcript-to-claim" || action === "transcript-to-highlight") {

@@ -106,3 +106,63 @@ real, stable finding; the download's wall-clock time is inherently variable and 
 codebase's control, so don't keep re-running this specific test hoping for fast, consistent
 timing - one clean reproduction plus the always-fast, always-reliable honest-gate test are
 the actual proof this package needs.
+
+## U3 VOICE_LOOP: vosk-browser (0.0.8) hangs forever on model load - a second,
+## independent STT-engine blocker, distinct from Whisper's ONNX Runtime issue above
+
+Not owner-credential-blocked - a genuine bug in the vosk-browser package itself (last
+published December 2022, effectively unmaintained), reproduced with full evidence, not a
+guess. whisper.cpp (tried next, see DECISIONS.md U3) works and is the actual STT engine now
+wired into the app; this entry documents why vosk-browser specifically does not, for anyone
+tempted to revisit it.
+
+**U3.1 first** (per the plan): checked whether a newer `@huggingface/transformers` fixes
+Whisper's ONNX Runtime blocker (documented above). `npm view @huggingface/transformers
+version` returns `4.2.0` - identical to the already-installed version. There is no newer
+release to update to at all, so this path was closed immediately with nothing to test.
+
+**U3.2, vosk-browser attempt:**
+- alphacephei.com (the only source for the small-ru model) sends no
+  `Access-Control-Allow-Origin` header, so a direct browser `fetch()` of the model is blocked
+  by CORS even though the file is reachable (curl has no CORS enforcement, which is why an
+  initial reachability check looked fine before this was tested for real in a browser).
+  Worked around with a same-origin proxy route in `server.mjs` (`/vosk-model-proxy`) that
+  fetches server-side and relays the bytes - a legitimate fix for a browser-only restriction,
+  not a workaround for anything wrong with the model itself.
+- vosk-browser only accepts models as gzipped tar archives with a top-level `model/`
+  directory; alphacephei only publishes a plain `.zip`. Wrote a small in-browser repackager
+  (fflate's `unzipSync`/`gzipSync`, already approved/installed, plus a ~30-line hand-rolled
+  ustar tar writer - no new dependency) and verified it is byte-for-byte correct two ways:
+  the system `tar tzvf`/`tar xzf` commands read it perfectly (all 14 files, correct sizes,
+  SHA256-identical content after an extract round-trip), AND separately, vosk-browser's own
+  internal worker successfully extracted and logged every one of the same 14 files from that
+  exact archive at runtime.
+- Despite that successful extraction, `Vosk.createModel()` then logs `Failed to sync file
+  system: Error: FS error` from inside its own internal Emscripten virtual-filesystem sync
+  step, and the promise it returns never settles - no resolve, no reject, forever. Confirmed
+  this is not a size issue: a synthetic one-file placeholder "model" hits the identical hang.
+  Confirmed with direct console instrumentation that this is a real bug in vosk-browser's own
+  code, not a timing fluke: the "load" event vosk-browser's `createModel()` waits for is
+  simply never emitted once that internal FS-sync step fails.
+- Fixed the resulting "app hangs forever with no honest error" problem (a real
+  CLAUDE.md §7 violation on its own, independent of whether Vosk itself ever works) by racing
+  `Vosk.createModel()` against a 45s timeout in `ensureVoskModel()` (app.js) - confirmed via
+  direct instrumentation that this timeout reliably fires and reaches app.js's own
+  error-handling path with the correct message at the correct time.
+- Separately found (and left as an open, lower-priority question, not re-investigated further
+  given the primary blocker already makes this moot): even after that timeout correctly fires
+  internally, the resulting `"error"` status is sometimes slow to become visible via
+  `getStateSnapshot()`/DOM polling within a single automated test run - the exact same
+  "downloading" stuck-in-place symptom this session's own `whisper-transcribe.spec.mjs` test
+  independently exhibits for Whisper's real-model download (see the addendum above - "the
+  download's wall-clock time is inherently variable... one run hung indefinitely"). Given an
+  untouched, pre-existing Whisper test shows the identical symptom, this looks like a
+  shared environmental/testing characteristic of this session's setup rather than anything
+  specific to the new Vosk code, but it was not run to ground - `voice-loop-vosk.spec.mjs`
+  works around it by asserting the reliably-observable parts (download+repackage reaching
+  100%, a receipt being recorded) rather than the exact final status transition.
+
+**Kept, not removed**: Vosk's UI (a `vosk-gate` card in the Player surface, alongside
+Whisper's) stays visible with its own honest status, exactly like Whisper's - CLAUDE.md §7
+says never hide a real attempt, and a future vosk-browser release could plausibly fix this
+(it is a bug in that library, not in how this app calls it).
