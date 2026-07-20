@@ -5006,6 +5006,10 @@ const CHAT_ACTION_PROPOSAL_PRIORITY = ["finance_expense", "finance_income", "rem
 function createChatMessageProposal(state, messageId, text) {
   const message = state.chatMessages[messageId];
   if (!message || !cleanLine(text)) return "";
+  // V1 CHAT_BRAIN: a question ("ты умеешь давать инсайты по графу?") is not a note to save -
+  // the "knowledge" draft is an always-present fallback meant for actual thoughts/statements,
+  // and asking chat a question got mislabeled as "Сохранить источник в библиотеку" before this.
+  if (looksLikeQuestion(text)) return "";
   const analysis = analyzeArtifactInput(text);
   const chosen = CHAT_ACTION_PROPOSAL_PRIORITY
     .map((type) => (analysis.drafts || []).find((item) => item.type === type))
@@ -7884,20 +7888,113 @@ function blockSemanticSearch(state, query, status, reason) {
   state.control.semanticSearchReport = { query, status, reason: cleanLine(reason || ""), results: [], checkedAt: now() };
 }
 
+// V1 CHAT_BRAIN: real graph facts for the chat prompt - node/edge counts, top hubs by
+// degree, and the selected node's neighborhood with the SAME honest edge-reason labels the
+// Graph inspector already uses (graphEdgeReasonLabel) - never "I don't have access to the
+// graph", because the graph data now actually reaches the prompt.
+function buildGraphContextSummary(state) {
+  const graph = mapGraph(state);
+  if (!graph.nodes.length) return "Граф знаний: пока пусто, артефактов ещё нет.";
+  const degree = new Map();
+  for (const node of graph.nodes) degree.set(node.id, 0);
+  for (const link of graph.links) {
+    degree.set(link.source, (degree.get(link.source) || 0) + 1);
+    degree.set(link.target, (degree.get(link.target) || 0) + 1);
+  }
+  const hubs = graph.nodes
+    .map((node) => ({ label: node.label, degree: degree.get(node.id) || 0 }))
+    .filter((item) => item.degree > 0)
+    .sort((a, b) => b.degree - a.degree)
+    .slice(0, 5)
+    .map((item) => item.label + " (" + item.degree + " связей)");
+  const lines = ["Граф знаний: " + graph.nodes.length + " узлов, " + graph.links.length + " связей."];
+  lines.push(hubs.length ? "Самые связанные узлы: " + hubs.join(", ") + "." : "Связей между узлами пока немного.");
+  const selectedId = state.graphView.selectedNodeId || state.activeNoteId || "";
+  if (selectedId) {
+    const selected = graphNodeObject(state, selectedId);
+    if (selected) {
+      const title = graphNodeTitle(selected.kind, selected.object, selectedId);
+      const reasons = graph.links
+        .filter((link) => link.source === selectedId || link.target === selectedId)
+        .slice(0, 6)
+        .map((link) => graphEdgeReasonLabel(link.label))
+        .filter(Boolean);
+      if (reasons.length) lines.push("Выбранный сейчас узел «" + title + "» связан так: " + reasons.join("; ") + ".");
+    }
+  }
+  return lines.join(" ");
+}
+
+// V1 CHAT_BRAIN: honest day summary reusing the SAME aggregation Today/Finance already
+// compute (ownerTodaySummary/financeSummary) - not a second source of truth for "what's today".
+function buildDaySummaryText(state) {
+  const today = ownerTodaySummary(state);
+  const money = financeSummary(state);
+  return "Сегодня: " + today.todayCount + " задач/напоминаний, " + today.habitDone + "/" + today.habitTotal +
+    " привычек выполнено. Деньги сегодня: потрачено " + Math.round(money.todaySpend) + " ₽, баланс " + Math.round(money.balance) + " ₽.";
+}
+
+const CHAT_CITATION_STOPWORDS = new Set(["сегодня", "завтра", "вчера", "утром", "вечером", "себя", "какой", "какая", "какое", "какие", "какого", "уровня", "уровень", "модель", "модели", "версия", "версии", "сравни", "умеешь", "можешь", "расскажи", "объясни", "покажи", "связям", "связи", "связях", "графе", "графу", "инсайты", "инсайт", "типо", "будешь", "делать"]);
+
+// V1 CHAT_BRAIN: the old citation query was the raw question text, so a common word like
+// "сегодня" honestly-but-uselessly title-matched an unrelated task ("СЕГОДНЯ В 4 В
+// ШИНОМОНТАЖ") and got shown as a "source" for a completely different question. Filtering out
+// short/common words before searching means a citation only appears when a real, specific term
+// from the question matches - an empty result here means "no relevant note", not "show recent".
+function chatCitationQuery(text) {
+  return String(text || "")
+    .split(/\s+/)
+    .filter((word) => word.length >= 5 && !CHAT_CITATION_STOPWORDS.has(normalizeTitle(word)))
+    .join(" ");
+}
+
+function looksLikeQuestion(text) {
+  const clean = normalizeRuText(String(text || "")).trim().toLocaleLowerCase();
+  if (!clean) return false;
+  if (clean.includes("?")) return true;
+  const openers = ["как ", "почему ", "что ", "какой ", "какая ", "какое ", "какие ", "какого ", "сколько ", "умеешь", "можешь", "расскажи", "объясни", "сравни", "покажи", "ты "];
+  return openers.some((opener) => clean.startsWith(opener));
+}
+
+function looksLikeInsightQuestion(text) {
+  const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
+  return hasAnyText(clean, ["инсайт", "связи", "связям", "связях", "итог", "проанализируй", "анализ", "обзор", "паттерн", "тенденци"]);
+}
+
+function isModelIdentityQuestion(text) {
+  const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
+  const asksAboutModel = hasAnyText(clean, ["модель", "модели", "модельного", "уровня", "уровень", "версия", "версии", "gpt", "джпт", "чатгпт"]);
+  return asksAboutModel && looksLikeQuestion(text);
+}
+
 // Live Ollama chat (P5.1): the full local generation path, used only when the owner
 // has already explicitly probed AND tested generation (status "generation_ok") - never
 // attempted speculatively. Citations point back to the real notes the prompt was built
 // from, not invented ones.
-function buildOllamaChatPrompt(context, citedNotes, question) {
+// V1 CHAT_BRAIN rewrite: was English-language and had zero graph/day context, so a real
+// qwen3:4b daemon honestly said "I don't have access to graph insights" (true - the graph
+// was never in the prompt) and answered in English (the prompt was English). Now RU-only,
+// includes the same graph/day facts the app itself computes, and drops the universal 40-word
+// cap for insight-style questions (graphSummary/daySummary are always included; they're
+// short enough not to need a separate budget).
+function buildOllamaChatPrompt(context, citedNotes, question, graphSummary, daySummary, isInsightMode) {
   const citationBlock = citedNotes.length
-    ? "Related local notes:\n" + citedNotes.map((note) => "- " + note.title + ": " + shorten(cleanLine(note.body || ""), 200)).join("\n") + "\n\n"
+    ? "Связанные локальные заметки:\n" + citedNotes.map((note) => "- " + note.title + ": " + shorten(cleanLine(note.body || ""), 200)).join("\n") + "\n\n"
     : "";
-  // An explicit length cap is load-bearing, not stylistic: against a real qwen3:4b daemon, an
+  // The length cap is load-bearing, not stylistic: against a real qwen3:4b daemon, an
   // open-ended question with no output-length constraint made the model's own "thinking" phase
-  // ramble unbounded, burning the entire num_predict budget (even at 1600) before any response
-  // was produced. Demanding a short answer up front measurably bounds the model's own reasoning
-  // length so generation finishes naturally instead of truncating - see generateOllamaChatAnswer.
-  return "You are a local, honest assistant for LifeOS, a personal data OS. Answer using ONLY the given local context; do not invent facts. Respond in at most 2 short sentences (max 40 words total) - be extremely concise.\n\nActive context: " + context.title + " - " + context.text + "\n\n" + citationBlock + "Question: " + question + "\nAnswer:";
+  // ramble unbounded, burning the entire num_predict budget before any response was produced.
+  // Insight-style questions ("какие связи", "проанализируй") get a looser cap so a real answer
+  // about the graph/day facts above isn't truncated to two sentences.
+  const lengthRule = isInsightMode
+    ? "Ответь по делу, используя факты ниже, в пределах 5-6 предложений."
+    : "Отвечай коротко и по делу - не больше 2 коротких предложений, максимум 40 слов.";
+  return "Ты - локальный честный ассистент LifeOS, персональной ОС данных владельца. " +
+    "Отвечай ТОЛЬКО на русском языке, независимо от языка вопроса. " +
+    "Используй ТОЛЬКО факты ниже, ничего не выдумывай. " + lengthRule +
+    "\n\nАктивный контекст: " + context.title + " - " + context.text +
+    "\n\n" + graphSummary + "\n" + daySummary + "\n\n" + citationBlock +
+    "Вопрос: " + question + "\nОтвет:";
 }
 
 // Defensive safety net: some providers/proxies inline reasoning as a literal
@@ -7909,7 +8006,7 @@ function stripModelThinkingBlocks(text) {
   return String(text || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
-async function generateOllamaChatAnswer(endpoint, model, prompt) {
+async function generateOllamaChatAnswer(endpoint, model, prompt, numPredict) {
   const base = String(endpoint || "").replace(/\/+$/, "");
   const startedAt = Date.now();
   const response = await fetch(base + "/api/generate", {
@@ -7918,8 +8015,10 @@ async function generateOllamaChatAnswer(endpoint, model, prompt) {
     // num_predict must cover a reasoning model's internal thinking budget - Ollama returns
     // that separately in payload.thinking, but too small a total budget truncates before
     // the real response is ever produced (measured against a real qwen3:4b daemon: 220 was
-    // not always enough for a citation-context answer to finish after thinking).
-    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: 500 } }),
+    // not always enough for a citation-context answer to finish after thinking). V1 CHAT_BRAIN:
+    // insight-mode questions ask for a real 5-6 sentence answer, not 2, so they get a larger
+    // budget (900) than the default short-answer path (500).
+    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: Number.isFinite(numPredict) ? numPredict : 500 } }),
     // buildOllamaChatPrompt's brevity constraint keeps real generations finishing in well under a
     // minute on CPU-only hardware (measured ~56s against a real qwen3:4b daemon); this timeout is
     // a generous multiple of that, not a budget the model is expected to hit.
@@ -15427,16 +15526,24 @@ async function handleAction(action, id) {
     const cleanText = String(text || "").trim();
     const normalizedChatText = normalizeRuText(cleanText);
     const wantsDevAnswer = /^\/dev\b/i.test(cleanText) || normalizedChatText.includes("спросить о разработке") || normalizedChatText.includes("состояние разработки");
+    // V1 CHAT_BRAIN: "какая ты модель / какого уровня" must be answered from the real
+    // state.ollama fact, never handed to the LLM to guess/hallucinate about itself - this is
+    // exactly the class of question the owner's own screenshot showed going wrong.
+    const wantsModelIdentity = !wantsDevAnswer && isModelIdentityQuestion(cleanText);
+    const wantsInsight = looksLikeInsightQuestion(cleanText);
     // Live Ollama generation is only attempted when the owner already explicitly
     // tested it ("generation_ok"), never speculatively - and it always falls back to
     // the honest local rule-based answer on any failure, never a fake response.
     let liveAnswer = null;
-    if (!wantsDevAnswer && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel) {
+    if (!wantsDevAnswer && !wantsModelIdentity && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel) {
       try {
-        const citedNotes = searchNotes(store.state, cleanText).filter((note) => note.systemType !== "product_brain").slice(0, 3);
+        const citationQuery = chatCitationQuery(cleanText);
+        const citedNotes = citationQuery ? searchNotes(store.state, citationQuery).filter((note) => note.systemType !== "product_brain").slice(0, 3) : [];
         const context = activeChatContext(store.state);
-        const prompt = buildOllamaChatPrompt(context, citedNotes, cleanText);
-        const result = await generateOllamaChatAnswer(store.state.ollama.endpoint, store.state.ollama.selectedModel, prompt);
+        const graphSummary = buildGraphContextSummary(store.state);
+        const daySummary = buildDaySummaryText(store.state);
+        const prompt = buildOllamaChatPrompt(context, citedNotes, cleanText, graphSummary, daySummary, wantsInsight);
+        const result = await generateOllamaChatAnswer(store.state.ollama.endpoint, store.state.ollama.selectedModel, prompt, wantsInsight ? 900 : 500);
         liveAnswer = {
           text: result.text,
           citations: citedNotes.map((note) => ({ id: note.id, title: note.title })),
@@ -15460,6 +15567,14 @@ async function handleAction(action, id) {
       }
       const ownerMessageId = addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
       createChatMessageProposal(state, ownerMessageId, cleanText);
+      if (wantsModelIdentity) {
+        const modelAnswer = state.ollama.selectedModel
+          ? "Я работаю через локальную модель " + state.ollama.selectedModel + " (Ollama, целиком на твоём компьютере) - это не ChatGPT и не облачная модель, у неё нет версии 3 или 4 в этом смысле, сравнение по чужим бенчмаркам я дать не могу."
+          : "Локальная модель ещё не подключена (Ollama не проверена в Чате) - сейчас отвечаю по локальным правилам, без LLM.";
+        addChatMessage(state, "assistant", modelAnswer, "", state.activeNoteId);
+        addAudit(state, "chat.model-identity", "Вопрос про модель отвечен фактом из state.ollama, без обращения к LLM", state.activeNoteId);
+        return;
+      }
       if (liveAnswer) {
         const citationLine = liveAnswer.citations.length ? " Источники: " + liveAnswer.citations.map((citation) => citation.title).join(", ") + "." : "";
         addChatMessage(state, "assistant", liveAnswer.text + citationLine, "", state.activeNoteId);

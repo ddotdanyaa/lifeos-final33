@@ -160,6 +160,7 @@ export function renderNewShell(ctx) {
     ctx.activeSurface && ctx.activeSurface !== "inbox" && ctx.activeSurface !== "library" ? `<button class="top-capture-v2 top-new-note-v2" data-action="new-note" data-testid="new-note">Заметка</button>` : "",
     `<button class="top-capture-v2 top-theme-toggle-v2" data-action="toggle-theme" data-testid="theme-toggle" data-raw-theme="${escapeHtml(ctx.theme || "system")}" title="Сменить тему">Тема: ${escapeHtml(ctx.theme === "dark" ? "тёмная" : ctx.theme === "light" ? "светлая" : "системная")}</button>`,
     `<span id="save-status" class="save-status-v2" role="status" aria-live="polite">сохранено</span>`,
+    `<span class="build-version-v2" data-testid="build-version" title="Хеш сборки: если он не совпадает с последним коммитом, ты смотришь на закэшированную старую версию">${escapeHtml((typeof document !== "undefined" && document.querySelector('meta[name="build-version"]')?.content) || "dev")}</span>`,
     `</div>`,
     `</header>`,
     `<div class="lifeos-frame-v2">`,

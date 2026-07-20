@@ -1,55 +1,51 @@
-# LifeOS v1.0 — Autonomous Run Progress
+# LifeOS — PROGRESS (леджер срезов плана v1.4)
 
-Started: 2026-07-17 (overnight autonomous session, owner away ~24h)
-Plan: `docs/LIFEOS_V1_MASTER_BUILD_PLAN.md` (v1.1)
+План и скоуп: [docs/LIFEOS_V1_4_FULL_BUILD_PLAN.md](docs/LIFEOS_V1_4_FULL_BUILD_PLAN.md).
+История до v1.4 (v1.0 → v1.1 → v1.2 → v1.3, ~65 коммитов, все пакеты и решения) — в
+леджерах соответствующих планов в `docs/` и в DECISIONS.md; этот файл начат заново
+2026-07-20 как единственный живой леджер по правилу владельца: «после каждого среза —
+commit + push + PROGRESS.md + инструкция как проверить за 60 секунд».
 
-## How to see it running
+## Как запустить
 
 ```
-npm start
+npm start          # http://localhost:4173
+npm run verify     # node --check + smoke (86 маркеров)
+npm run stamp      # прошить git-hash в шапку UI + имя SW-кэша (перед каждым коммитом)
 ```
-Serves on **http://localhost:4173** (server.mjs, live file serving — no build step needed for app.js/ui changes; if `ui/**`, `app.js`, `styles.css`, `index.html`, or `artifact-os-architecture.mjs` changed, run `node tools/build-public.mjs` first to refresh `public-demo/`).
 
-Gate commands:
-- `npm run verify` — node --check + smoke (86 markers)
-- `for f in tools/audit-*.mjs; do node "$f"; done` — 24+ audits
-- `npx playwright test output/playwright/final-human-product.spec.mjs --workers=1 --reporter=line` (needs `npm start` running)
+**Проверка «на что я смотрю»**: в правом верхнем углу шапки приложения виден хеш сборки
+(`data-testid="build-version"`). Если он НЕ равен последнему коммиту (`git log --oneline -1`)
+— ты смотришь на закэшированную старую версию: обнови страницу (Ctrl+Shift+R); новая
+сборка сама инвалидирует старый service-worker-кэш при активации.
 
-## Package ledger (mirrors plan §9, ticked here as this session executes)
+## Леджер срезов
 
-- [x] P0.1 CONTEXT_CANON_INTO_REPO — done in prior session
-- [x] P0.4 COMMIT_BASELINE — baseline commit done this session (owner authorized via session-start instructions; see DECISIONS.md)
-- [x] P0.5 APPROVED_ENGINES_INSTALLED — done in prior session
-- [x] P0.2 KB_SMOKE_RESCUE — 2026-07-17: kb-smoke.spec.mjs fully green (both tests); wired dead app.js render logic (book-workbench, knowledge second-brain, control trail, transcript segments, today goal/task/plan forms, note recovery) into the live ui/*.js shell; see DECISIONS.md for full file list
-- [ ] P0.3 LEDGER_TRUTH_REFRESH
-- [ ] P1.1 OBJECT_CONTRACT_V4
-- [ ] P1.2 RECEIPT_COVERAGE_MATRIX
-- [ ] P1.3 CAPABILITY_LOCALITY
-- [ ] P2.1 RENDERER_REGISTRY
-- [ ] P2.2 ARTIFACT_INSPECTOR_UNIVERSAL
-- [ ] P3.1 SYSTEM_FIELDS_TYPED
-- [ ] P3.2 SYSTEM_VIEWS_ACTIONS
-- [ ] P3.3 SYSTEM_TRIGGERS_LITE
-- [ ] P4.1 FLOW_EXEC_REAL
-- [ ] P4.2 AGENT_GUARDED_RUNS
-- [ ] P5.1 OLLAMA_LIVE
-- [ ] P5.2 BYOK_VAULT_ROUTING
-- [ ] P5.3 AI_MEMORY_GATE
-- [ ] P6.1 PDF_EPUB_LOCAL
-- [ ] P6.2 IMPORT_PIPELINE_RECEIPTS
-- [ ] P6.3 ICS_EML_FILE_IMPORT
-- [ ] P6.4 OBSIDIAN_VAULT_BRIDGE
-- [ ] P6.5 SEMANTIC_SEARCH_GATED
-- [ ] P7.1 TRASH_UNDO_GRACE
-- [ ] P7.2 EXPORT_ROUNDTRIP_PROOF
-- [ ] P7.3 TWIN_RECOVERY_DRILL
-- [ ] P8.1 PACK_MANIFEST_ENFORCE
-- [ ] P8.2 TEN_STARTER_PACKS
-- [ ] P9.1 HEALTH_REGISTRY_PANEL
-- [ ] P9.2 FAILURE_INJECTION
-- [ ] P10.1 FIRST_RUN_CALM
-- [ ] P10.2 MOBILE_PWA_CONTINUITY
-- [ ] P10.3 PERF_BUDGETS
-- [ ] P10.4 UX_COHERENCE
-- [ ] P11.1 DOCS_TRUTH_SYNC
-- [ ] P11.2 RELEASE_V1 *(owner-gated — will stop here, not attempt)*
+### ✅ Срез 1 — Аудит + план переиспользования (2026-07-20)
+
+- Аудит всех 18 пунктов скоупа против реального кода — в плане §2 (что есть, что гэп,
+  какой срез добирает). Главное: ядро артефактов/capture/финансы/голос/граф/агенты УЖЕ
+  работают и переиспользуются; с нуля не пишется ничего.
+- Внедрён хеш сборки: `tools/stamp-version.mjs` (`npm run stamp`) пишет git-hash в
+  `index.html` (виден в шапке) и в имя кэша `service-worker.js` — закрыта задокументированная
+  ловушка «владелец смотрит на протухший кэш и не видит изменений».
+- WIP чат-мозга (RU-промпт с граф-контекстом, честные цитаты, вопрос≠заметка, идентичность
+  модели) заморожен ЗАКОММИЧЕННЫМ — становится ядром среза 5. Гейт-спека
+  `output/playwright/chat-brain-graph-context.spec.mjs` написана, прогоняется при закрытии
+  среза 5 против живого Ollama.
+- **Проверить за 60 секунд**: открой http://localhost:4173 → в шапке справа виден хеш
+  сборки → сверь с `git log --oneline -1` → совпадает = смотришь на свежую сборку.
+
+### ⬜ Срез 2 — Artifact Core + текстовый capture
+### ⬜ Срез 3 — Финансы + такси + проекции
+### ⬜ Срез 4 — Дашборд + утренняя сводка
+### ⬜ Срез 5 — Чат + Ollama поверх реальных данных (разморозка WIP)
+### ⬜ Срез 6 — Whisper + голосовой пайплайн
+### ⬜ Срез 7 — Граф (редизайн)
+### ⬜ Срез 8 — Память + context engine + поиск
+### ⬜ Срез 9 — Timeline
+### ⬜ Срез 10 — Entity resolution
+### ⬜ Срез 11 — Рефлексия + Insight engine
+### ⬜ Срез 12 — User model + confidence + explainability + decision support
+### ⬜ Срез 13 — Agent center
+### ⬜ Срез 14 — Adaptive dashboard + инструкции

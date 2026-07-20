@@ -1,4 +1,4 @@
-const LIFEOS_CACHE = "lifeos-v34-personal-os-chat-hardfix-v4";
+const LIFEOS_CACHE = "lifeos-v34-e547b20a";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
