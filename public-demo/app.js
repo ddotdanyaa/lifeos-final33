@@ -4906,7 +4906,7 @@ function createActionProposalsForSource(state, sourceId) {
     proposals.push(addProposal(state, item.type, item.title, source.id, source.noteId, item));
   }
   const draftTypes = new Set((analysis.drafts || []).map((item) => item.type));
-  const directTypes = new Set(["task", "calendar", "reminder", "finance_expense", "finance_income", "balance", "budget", "subscription", "bill", "habit", "routine", "goal", "money_goal", "insight", "parser", "transcript"]);
+  const directTypes = new Set(["shift", "task", "calendar", "reminder", "finance_expense", "finance_income", "balance", "budget", "subscription", "bill", "habit", "routine", "goal", "money_goal", "insight", "parser", "transcript"]);
   const hasDirectProjection = (analysis.drafts || []).some((item) => directTypes.has(item.type));
   const hasTaskDraft = draftTypes.has("task");
   const hasCalendarDraft = draftTypes.has("calendar") || draftTypes.has("reminder");
@@ -6819,7 +6819,13 @@ function saveSourceTranscript(state, sourceId, transcriptText, options) {
   });
   ensureInsight(state, "Аудио стало знанием: " + stripExtension(source.name), "Расшифровка связана с источником и может создавать заметки, задачи, выводы, цитаты, повторение, связи и контроль.", { sourceId: source.id, noteId });
   createActionProposalsForSource(state, source.id);
-  addChatMessage(state, "assistant", "Транскрипт связан с аудио, заметкой, графом и действиями.", source.id, noteId);
+  // Срез 6 (v1.4): голос — первоклассный вход чата. Расшифровка становится сообщением
+  // владельца в чате с типизированным предложением (смена/расход/задача/заметка) через тот
+  // же createChatMessageProposal, что и печатный ввод — то есть надиктованное «отработал 12
+  // часов заработал 8700» подтверждается в чате ровно как напечатанное, без ручного разбора.
+  const transcriptMessageId = addChatMessage(state, "owner", cleanText, source.id, noteId);
+  createChatMessageProposal(state, transcriptMessageId, cleanText);
+  addChatMessage(state, "assistant", "Расшифровка связана с аудио, заметкой и графом. Ниже — что можно записать одним нажатием.", source.id, noteId);
   addAudit(state, "transcript.save", modeCopy.label + " сохранена для " + source.name, noteId);
   rebuildIndexes(state);
   return noteId;
