@@ -9263,6 +9263,46 @@ function applyForceTick(nodes, links, width, height) {
   }
 }
 
+// Срез 7 (v1.4): тема-aware палитра графа - раньше фон был захардкожен тёмным независимо от
+// темы приложения. Читаем реальную тему (явный выбор владельца или системный сигнал).
+function readGraphTheme() {
+  let theme = "";
+  try {
+    theme = document.documentElement.dataset.theme || "";
+    if (!theme) theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    theme = "light";
+  }
+  if (theme === "dark") {
+    return { dark: true, bg: "#0b0d11", grid: "rgba(148, 163, 184, 0.06)", edge: "rgba(148, 175, 200, 0.22)", edgeActive: "rgba(96, 165, 250, 0.85)", label: "#c7d2de", labelDim: "rgba(199, 210, 222, 0.35)", ring: "rgba(11, 13, 17, 0.9)" };
+  }
+  return { dark: false, bg: "#f7f9fc", grid: "rgba(15, 23, 42, 0.05)", edge: "rgba(71, 85, 105, 0.28)", edgeActive: "rgba(37, 99, 235, 0.7)", label: "#334155", labelDim: "rgba(51, 65, 85, 0.34)", ring: "rgba(247, 249, 252, 0.95)" };
+}
+
+function graphNodeFill(type) {
+  return type === "product-brain-root" ? "#38bdf8"
+    : type === "product-brain" ? "#2563eb"
+    : type === "ghost" ? "#b9814f"
+    : type === "source" ? "#1d9bf0"
+    : type === "audio-source" ? "#c026d3"
+    : type === "goal" ? "#8b5cf6"
+    : type === "finance-account" || type === "finance-income" || type === "finance-expense" || type === "budget" || type === "subscription" ? "#16a34a"
+    : type === "habit" ? "#14b8a6"
+    : type === "claim" || type === "question" || type === "review" || type === "reading" || type === "highlight" ? "#4f46e5"
+    : type === "saved-search" ? "#0369a1"
+    : type === "channel" ? "#0f766e"
+    : type === "system" || type === "system-record" || type === "marketplace-pack" || type === "installed-pack" || type === "database" || type === "database-row" || type === "design-profile" ? "#7c3aed"
+    : type === "model-profile" || type === "screen-session" ? "#0891b2"
+    : type === "smart-home-device" || type === "smart-home-event" ? "#059669"
+    : type === "project" || type === "project-item" || type === "twin-snapshot" ? "#be123c"
+    : type === "transcript-segment" || type === "audio-checkpoint" || type === "player-note" ? "#db2777"
+    : type === "chat-owner" || type === "chat-assistant" ? "#475569"
+    : type === "task" || type === "plan" || type === "proposal" || type === "reminder" ? "#f59e0b"
+    : type === "agent" || type === "provider-run" || type === "flow-run" ? "#64748b"
+    : String(type || "").endsWith("-done") ? "#64748b"
+    : "#2563eb";
+}
+
 class GraphCanvas {
   constructor(canvas, graph, state) {
     this.canvas = canvas;
@@ -9284,6 +9324,26 @@ class GraphCanvas {
     this.layoutTickLimit = this.graph.limited ? 18 : 260;
     this.animationFrameLimit = this.graph.limited ? 42 : 260;
     this.prepared = runForceLayout(this.graph, this.width, this.height, this.graph.limited ? 8 : 80);
+    // Срез 7 (v1.4): степень узла (число связей) и карта соседей - для размера-по-хабам и
+    // фокус-эффекта Obsidian (клик по узлу подсвечивает его окрестность, остальное гаснет).
+    this.degree = new Map();
+    this.neighbors = new Map();
+    for (const node of this.prepared.nodes) {
+      this.degree.set(node.id, 0);
+      this.neighbors.set(node.id, new Set());
+    }
+    for (const link of this.prepared.links) {
+      this.degree.set(link.source, (this.degree.get(link.source) || 0) + 1);
+      this.degree.set(link.target, (this.degree.get(link.target) || 0) + 1);
+      this.neighbors.get(link.source)?.add(link.target);
+      this.neighbors.get(link.target)?.add(link.source);
+    }
+    for (const node of this.prepared.nodes) {
+      node.radius = Math.min(26, node.radius + Math.sqrt(this.degree.get(node.id) || 0) * 2.4);
+    }
+    this.hoverNode = null;
+    this.theme = readGraphTheme();
+    requestAnimationFrame(() => { this.theme = readGraphTheme(); this.draw(); });
     this.resize = this.resize.bind(this);
     this.onWheel = this.onWheel.bind(this);
     this.onPointerDown = this.onPointerDown.bind(this);
@@ -9370,7 +9430,18 @@ class GraphCanvas {
   }
 
   onPointerMove(event) {
-    if (!this.dragMode) return;
+    if (!this.dragMode) {
+      // Срез 7: hover-подсветка узла и курсор-pointer, как в Obsidian - без перетаскивания.
+      const hovered = this.hitNode(this.screenToWorld(event.clientX, event.clientY));
+      const hoverId = hovered ? hovered.id : null;
+      const prevId = this.hoverNode ? this.hoverNode.id : null;
+      if (hoverId !== prevId) {
+        this.hoverNode = hovered;
+        this.canvas.style.cursor = hovered ? "pointer" : "grab";
+        this.draw();
+      }
+      return;
+    }
     if (this.dragMode === "node" && this.dragNode) {
       const point = this.screenToWorld(event.clientX, event.clientY);
       this.dragNode.x = point.x;
@@ -9416,19 +9487,29 @@ class GraphCanvas {
 
   draw() {
     const ctx = this.ctx;
+    const theme = this.theme || readGraphTheme();
+    const selectedId = this.state.graphView.selectedNodeId || this.state.activeNoteId || "";
+    const hoverId = this.hoverNode ? this.hoverNode.id : "";
+    // Срез 7: фокус-эффект Obsidian - навёл/выбрал узел, его окрестность яркая, остальное
+    // приглушается. Наведение приоритетнее выбора для «что я сейчас разглядываю».
+    const focusId = hoverId || selectedId;
+    const hasFocus = Boolean(focusId) && this.neighbors.has(focusId);
+    const activeSet = hasFocus ? new Set([focusId, ...(this.neighbors.get(focusId) || [])]) : null;
+    const dimEdge = theme.dark ? "rgba(148, 175, 200, 0.05)" : "rgba(71, 85, 105, 0.06)";
+
     ctx.save();
     ctx.clearRect(0, 0, this.width, this.height);
-    ctx.fillStyle = "#0d1318";
+    ctx.fillStyle = theme.bg;
     ctx.fillRect(0, 0, this.width, this.height);
-    ctx.strokeStyle = "rgba(134, 164, 185, 0.08)";
+    ctx.strokeStyle = theme.grid;
     ctx.lineWidth = 1;
-    for (let x = 0; x < this.width; x += 32) {
+    for (let x = 0; x < this.width; x += 34) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, this.height);
       ctx.stroke();
     }
-    for (let y = 0; y < this.height; y += 32) {
+    for (let y = 0; y < this.height; y += 34) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(this.width, y);
@@ -9436,64 +9517,72 @@ class GraphCanvas {
     }
     ctx.translate(this.panX, this.panY);
     ctx.scale(this.scale, this.scale);
+
     for (const link of this.prepared.links) {
+      const incident = hasFocus && (link.source === focusId || link.target === focusId);
+      const active = !hasFocus || activeSet.has(link.source) || activeSet.has(link.target);
       ctx.beginPath();
       ctx.moveTo(link.sourceNode.x, link.sourceNode.y);
       ctx.lineTo(link.targetNode.x, link.targetNode.y);
-      ctx.strokeStyle = "rgba(160, 190, 205, 0.34)";
-      ctx.lineWidth = 1.45;
+      ctx.strokeStyle = incident ? theme.edgeActive : active ? theme.edge : dimEdge;
+      ctx.lineWidth = incident ? 2.1 : 1.3;
       ctx.stroke();
     }
+
     for (const node of this.prepared.nodes) {
-      const selected = this.state.graphView.selectedNodeId === node.id || this.state.activeNoteId === node.id;
+      const isSelected = node.id === selectedId;
+      const isHover = node.id === hoverId;
+      const active = !hasFocus || activeSet.has(node.id);
+      const fill = graphNodeFill(node.type);
+      ctx.globalAlpha = active ? 1 : 0.2;
+      if (isSelected || isHover) {
+        ctx.save();
+        ctx.shadowColor = fill;
+        ctx.shadowBlur = isSelected ? 22 : 13;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.beginPath();
       ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-      ctx.fillStyle = selected ? "#ff6b4a"
-        : node.type === "product-brain-root" ? "#38bdf8"
-          : node.type === "product-brain" ? "#2563eb"
-        : node.type === "ghost" ? "#b9814f"
-          : node.type === "source" ? "#1d9bf0"
-            : node.type === "audio-source" ? "#c026d3"
-              : node.type === "goal" ? "#8b5cf6"
-                : node.type === "finance-account" || node.type === "finance-income" || node.type === "finance-expense" || node.type === "budget" || node.type === "subscription" ? "#16a34a"
-                  : node.type === "habit" ? "#14b8a6"
-                    : node.type === "claim" || node.type === "question" || node.type === "review" || node.type === "reading" || node.type === "highlight" ? "#4f46e5"
-                      : node.type === "saved-search" ? "#0369a1"
-                        : node.type === "channel" ? "#0f766e"
-                          : node.type === "system" || node.type === "system-record" || node.type === "marketplace-pack" || node.type === "installed-pack" || node.type === "database" || node.type === "database-row" || node.type === "design-profile" ? "#7c3aed"
-                            : node.type === "model-profile" || node.type === "screen-session" ? "#0891b2"
-                              : node.type === "smart-home-device" || node.type === "smart-home-event" ? "#059669"
-                                : node.type === "project" || node.type === "project-item" || node.type === "twin-snapshot" ? "#be123c"
-                        : node.type === "transcript-segment" || node.type === "audio-checkpoint" || node.type === "player-note" ? "#db2777"
-                        : node.type === "chat-owner" || node.type === "chat-assistant" ? "#0f172a"
-                        : node.type === "task" || node.type === "plan" || node.type === "proposal" || node.type === "reminder" ? "#f59e0b"
-                          : node.type === "agent" || node.type === "provider-run" || node.type === "flow-run" ? "#64748b"
-                            : node.type.endsWith("-done") ? "#64748b"
-                              : "#2563eb";
+      ctx.fillStyle = fill;
       ctx.fill();
-      ctx.lineWidth = selected ? 4 : 2;
-      ctx.strokeStyle = selected ? "#fff3ed" : "rgba(240, 247, 255, 0.92)";
+      ctx.lineWidth = isSelected ? 3 : isHover ? 2.4 : 1.5;
+      ctx.strokeStyle = isSelected ? (theme.dark ? "#ffffff" : "#0d1017") : theme.ring;
       ctx.stroke();
-      ctx.fillStyle = selected ? "#fff5f0" : "#d8e7f1";
-      ctx.font = "12px Inter, system-ui, sans-serif";
+      ctx.globalAlpha = 1;
+    }
+
+    // Умные подписи (после узлов, поверх): показываем у выбранного/наведённого, у хабов и
+    // когда узлов немного - иначе прячем, чтобы не было каши из текста ("мусор в глазах").
+    const showAllLabels = this.prepared.nodes.length <= 42;
+    for (const node of this.prepared.nodes) {
+      const isSelected = node.id === selectedId;
+      const isHover = node.id === hoverId;
+      const active = !hasFocus || activeSet.has(node.id);
+      const deg = this.degree.get(node.id) || 0;
+      if (!(isSelected || isHover || showAllLabels || (active && deg >= 3))) continue;
+      ctx.font = (isSelected || isHover ? "600 12px" : "12px") + " Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      const label = shorten(node.label, this.width < 430 ? 15 : 22);
-      const metrics = ctx.measureText(label);
-      const labelX = Math.max(metrics.width / 2 + 6, Math.min(this.width - metrics.width / 2 - 6, node.x));
-      const labelY = Math.max(4, Math.min(this.height - 18, node.y + node.radius + 7));
-      ctx.fillText(label, labelX, labelY);
+      ctx.globalAlpha = active ? 1 : 0.4;
+      ctx.fillStyle = active ? theme.label : theme.labelDim;
+      ctx.fillText(shorten(node.label, this.width < 430 ? 15 : 24), node.x, node.y + node.radius + 6);
+      ctx.globalAlpha = 1;
     }
+
     ctx.restore();
     if (this.graph.limited) {
       ctx.save();
-      ctx.fillStyle = "rgba(13, 19, 24, 0.82)";
-      ctx.fillRect(16, 16, Math.min(430, this.width - 32), 46);
-      ctx.fillStyle = "#d8e7f1";
+      ctx.fillStyle = theme.dark ? "rgba(11, 13, 17, 0.82)" : "rgba(247, 249, 252, 0.9)";
+      ctx.fillRect(16, 16, Math.min(440, this.width - 32), 44);
+      ctx.fillStyle = theme.label;
       ctx.font = "13px Inter, system-ui, sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
-      ctx.fillText("Большое хранилище: canvas " + this.graph.canvasNodeCount + "/" + this.graph.fullNodeCount + " узлов, поиск по полному графу", 28, 39);
+      ctx.fillText("Большое хранилище: показано " + this.graph.canvasNodeCount + "/" + this.graph.fullNodeCount + " узлов, поиск по полному графу", 28, 38);
       ctx.restore();
     }
   }

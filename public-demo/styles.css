@@ -1617,21 +1617,25 @@ body.drag-active .command-drop {
   grid-auto-flow: column;
   gap: 3px;
   padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: rgba(236, 241, 238, 0.86);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
 }
 
 .segmented-control button {
   min-height: 30px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 .segmented-control button.active {
-  background: #ffffff;
-  box-shadow: 0 1px 6px rgba(23, 32, 29, 0.12);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  box-shadow: var(--shadow-card);
 }
 
 .graph-search-label {
@@ -7087,30 +7091,54 @@ audio {
   margin-top: 12px;
 }
 
+/* Срез 7 (v1.4): панель графа тема-aware (Obsidian уважает тему; раньше было захардкожено
+   тёмным). Канвас рисует свой фон сам (readGraphTheme в app.js). */
 .graph-workbench-v2 {
   min-height: 700px;
   display: grid;
   gap: 12px;
-  color: #dbeafe;
-  border-radius: 24px;
-  background: #0d1318;
+  color: var(--text-main);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
   padding: 16px;
 }
 
+/* Срез 7: тулбар был 2-колоночным grid, из-за чего 12 фильтров зажимались в узкую колонку
+   и стекались вертикально на 6+ рядов, толкая канвас далеко вниз под фолд. Теперь flex-
+   колонка: поиск+режим сверху в ряд, фильтры компактными чипами во всю ширину. */
 .graph-toolbar-v2 {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.38fr) 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+}
+
+.graph-toolbar-head {
+  display: flex;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.graph-toolbar-head input {
+  flex: 1 1 220px;
+  min-width: 160px;
 }
 
 .graph-toolbar-v2 input {
-  min-height: 42px;
-  border: 1px solid rgba(219, 234, 254, 0.18);
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.92);
-  color: #e0f2fe;
+  min-height: 40px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  color: var(--text-main);
   padding: 10px 12px;
+}
+
+.graph-toolbar-v2 input:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: var(--focus-ring);
 }
 
 .graph-filter-row {
@@ -7120,38 +7148,81 @@ audio {
 }
 
 .graph-filter-row label {
-  border: 1px solid rgba(219, 234, 254, 0.16);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line-soft);
   border-radius: 999px;
-  padding: 8px 10px;
+  padding: 5px 10px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 120ms var(--ease), color 120ms var(--ease), background 120ms var(--ease);
+}
+
+.graph-filter-row label input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
+.graph-filter-row label:hover {
+  color: var(--text-main);
+  background: var(--bg-surface-hover);
 }
 
 .graph-canvas-shell {
-  display: grid;
-  grid-template-columns: minmax(480px, 1fr) 310px;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .graph-canvas {
   width: 100%;
-  height: 640px;
-  border-radius: 20px;
-  background: #0d1318;
+  height: 560px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  cursor: grab;
+}
+
+.graph-canvas:active {
+  cursor: grabbing;
 }
 
 .graph-inspector {
-  border: 1px solid rgba(219, 234, 254, 0.14);
-  border-radius: 20px;
-  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  color: var(--text-main);
   padding: 16px;
   display: grid;
   align-content: start;
   gap: 12px;
 }
 
+.graph-inspector > span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.graph-edge-row {
+  text-align: left;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  padding: 8px 10px;
+  font-size: var(--text-xs);
+}
+
 .edge-reasons p {
-  border-radius: 12px;
-  background: rgba(37, 99, 235, 0.16);
+  border-radius: var(--radius-sm);
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--text-main);
   padding: 10px;
+  font-size: var(--text-sm);
 }
 
 .control-human-layout {
