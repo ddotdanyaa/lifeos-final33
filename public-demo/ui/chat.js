@@ -17,6 +17,7 @@ function filterChatMessages(messages, query) {
 // typed proposal (app.js's createChatMessageProposal, same classifier + proposal store as
 // the main capture input) shows its preview and an Применить/Отклонить pair right here.
 const CHAT_PROPOSAL_TYPE_LABELS = {
+  shift: "Смена",
   finance_expense: "Расход",
   finance_income: "Доход",
   reminder: "Напоминание",

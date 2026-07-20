@@ -1,6 +1,7 @@
 import { renderMoneyDashboard } from "./components/MoneyDashboard.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
 import { button, escapeHtml, money, safeList } from "./components/shared.js";
+// (Срез 3 использует button/escapeHtml из того же импорта - ничего нового.)
 
 function stripExtension(name) {
   return String(name || "").replace(/\.[^.]+$/, "");
@@ -31,14 +32,27 @@ function receiptCard(ctx, source) {
   ].join("");
 }
 
+// Срез 3 (v1.4): недельный виджет смен - часы, доход/час, редактируемая цель недели и
+// остаток до неё. Всё считается из финансовых транзакций (shiftHours на доходах), не из
+// отдельной коллекции.
 function weeklyChartSection(ctx) {
-  const weekly = ctx.financeWeekly || { labels: [], expenseByDay: [], incomeByDay: [] };
+  const weekly = ctx.financeWeekly || { labels: [], expenseByDay: [], incomeByDay: [], hoursByDay: [] };
   const weekExpense = weekly.expenseByDay.reduce((sum, value) => sum + value, 0);
   const weekIncome = weekly.incomeByDay.reduce((sum, value) => sum + value, 0);
+  const weekHours = (weekly.hoursByDay || []).reduce((sum, value) => sum + value, 0);
+  const perHour = weekHours > 0 ? Math.round(weekIncome / weekHours) : 0;
+  const goal = Number(ctx.financeWeeklyGoal || 0);
+  const goalLeft = goal > 0 ? Math.max(0, goal - weekIncome) : 0;
   return [
     `<section class="finance-weekly" data-testid="finance-weekly-summary">`,
     `<h3>Неделя</h3>`,
-    `<div class="finance-weekly-totals"><span>Расходы: ${money(weekExpense)}</span><span>Доходы: ${money(weekIncome)}</span></div>`,
+    `<div class="finance-weekly-totals">`,
+    `<span>Расходы: ${money(weekExpense)}</span><span>Доходы: ${money(weekIncome)}</span>`,
+    `<span data-testid="shift-week-hours">Часы: ${weekHours ? weekHours + " ч" : "—"}</span>`,
+    `<span data-testid="shift-week-rate">Доход/час: ${perHour ? money(perHour) : "—"}</span>`,
+    goal > 0 ? `<span data-testid="weekly-goal-left">До цели: ${money(goalLeft)}</span>` : "",
+    `</div>`,
+    `<div class="weekly-goal-row"><label>Цель недели<input id="weekly-goal-input" data-testid="weekly-goal-input" type="number" min="0" step="500" value="${escapeHtml(goal || "")}" placeholder="30000" aria-label="Недельная цель дохода"></label>${button("set-weekly-goal", "Сохранить цель", { kind: "ghost", testId: "set-weekly-goal" })}</div>`,
     `<div class="finance-weekly-chart-box"><canvas data-testid="finance-weekly-chart"></canvas></div>`,
     `</section>`
   ].join("");

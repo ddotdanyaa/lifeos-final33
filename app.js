@@ -1014,6 +1014,7 @@ function createInitialState() {
     searchQuery: "",
     chatSearchQuery: "",
     theme: "system",
+    financeWeeklyGoal: 0,
     commandPaletteOpen: false,
     commandPaletteQuery: "",
     savedSearches: {},
@@ -2422,6 +2423,7 @@ function normalizeState(input) {
     searchQuery: base.searchQuery || "",
     chatSearchQuery: base.chatSearchQuery || "",
     theme: base.theme === "dark" || base.theme === "light" ? base.theme : "system",
+    financeWeeklyGoal: Number.isFinite(Number(base.financeWeeklyGoal)) ? Math.max(0, Number(base.financeWeeklyGoal)) : 0,
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
     commandPaletteQuery: cleanLine(base.commandPaletteQuery || ""),
     savedSearches: base.savedSearches && typeof base.savedSearches === "object" ? base.savedSearches : {},
@@ -2703,6 +2705,11 @@ function normalizeState(input) {
     source.status = cleanLine(source.status || "stored");
     source.parserStatus = cleanLine(source.parserStatus || source.status || "stored");
     source.analysis = normalizeArtifactAnalysis(source.analysis, source);
+    // Срез 2 (v1.4): происхождение артефакта (рука/голос/файл/импорт/агент) + снимок
+    // исходного текста на момент захвата - парсеры/расшифровки могут дополнять source.text,
+    // но то, что РЕАЛЬНО вошло, всегда сохранено нетронутым в originalText.
+    source.origin = cleanLine(source.origin || (source.kind === "audio" ? "voice" : source.kind === "text" ? "text" : "file"));
+    if (source.originalText === undefined) source.originalText = String(source.text || "");
     // U5 READER: per-page/per-chapter text kept alongside the flat `text` blob so the
     // reader can render one unit at a time instead of always showing the whole book.
     source.pageTexts = Array.isArray(source.pageTexts) ? source.pageTexts.map((page) => String(page || "")) : [];
@@ -2796,6 +2803,7 @@ function normalizeState(input) {
     tx.day = cleanLine(tx.day || todayKey());
     tx.noteId = state.notes[tx.noteId] && !state.notes[tx.noteId].deleted ? tx.noteId : "";
     tx.sourceId = state.sources[tx.sourceId] && !state.sources[tx.sourceId].deleted ? tx.sourceId : "";
+    tx.shiftHours = Number.isFinite(Number(tx.shiftHours)) ? Math.max(0, Number(tx.shiftHours)) : 0;
     tx.deleted = Boolean(tx.deleted);
     tx.createdAt = tx.createdAt || now();
     tx.updatedAt = tx.updatedAt || tx.createdAt;
@@ -3928,7 +3936,7 @@ function groupForProposalType(type) {
   if (["note", "knowledge", "insight", "claim", "question", "review"].includes(key)) return "knowledge";
   if (["task", "project"].includes(key)) return "actions";
   if (["calendar", "reminder"].includes(key)) return "calendar";
-  if (["finance", "finance_expense", "finance_income", "balance", "budget", "subscription", "bill", "debt"].includes(key)) return "money";
+  if (["finance", "finance_expense", "finance_income", "balance", "budget", "subscription", "bill", "debt", "shift"].includes(key)) return "money";
   if (["habit", "routine"].includes(key)) return "habits";
   if (["goal", "money_goal"].includes(key)) return "goals";
   if (["media", "book", "audio", "transcript", "parser"].includes(key)) return "media";
@@ -4153,6 +4161,47 @@ function hasAnyText(lower, words) {
   });
 }
 
+// Срез 2 (v1.4): минимальные людские сущности - заглавные слова НЕ в начале предложения,
+// не входящие в служебный стоп-лист. Честная эвристика, не NER: ловит "позвонить Жене",
+// пропускает начала предложений; entity resolution (Женя=Жека) - отдельный срез 10.
+const PEOPLE_STOPWORDS = new Set(["LifeOS", "Задача", "Расход", "Доход", "Мысль", "Смена", "Заметка", "Напомни", "Сегодня", "Завтра", "Вчера", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь", "Москва", "Ollama", "Whisper", "Vosk"]);
+
+function extractPeopleNames(text) {
+  const names = [];
+  const sentences = String(text || "").split(/[.!?\n]+/);
+  for (const sentence of sentences) {
+    const words = sentence.trim().split(/\s+/);
+    for (let index = 1; index < words.length; index += 1) {
+      const word = words[index].replace(/[^А-ЯЁа-яёA-Za-z-]/g, "");
+      if (/^[А-ЯЁ][а-яё]{2,}$/.test(word) && !PEOPLE_STOPWORDS.has(word)) names.push(word);
+    }
+  }
+  return uniqueCleanItems(names, 6);
+}
+
+// Срез 3 (v1.4): смена одной фразой - "отработал 12 часов, заработал 8700, бензин 1900".
+// Правила/regex, НЕ LLM (закон среза: LLM-парсинг не блокирует ежедневный цикл). Часы,
+// доход по глаголу, все остальные суммы с соседним словом - расходы смены.
+function parseShiftEntry(text) {
+  const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
+  if (!/(отработал|отработала|смена|смену)/.test(clean)) return null;
+  const hoursMatch = clean.match(/(\d{1,2}(?:[.,]\d)?)\s*час/);
+  const incomeMatch = clean.match(/(?:заработал[а]?|доход|привез[а-я]*|выручка)\s+(\d{3,6})/);
+  const hours = hoursMatch ? Number(hoursMatch[1].replace(",", ".")) : 0;
+  const income = incomeMatch ? Number(incomeMatch[1]) : 0;
+  if (!hours && !income) return null;
+  const expenses = [];
+  for (const match of clean.matchAll(/([а-яё]{3,})\s+(\d{2,6})\b|(\d{2,6})\s+(?:на\s+)?([а-яё]{3,})/g)) {
+    const label = match[1] || match[4];
+    const amount = Number(match[2] || match[3]);
+    if (!label || !amount) continue;
+    if (["заработал", "заработала", "доход", "выручка", "отработал", "отработала", "смена", "смену", "привез", "привезла", "часов", "часа", "час"].includes(label)) continue;
+    if (amount === income || (hoursMatch && String(amount) === hoursMatch[1])) continue;
+    expenses.push({ title: label.charAt(0).toLocaleUpperCase() + label.slice(1), amount });
+  }
+  return { hours, income, expenses };
+}
+
 function analyzeArtifactInput(input, fileMeta) {
   const rawText = typeof input === "string" ? input : String(input && input.text ? input.text : "");
   const meta = fileMeta && typeof fileMeta === "object" ? fileMeta : {};
@@ -4168,8 +4217,10 @@ function analyzeArtifactInput(input, fileMeta) {
     emails: extractEmails(text),
     wikiLinks: extractWikiLinks(text).map((link) => link.targetTitle),
     headings: extractHeadings(text),
+    people: extractPeopleNames(text),
     file: meta.name ? { name: meta.name, kind: meta.kind || "", mime: meta.mime || "" } : null
   };
+  const shift = parseShiftEntry(text);
   const day = parseDateFromText(text);
   const time = parseTimeFromText(text);
   const amount = extractFirstAmount(text);
@@ -4214,6 +4265,8 @@ function analyzeArtifactInput(input, fileMeta) {
   }
 
   mark("note/source");
+  if (shift) mark("work shift");
+  if (entities.people.length) mark("person");
   if (isTask) mark("task");
   if (hasDateOrTime) mark("calendar/time/date");
   if (hasAnyText(lower, ["напомни", "напоминание"]) || /\b(remind|reminder)\b/i.test(lower)) mark("reminder");
@@ -4240,6 +4293,18 @@ function analyzeArtifactInput(input, fileMeta) {
     summary: shorten(text || meta.name || "Пустой источник", 180),
     tags: detectedClasses.slice(0, 6)
   }, 0.95));
+
+  // Срез 3: смена целиком - один черновик со всем разбором (часы/доход/расходы), чтобы
+  // предпросмотр показал ВЕСЬ разбор перед подтверждением, а не три отдельных предложения.
+  if (shift) {
+    const expensesTotal = shift.expenses.reduce((sum, item) => sum + item.amount, 0);
+    addDraftOnce(drafts, draft("shift-main", "shift", "Смена: " + (shift.hours ? shift.hours + " ч" : "часы?") + (shift.income ? ", +" + shift.income + " ₽" : "") + (expensesTotal ? ", расходы " + expensesTotal + " ₽" : ""), "money", "Разбор смены: часы, доход и расходы из одной фразы", quote, {
+      hours: shift.hours,
+      amount: shift.income,
+      expenses: shift.expenses,
+      day: day || todayKey()
+    }, 0.9));
+  }
 
   const actionTitle = stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text) || stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг";
   // isExpense deliberately excluded here (U2 MONEY_FAST fix): a pure expense/income entry
@@ -4724,6 +4789,8 @@ function addImportedSource(state, payload) {
     parserStatus: cleanLine(payload.parserStatus || payload.status || "stored"),
     checksum: cleanLine(payload.checksum || ""),
     analysis: {},
+    origin: cleanLine(payload.origin || (payload.kind === "audio" ? "voice" : payload.kind === "text" ? "text" : "file")),
+    originalText: String(payload.text || ""),
     pageTexts: [],
     chapterTexts: [],
     positionSeconds: 0,
@@ -4995,7 +5062,7 @@ function chatMessageToProposal(state, messageId, type) {
   return proposalId;
 }
 
-const CHAT_ACTION_PROPOSAL_PRIORITY = ["finance_expense", "finance_income", "reminder", "task", "knowledge"];
+const CHAT_ACTION_PROPOSAL_PRIORITY = ["shift", "finance_expense", "finance_income", "reminder", "task", "knowledge"];
 
 // U4 CHAT_ACTIONS: turns an owner chat message into a real, correctly-typed proposal by
 // reusing the same classifier (analyzeArtifactInput) and proposal store (addProposal) as the
@@ -5610,6 +5677,9 @@ function addFinanceTransaction(state, title, amount, kind, options) {
     kind: txKind,
     category: cleanLine(options && options.category ? options.category : "Разное"),
     accountId,
+    // Срез 3: часы смены живут прямо на доходной транзакции (не отдельная коллекция) -
+    // недельный виджет считает часы/доход-в-час из того же источника правды, что и деньги.
+    shiftHours: Number.isFinite(Number(options && options.shiftHours)) ? Math.max(0, Number(options.shiftHours)) : 0,
     day: cleanLine(options && options.day ? options.day : todayKey()),
     noteId: options && options.noteId ? options.noteId : state.activeNoteId || "",
     sourceId: options && options.sourceId ? options.sourceId : "",
@@ -6134,6 +6204,35 @@ function applyProposal(state, proposalId) {
       });
     } else {
       objectId = addTask(state, "Заполнить расход вручную: " + (fields.title || proposal.title), schedule);
+    }
+  } else if (proposal.type === "shift") {
+    // Срез 3: применение смены = доход с часами + расходы + рабочий день в календаре,
+    // всё из одного подтверждённого предпросмотра.
+    if (Number(fields.amount || 0) > 0) {
+      objectId = addFinanceTransaction(state, "Смена", fields.amount, "income", {
+        category: "Смена",
+        day: fields.day || todayKey(),
+        shiftHours: fields.hours,
+        sourceId: proposal.sourceId,
+        noteId: proposal.noteId
+      });
+    }
+    for (const expense of Array.isArray(fields.expenses) ? fields.expenses : []) {
+      if (Number(expense.amount || 0) > 0) {
+        addFinanceTransaction(state, expense.title || "Расход смены", expense.amount, "expense", {
+          category: expense.title || "Смена",
+          day: fields.day || todayKey(),
+          sourceId: proposal.sourceId,
+          noteId: proposal.noteId
+        });
+      }
+    }
+    if (Number(fields.hours || 0) > 0) {
+      addPlanBlock(state, "Смена " + fields.hours + " ч", {
+        day: fields.day || todayKey(),
+        sourceId: proposal.sourceId,
+        noteId: proposal.noteId
+      });
     }
   } else if (proposal.type === "finance_income") {
     objectId = addFinanceTransaction(state, fields.title || proposal.title, fields.amount, "income", {
@@ -9670,6 +9769,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     financeAccounts: Object.values(state.financeAccounts || {}).filter((item) => !item.deleted),
     financeSummary: financeSummary(state),
     financeWeekly: financeWeeklySeries(state),
+    financeWeeklyGoal: Number(state.financeWeeklyGoal || 0),
     flowRuns: Object.values(state.flowRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     flows: Object.values(state.flows || {}),
     agentRuns: Object.values(state.agentRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
@@ -10375,8 +10475,10 @@ function financeWeeklySeries(state) {
   for (let offset = -6; offset <= 0; offset += 1) days.push(dateKeyFromOffset(offset));
   const expenseByDay = days.map((day) => txs.filter((tx) => tx.kind === "expense" && tx.day === day).reduce((sum, tx) => sum + tx.amount, 0));
   const incomeByDay = days.map((day) => txs.filter((tx) => tx.kind === "income" && tx.day === day).reduce((sum, tx) => sum + tx.amount, 0));
+  // Срез 3: часы смен за те же 7 дней - из shiftHours на доходных транзакциях.
+  const hoursByDay = days.map((day) => txs.filter((tx) => tx.kind === "income" && tx.day === day).reduce((sum, tx) => sum + (tx.shiftHours || 0), 0));
   const labels = days.map((day) => day.slice(5).split("-").reverse().join("."));
-  return { labels, expenseByDay, incomeByDay };
+  return { labels, expenseByDay, incomeByDay, hoursByDay };
 }
 
 function ownerTodaySummary(state) {
@@ -10714,6 +10816,7 @@ function buildHumanCaptureAnswer(state) {
   const lower = normalizeRuText(text);
   const task = firstProposalOfType(proposals, ["task", "calendar", "reminder"]);
   const calendar = firstProposalOfType(proposals, ["calendar", "plan", "reminder"]);
+  const shift = firstProposalOfType(proposals, ["shift"]);
   const expense = firstProposalOfType(proposals, ["finance_expense", "finance"]);
   const balance = firstProposalOfType(proposals, ["balance"]);
   const knowledge = firstProposalOfType(proposals, ["knowledge", "knowledge-summary", "note"]);
@@ -10751,7 +10854,21 @@ function buildHumanCaptureAnswer(state) {
     };
   }
 
-  if (expense && balance) {
+  if (shift) {
+    // Срез 3: предпросмотр разбора смены ДО подтверждения - часы/доход/расходы видны
+    // явно, применение только по кнопке (никакой скрытой записи).
+    const fields = shift.fields || {};
+    const expensesList = Array.isArray(fields.expenses) ? fields.expenses : [];
+    facts = [
+      "Это смена.",
+      "Часы: " + (fields.hours ? fields.hours + " ч" : "не распознаны") + ".",
+      "Доход: " + (fields.amount ? fields.amount + " ₽" : "не распознан") + ".",
+      expensesList.length ? "Расходы: " + expensesList.map((item) => item.title + " " + item.amount + " ₽").join(", ") + "." : "Расходов не найдено."
+    ];
+    primary.label = "Записать смену";
+    primary.action = "apply-proposal";
+    primary.id = shift.id;
+  } else if (expense && balance) {
     facts = [
       "Расход: " + moneyFactTitle(expense),
       "Баланс: " + repairMojibake((balance.fields && balance.fields.accountName) || "карта") + ", " + Number((balance.fields && balance.fields.balance) || 0) + " ₽."
@@ -10787,6 +10904,11 @@ function buildHumanCaptureAnswer(state) {
   } else {
     facts = ["Я разберу ввод и покажу действия до любых изменений."];
   }
+
+  // Срез 2: найденные люди видны сразу в разборе - владелец видит, КОГО система узнала
+  // в его вводе, до применения чего-либо.
+  const peopleFound = source && source.analysis && source.analysis.entities && Array.isArray(source.analysis.entities.people) ? source.analysis.entities.people : [];
+  if (peopleFound.length) facts.push("Люди: " + peopleFound.join(", ") + ".");
 
   secondary = secondary.concat([
     { label: "Изменить", action: "focus-capture", id: "" },
@@ -16136,6 +16258,15 @@ async function handleAction(action, id) {
         current.parserError = failure;
         addAudit(state, "source.extract.failed", "Не удалось извлечь текст из " + current.name + ": " + failure, current.noteId);
       }
+    });
+    return;
+  }
+  if (action === "set-weekly-goal") {
+    const input = document.getElementById("weekly-goal-input");
+    const value = input ? Number(input.value) : 0;
+    await store.commit("Weekly goal set", (state) => {
+      state.financeWeeklyGoal = Number.isFinite(value) ? Math.max(0, value) : 0;
+      addAudit(state, "finance.weekly-goal", "Недельная цель дохода: " + state.financeWeeklyGoal + " ₽", state.activeNoteId);
     });
     return;
   }
