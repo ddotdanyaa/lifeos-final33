@@ -5350,10 +5350,83 @@ function chatRuntimeSnapshot(state, context) {
   };
 }
 
+// Срез 5: русская плюрализация в app.js (ui/components/shared.js's plural недоступен здесь).
+function pluralRu(value, one, few, many) {
+  const n = Math.abs(Number(value || 0)) % 100;
+  const n1 = n % 10;
+  if (n > 10 && n < 20) return many;
+  if (n1 > 1 && n1 < 5) return few;
+  if (n1 === 1) return one;
+  return many;
+}
+
+// Срез 5 (v1.4): ответы на вопросы про деньги/смены/совет ТОЛЬКО из реальных данных,
+// без Ollama (регекс + агрегация артефактов). Это выполняет правило среза «первый вопрос
+// работает без модели». Ollama-путь (V1 CHAT_BRAIN) остаётся сверху для свободных вопросов.
+function chatMoneyDataAnswer(state, q) {
+  const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted);
+  const isMoneyQ = chatHasAny(q, ["заработал", "заработала", "доход", "сколько денег", "сколько заработ", "выручк", "получил"]);
+  const isShiftQ = chatHasAny(q, ["смена", "смену", "смены", "последняя смена", "отработал"]);
+  const isAdviceQ = chatHasAny(q, ["стоит ли", "работать завтра", "работать сегодня", "выходить", "выйти на смену", "надо ли работать", "стоит работать"]);
+  const isSpendQ = chatHasAny(q, ["потратил", "расход", "сколько трат", "трачу", "потрачено"]);
+
+  const period = chatHasAny(q, ["сегодня"]) ? "today" : chatHasAny(q, ["месяц"]) ? "month" : "week";
+  const weekDays = [];
+  for (let offset = -6; offset <= 0; offset += 1) weekDays.push(dateKeyFromOffset(offset));
+  const inPeriod = (tx) => period === "today" ? tx.day === todayKey() : period === "month" ? String(tx.day || "").startsWith(todayKey().slice(0, 7)) : weekDays.includes(tx.day);
+  const periodLabel = period === "today" ? "сегодня" : period === "month" ? "в этом месяце" : "за неделю";
+
+  // Совет «стоит ли работать» — из цели недели и прогресса, всегда с обоснованием.
+  if (isAdviceQ) {
+    const goal = Number(state.financeWeeklyGoal || 0);
+    const weekIncome = txs.filter((tx) => tx.kind === "income" && weekDays.includes(tx.day)).reduce((sum, tx) => sum + tx.amount, 0);
+    const workDays = new Set(txs.filter((tx) => tx.kind === "income" && (tx.shiftHours > 0) && weekDays.includes(tx.day)).map((tx) => tx.day)).size;
+    if (goal <= 0) return "Совет по работе я даю от недельной цели, а она пока не задана. Поставь цель недели в Деньгах, и я скажу, стоит ли выходить, исходя из остатка и темпа.";
+    const left = Math.max(0, goal - weekIncome);
+    if (left <= 0) return "Цель недели уже закрыта: заработано " + Math.round(weekIncome) + " ₽ из " + goal + " ₽. Завтра можно отдохнуть или работать сверх плана — по желанию, не по необходимости.";
+    const avgPerDay = workDays > 0 ? Math.round(weekIncome / workDays) : 0;
+    const daysNeeded = avgPerDay > 0 ? Math.ceil(left / avgPerDay) : null;
+    return "Да, стоит: до цели недели осталось " + Math.round(left) + " ₽ (заработано " + Math.round(weekIncome) + " из " + goal + ")." +
+      (avgPerDay > 0 ? " При твоём темпе ~" + avgPerDay + " ₽ за рабочий день это ещё примерно " + daysNeeded + " " + pluralRu(daysNeeded, "день", "дня", "дней") + "." : " Смен с часами пока мало, чтобы оценить темп.");
+  }
+
+  // Последняя смена — доходная транзакция с часами, самая свежая.
+  if (isShiftQ && !isMoneyQ) {
+    const shifts = txs.filter((tx) => tx.kind === "income" && tx.shiftHours > 0).sort((a, b) => (b.day || "").localeCompare(a.day || "") || (b.createdAt || "").localeCompare(a.createdAt || ""));
+    if (!shifts.length) return "Смен с часами пока нет. Запиши смену одной фразой, например «отработал 12 часов, заработал 8700», и я буду знать твой график.";
+    const last = shifts[0];
+    const rate = last.shiftHours > 0 ? Math.round(last.amount / last.shiftHours) : 0;
+    return "Последняя смена: " + last.day + ", " + last.shiftHours + " " + pluralRu(last.shiftHours, "час", "часа", "часов") + ", доход " + Math.round(last.amount) + " ₽" + (rate ? " (~" + rate + " ₽/час)" : "") + ".";
+  }
+
+  // Сколько заработал / потратил за период — сумма реальных транзакций.
+  if (isMoneyQ || isSpendQ) {
+    const kind = isSpendQ && !isMoneyQ ? "expense" : "income";
+    const rows = txs.filter((tx) => tx.kind === kind && inPeriod(tx));
+    const total = rows.reduce((sum, tx) => sum + tx.amount, 0);
+    const verb = kind === "income" ? "заработал" : "потратил";
+    if (!rows.length) return "По записям " + periodLabel + " ничего не " + (kind === "income" ? "заработано" : "потрачено") + ". Если работал или тратил — запиши это, и цифры появятся.";
+    const daysWorked = new Set(rows.map((tx) => tx.day)).size;
+    const avg = daysWorked > 0 ? Math.round(total / daysWorked) : 0;
+    let line = periodLabel.charAt(0).toLocaleUpperCase() + periodLabel.slice(1) + " ты " + verb + " " + Math.round(total) + " ₽";
+    if (kind === "income" && daysWorked > 1) line += " за " + daysWorked + " " + pluralRu(daysWorked, "день", "дня", "дней") + " (в среднем " + avg + " ₽/день)";
+    line += ".";
+    if (kind === "income") {
+      const goal = Number(state.financeWeeklyGoal || 0);
+      if (period === "week" && goal > 0) line += " До недельной цели " + Math.max(0, goal - total) + " ₽ из " + goal + ".";
+    }
+    return line;
+  }
+  return "";
+}
+
 function buildLocalChatAnswer(state, text) {
   const raw = cleanLine(repairMojibake(text));
   if (!raw) return "Напиши сообщение, и я отвечу по текущему локальному контексту LifeOS.";
   const q = normalizeRuText(raw).toLocaleLowerCase();
+  // Срез 5: вопросы про деньги/смены/совет отвечаются первыми, из реальных данных.
+  const moneyAnswer = chatMoneyDataAnswer(state, q);
+  if (moneyAnswer) return moneyAnswer;
   const context = activeChatContext(state);
   const runtime = chatRuntimeSnapshot(state, context);
   const found = localChatSearchLines(state, raw).filter(Boolean);
@@ -15689,11 +15762,15 @@ async function handleAction(action, id) {
     // exactly the class of question the owner's own screenshot showed going wrong.
     const wantsModelIdentity = !wantsDevAnswer && isModelIdentityQuestion(cleanText);
     const wantsInsight = looksLikeInsightQuestion(cleanText);
+    // Срез 5: вопросы про деньги/смены/совет отвечаются ДЕТЕРМИНИРОВАННО из реальных данных,
+    // даже когда Ollama доступна — цифры нельзя отдавать модели на выдумывание. Это же
+    // гарантирует правило «первый вопрос работает без Ollama».
+    const dataAnswer = !wantsDevAnswer && !wantsModelIdentity && cleanText ? chatMoneyDataAnswer(store.state, normalizeRuText(cleanText).toLocaleLowerCase()) : "";
     // Live Ollama generation is only attempted when the owner already explicitly
     // tested it ("generation_ok"), never speculatively - and it always falls back to
     // the honest local rule-based answer on any failure, never a fake response.
     let liveAnswer = null;
-    if (!wantsDevAnswer && !wantsModelIdentity && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel) {
+    if (!wantsDevAnswer && !wantsModelIdentity && !dataAnswer && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel) {
       try {
         const citationQuery = chatCitationQuery(cleanText);
         const citedNotes = citationQuery ? searchNotes(store.state, citationQuery).filter((note) => note.systemType !== "product_brain").slice(0, 3) : [];
@@ -15733,7 +15810,10 @@ async function handleAction(action, id) {
         addAudit(state, "chat.model-identity", "Вопрос про модель отвечен фактом из state.ollama, без обращения к LLM", state.activeNoteId);
         return;
       }
-      if (liveAnswer) {
+      if (dataAnswer) {
+        addChatMessage(state, "assistant", dataAnswer, "", state.activeNoteId);
+        addAudit(state, "chat.data.answer", "Ответ из реальных данных (деньги/смена/совет): " + shorten(cleanText, 80), state.activeNoteId);
+      } else if (liveAnswer) {
         const citationLine = liveAnswer.citations.length ? " Источники: " + liveAnswer.citations.map((citation) => citation.title).join(", ") + "." : "";
         addChatMessage(state, "assistant", liveAnswer.text + citationLine, "", state.activeNoteId);
         recordProviderRun(state, "ollama", "chat", "generation_ok", "Ollama chat ответил моделью " + liveAnswer.model + " за " + liveAnswer.latencyMs + "мс, источников: " + liveAnswer.citations.length, { model: liveAnswer.model, citationIds: liveAnswer.citations.map((citation) => citation.id), latencyMs: liveAnswer.latencyMs });

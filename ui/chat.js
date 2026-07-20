@@ -25,9 +25,19 @@ const CHAT_PROPOSAL_TYPE_LABELS = {
   knowledge: "Заметка"
 };
 
+// Срез 5: вопрос ("сколько заработал?") не должен показывать кнопку «Сделать задачей» -
+// это визуальный мусор под вопросом. Утверждения (у которых нет готового proposal) кнопку
+// сохраняют. Лёгкий детектор — зеркало app.js's looksLikeQuestion, без импорта из app.js.
+function messageLooksLikeQuestion(text) {
+  const clean = String(text || "").trim().toLocaleLowerCase();
+  if (!clean) return false;
+  if (clean.includes("?")) return true;
+  return ["как ", "почему ", "что ", "какой ", "какая ", "какое ", "какие ", "какого ", "сколько ", "умеешь", "можешь", "расскажи", "объясни", "сравни", "покажи", "стоит ли", "ты "].some((opener) => clean.startsWith(opener));
+}
+
 function chatProposalPreview(ctx, message) {
   if (message.role === "assistant" || !message.proposalId) {
-    return message.role !== "assistant"
+    return message.role !== "assistant" && !messageLooksLikeQuestion(message.text || message.content || "")
       ? `<div>${button("chat-to-proposal", "Сделать задачей", { id: message.id, kind: "ghost", testId: "chat-to-proposal" })}</div>`
       : "";
   }
@@ -75,7 +85,7 @@ export function renderChat(ctx) {
     `<section class="chat-thread" data-testid="chat-thread">`,
     isSearching && !messages.length
       ? `<div class="empty-inline" data-testid="chat-thread-search-empty">Ничего не найдено по «${escapeHtml(chatSearchQuery.trim())}».</div>`
-      : safeList(messages, (message) => `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : ""}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${escapeHtml(compactText(message.text || message.content || "", 760))}</p>${message.receiptId ? `<small>receipt ${escapeHtml(message.receiptId)}</small>` : ""}${chatProposalPreview(ctx, message)}</article>`, `<article class="chat-message assistant"><span>LifeOS</span><p>Напиши сообщение: оно станет локальным артефактом, попадёт в историю, поиск, граф, ленту и Data Control.</p></article>`),
+      : safeList(messages, (message) => `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : ""}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${escapeHtml(compactText(message.text || message.content || "", 760))}</p>${chatProposalPreview(ctx, message)}</article>`, `<article class="chat-message assistant"><span>LifeOS</span><p>Напиши сообщение: оно станет локальным артефактом, попадёт в историю, поиск, граф, ленту и Data Control.</p></article>`),
     `</section>`,
     `<footer class="chat-composer" data-testid="chat-composer"><textarea id="chat-input" data-testid="chat-input" rows="2" placeholder="Напиши вопрос, я отвечу по локальному контексту…" aria-label="Сообщение в чат" spellcheck="true"></textarea>${button("send-chat", "Отправить", { kind: "primary", testId: "send-chat" })}<details><summary>Спросить о разработке</summary><p>Команда /dev отвечает из внутреннего состояния разработки.</p></details></footer>`,
     `</div>`
