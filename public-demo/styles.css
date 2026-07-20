@@ -5925,6 +5925,59 @@ audio {
   font-weight: 800;
 }
 
+/* Срез 4 (v1.4): карточка утренней сводки - первый блок на Доме. */
+.morning-summary {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.03));
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+
+:root[data-theme="dark"] .morning-summary {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(96, 165, 250, 0.04));
+}
+
+.morning-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.morning-summary-head span {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.morning-summary-head time {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.morning-summary-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.morning-summary-list li {
+  color: var(--text-main);
+  font-size: var(--text-base);
+  line-height: var(--line-height-normal);
+}
+
+.morning-summary-list strong {
+  font-weight: 700;
+}
+
 .home-hero-copy h1 {
   margin: 0;
   font-size: clamp(24px, 2.4vw, var(--text-2xl));

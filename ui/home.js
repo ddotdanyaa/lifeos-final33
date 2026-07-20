@@ -2,7 +2,7 @@ import { renderAssistantInput } from "./components/AssistantInput.js";
 import { renderHumanAnswerCard } from "./components/HumanAnswerCard.js";
 import { renderRecordPanel } from "./components/PlayerSurface.js";
 import { renderTimeGrid } from "./components/TimeGrid.js";
-import { button, emptyState, escapeHtml, money, safeList } from "./components/shared.js";
+import { button, emptyState, escapeHtml, money, plural, safeList } from "./components/shared.js";
 import { taskRow } from "./today.js";
 
 function renderMyDay(ctx) {
@@ -22,6 +22,32 @@ function renderMyDay(ctx) {
   ].join("");
 }
 
+// Срез 4 (v1.4): утренняя сводка - первое, что видишь при открытии. Только реальные
+// данные (ctx.morningSummary из app.js), никаких заглушек: дата, прогресс к недельной
+// цели, задачи на сегодня, итоги вчера.
+function renderMorningSummary(ctx) {
+  const m = ctx.morningSummary || {};
+  const goalLine = m.weeklyGoal > 0
+    ? `До недельной цели <strong>${money(m.weeklyGoalLeft)}</strong> (заработано ${money(m.weekIncome)} из ${money(m.weeklyGoal)})`
+    : `Недельная цель не задана — поставь её в Деньгах`;
+  const tasksLine = m.openTasksToday > 0
+    ? `<strong>${m.openTasksToday}</strong> ${plural(m.openTasksToday, "задача", "задачи", "задач")} на сегодня${m.openTaskTitles && m.openTaskTitles.length ? ": " + m.openTaskTitles.map((t) => escapeHtml(t)).join(", ") : ""}`
+    : `Задач на сегодня нет`;
+  const yesterdayLine = m.hasYesterday
+    ? `Вчера: выполнено ${m.yesterdayDone}, заработано ${money(m.yesterdayEarned)}, потрачено ${money(m.yesterdaySpent)}`
+    : `Вчера записей не было`;
+  return [
+    `<section class="morning-summary" data-testid="morning-summary">`,
+    `<div class="morning-summary-head"><span>Доброе утро</span><time data-testid="morning-date">${escapeHtml(m.dateLine || "")}</time></div>`,
+    `<ul class="morning-summary-list">`,
+    `<li data-testid="morning-goal">${goalLine}</li>`,
+    `<li data-testid="morning-tasks">${tasksLine}</li>`,
+    `<li data-testid="morning-yesterday">${yesterdayLine}</li>`,
+    `</ul>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderAssistantHome(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
@@ -33,6 +59,7 @@ export function renderAssistantHome(ctx) {
     `<h1>Локальная ОС для дня, знаний и контроля</h1>`,
     `<p>Один вход превращает хаос в артефакты: задачи, деньги, знания, календарь, привычки и связи.</p>`,
     `</div>`,
+    renderMorningSummary(ctx),
     `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
     renderHumanAnswerCard(ctx),

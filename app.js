@@ -4311,7 +4311,9 @@ function analyzeArtifactInput(input, fileMeta) {
   // with no task-language and no date/time shouldn't also spawn a redundant task-main draft
   // just because it happens to mention money (found via "Расход: 350 бензин" creating both a
   // finance transaction AND an unwanted duplicate task titled "Расход: бензин").
-  if (isTask || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea) {
+  // Срез 3 фикс: фраза смены ("отработал 12 часов, ... обед 400") не должна ещё и порождать
+  // задачу - слово вроде "обед" триггерит isFood, но shift-черновик уже покрывает весь разбор.
+  if (!shift && (isTask || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea)) {
     const actionReason = isProject || isIdea
       ? "Идея или проект требует owner-visible следующего шага"
       : "Найден глагол действия или предмет покупки/дела";
@@ -9841,7 +9843,8 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     tomorrowKey: dateKeyFromOffset(1),
     transactions: Object.values(state.financeTransactions || {}).filter((item) => !item.deleted).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
     accounts: Object.values(state.financeAccounts || {}).filter((item) => !item.deleted),
-    todaySummary: ownerTodaySummary(state)
+    todaySummary: ownerTodaySummary(state),
+    morningSummary: morningSummary(state)
   };
 }
 
@@ -10501,6 +10504,39 @@ function ownerTodaySummary(state) {
     habitDone: habits.filter((habit) => habit.checkins && habit.checkins[today]).length,
     habitTotal: habits.length,
     nextReminder: reminders.sort(sortScheduledItems)[0] || null
+  };
+}
+
+const RU_WEEKDAYS = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
+const RU_MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+
+// Срез 4 (v1.4): утренняя сводка - только из реальных данных, никаких заглушек. Дата +
+// день недели, прогресс к недельной цели (из среза 3), задачи на сегодня, итоги вчера.
+function morningSummary(state) {
+  const today = todayKey();
+  const yesterday = dateKeyFromOffset(-1);
+  const date = new Date(today + "T00:00:00Z");
+  const dateLine = date.getUTCDate() + " " + RU_MONTHS[date.getUTCMonth()] + ", " + RU_WEEKDAYS[date.getUTCDay()];
+  const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted);
+  const weekDays = [];
+  for (let offset = -6; offset <= 0; offset += 1) weekDays.push(dateKeyFromOffset(offset));
+  const weekIncome = txs.filter((tx) => tx.kind === "income" && weekDays.includes(tx.day)).reduce((sum, tx) => sum + tx.amount, 0);
+  const weeklyGoal = Number(state.financeWeeklyGoal || 0);
+  const openTasksToday = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && (task.day === today || !task.day));
+  const yesterdayDone = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status === "done" && String(task.updatedAt || "").slice(0, 10) === yesterday).length;
+  const yesterdayEarned = txs.filter((tx) => tx.kind === "income" && tx.day === yesterday).reduce((sum, tx) => sum + tx.amount, 0);
+  const yesterdaySpent = txs.filter((tx) => tx.kind === "expense" && tx.day === yesterday).reduce((sum, tx) => sum + tx.amount, 0);
+  return {
+    dateLine,
+    weeklyGoal,
+    weekIncome,
+    weeklyGoalLeft: weeklyGoal > 0 ? Math.max(0, weeklyGoal - weekIncome) : 0,
+    openTasksToday: openTasksToday.length,
+    openTaskTitles: openTasksToday.slice(0, 3).map((task) => task.title),
+    yesterdayDone,
+    yesterdayEarned,
+    yesterdaySpent,
+    hasYesterday: yesterdayDone > 0 || yesterdayEarned > 0 || yesterdaySpent > 0
   };
 }
 
