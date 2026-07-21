@@ -15,7 +15,11 @@ function findLocalChromium() {
 const localChromium = findLocalChromium();
 if (localChromium) test.use({ launchOptions: { executablePath: localChromium } });
 
-test.setTimeout(180000);
+// Реальная генерация qwen3 (reasoning-модель, эмитит <think>-токены) для инсайта на 900 токенов
+// измеренно ~140с на этом железе; плюс отдельная реальная генерация в test-ollama-generation и
+// сетап. 180с не хватало (тест упирался в таймаут на честном пути). Ставим реалистичную границу -
+// это не ослабление проверок (ассерты те же), а честный бюджет под медленную локальную модель.
+test.setTimeout(420000);
 
 const appUrl = "http://127.0.0.1:4173";
 
@@ -50,6 +54,9 @@ const hasCyrillic = (text) => /[а-яё]/i.test(text || "");
 // symptoms are asserted fixed here, against a real Ollama daemon (mocked in ollama-live-chat.spec.mjs
 // already covers the mocked-daemon path; this proves the real prompt/context wiring end to end).
 test("V1 CHAT_BRAIN: RU graph-insight question gets a real RU answer with real graph numbers, no garbage citations, no note-proposal", async ({ page }) => {
+  // probe-ollama показывает window.confirm перед обращением к демону; без обработчика Playwright
+  // авто-отклоняет диалог -> статус остаётся "unchecked". Принимаем все диалоги теста.
+  page.on("dialog", (dialog) => dialog.accept());
   await reset(page);
 
   // Seed some real graph structure: a task whose words are all distinct from the questions
@@ -92,7 +99,7 @@ test("V1 CHAT_BRAIN: RU graph-insight question gets a real RU answer with real g
   await page.waitForFunction((countBefore) => {
     const snap = window.__lifeosKnowledgeBase.getStateSnapshot();
     return Object.values(snap.chatMessages || {}).filter((m) => m.role === "assistant").length > countBefore;
-  }, assistantCountBefore2, { timeout: 150000 });
+  }, assistantCountBefore2, { timeout: 240000 });
 
   const finalState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   const insightOwnerMessage = Object.values(finalState.chatMessages).find((m) => m.role === "owner" && m.text === insightQuestion);

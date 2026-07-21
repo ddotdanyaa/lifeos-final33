@@ -52,12 +52,31 @@ function semanticSearchSection(ctx) {
 // Срез 8: панель «Память» - 4 слоя как вычисляемая проекция (app.js memoryLayers). Не новое
 // хранилище: те же заметки, разложенные по возрасту+связности. Каждый слой - счётчик, подсказка
 // и топ-заметки (кликабельны в редактор). Пустой слой честно показывает 0, а не прячется.
+// Срез 8.2: полнотекстовый поиск по памяти на minisearch (prefix + опечатки, ранжирование).
+// Локальный, всегда доступен (в отличие от семантического, который gated за эмбеддинги).
+function memorySearchResults(ctx) {
+  const report = ctx.memorySearchReport;
+  if (!report || !report.query) return "";
+  if (report.status === "error") {
+    return `<div class="empty-inline" data-testid="memory-search-error">Поиск не удался: ${escapeHtml(report.reason || "ошибка")}.</div>`;
+  }
+  if (!report.results.length) {
+    return `<div class="empty-inline" data-testid="memory-search-empty">По «${escapeHtml(report.query)}» ничего не найдено.</div>`;
+  }
+  return `<div class="memory-search-results" data-testid="memory-search-results">${safeList(report.results, (result) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(result.noteId)}" data-testid="memory-search-row"><strong>${escapeHtml(compactText(result.title, 60))}</strong><span>${escapeHtml(result.layer || "")}</span></button>`, "")}</div>`;
+}
+
 function renderMemorySection(ctx) {
   const layers = ctx.memoryLayers || [];
   const total = layers.reduce((sum, layer) => sum + layer.count, 0);
   return [
     `<section class="info-panel memory-panel" data-testid="memory-panel">`,
     `<div class="section-title">Память <span class="memory-total" data-testid="memory-total">${total}</span></div>`,
+    `<div class="memory-search">`,
+    `<input id="memory-search-input" data-testid="memory-search-input" autocomplete="off" aria-label="Поиск по памяти" placeholder="Найти по памяти (полнотекст)…">`,
+    button("run-memory-search", "Найти", { kind: "ghost", testId: "run-memory-search" }),
+    `</div>`,
+    memorySearchResults(ctx),
     `<div class="memory-layers">`,
     layers.map((layer) => [
       `<div class="memory-layer" data-testid="memory-layer" data-layer="${escapeHtml(layer.key)}">`,

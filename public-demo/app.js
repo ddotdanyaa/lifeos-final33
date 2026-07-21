@@ -2533,6 +2533,7 @@ function normalizeState(input) {
       obsidianScanReport: null,
       semanticIndex: { endpoint: "", model: "", vectors: {}, vectorCount: 0, updatedAt: "" },
       semanticSearchReport: null,
+      memorySearchReport: null,
       backupRestoreReport: null,
       packInstallPreview: null,
       privacyZones: {
@@ -3863,6 +3864,63 @@ function loadFflate() {
   return fflateModulePromise;
 }
 
+// Срез 8.2: minisearch (установлен в P0.5, до сих пор не использован) как движок полнотекстового
+// поиска по памяти. dist/es/index.js самодостаточен (без bare-импортов, SearchableMap встроен),
+// поэтому грузится обычным динамическим import() - в отличие от chart.js (тому нужен UMD).
+let miniSearchModulePromise = null;
+function ensureMiniSearch() {
+  if (!miniSearchModulePromise) {
+    miniSearchModulePromise = import("./node_modules/minisearch/dist/es/index.js").then((module) => module.default);
+  }
+  return miniSearchModulePromise;
+}
+
+// Кэш индекса: пересобираем только когда изменился набор заметок (сигнатура = число + сумма
+// updatedAt). Хранилище остаётся SSoT (state.notes); индекс - производная структура для поиска.
+let memoryIndexCache = { signature: "", index: null };
+function memoryIndexSignature(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => note && !note.deleted && note.systemType !== "product_brain");
+  return notes.length + ":" + notes.map((note) => note.id + "@" + note.updatedAt).sort().join("|");
+}
+function memorySearchDocuments(state) {
+  const layerByNote = new Map();
+  for (const layer of memoryLayers(state)) {
+    for (const note of layer.notes) layerByNote.set(note.id, layer.label);
+  }
+  return Object.values(state.notes || {})
+    .filter((note) => note && !note.deleted && note.systemType !== "product_brain")
+    .map((note) => ({
+      id: note.id,
+      title: note.title || "Заметка",
+      body: String(note.body || ""),
+      layer: layerByNote.get(note.id) || ""
+    }));
+}
+async function buildMemoryMiniIndex(state) {
+  const signature = memoryIndexSignature(state);
+  if (memoryIndexCache.index && memoryIndexCache.signature === signature) return memoryIndexCache.index;
+  const MiniSearch = await ensureMiniSearch();
+  const index = new MiniSearch({
+    fields: ["title", "body"],
+    storeFields: ["title", "layer"],
+    searchOptions: { prefix: true, fuzzy: 0.2, boost: { title: 3 } }
+  });
+  index.addAll(memorySearchDocuments(state));
+  memoryIndexCache = { signature, index };
+  return index;
+}
+async function searchMemory(state, query) {
+  const clean = cleanLine(query || "");
+  if (!clean) return [];
+  const index = await buildMemoryMiniIndex(state);
+  return index.search(clean).slice(0, 12).map((hit) => ({
+    noteId: hit.id,
+    title: hit.title,
+    layer: hit.layer,
+    score: hit.score
+  }));
+}
+
 // Real local EPUB parsing (P6.1): EPUB is a zip container. fflate (installed in P0.5,
 // never used until now) unzips it; container.xml points at the OPF, whose spine gives
 // reading order, whose manifest maps idref -> the actual xhtml file per spine item.
@@ -5142,7 +5200,9 @@ function createChatMessageProposal(state, messageId, text) {
   // V1 CHAT_BRAIN: a question ("ты умеешь давать инсайты по графу?") is not a note to save -
   // the "knowledge" draft is an always-present fallback meant for actual thoughts/statements,
   // and asking chat a question got mislabeled as "Сохранить источник в библиотеку" before this.
-  if (looksLikeQuestion(text)) return "";
+  // Insight/analysis requests ("проанализируй связи…", "дай инсайты") are questions in spirit even
+  // without a "?" or a known opener - they must not spawn a task/note proposal either.
+  if (looksLikeQuestion(text) || looksLikeInsightQuestion(text)) return "";
   const analysis = analyzeArtifactInput(text);
   const chosen = CHAT_ACTION_PROPOSAL_PRIORITY
     .map((type) => (analysis.drafts || []).find((item) => item.type === type))
@@ -8205,6 +8265,24 @@ function looksLikeInsightQuestion(text) {
   return hasAnyText(clean, ["инсайт", "связи", "связям", "связях", "итог", "проанализируй", "анализ", "обзор", "паттерн", "тенденци"]);
 }
 
+// Срез 8.3: явное намерение «найди/вспомни в памяти X» -> чат ищет minisearch'ем (тот же движок,
+// что панель «Память» в срезе 8.2) и кладёт результат в общий memorySearchReport, чтобы Чат и
+// База показывали одно и то же. Полный сценарий: вопрос -> поиск -> ответ + панель -> клик -> заметка.
+const MEMORY_RECALL_TRIGGERS = ["найди", "найти", "поищи", "поиск по памяти", "что я писал", "что писал", "о чём я писал", "о чем я писал", "покажи заметки", "покажи в памяти", "вспомни про", "вспомни что", "в памяти про", "искать в памяти", "search"];
+const MEMORY_RECALL_STOPWORDS = new Set(["найди", "найти", "поищи", "поиск", "по", "памяти", "память", "в", "во", "что", "я", "писал", "писала", "о", "чем", "чём", "покажи", "показать", "заметки", "заметку", "заметка", "вспомни", "вспомнить", "про", "search", "мне", "все", "всё", "и", "а", "мои", "моих", "было", "были"]);
+function looksLikeMemoryRecall(text) {
+  const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
+  return hasAnyText(clean, MEMORY_RECALL_TRIGGERS);
+}
+function memoryRecallQuery(text) {
+  const tokens = normalizeRuText(String(text || ""))
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  return tokens.filter((token) => token.length >= 3 && !MEMORY_RECALL_STOPWORDS.has(token)).join(" ");
+}
+
 function isModelIdentityQuestion(text) {
   const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
   const asksAboutModel = hasAnyText(clean, ["модель", "модели", "модельного", "уровня", "уровень", "версия", "версии", "gpt", "джпт", "чатгпт"]);
@@ -10086,6 +10164,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
       updatedAt: (state.control.semanticIndex || {}).updatedAt || ""
     },
     semanticSearchReport: state.control.semanticSearchReport || null,
+    memorySearchReport: state.control.memorySearchReport || null,
     backupRestoreReport: state.control.backupRestoreReport ? { filename: state.control.backupRestoreReport.filename, summary: state.control.backupRestoreReport.summary } : null,
     packInstallPreview: state.control.packInstallPreview || null,
     healthRegistry: computeHealthRegistry(state, runtimeSignals.saveState),
@@ -15974,11 +16053,24 @@ async function handleAction(action, id) {
     // даже когда Ollama доступна — цифры нельзя отдавать модели на выдумывание. Это же
     // гарантирует правило «первый вопрос работает без Ollama».
     const dataAnswer = !wantsDevAnswer && !wantsModelIdentity && cleanText ? chatMoneyDataAnswer(store.state, normalizeRuText(cleanText).toLocaleLowerCase()) : "";
+    // Срез 8.3: явный запрос «найди в памяти X» отвечается minisearch'ем (тем же, что панель
+    // «Память»), детерминированно и локально - раньше денежного/LLM ответа для такого намерения.
+    let memoryRecall = null;
+    if (!wantsDevAnswer && !wantsModelIdentity && !dataAnswer && cleanText && looksLikeMemoryRecall(cleanText)) {
+      const recallQuery = memoryRecallQuery(cleanText);
+      if (recallQuery) {
+        try {
+          memoryRecall = { query: recallQuery, hits: await searchMemory(store.state, recallQuery) };
+        } catch (error) {
+          memoryRecall = null;
+        }
+      }
+    }
     // Live Ollama generation is only attempted when the owner already explicitly
     // tested it ("generation_ok"), never speculatively - and it always falls back to
     // the honest local rule-based answer on any failure, never a fake response.
     let liveAnswer = null;
-    if (!wantsDevAnswer && !wantsModelIdentity && !dataAnswer && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel) {
+    if (!wantsDevAnswer && !wantsModelIdentity && !dataAnswer && !memoryRecall && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel) {
       try {
         const citationQuery = chatCitationQuery(cleanText);
         const citedNotes = citationQuery ? searchNotes(store.state, citationQuery).filter((note) => note.systemType !== "product_brain").slice(0, 3) : [];
@@ -16018,7 +16110,16 @@ async function handleAction(action, id) {
         addAudit(state, "chat.model-identity", "Вопрос про модель отвечен фактом из state.ollama, без обращения к LLM", state.activeNoteId);
         return;
       }
-      if (dataAnswer) {
+      if (memoryRecall) {
+        const answer = memoryRecall.hits.length
+          ? "Нашёл в памяти по «" + memoryRecall.query + "»: " + pluralRu(memoryRecall.hits.length, "заметка", "заметки", "заметок") + ". "
+            + memoryRecall.hits.slice(0, 5).map((hit) => "«" + hit.title + "»" + (hit.layer ? " (" + hit.layer + ")" : "")).join("; ")
+            + ". Открыл их в Базе - блок «Память»."
+          : "В памяти по «" + memoryRecall.query + "» ничего не нашёл. Попробуй другие слова.";
+        addChatMessage(state, "assistant", answer, "", state.activeNoteId);
+        state.control.memorySearchReport = { query: memoryRecall.query, status: "ok", results: memoryRecall.hits, checkedAt: now() };
+        addAudit(state, "chat.memory.search", "Поиск по памяти из чата: «" + memoryRecall.query + "» - " + memoryRecall.hits.length + " совпадений", state.activeNoteId);
+      } else if (dataAnswer) {
         addChatMessage(state, "assistant", dataAnswer, "", state.activeNoteId);
         addAudit(state, "chat.data.answer", "Ответ из реальных данных (деньги/смена/совет): " + shorten(cleanText, 80), state.activeNoteId);
       } else if (liveAnswer) {
@@ -17021,6 +17122,25 @@ async function handleAction(action, id) {
     } catch (error) {
       await store.commit("Semantic search failed", (state) => {
         blockSemanticSearch(state, query, "provider_unavailable", error && error.message ? error.message : String(error));
+      });
+    }
+    return;
+  }
+  if (action === "run-memory-search") {
+    // Срез 8.2: полнотекстовый поиск по памяти на minisearch (prefix + опечатки), локально,
+    // без провайдера - в отличие от семантического (тот gated за эмбеддинги). Всегда доступен.
+    const input = document.querySelector("#memory-search-input");
+    const query = cleanLine(input ? input.value : "");
+    if (!query) return;
+    try {
+      const results = await searchMemory(store.state, query);
+      await store.commit("Memory search completed", (state) => {
+        state.control.memorySearchReport = { query, status: "ok", results, checkedAt: now() };
+        addAudit(state, "memory.search", "Поиск по памяти: «" + query + "» - " + results.length + " совпадений", state.activeNoteId);
+      });
+    } catch (error) {
+      await store.commit("Memory search failed", (state) => {
+        state.control.memorySearchReport = { query, status: "error", results: [], reason: error && error.message ? error.message : String(error), checkedAt: now() };
       });
     }
     return;

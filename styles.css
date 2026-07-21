@@ -6662,6 +6662,49 @@ audio {
   font-weight: 600;
 }
 
+.memory-search {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.memory-search input {
+  flex: 1 1 auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  padding: 8px 14px;
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.memory-search input:focus {
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: var(--focus-ring);
+}
+
+.memory-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.memory-search-results .knowledge-note-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.memory-search-results .knowledge-note-row span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
 .memory-layers {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
