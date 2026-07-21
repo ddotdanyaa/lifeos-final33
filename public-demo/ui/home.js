@@ -51,10 +51,20 @@ function renderMorningSummary(ctx) {
 }
 
 // Срез 11: панель инсайтов - вычисленные закономерности (app.js computeInsights). Каждый инсайт
-// можно «Закрепить» в постоянный артефакт (owner-gated, с receipt). Пустой список - панель скрыта.
+// можно «Закрепить» в постоянный артефакт (owner-gated, с receipt).
+// Пустое состояние (жалоба владельца «захожу — пусто, мёртвый экран»): вместо скрытой панели
+// показываем спокойную честную подсказку, ЧТО тут появится, когда накопятся данные - так
+// день-один не выглядит сломанным. Это не «кокпит проверок» (H01): одна тихая карточка.
 function renderInsightsPanel(ctx) {
   const insights = ctx.computedInsights || [];
-  if (!insights.length) return "";
+  if (!insights.length) {
+    return [
+      `<section class="insights-panel insights-empty" data-testid="insights-panel">`,
+      `<div class="insights-head"><span>Инсайты</span><em>появятся сами</em></div>`,
+      `<p class="insights-empty-hint" data-testid="insights-empty-hint">Как только накопятся данные — покажу закономерности: повторяющиеся траты, просроченные задачи, тренд расходов за неделю, забытые цели. Запиши пару трат или задач, и они появятся здесь.</p>`,
+      `</section>`
+    ].join("");
+  }
   return [
     `<section class="insights-panel" data-testid="insights-panel">`,
     `<div class="insights-head"><span>Инсайты</span><em>замечено в твоих данных</em></div>`,

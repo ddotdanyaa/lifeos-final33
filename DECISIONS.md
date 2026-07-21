@@ -2979,3 +2979,24 @@ Whiteboard, W2 Agent/Workflow Builder, W3 Doc↔Canvas - each its own multi-pack
 design, not part of the small-package conveyor) and G2.13 (WebGL fallback for >2000-node
 vaults - explicitly marked in the queue as "отдельное решение+DECISIONS", a standalone
 architectural decision, not a small-package item).
+
+## FIX: любой аудио/видео-файл (в т.ч. MP4 из телеги) теперь распознаётся для расшифровки (2026-07-21)
+
+**Жалоба владельца:** аудио из Telegram приходит как .mp4 и не расшифровывается.
+**Корень:** `inferSourceKind` держал список аудио-расширений `mp3/wav/m4a/ogg/flac/aac/webm` -
+`mp4` там не было, а MIME `video/mp4` не совпадал с `audio/`. Файл падал в `kind:"file"`, а
+кнопка расшифровки есть только у `kind:"audio"` - её просто не было. Плюс `#audio-import` стоял
+с `accept="audio/*"`, который video/mp4 вообще не давал выбрать.
+**Фикс (маленький, точечный):** (1) `inferSourceKind` теперь считает аудио любой `audio/*` ИЛИ
+`video/*` MIME и расширения контейнеров с аудиодорожкой (mp4, m4a, m4b, opus, oga, mov, mkv,
+3gp, amr, wma, caf, aiff…) - у LifeOS нет видео-поверхности, брошенное видео обрабатывается как
+его звук, ту же дорожку вытаскивает уже существующий `decodeAudioTo16kMono` (browser
+decodeAudioData). (2) `accept` расширен на `video/*` + явные расширения.
+**Проверено:** новый `audio-any-format.spec.mjs` 2/2 - (а) `fileToSourcePayload` для .mp4
+(video/mp4), .m4a и .opus даёт `kind:"audio"`; (б) импортированный telegram_voice.mp4
+становится audio-card с кнопкой transcribe-whisper (её раньше не было). Регрессия:
+whisper-transcribe (honest-gate), import-pipeline, audio-speed - зелёные; H01-H10 10/10;
+verify, аудиты (кроме env-bound owner-rescue-final), build-public. Скриншот
+docs/qc/screens/AUDIO/mp4-telegram-as-audio.png.
+**Не тронуто намеренно:** сам движок Whisper в этом контейнере не грузится (upstream ONNX-баг,
+BLOCKED.md) - но у владельца на реале работает; этот фикс только открывает файлу путь ДО движка.

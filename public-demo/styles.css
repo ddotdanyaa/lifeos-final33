@@ -8218,6 +8218,14 @@ audio {
   font-size: var(--text-xs);
 }
 
+/* Пустое состояние инсайтов - спокойная подсказка в день-один (жалоба «захожу — пусто»). */
+.insights-empty-hint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  margin: 0;
+}
+
 .insights-list {
   display: flex;
   flex-direction: column;
