@@ -10334,6 +10334,8 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     memoryLayers: memoryLayers(state),
     resolvedPeople: resolvePeople(state),
     personMergeSuggestions: personMergeSuggestions(state),
+    computedInsights: computeInsights(state),
+    eveningReflection: eveningReflection(state),
     trashItems: allTrashRows(state).slice(0, 30).map((row) => Object.assign({}, row, { daysLeft: Math.max(0, Math.ceil(TRASH_GRACE_DAYS - daysSinceTimestamp(row.updatedAt))) })),
     trashGraceDays: TRASH_GRACE_DAYS,
     ollama: state.ollama || {},
@@ -11084,6 +11086,78 @@ function morningSummary(state) {
     yesterdayEarned,
     yesterdaySpent,
     hasYesterday: yesterdayDone > 0 || yesterdayEarned > 0 || yesterdaySpent > 0
+  };
+}
+
+// Срез 11: Insight Engine - ВЫЧИСЛЯЕМЫЕ закономерности из реальных артефактов (повторяющиеся
+// траты, тренды, забытые цели, просроченные задачи). Проекция (как memoryLayers/timelineDays),
+// пересчитывается на каждом рендере => всегда свежая при первом открытии за день. Каждый инсайт
+// со стабильным id (для закрепления), уверенностью и ссылками на источники (noteIds). Владелец
+// может «Закрепить» инсайт - тогда создаётся постоянный insight-артефакт (addInsight + receipt),
+// молчаливой memory-write нет.
+function computeInsights(state) {
+  const insights = [];
+  const today = todayKey();
+  const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted);
+  // 1. Повторяющиеся расходы по названию/категории.
+  const expenseGroups = new Map();
+  for (const tx of txs.filter((item) => item.kind === "expense")) {
+    const label = tx.title || tx.category || "Разное";
+    const key = label.toLocaleLowerCase();
+    if (!expenseGroups.has(key)) expenseGroups.set(key, { label, count: 0, total: 0, noteIds: [] });
+    const group = expenseGroups.get(key);
+    group.count += 1;
+    group.total += Math.round(Number(tx.amount) || 0);
+    if (tx.noteId) group.noteIds.push(tx.noteId);
+  }
+  for (const [key, group] of expenseGroups) {
+    if (group.count >= 3) {
+      insights.push({ id: "recur-expense-" + key, type: "recurring", icon: "🔁", title: "Частый расход: «" + group.label + "»", detail: group.count + " раз, всего " + group.total.toLocaleString("ru-RU") + " ₽", confidence: "высокая", refs: group.noteIds.slice(0, 5) });
+    }
+  }
+  // 2. Тренд расходов неделя к неделе.
+  const thisWeek = [];
+  const lastWeek = [];
+  for (let offset = -6; offset <= 0; offset += 1) thisWeek.push(dateKeyFromOffset(offset));
+  for (let offset = -13; offset <= -7; offset += 1) lastWeek.push(dateKeyFromOffset(offset));
+  const spendThis = txs.filter((tx) => tx.kind === "expense" && thisWeek.includes(tx.day)).reduce((sum, tx) => sum + tx.amount, 0);
+  const spendLast = txs.filter((tx) => tx.kind === "expense" && lastWeek.includes(tx.day)).reduce((sum, tx) => sum + tx.amount, 0);
+  if (spendLast > 0 && spendThis > 0) {
+    const pct = Math.round(((spendThis - spendLast) / spendLast) * 100);
+    if (Math.abs(pct) >= 15) {
+      insights.push({ id: "trend-spend", type: "trend", icon: pct > 0 ? "📈" : "📉", title: "Расходы за неделю " + (pct > 0 ? "выросли" : "снизились") + " на " + Math.abs(pct) + "%", detail: "Эта неделя " + Math.round(spendThis).toLocaleString("ru-RU") + " ₽ против " + Math.round(spendLast).toLocaleString("ru-RU") + " ₽ на прошлой", confidence: "средняя", refs: [] });
+    }
+  }
+  // 3. Забытые цели/проекты.
+  for (const goal of Object.values(state.goals || {}).filter((item) => !item.deleted && item.status !== "done")) {
+    const age = Math.round(ageInDays(goal.updatedAt, Date.now()));
+    if (age >= 14) insights.push({ id: "forgotten-goal-" + goal.id, type: "forgotten", icon: "💤", title: "Цель без движения: «" + (goal.title || "Цель") + "»", detail: age + " дней без обновления", confidence: "средняя", refs: goal.noteId ? [goal.noteId] : [] });
+  }
+  // 4. Просроченные задачи.
+  const overdue = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && task.day && task.day < today);
+  if (overdue.length) {
+    insights.push({ id: "overdue-tasks", type: "overdue", icon: "⏰", title: overdue.length + " " + pluralRu(overdue.length, "задача просрочена", "задачи просрочены", "задач просрочено"), detail: overdue.slice(0, 3).map((task) => task.title).join("; "), confidence: "высокая", refs: overdue.map((task) => task.noteId).filter(Boolean).slice(0, 5) });
+  }
+  return insights.slice(0, 8);
+}
+
+function eveningReflection(state) {
+  const today = todayKey();
+  const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted && tx.day === today);
+  const income = txs.filter((tx) => tx.kind === "income").reduce((sum, tx) => sum + tx.amount, 0);
+  const expense = txs.filter((tx) => tx.kind === "expense").reduce((sum, tx) => sum + tx.amount, 0);
+  const tasksDone = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status === "done" && String(task.updatedAt || "").slice(0, 10) === today).length;
+  const tasksOpen = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && (task.day === today || !task.day)).length;
+  const captures = Object.values(state.sources || {}).filter((item) => !item.deleted && String(item.createdAt || "").slice(0, 10) === today).length;
+  const topInsight = computeInsights(state)[0] || null;
+  return {
+    income: Math.round(income),
+    expense: Math.round(expense),
+    tasksDone,
+    tasksOpen,
+    captures,
+    topInsight,
+    hasActivity: Boolean(income || expense || tasksDone || captures)
   };
 }
 
@@ -15721,6 +15795,17 @@ async function handleAction(action, id) {
       await store.commit("Люди объединены", (state) => {
         state.entityAliases = Object.assign({}, state.entityAliases, { [personKey(alias)]: cleanLine(target) });
         addAudit(state, "entity.merge", "Объединил людей: «" + cleanLine(alias) + "» → «" + cleanLine(target) + "»", state.activeNoteId);
+      });
+    }
+    return;
+  }
+  if (action === "pin-insight") {
+    // Срез 11: закрепить вычисленный инсайт как постоянный артефакт (owner-gated, с receipt).
+    const computed = computeInsights(store.state).find((item) => item.id === id);
+    if (computed) {
+      await store.commit("Инсайт закреплён", (state) => {
+        const noteId = computed.refs && computed.refs[0] ? computed.refs[0] : state.activeNoteId || "";
+        addInsight(state, computed.title, computed.detail + " · закреплено из авто-инсайта (" + computed.confidence + " уверенность)", { noteId });
       });
     }
     return;

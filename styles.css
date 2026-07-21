@@ -7497,6 +7497,81 @@ audio {
   align-content: start;
 }
 
+/* Срез 11: инсайты + вечерняя рефлексия на Доме. */
+.insights-panel,
+.evening-reflection {
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.insights-head,
+.evening-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.insights-head span,
+.evening-head span {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.insights-head em {
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: var(--text-xs);
+}
+
+.insights-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.insight-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+}
+
+.insight-icon {
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+
+.insight-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.insight-body span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.evening-reflection p {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.evening-insight {
+  margin-top: 6px !important;
+  color: var(--text-muted) !important;
+  font-size: var(--text-sm);
+}
+
 /* Срез 10: разрешение людей - канонические сущности + предложения слить. */
 .people-panel .person-merges {
   display: flex;

@@ -48,6 +48,45 @@ function renderMorningSummary(ctx) {
   ].join("");
 }
 
+// Срез 11: панель инсайтов - вычисленные закономерности (app.js computeInsights). Каждый инсайт
+// можно «Закрепить» в постоянный артефакт (owner-gated, с receipt). Пустой список - панель скрыта.
+function renderInsightsPanel(ctx) {
+  const insights = ctx.computedInsights || [];
+  if (!insights.length) return "";
+  return [
+    `<section class="insights-panel" data-testid="insights-panel">`,
+    `<div class="insights-head"><span>Инсайты</span><em>замечено в твоих данных</em></div>`,
+    `<div class="insights-list">`,
+    safeList(insights, (insight) => [
+      `<div class="insight-card" data-testid="insight-card" data-insight="${escapeHtml(insight.id)}">`,
+      `<span class="insight-icon" aria-hidden="true">${insight.icon}</span>`,
+      `<div class="insight-body"><strong>${escapeHtml(insight.title)}</strong><span>${escapeHtml(insight.detail)} · уверенность: ${escapeHtml(insight.confidence)}</span></div>`,
+      button("pin-insight", "Закрепить", { id: insight.id, kind: "ghost", testId: "pin-insight" }),
+      `</div>`
+    ].join(""), ""),
+    `</div>`,
+    `</section>`
+  ].join("");
+}
+
+// Срез 11: «подвести день» - спокойная вечерняя рефлексия из фактов дня + верхний инсайт.
+function renderEveningReflection(ctx) {
+  const reflection = ctx.eveningReflection || {};
+  if (!reflection.hasActivity) return "";
+  const parts = [];
+  if (reflection.income || reflection.expense) parts.push(`деньги: +${money(reflection.income)} / −${money(reflection.expense)}`);
+  if (reflection.tasksDone) parts.push(`выполнено задач: ${reflection.tasksDone}`);
+  if (reflection.captures) parts.push(`записей: ${reflection.captures}`);
+  if (reflection.tasksOpen) parts.push(`осталось задач: ${reflection.tasksOpen}`);
+  return [
+    `<section class="evening-reflection" data-testid="evening-reflection">`,
+    `<div class="evening-head"><span>Подвести день</span></div>`,
+    `<p data-testid="evening-summary">Сегодня — ${parts.join(", ")}.</p>`,
+    reflection.topInsight ? `<p class="evening-insight" data-testid="evening-insight">${reflection.topInsight.icon} ${escapeHtml(reflection.topInsight.title)}</p>` : "",
+    `</section>`
+  ].join("");
+}
+
 export function renderAssistantHome(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
@@ -60,6 +99,8 @@ export function renderAssistantHome(ctx) {
     `<p>Один вход превращает хаос в артефакты: задачи, деньги, знания, календарь, привычки и связи.</p>`,
     `</div>`,
     renderMorningSummary(ctx),
+    renderInsightsPanel(ctx),
+    renderEveningReflection(ctx),
     `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
     renderHumanAnswerCard(ctx),
