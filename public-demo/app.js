@@ -10336,6 +10336,8 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     personMergeSuggestions: personMergeSuggestions(state),
     computedInsights: computeInsights(state),
     eveningReflection: eveningReflection(state),
+    userModel: computeUserModel(state),
+    workDecision: workDecisionSupport(state),
     trashItems: allTrashRows(state).slice(0, 30).map((row) => Object.assign({}, row, { daysLeft: Math.max(0, Math.ceil(TRASH_GRACE_DAYS - daysSinceTimestamp(row.updatedAt))) })),
     trashGraceDays: TRASH_GRACE_DAYS,
     ollama: state.ollama || {},
@@ -11158,6 +11160,79 @@ function eveningReflection(state) {
     captures,
     topInsight,
     hasActivity: Boolean(income || expense || tasksDone || captures)
+  };
+}
+
+// Срез 12: модель пользователя - ВЫЧИСЛЯЕМЫЕ характеристики (дисциплина/ритм/энергия) из
+// артефактов, каждая с уверенностью (по размеру выборки) и раскрытием «почему/на каких данных».
+// Проекция, не хранилище. Никаких ярлыков-приговоров - только наблюдаемые числа с объяснением.
+function computeUserModel(state) {
+  const traits = [];
+  const tasks = Object.values(state.tasks || {}).filter((task) => !task.deleted);
+  const done = tasks.filter((task) => task.status === "done").length;
+  const totalTasks = tasks.length;
+  const discipline = totalTasks ? Math.round((done / totalTasks) * 100) : 0;
+  traits.push({
+    key: "discipline", name: "Дисциплина", value: discipline,
+    label: discipline >= 70 ? "высокая" : discipline >= 40 ? "средняя" : "низкая",
+    confidence: totalTasks >= 8 ? "высокая" : totalTasks >= 3 ? "средняя" : "низкая",
+    why: "Выполнено " + done + " из " + totalTasks + " задач.", sample: totalTasks
+  });
+  const days = [];
+  for (let offset = -13; offset <= 0; offset += 1) days.push(dateKeyFromOffset(offset));
+  const activeDays = new Set();
+  for (const source of Object.values(state.sources || {}).filter((item) => !item.deleted)) {
+    const day = String(source.createdAt || "").slice(0, 10);
+    if (days.includes(day)) activeDays.add(day);
+  }
+  for (const tx of Object.values(state.financeTransactions || {}).filter((item) => !item.deleted)) {
+    if (days.includes(tx.day)) activeDays.add(tx.day);
+  }
+  const rhythm = Math.round((activeDays.size / 14) * 100);
+  traits.push({
+    key: "rhythm", name: "Ритм", value: rhythm,
+    label: rhythm >= 60 ? "стабильный" : rhythm >= 30 ? "неровный" : "редкий",
+    confidence: "средняя", why: "Активность в " + activeDays.size + " из 14 дней.", sample: activeDays.size
+  });
+  const week = [];
+  for (let offset = -6; offset <= 0; offset += 1) week.push(dateKeyFromOffset(offset));
+  const shiftHours = Object.values(state.financeTransactions || {})
+    .filter((tx) => !tx.deleted && tx.kind === "income" && Number(tx.shiftHours) > 0 && week.includes(tx.day))
+    .reduce((sum, tx) => sum + Number(tx.shiftHours || 0), 0);
+  traits.push({
+    key: "energy", name: "Энергия", value: Math.min(100, Math.round((shiftHours / 40) * 100)),
+    label: shiftHours >= 40 ? "высокая" : shiftHours >= 15 ? "средняя" : shiftHours > 0 ? "низкая" : "нет данных",
+    confidence: shiftHours > 0 ? "средняя" : "низкая",
+    why: shiftHours > 0 ? Math.round(shiftHours) + " ч смен за неделю." : "Смен за неделю не записано.", sample: Math.round(shiftHours)
+  });
+  return traits;
+}
+
+// Срез 12: поддержка решения «стоит ли завтра работать?» на реальных цифрах смен - с уверенностью,
+// обоснованием и альтернативами (explainability), а не голым «да/нет».
+function workDecisionSupport(state) {
+  const question = "Стоит ли завтра работать?";
+  const goal = Number(state.financeWeeklyGoal || 0);
+  const week = [];
+  for (let offset = -6; offset <= 0; offset += 1) week.push(dateKeyFromOffset(offset));
+  const txs = Object.values(state.financeTransactions || {}).filter((item) => !item.deleted);
+  const weekIncome = txs.filter((tx) => tx.kind === "income" && week.includes(tx.day)).reduce((sum, tx) => sum + tx.amount, 0);
+  const workDays = new Set(txs.filter((tx) => tx.kind === "income" && Number(tx.shiftHours) > 0 && week.includes(tx.day)).map((tx) => tx.day)).size;
+  if (goal <= 0) {
+    return { question, recommendation: "Нужна цель недели", confidence: "низкая", why: "Недельная цель не задана — не от чего считать остаток и темп.", alternatives: ["Поставь цель недели в Деньгах"] };
+  }
+  const left = Math.max(0, goal - weekIncome);
+  const avgPerDay = workDays > 0 ? Math.round(weekIncome / workDays) : 0;
+  if (left <= 0) {
+    return { question, recommendation: "Можно отдохнуть", confidence: "высокая", why: "Цель недели закрыта: " + Math.round(weekIncome).toLocaleString("ru-RU") + " из " + goal.toLocaleString("ru-RU") + " ₽.", alternatives: ["Работать сверх плана по желанию", "Оставить день на отдых"] };
+  }
+  const daysNeeded = avgPerDay > 0 ? Math.ceil(left / avgPerDay) : null;
+  return {
+    question,
+    recommendation: "Стоит выйти",
+    confidence: workDays >= 2 ? "высокая" : workDays >= 1 ? "средняя" : "низкая",
+    why: "До цели недели осталось " + Math.round(left).toLocaleString("ru-RU") + " ₽ (заработано " + Math.round(weekIncome).toLocaleString("ru-RU") + " из " + goal.toLocaleString("ru-RU") + ")." + (avgPerDay > 0 ? " Темп ~" + avgPerDay.toLocaleString("ru-RU") + " ₽/смена." : " Смен с часами мало для оценки темпа."),
+    alternatives: daysNeeded ? ["Добрать примерно за " + daysNeeded + " " + pluralRu(daysNeeded, "смену", "смены", "смен"), "Разбить на смены поменьше"] : ["Записать пару смен, чтобы я оценил темп"]
   };
 }
 

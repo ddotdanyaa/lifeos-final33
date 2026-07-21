@@ -7497,6 +7497,114 @@ audio {
   align-content: start;
 }
 
+/* Срез 12: модель пользователя + поддержка решения. */
+.user-model-panel {
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.trait-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.trait-card {
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trait-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.trait-label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.trait-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-surface-hover);
+  overflow: hidden;
+}
+
+.trait-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+}
+
+.trait-why summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  list-style: none;
+}
+
+.trait-why p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.decision-card {
+  border: 1px solid rgba(37, 99, 235, 0.24);
+  border-radius: var(--radius-md);
+  background: rgba(37, 99, 235, 0.06);
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.decision-q {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.decision-answer {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.decision-conf {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.decision-why {
+  margin: 0;
+  color: var(--text-main);
+  font-size: var(--text-sm);
+}
+
+.decision-alts {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.decision-alts em {
+  font-style: normal;
+  color: var(--text-main);
+}
+
 /* Срез 11: инсайты + вечерняя рефлексия на Доме. */
 .insights-panel,
 .evening-reflection {

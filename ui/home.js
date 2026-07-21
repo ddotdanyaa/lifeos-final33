@@ -87,6 +87,39 @@ function renderEveningReflection(ctx) {
   ].join("");
 }
 
+// Срез 12: модель пользователя + поддержка решения. Характеристики с уверенностью и раскрытием
+// «почему» (details), решение «стоит ли работать» с обоснованием и альтернативами. Ничего не
+// приговаривает - показывает наблюдаемые числа и объяснение.
+function renderUserModelPanel(ctx) {
+  const traits = ctx.userModel || [];
+  const decision = ctx.workDecision || null;
+  if (!traits.length && !decision) return "";
+  const traitCards = traits.map((trait) => [
+    `<div class="trait-card" data-testid="trait-card" data-trait="${escapeHtml(trait.key)}">`,
+    `<div class="trait-head"><strong>${escapeHtml(trait.name)}</strong><span class="trait-label">${escapeHtml(trait.label)}</span></div>`,
+    `<div class="trait-bar"><span style="width:${Math.max(0, Math.min(100, trait.value))}%"></span></div>`,
+    `<details class="trait-why"><summary>Почему · уверенность: ${escapeHtml(trait.confidence)}</summary><p data-testid="trait-why">${escapeHtml(trait.why)}</p></details>`,
+    `</div>`
+  ].join("")).join("");
+  const decisionCard = decision ? [
+    `<div class="decision-card" data-testid="decision-card">`,
+    `<div class="decision-q">${escapeHtml(decision.question)}</div>`,
+    `<div class="decision-answer" data-testid="decision-answer">${escapeHtml(decision.recommendation)} <span class="decision-conf">уверенность: ${escapeHtml(decision.confidence)}</span></div>`,
+    `<p class="decision-why" data-testid="decision-why">${escapeHtml(decision.why)}</p>`,
+    decision.alternatives && decision.alternatives.length
+      ? `<div class="decision-alts"><span>Альтернативы:</span> ${decision.alternatives.map((alt) => `<em>${escapeHtml(alt)}</em>`).join(" · ")}</div>`
+      : "",
+    `</div>`
+  ].join("") : "";
+  return [
+    `<section class="user-model-panel" data-testid="user-model-panel">`,
+    `<div class="insights-head"><span>О тебе</span><em>из наблюдаемых данных, с объяснением</em></div>`,
+    traitCards ? `<div class="trait-grid" data-testid="trait-grid">${traitCards}</div>` : "",
+    decisionCard,
+    `</section>`
+  ].join("");
+}
+
 export function renderAssistantHome(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
@@ -100,6 +133,7 @@ export function renderAssistantHome(ctx) {
     `</div>`,
     renderMorningSummary(ctx),
     renderInsightsPanel(ctx),
+    renderUserModelPanel(ctx),
     renderEveningReflection(ctx),
     `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
