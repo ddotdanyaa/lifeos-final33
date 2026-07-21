@@ -9639,6 +9639,8 @@ class GraphCanvas {
     this.pointerY = 0;
     this.frame = 0;
     this.running = true;
+    this.rafActive = true;
+    this.minimap = null;
     this.layoutTickLimit = this.graph.limited ? 18 : 260;
     this.animationFrameLimit = this.graph.limited ? 42 : 260;
     this.prepared = runForceLayout(this.graph, this.width, this.height, this.graph.limited ? 8 : 80);
@@ -9721,7 +9723,7 @@ class GraphCanvas {
     event.preventDefault();
     const before = this.screenToWorld(event.clientX, event.clientY);
     const delta = event.deltaY < 0 ? 1.08 : 0.92;
-    this.scale = Math.max(0.45, Math.min(2.4, this.scale * delta));
+    this.scale = Math.max(0.3, Math.min(2.4, this.scale * delta));
     const rect = this.canvas.getBoundingClientRect();
     this.panX = event.clientX - rect.left - before.x * this.scale;
     this.panY = event.clientY - rect.top - before.y * this.scale;
@@ -9729,7 +9731,62 @@ class GraphCanvas {
     this.draw();
   }
 
+  // G1: зум кнопками вокруг центра canvas (паттерн xyflow Controls, MIT).
+  zoomBy(factor) {
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
+    const worldX = (centerX - this.panX) / this.scale;
+    const worldY = (centerY - this.panY) / this.scale;
+    this.scale = Math.max(0.3, Math.min(2.4, this.scale * factor));
+    this.panX = centerX - worldX * this.scale;
+    this.panY = centerY - worldY * this.scale;
+    this.persistView();
+    this.draw();
+  }
+
+  // G1: «вписать граф» - камера по границам всех узлов (концепция tldraw zoomToFit /
+  // xyflow fitView; реализация своя под наш canvas).
+  zoomToFit() {
+    const nodes = this.prepared.nodes;
+    if (!nodes.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const node of nodes) {
+      minX = Math.min(minX, node.x - node.radius);
+      minY = Math.min(minY, node.y - node.radius);
+      maxX = Math.max(maxX, node.x + node.radius);
+      maxY = Math.max(maxY, node.y + node.radius);
+    }
+    const pad = 48;
+    const boundsWidth = Math.max(60, maxX - minX);
+    const boundsHeight = Math.max(60, maxY - minY);
+    this.scale = Math.max(0.3, Math.min(2.4, Math.min((this.width - pad * 2) / boundsWidth, (this.height - pad * 2) / boundsHeight)));
+    this.panX = (this.width - boundsWidth * this.scale) / 2 - minX * this.scale;
+    this.panY = (this.height - boundsHeight * this.scale) / 2 - minY * this.scale;
+    this.persistView();
+    this.draw();
+  }
+
+  // G1: живая физика - взаимодействие подогревает симуляцию, соседи следуют за перетаскиваемым
+  // узлом (в Obsidian граф всегда «живой», у нас симуляция раньше замерзала навсегда).
+  ensureAnimating() {
+    this.frame = Math.min(this.frame, Math.max(0, this.layoutTickLimit - 45));
+    if (!this.rafActive) {
+      this.rafActive = true;
+      requestAnimationFrame(this.animate);
+    }
+  }
+
   onPointerDown(event) {
+    // G1: клик/драг по минимапу - прыжок камеры в это место (паттерн xyflow MiniMap).
+    const rect = this.canvas.getBoundingClientRect();
+    const screenX = event.clientX - rect.left;
+    const screenY = event.clientY - rect.top;
+    if (this.minimap && screenX >= this.minimap.x0 && screenX <= this.minimap.x0 + this.minimap.w && screenY >= this.minimap.y0 && screenY <= this.minimap.y0 + this.minimap.h) {
+      this.dragMode = "minimap";
+      this.jumpViaMinimap(screenX, screenY);
+      this.canvas.setPointerCapture(event.pointerId);
+      return;
+    }
     const point = this.screenToWorld(event.clientX, event.clientY);
     const node = this.hitNode(point);
     this.pointerX = event.clientX;
@@ -9738,6 +9795,7 @@ class GraphCanvas {
       this.dragMode = "node";
       this.dragNode = node;
       node.fixed = true;
+      this.ensureAnimating();
       selectGraphNodeInState(this.state, node.id);
       render();
       return;
@@ -9745,6 +9803,17 @@ class GraphCanvas {
       this.dragMode = "pan";
     }
     this.canvas.setPointerCapture(event.pointerId);
+  }
+
+  jumpViaMinimap(screenX, screenY) {
+    const mm = this.minimap;
+    if (!mm) return;
+    const worldX = mm.worldMinX + (screenX - mm.x0 - mm.pad) / mm.k;
+    const worldY = mm.worldMinY + (screenY - mm.y0 - mm.pad) / mm.k;
+    this.panX = this.width / 2 - worldX * this.scale;
+    this.panY = this.height / 2 - worldY * this.scale;
+    this.persistView();
+    this.draw();
   }
 
   onPointerMove(event) {
@@ -9760,12 +9829,19 @@ class GraphCanvas {
       }
       return;
     }
+    if (this.dragMode === "minimap") {
+      const rect = this.canvas.getBoundingClientRect();
+      this.jumpViaMinimap(event.clientX - rect.left, event.clientY - rect.top);
+      return;
+    }
     if (this.dragMode === "node" && this.dragNode) {
       const point = this.screenToWorld(event.clientX, event.clientY);
       this.dragNode.x = point.x;
       this.dragNode.y = point.y;
       this.dragNode.vx = 0;
       this.dragNode.vy = 0;
+      // G1: пока узел тащат - симуляция живая, соседи следуют (Obsidian-поведение).
+      this.ensureAnimating();
     }
     if (this.dragMode === "pan") {
       this.panX += event.clientX - this.pointerX;
@@ -9801,6 +9877,7 @@ class GraphCanvas {
     if (this.frame < this.layoutTickLimit) applyForceTick(this.prepared.nodes, this.prepared.links, this.width, this.height);
     this.draw();
     if (this.frame < this.animationFrameLimit) requestAnimationFrame(this.animate);
+    else this.rafActive = false;
   }
 
   draw() {
@@ -9880,22 +9957,27 @@ class GraphCanvas {
     // Умные подписи: у выбранного/наведённого, у хабов (deg>=4) и когда узлов немного;
     // иначе прячем - как в Obsidian, где подписи проявляются по мере приближения.
     const showAllLabels = this.prepared.nodes.length <= 26;
+    // G1: подписи проявляются по мере приближения (фирменное поведение Obsidian) - при
+    // scale<=0.75 только хабы/выбранный, к ~1.3 плавно видны все.
+    const zoomReveal = Math.max(0, Math.min(1, (this.scale - 0.75) / 0.55));
     for (const node of this.prepared.nodes) {
       const isSelected = node.id === selectedId;
       const isHover = node.id === hoverId;
       const active = !hasFocus || activeSet.has(node.id);
       const deg = this.degree.get(node.id) || 0;
-      if (!(isSelected || isHover || showAllLabels || (active && deg >= 4))) continue;
+      const alwaysVisible = isSelected || isHover || showAllLabels || (active && deg >= 4);
+      if (!(alwaysVisible || (active && zoomReveal > 0.05))) continue;
       ctx.font = (isSelected || isHover ? "600 11px" : "11px") + " Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.globalAlpha = active ? 0.92 : 0.32;
+      ctx.globalAlpha = (active ? 0.92 : 0.32) * (alwaysVisible ? 1 : zoomReveal);
       ctx.fillStyle = active ? theme.label : theme.labelDim;
       ctx.fillText(shorten(node.label, this.width < 430 ? 14 : 22), node.x, node.y + node.radius + 5);
       ctx.globalAlpha = 1;
     }
 
     ctx.restore();
+    this.drawMinimap(ctx, theme);
     if (this.graph.limited) {
       ctx.save();
       ctx.fillStyle = theme.dark ? "rgba(11, 13, 17, 0.82)" : "rgba(247, 249, 252, 0.9)";
@@ -9907,6 +9989,59 @@ class GraphCanvas {
       ctx.fillText("Большое хранилище: показано " + this.graph.canvasNodeCount + "/" + this.graph.fullNodeCount + " узлов, поиск по полному графу", 28, 38);
       ctx.restore();
     }
+  }
+
+  // G1: минимап в углу с рамкой вьюпорта (паттерн xyflow MiniMap / tldraw, реализация своя
+  // под canvas). Клик/драг по нему - прыжок камеры (см. jumpViaMinimap).
+  drawMinimap(ctx, theme) {
+    const nodes = this.prepared.nodes;
+    if (nodes.length < 8) { this.minimap = null; return; }
+    const mmW = 148;
+    const mmH = 100;
+    const margin = 14;
+    const pad = 8;
+    const x0 = this.width - mmW - margin;
+    const y0 = this.height - mmH - margin;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const node of nodes) {
+      minX = Math.min(minX, node.x);
+      minY = Math.min(minY, node.y);
+      maxX = Math.max(maxX, node.x);
+      maxY = Math.max(maxY, node.y);
+    }
+    const spanX = Math.max(80, maxX - minX);
+    const spanY = Math.max(80, maxY - minY);
+    const k = Math.min((mmW - pad * 2) / spanX, (mmH - pad * 2) / spanY);
+    this.minimap = { x0, y0, w: mmW, h: mmH, pad, worldMinX: minX, worldMinY: minY, k };
+    ctx.save();
+    ctx.fillStyle = theme.dark ? "rgba(11, 13, 17, 0.78)" : "rgba(247, 249, 252, 0.88)";
+    ctx.strokeStyle = theme.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x0, y0, mmW, mmH, 8);
+    ctx.fill();
+    ctx.stroke();
+    for (const node of nodes) {
+      ctx.beginPath();
+      ctx.arc(x0 + pad + (node.x - minX) * k, y0 + pad + (node.y - minY) * k, 1.6, 0, Math.PI * 2);
+      ctx.fillStyle = graphNodeFill(node.type);
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Рамка видимой области: экран -> мир -> координаты минимапа, с обрезкой по краям.
+    const viewMinX = (0 - this.panX) / this.scale;
+    const viewMinY = (0 - this.panY) / this.scale;
+    const viewMaxX = (this.width - this.panX) / this.scale;
+    const viewMaxY = (this.height - this.panY) / this.scale;
+    const rx0 = Math.max(x0 + 1, Math.min(x0 + mmW - 1, x0 + pad + (viewMinX - minX) * k));
+    const ry0 = Math.max(y0 + 1, Math.min(y0 + mmH - 1, y0 + pad + (viewMinY - minY) * k));
+    const rx1 = Math.max(x0 + 1, Math.min(x0 + mmW - 1, x0 + pad + (viewMaxX - minX) * k));
+    const ry1 = Math.max(y0 + 1, Math.min(y0 + mmH - 1, y0 + pad + (viewMaxY - minY) * k));
+    ctx.strokeStyle = theme.dark ? "rgba(148, 196, 255, 0.85)" : "rgba(37, 99, 235, 0.75)";
+    ctx.lineWidth = 1.4;
+    ctx.strokeRect(rx0, ry0, Math.max(6, rx1 - rx0), Math.max(6, ry1 - ry0));
+    ctx.restore();
   }
 }
 
@@ -16308,6 +16443,20 @@ async function handleAction(action, id) {
     await store.commit("Inspector renderer changed", (state) => {
       state.control.inspectorRenderer = RENDERER_MODES.includes(id) ? id : "card";
     });
+    return;
+  }
+  // G1: кнопки камеры графа - чистое view-действие (не commit; вид сохраняется через
+  // persistView, как у колеса мыши).
+  if (action === "graph-zoom-in") {
+    if (graphEngine) graphEngine.zoomBy(1.25);
+    return;
+  }
+  if (action === "graph-zoom-out") {
+    if (graphEngine) graphEngine.zoomBy(0.8);
+    return;
+  }
+  if (action === "graph-zoom-fit") {
+    if (graphEngine) graphEngine.zoomToFit();
     return;
   }
   if (action === "set-graph-mode") {

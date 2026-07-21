@@ -37,6 +37,13 @@ export function renderGraphCanvas(ctx) {
     `</div>`,
     `<div class="graph-canvas-shell">`,
     `<canvas id="graph-canvas" class="graph-canvas" data-testid="graph-canvas"></canvas>`,
+    // G1: панель зума поверх canvas (паттерн xyflow Controls / tldraw camera, MIT - см.
+    // docs/OSS_DONOR_AUDIT.md). «Вписать» = zoom-to-fit по границам всех узлов.
+    `<div class="graph-controls" data-testid="graph-controls">`,
+    `<button data-action="graph-zoom-in" data-testid="graph-zoom-in" aria-label="Приблизить" title="Приблизить">+</button>`,
+    `<button data-action="graph-zoom-out" data-testid="graph-zoom-out" aria-label="Отдалить" title="Отдалить">−</button>`,
+    `<button data-action="graph-zoom-fit" data-testid="graph-zoom-fit" aria-label="Вписать граф" title="Вписать граф">⛶</button>`,
+    `</div>`,
     `<aside class="graph-inspector" data-testid="graph-inspector">`,
     `<span data-testid="graph-counts">${graph.nodes.length} узлов · ${graph.links.length} связей</span>`,
     selected.title ? `<strong>${escapeHtml(selected.title)}</strong><em>${escapeHtml(selected.meta || "")}</em>` : `<strong>Выбери узел</strong><em>Клик по узлу покажет причины связей и рабочее место.</em>`,

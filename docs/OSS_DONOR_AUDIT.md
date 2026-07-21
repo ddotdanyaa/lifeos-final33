@@ -93,3 +93,16 @@ Receipt Engine, Memory Graph, Personal OS). Остальное — интегр�
 - [ ] Построчный разбор LibreChat streaming/tool-calling — при следующем AI-пакете.
 - [ ] Построчный разбор xyflow/system edge-math — при Graph-гибриде или Builder.
 - [ ] Бенчмарк minisearch vs flexsearch на реальном vault — по потребности.
+
+## Gap-анализ v2.1 (2026-07-21): подсистемы без доноров — закрыто
+
+Проверены лицензии кандидатов (raw LICENSE, не память): **tui.calendar (NHN) — MIT** ✅
+(та же семья, что установленный @toast-ui/editor — приоритетный донор для углубления
+Календаря); **sigma.js — MIT** ✅ (WebGL-граф для очень больших vault, если canvas
+упрётся); **Schedule-X — MIT** ✅ (альтернатива календарю, современный vanilla-friendly);
+**ninja-keys — MIT** ✅ (command palette как web component, чистый vanilla).
+
+- [x] 2026-07-21 — G1 GRAPH_ALIVE внедрён по донорским паттернам: zoom controls
+  (xyflow Controls), zoom-to-fit (tldraw camera концепция), минимап с вьюпорт-рамкой и
+  click-to-jump (xyflow MiniMap), подписи-по-зуму (Obsidian), живая физика при
+  перетаскивании. Ноль новых зависимостей — всё на нашем canvas-движке.
