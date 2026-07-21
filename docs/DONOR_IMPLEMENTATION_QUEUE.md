@@ -45,6 +45,7 @@
 - [ ] F1.6 BarList топ-категорий месяца в Деньгах (tremor BarList).
 - [ ] F1.7 Calendar-heatmap трат по дням месяца (expensica calendar-view).
 - [ ] F1.8 Прогноз «хватит ли до зарплаты»: линейный burn-rate vs остаток (actual forecast, честная арифметика).
+- [x] GOAL-HINT (2026-07-21) Подсказка по цели: дней до срока + сколько откладывать в день, чтобы успеть (actual-forecast идея, честная арифметика) — под «выкуп машины».
 
 ## ЧАТ/AI (донор: LibreChat MIT; UX — Open WebUI только смотреть)
 

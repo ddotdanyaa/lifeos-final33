@@ -2495,3 +2495,18 @@ habitStreak - дубликат удалён по правилу «сначала
 (markdown <strong>/<code> в пузыре; fuzzy «пвт»→«Проверить отчёт»; sparkline виден; snooze
 двигает день+receipt); H01/H07/H10 зелёные; аудиты зелёные (env-bound owner-rescue-final);
 build-public; скриншоты docs/qc/screens/NG/ (Дом с живыми картами, markdown-чат).
+
+## Goal hints: подсказка «сколько в день, чтобы успеть» (2026-07-21)
+
+**Found:** владелец назвал три обязательных рабочих сценария — транскрипция, инсайты,
+подсказки по целям. Проверены вживую: транскрипция (saveSourceTranscript whispercpp +
+probe-whispercpp — реальный путь, U3, owner-machine daemon), инсайты (computeInsights,
+Срез 11) — работают; подсказки по целям были только «Успеваю/Отстаю», без действия.
+**Decision:** goalPace (ui/habits-goals.js) расширен честной арифметикой: daysLeft,
+remaining, neededPerDay = ceil(remaining/daysLeft), поле hint — «Осталось N дней — нужно
+~X ₽/день, чтобы успеть» (или «цель достигнута»/«срок вышел, не хватает X»). Рендерится
+отдельной строкой .goal-hint под прогресс-баром. Донор-идея — actual forecast (линейная
+проекция, не ML). **Verified:** новый goal-hints.spec.mjs зелёный (dated goal показывает
+подсказку с «день» и «₽/день»; после +прогресса подсказка честно пересчитывается);
+verify/аудиты зелёные (env-bound owner-rescue-final); build-public; скриншот
+docs/qc/screens/GOAL/goal-hint.png — «Выкуп машины … Осталось 14 дней — нужно ~5 000 ₽/день».

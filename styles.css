@@ -8007,6 +8007,13 @@ audio {
   }
 }
 
+/* Подсказка по цели: сколько в день нужно откладывать (actual-forecast идея). */
+.goal-hint {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 /* T1.2: тихая полоска срочности на строке задачи (idea: obsidian-tasks urgency). */
 .today-task-row.urgency-med {
   border-left: 3px solid var(--accent);
