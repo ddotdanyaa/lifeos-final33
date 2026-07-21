@@ -2928,3 +2928,54 @@ rerun clean - no regression from touching the shared `mountCalendarDragDrop`/Tim
 full `final-human-product.spec.mjs` H01-H10 10/10 green (H08 calendar test included);
 `build-public.mjs` run; screenshot `docs/qc/screens/K1/month-view.png`. Full P19 (24 owner
 journeys) 24/24 green.
+
+## G2.11+G2.12: fresh-node pulse, graph date filter (2026-07-21)
+
+**Decision:** G2.11 - `GraphCanvas`'s constructor resolves each prepared node's underlying
+source object once (via the existing `graphNodeObject` helper - the same lookup already
+used by the inspector panel) to build `this.freshIds` (nodes whose `createdAt` falls on
+today), computed once per instantiation alongside the pre-existing `degree`/`neighbors`
+maps rather than touching the ~15 separate `nodes.push()` call sites inside
+`computeGraphProjection` that would otherwise need a `createdAt` field added individually
+(donor idea: AFFiNE fresh-indicator). `draw()` renders a soft `Date.now()`-based pulsing
+ring around fresh nodes; `canvas.dataset.freshCount` exposes the real count for e2e
+assertions (the pulse itself is canvas pixels, same screenshot-gate precedent as G2.1's
+search highlight). G2.12 - `state.graphView.dateFilter` (empty = off) is applied INSIDE
+`computeGraphProjection` itself, as a `scopedNodes` filtering step alongside the existing
+local-mode-depth and search-query filters, using the same `graphNodeObject`-based
+`createdAt` lookup as G2.11. A UI date input + "Сбросить" button in the graph settings panel.
+
+**Bug found and fixed mid-package:** the first version applied the date filter only inside
+`GraphCanvas`'s constructor (filtering `this.fullGraph`/`this.graph`/`this.prepared`) rather
+than in the shared `computeGraphProjection`. That filtered the CANVAS PIXELS correctly but
+left `graph-counts`, the search-results list, and the inspector all reading from the
+unfiltered `ctx.graph` (built separately via `graphForDisplay(state)` → `mapGraph(state)` →
+`computeGraphProjection(state)`, which the class-level filter never touched) - so setting a
+date filter visually thinned the canvas dots while the sidebar still confidently reported
+the old (unfiltered) node/link counts, an inconsistent, confusing half-implementation.
+Caught by the G2.12 test's exact assertion (`nodesAfter < nodesBefore` on `graph-counts`
+text, not a canvas pixel check) failing with the count unchanged. Fixed by moving the filter
+into `computeGraphProjection` (the single shared source every consumer already reads from)
+and removing the now-redundant class-level filter entirely - one filter, one truth, all
+consumers (canvas, counts, search, inspector) agree.
+
+**Verified:** `graph-tuning.spec.mjs` gained G2.11 (fresh-node count on the canvas element
+rises after capturing something new, checked via `data-fresh-count`, not a static snapshot)
+and G2.12 (a captured note is findable in graph search before the filter; setting the filter
+to yesterday drops the real `graph-counts` number; clearing it restores or exceeds the
+original count) - a flaky first run traced to this container's well-documented
+CompressionStream/commit-latency characteristic (same class as C1.3's regenerate test) got a
+matching explicit 15s poll timeout, now stable across repeated runs. All 4 tests in that file
+(G2.5/G2.6/G2.11/G2.12) green, `graph-alive.spec.mjs` (G1/G2.1/G2.3) rerun clean - no
+regression from touching the shared `computeGraphProjection`/`GraphCanvas` code. `npm run
+verify` ✅; all `tools/audit-*.mjs` green except env-bound `audit-owner-rescue-final`; full
+`final-human-product.spec.mjs` H01-H10 10/10 green; `build-public.mjs` run; screenshot
+`docs/qc/screens/G2/fresh-pulse-date-filter.png` shows both features live together. Full P19
+(24 owner journeys) 24/24 green.
+
+With this package, every remaining line in `docs/DONOR_IMPLEMENTATION_QUEUE.md`'s active
+conveyor sections is checked off except the three explicitly-deferred large builds (W1
+Whiteboard, W2 Agent/Workflow Builder, W3 Doc↔Canvas - each its own multi-package effort by
+design, not part of the small-package conveyor) and G2.13 (WebGL fallback for >2000-node
+vaults - explicitly marked in the queue as "отдельное решение+DECISIONS", a standalone
+architectural decision, not a small-package item).

@@ -7628,6 +7628,24 @@ audio {
   color: var(--text-muted);
 }
 
+/* G2.12: «граф на дату» - показать граф каким он был на выбранный день. */
+.graph-date-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.graph-date-filter-field input {
+  min-height: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+
 .graph-canvas-shell {
   display: flex;
   flex-direction: column;

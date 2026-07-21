@@ -16,7 +16,11 @@ function renderGraphSettingsRow(ctx, mode) {
     `<label class="graph-force-slider"><span>Гравитация центра</span><input type="range" id="graph-force-gravity" data-testid="graph-force-gravity" min="0" max="0.02" step="0.001" value="${escapeHtml(String(forces.gravity))}" aria-label="Гравитация к центру"></label>`,
     mode === "local"
       ? `<div class="graph-depth-row" data-testid="graph-depth-row"><span>Глубина</span><div class="segmented-control">${[1, 2, 3].map((n) => `<button class="${depth === n ? "active" : ""}" data-action="set-graph-depth" data-id="${n}" data-testid="graph-depth-${n}">${n}</button>`).join("")}</div></div>`
-      : ""
+      : "",
+    // G2.12: «граф на дату» - показать только узлы, появившиеся не позже выбранного дня
+    // (донор-идея Timeline-интеграция/слайдер).
+    `<label class="graph-date-filter-field"><span>Граф на дату</span><input type="date" id="graph-date-filter" data-testid="graph-date-filter" value="${escapeHtml(ctx.graphDateFilter || "")}" aria-label="Показать граф на дату"></label>`,
+    ctx.graphDateFilter ? button("clear-graph-date-filter", "Сбросить", { kind: "ghost", testId: "clear-graph-date-filter" }) : ""
   ].join("")}</div>` : "";
   return `<div class="graph-settings" data-testid="graph-settings"><button type="button" class="graph-settings-toggle" data-action="toggle-graph-settings" data-testid="graph-settings-toggle" aria-expanded="${open ? "true" : "false"}">Настройки раскладки</button>${body}</div>`;
 }

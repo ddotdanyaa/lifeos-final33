@@ -2593,7 +2593,10 @@ function normalizeState(input) {
       // G2.5/G2.6: сила отталкивания/длина связи/гравитация центра (Obsidian graph settings)
       // и глубина локального графа в хопах (Obsidian local graph depth) - владелец крутит,
       // раскладка/фильтр пересчитываются с реальными значениями, не косметика.
-      forceRepulsion: 8600, forceLinkDistance: 158, forceGravity: 0.004, localDepth: 1
+      forceRepulsion: 8600, forceLinkDistance: 158, forceGravity: 0.004, localDepth: 1,
+      // G2.12: фильтр «граф на дату» - показывать только узлы, появившиеся не позже этой
+      // даты (донор-идея Timeline-интеграция/слайдер). "" = без фильтра, весь граф.
+      dateFilter: ""
     }, base.graphView || {}),
     control: Object.assign({
       lastExportSummary: "",
@@ -9742,6 +9745,18 @@ function computeGraphProjection(state) {
     }
     scopedNodes = scopedNodes.filter((node) => localIds.has(node.id));
   }
+  // G2.12: «граф на дату» - только узлы, появившиеся не позже выбранного дня (донор-идея
+  // Timeline-интеграция/слайдер). Применяется здесь, а не только на canvas, чтобы счётчики,
+  // результаты поиска и инспектор видели тот же отфильтрованный граф, что и сам canvas.
+  const dateFilter = cleanLine(graphView.dateFilter || "");
+  if (dateFilter) {
+    const cutoff = dateFilter + "T23:59:59.999Z";
+    scopedNodes = scopedNodes.filter((node) => {
+      const resolved = graphNodeObject(state, node.id);
+      const createdAt = resolved && resolved.object ? resolved.object.createdAt : "";
+      return Boolean(createdAt) && createdAt <= cutoff;
+    });
+  }
   const query = normalizeTitle(graphView.searchQuery || "");
   const rawQuery = cleanLine(graphView.searchQuery || "");
   if (query) {
@@ -10013,6 +10028,8 @@ class GraphCanvas {
   constructor(canvas, graph, state) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
+    // G2.12: дата-фильтр применяется выше, в computeGraphProjection (graph уже приходит
+    // отфильтрованным сюда) - так counts/поиск/инспектор видят тот же граф, что и canvas.
     this.fullGraph = graph;
     this.graph = graphForCanvas(graph, state);
     this.state = state;
@@ -10057,6 +10074,21 @@ class GraphCanvas {
     for (const node of this.prepared.nodes) {
       node.radius = Math.min(16, node.radius + Math.sqrt(this.degree.get(node.id) || 0) * 1.7);
     }
+    // G2.11: узлы, появившиеся сегодня, мягко пульсируют (донор-идея AFFiNE fresh-indicator).
+    // createdAt живёт на исходном объекте (task/note/tx/...), не на узле проекции - смотрим
+    // через graphNodeObject один раз при построении графа, а не добавляем поле в ~15 разных
+    // мест nodes.push() по всему computeGraphProjection.
+    this.freshIds = new Set();
+    const freshToday = todayKey();
+    for (const node of this.prepared.nodes) {
+      const resolved = graphNodeObject(this.state, node.id);
+      if (resolved && resolved.object && String(resolved.object.createdAt || "").slice(0, 10) === freshToday) {
+        this.freshIds.add(node.id);
+      }
+    }
+    // Тестируемый сигнал для e2e (сам пульс - canvas-пиксели, как остальной граф; см.
+    // G2.1's screenshot-gate прецедент) - реальное число, посчитанное выше, не заглушка.
+    this.canvas.dataset.freshCount = String(this.freshIds.size);
     this.hoverNode = null;
     this.theme = readGraphTheme();
     requestAnimationFrame(() => { this.theme = readGraphTheme(); this.draw(); });
@@ -10398,6 +10430,15 @@ class GraphCanvas {
         ctx.strokeStyle = theme.dark ? "rgba(148, 196, 255, 0.9)" : "rgba(37, 99, 235, 0.8)";
         ctx.stroke();
       }
+      if (this.freshIds && this.freshIds.has(node.id)) {
+        // G2.11: мягкий пульс новых узлов за сегодня (донор-идея AFFiNE fresh-indicator).
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 420);
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius + 5 + pulse * 2.5, 0, Math.PI * 2);
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = theme.dark ? `rgba(134, 239, 172, ${(0.22 + pulse * 0.35).toFixed(2)})` : `rgba(22, 163, 74, ${(0.22 + pulse * 0.35).toFixed(2)})`;
+        ctx.stroke();
+      }
       ctx.globalAlpha = 1;
     }
 
@@ -10580,6 +10621,8 @@ const VIEW_ONLY_COMMIT_SUMMARIES = new Set([
   "Graph mode selected",
   "Graph depth selected",
   "Calendar view selected",
+  "Graph date filter set",
+  "Graph date filter cleared",
   "Graph node focused",
   "Graph node opened",
   "Graph filter changed",
@@ -11206,6 +11249,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     // G2.5/G2.6: слайдеры сил и глубина локального графа - реальные значения владельца.
     graphForces: graphForceSettings(state),
     graphLocalDepth: Math.max(1, Math.min(3, Math.round(Number(state.graphView.localDepth) || 1))),
+    graphDateFilter: cleanLine(state.graphView.dateFilter || ""),
     habits,
     highlights: Object.values(state.highlights || {}).filter((item) => !item.deleted),
     latestSource: humanVisibleSource(state) || latestSource(state),
@@ -17415,6 +17459,14 @@ async function handleAction(action, id) {
     });
     return;
   }
+  // G2.12: сбросить фильтр «граф на дату» - показать весь граф снова.
+  if (action === "clear-graph-date-filter") {
+    await store.commit("Graph date filter cleared", (state) => {
+      state.graphView.dateFilter = "";
+      addAudit(state, "graph.date-filter", "Graph date filter cleared", state.activeNoteId);
+    });
+    return;
+  }
   if (action === "focus-graph-node") {
     await store.commit("Graph node focused", (state) => {
       selectGraphNodeInState(state, id);
@@ -19146,6 +19198,14 @@ async function handleChange(event) {
         syncOllamaProviderState(state);
         recordProviderRun(state, "ollama", "model-select", "selected", "Selected model " + selected, { selected });
       }
+    });
+    return;
+  }
+  // G2.12: «граф на дату» - применяется сразу при выборе даты.
+  if (target.id === "graph-date-filter") {
+    await store.commit("Graph date filter set", (state) => {
+      state.graphView.dateFilter = cleanLine(target.value || "");
+      addAudit(state, "graph.date-filter", "Graph date filter set to " + (state.graphView.dateFilter || "cleared"), state.activeNoteId);
     });
     return;
   }

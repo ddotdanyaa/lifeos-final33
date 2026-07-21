@@ -20,8 +20,8 @@
 - [ ] G2.8 Anti-collision подписей (не наезжают при плотном графе; sigma.js label collision).
 - [x] G2.9 (2026-07-21) Кнопка «Оживить» - полный перезапуск физики раскладки.
 - [x] G2.10 (2026-07-21) Кривые bezier-рёбра НАСТОЯЩИМ кодом xyflow (vendored ui/vendor/xyflow-edge-paths.js, MIT, ~260 строк: bezier+smoothstep+straight - smoothstep/straight готовы для W2 Builder).
-- [ ] G2.11 Пульс новых узлов: появившиеся за сегодня мягко подсвечены (AFFiNE fresh-indicator).
-- [ ] G2.12 Фильтр по дате: показывать граф «на дату» (Timeline интеграция, слайдер).
+- [x] G2.11 (2026-07-21) Пульс новых узлов: появившиеся за сегодня мягко подсвечены (AFFiNE fresh-indicator), реальный счётчик на canvas (data-fresh-count).
+- [x] G2.12 (2026-07-21) Фильтр по дате: показывать граф «на дату» (Timeline интеграция) - применяется в computeGraphProjection, так что counts/поиск/canvas видят один и тот же отфильтрованный граф.
 - [ ] G2.13 WebGL-фоллбэк для vault >2000 узлов (sigma.js — отдельное решение+DECISIONS).
 
 ## ЗАДАЧИ/СЕГОДНЯ (доноры: obsidian-tasks MIT, super-productivity MIT)
