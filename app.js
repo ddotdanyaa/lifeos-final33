@@ -1013,6 +1013,7 @@ function createInitialState() {
     activeSurface: "inbox",
     searchQuery: "",
     chatSearchQuery: "",
+    chatToolbarMoreOpen: false,
     theme: "system",
     financeWeeklyGoal: 0,
     commandPaletteOpen: false,
@@ -2422,6 +2423,7 @@ function normalizeState(input) {
     activeSurface: base.activeSurface || "inbox",
     searchQuery: base.searchQuery || "",
     chatSearchQuery: base.chatSearchQuery || "",
+    chatToolbarMoreOpen: Boolean(base.chatToolbarMoreOpen),
     theme: base.theme === "dark" || base.theme === "light" ? base.theme : "system",
     financeWeeklyGoal: Number.isFinite(Number(base.financeWeeklyGoal)) ? Math.max(0, Number(base.financeWeeklyGoal)) : 0,
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
@@ -8506,6 +8508,29 @@ function mapGraph(state) {
   return graph;
 }
 
+// Срез 7 фикс (владелец: реальный граф - клубок из машинерии): для ВИЗУАЛЬНОГО графа
+// прячем внутренние логи/транзиент (запуски провайдеров/флоу/агентов, предложения,
+// чат-логи, аудио-сегменты/закладки, сохранённые поиски, review-элементы). Obsidian
+// показывает твои заметки и связи, а не логи приложения. Данные остаются (mapGraph не
+// тронут) - чистим только отображаемый граф: канвас, счётчики, причины рёбер.
+const GRAPH_DISPLAY_HIDDEN_TYPES = new Set([
+  "provider-run", "flow-run", "agent", "proposal", "chat-owner", "chat-assistant",
+  "transcript-segment", "audio-checkpoint", "player-note", "saved-search", "review"
+]);
+
+let graphDisplayCache = new WeakMap();
+function graphForDisplay(state) {
+  const full = mapGraph(state);
+  const cached = graphDisplayCache.get(full);
+  if (cached) return cached;
+  const nodes = full.nodes.filter((node) => !GRAPH_DISPLAY_HIDDEN_TYPES.has(node.type));
+  const kept = new Set(nodes.map((node) => node.id));
+  const links = full.links.filter((link) => kept.has(link.source) && kept.has(link.target));
+  const display = { nodes, links };
+  graphDisplayCache.set(full, display);
+  return display;
+}
+
 function computeGraphProjection(state) {
   const notes = Object.values(state.notes).filter((note) => !note.deleted);
   const filters = Object.assign({ notes: true, productBrain: false, sources: true, goals: true, tasks: true, money: true, habits: true, insights: true, knowledge: true, chat: true, systems: true, channels: true, models: true, home: true, ghosts: true }, state.graphFilters || {});
@@ -9150,7 +9175,8 @@ function graphForCanvas(graph, state) {
 function deterministicPoint(id, width, height) {
   const hash = parseInt(hashString(id), 16);
   const angle = (hash % 6283) / 1000;
-  const radius = 90 + (hash % 180);
+  // Срез 7 фикс: шире стартовый разброс, чтобы граф не начинался тесным комом в центре.
+  const radius = 130 + (hash % 300);
   return {
     x: width / 2 + Math.cos(angle) * radius,
     y: height / 2 + Math.sin(angle) * radius
@@ -9169,7 +9195,7 @@ function preparePhysicsNodes(graph, width, height) {
       y: point.y,
       vx: 0,
       vy: 0,
-      radius: 8 + node.val,
+      radius: 5 + (node.val || 0) * 0.6,
       fixed: false
     };
   });
@@ -9199,10 +9225,12 @@ function runForceLayout(graph, width, height, iterations) {
 }
 
 function applyForceTick(nodes, links, width, height) {
-  const repulsion = 5200;
-  const spring = 0.018;
-  const desired = 128;
-  const centerStrength = 0.006;
+  // Срез 7 фикс: сильнее расталкивание и длиннее связи - узлы дышат, а не липнут в ком
+  // (владелец видел «клубок»). Центрирование слабее, чтобы хабы не стягивали всё в точку.
+  const repulsion = 8600;
+  const spring = 0.016;
+  const desired = 158;
+  const centerStrength = 0.004;
   for (let i = 0; i < nodes.length; i += 1) {
     for (let j = i + 1; j < nodes.length; j += 1) {
       const a = nodes[i];
@@ -9339,7 +9367,7 @@ class GraphCanvas {
       this.neighbors.get(link.target)?.add(link.source);
     }
     for (const node of this.prepared.nodes) {
-      node.radius = Math.min(26, node.radius + Math.sqrt(this.degree.get(node.id) || 0) * 2.4);
+      node.radius = Math.min(16, node.radius + Math.sqrt(this.degree.get(node.id) || 0) * 1.7);
     }
     this.hoverNode = null;
     this.theme = readGraphTheme();
@@ -9524,8 +9552,10 @@ class GraphCanvas {
       ctx.beginPath();
       ctx.moveTo(link.sourceNode.x, link.sourceNode.y);
       ctx.lineTo(link.targetNode.x, link.targetNode.y);
+      // Тоньше и бледнее по умолчанию (как в Obsidian - линии почти не отвлекают), ярко
+      // только у окрестности выбранного/наведённого узла.
       ctx.strokeStyle = incident ? theme.edgeActive : active ? theme.edge : dimEdge;
-      ctx.lineWidth = incident ? 2.1 : 1.3;
+      ctx.lineWidth = incident ? 1.8 : 0.9;
       ctx.stroke();
     }
 
@@ -9534,11 +9564,11 @@ class GraphCanvas {
       const isHover = node.id === hoverId;
       const active = !hasFocus || activeSet.has(node.id);
       const fill = graphNodeFill(node.type);
-      ctx.globalAlpha = active ? 1 : 0.2;
+      ctx.globalAlpha = active ? (isSelected || isHover ? 1 : 0.9) : 0.16;
       if (isSelected || isHover) {
         ctx.save();
         ctx.shadowColor = fill;
-        ctx.shadowBlur = isSelected ? 22 : 13;
+        ctx.shadowBlur = isSelected ? 18 : 11;
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
         ctx.fillStyle = fill;
@@ -9549,27 +9579,29 @@ class GraphCanvas {
       ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
       ctx.fillStyle = fill;
       ctx.fill();
-      ctx.lineWidth = isSelected ? 3 : isHover ? 2.4 : 1.5;
+      // Тонкая обводка в цвет фона - узлы читаются как отдельные точки, но без «мультяшной»
+      // толстой белой рамки. Выделенный - чуть заметнее.
+      ctx.lineWidth = isSelected ? 2 : isHover ? 1.6 : 1;
       ctx.strokeStyle = isSelected ? (theme.dark ? "#ffffff" : "#0d1017") : theme.ring;
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
 
-    // Умные подписи (после узлов, поверх): показываем у выбранного/наведённого, у хабов и
-    // когда узлов немного - иначе прячем, чтобы не было каши из текста ("мусор в глазах").
-    const showAllLabels = this.prepared.nodes.length <= 42;
+    // Умные подписи: у выбранного/наведённого, у хабов (deg>=4) и когда узлов немного;
+    // иначе прячем - как в Obsidian, где подписи проявляются по мере приближения.
+    const showAllLabels = this.prepared.nodes.length <= 26;
     for (const node of this.prepared.nodes) {
       const isSelected = node.id === selectedId;
       const isHover = node.id === hoverId;
       const active = !hasFocus || activeSet.has(node.id);
       const deg = this.degree.get(node.id) || 0;
-      if (!(isSelected || isHover || showAllLabels || (active && deg >= 3))) continue;
-      ctx.font = (isSelected || isHover ? "600 12px" : "12px") + " Inter, system-ui, sans-serif";
+      if (!(isSelected || isHover || showAllLabels || (active && deg >= 4))) continue;
+      ctx.font = (isSelected || isHover ? "600 11px" : "11px") + " Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.globalAlpha = active ? 1 : 0.4;
+      ctx.globalAlpha = active ? 0.92 : 0.32;
       ctx.fillStyle = active ? theme.label : theme.labelDim;
-      ctx.fillText(shorten(node.label, this.width < 430 ? 15 : 24), node.x, node.y + node.radius + 6);
+      ctx.fillText(shorten(node.label, this.width < 430 ? 14 : 22), node.x, node.y + node.radius + 5);
       ctx.globalAlpha = 1;
     }
 
@@ -9696,6 +9728,17 @@ class ReactiveStore {
     this.stateRevision += 1;
     this.emit();
     this.scheduleSave("Chat search state saved");
+  }
+
+  // Срез 7 фикс: «Ещё» (расширенные настройки Ollama) - управляемое состояние, а не нативный
+  // <details>. Нативный сбрасывался на каждом ре-рендере (обновление статуса probe/test
+  // захлопывало панель прямо под рукой). Персистентный флаг переживает ре-рендер; P19 его
+  // никогда не открывает, поэтому тулбар остаётся компактным и не перехватывает клики в треде.
+  toggleChatToolbarMore() {
+    this.state.chatToolbarMoreOpen = !this.state.chatToolbarMoreOpen;
+    this.stateRevision += 1;
+    this.emit();
+    this.scheduleSave("Chat toolbar more toggled");
   }
 
   updateCommandPaletteQuery(query) {
@@ -9870,7 +9913,9 @@ function lifeFeedEvents(state) {
 }
 
 function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
-  const graph = mapGraph(state);
+  // Срез 7 фикс: чистый граф (без машинерии-логов) - и для канваса, и для причин рёбер,
+  // и для счётчика узлов/связей в инспекторе.
+  const graph = graphForDisplay(state);
   const publicActiveNote = activeNote && activeNote.systemType !== "product_brain" ? activeNote : null;
   const selectedId = state.graphView.selectedNodeId || state.activeNoteId || "";
   const selected = graphNodeObject(state, selectedId);
@@ -9925,6 +9970,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     captureDraft: state.captureDraft || "",
     chatMessages: visibleChatMessages(state),
     chatSearchQuery: state.chatSearchQuery || "",
+    chatToolbarMoreOpen: Boolean(state.chatToolbarMoreOpen),
     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
     theme: state.theme === "dark" || state.theme === "light" ? state.theme : "system",
     commandMessage: state.commandMessage || "",
@@ -14877,7 +14923,7 @@ function renderAudit(state) {
 function mountGraph() {
   const canvas = document.querySelector("#graph-canvas");
   if (!canvas || !store) return;
-  graphEngine = new GraphCanvas(canvas, mapGraph(store.state), store.state);
+  graphEngine = new GraphCanvas(canvas, graphForDisplay(store.state), store.state);
 }
 
 let calendarSortableInstances = [];
@@ -15322,6 +15368,10 @@ async function handleAction(action, id) {
       const next = order[(order.indexOf(state.theme) + 1) % order.length];
       state.theme = next;
     });
+    return;
+  }
+  if (action === "toggle-chat-more") {
+    store.toggleChatToolbarMore();
     return;
   }
   if (action === "toggle-system-record-state") {

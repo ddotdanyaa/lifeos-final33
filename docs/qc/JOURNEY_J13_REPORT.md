@@ -28,21 +28,21 @@ Player stores audio, shows controls, accepts manual transcript, creates checkpoi
   "transcriptSegments": 2,
   "audioCheckpoints": 2,
   "playerNotes": 2,
-  "chatMessages": 2,
+  "chatMessages": 3,
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 13,
+  "proposalsOpen": 14,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 42,
-  "graphEdges": 80,
-  "graphEdgeReasons": 80
+  "graphNodes": 44,
+  "graphEdges": 84,
+  "graphEdgeReasons": 84
 }
 ```
 
 ## Graph Edges
-After: 735 edges, 735 with visible reasons.
+After: 739 edges, 739 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: review.create: Review item created: Вернуться к аудио checkpoint: Audio checkpoint | audio.checkpoint: Audio checkpoint created: Audio checkpoint | task.create: Task created: Из аудио: Audio insight should become a task and claim. | player.note: Player note created: Audio insight should become a task and claim. | transcript.task: Transcript snippet became task: Audio insight should become a task and claim. | claim.create: Claim created: Вывод из аудио: Создать задачу проверить граф. | player.note: Player note created: Создать задачу проверить граф. | transcript.claim: Transcript snippet became claim: Создать задачу проверить граф.

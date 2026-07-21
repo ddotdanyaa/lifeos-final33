@@ -81,11 +81,19 @@ export function renderChat(ctx) {
   // Срез 5.5 (v1.4, frontend-design pass): диалог — герой (широкий, во всю высоту, по
   // центру как ChatGPT/Claude), а конфиг Ollama — приглушённая компактная полоска сверху,
   // а не колонка в пол-экрана. Все testid сохранены; probe/test остаются видимыми (их
-  // кликают тесты), редкие поля (эмбеддинги/адрес) — в раскрывающемся, но по умолчанию
-  // открытом блоке, чтобы клики тестов не ломались.
+  // кликают тесты), редкие поля (эмбеддинги/адрес) — в блоке «Ещё».
+  // Срез 7 фикс: «Ещё» — управляемое состояние (ctx.chatToolbarMoreOpen), а не нативный
+  // <details>: нативный сбрасывался на каждом ре-рендере (probe/test захлопывали панель),
+  // и открытый инлайн-блок раздувал тулбар так, что инпут ollama-endpoint перехватывал
+  // клики по chat-to-proposal в треде (падал P19 J17). По умолчанию закрыт → тулбар
+  // компактный; открытие рисует плавающий дропдаун, не меняя высоту тулбара.
+  const moreOpen = Boolean(ctx.chatToolbarMoreOpen);
   const embeddingsLabel = ctx.ollama?.embeddingsStatus === "embeddings_ok"
     ? "проверены (" + (ctx.ollama.embeddingsModel || "") + ")"
     : ctx.ollama?.embeddingsStatus === "provider_unavailable" ? "недоступны" : "не проверены";
+  const moreBody = moreOpen
+    ? `<div class="chat-toolbar-more-body"><span class="chat-model-note" data-testid="ollama-embeddings-status" data-raw-status="${escapeHtml(ctx.ollama?.embeddingsStatus || "unchecked")}">Эмбеддинги: ${escapeHtml(embeddingsLabel)}</span>${button("test-ollama-embeddings", "Тест эмбеддингов", { kind: "ghost", testId: "test-ollama-embeddings" })}<label class="chat-endpoint-field"><span>Адрес</span><input id="ollama-endpoint" data-testid="ollama-endpoint" value="${escapeHtml(endpoint)}" autocomplete="off" aria-label="Ollama endpoint"></label></div>`
+    : "";
   const body = [
     `<div class="chat-modern" data-testid="chat-panel">`,
     `<div class="chat-toolbar">`,
@@ -98,7 +106,7 @@ export function renderChat(ctx) {
     `<span class="chat-ollama-chip" data-testid="ollama-status" data-raw-status="${escapeHtml(ollamaStatus)}">Ollama: ${escapeHtml(providerLabel(ollamaStatus))}</span>`,
     button("probe-ollama", "Проверить", { kind: "ghost", testId: "probe-ollama" }),
     button("test-ollama-generation", "Тест", { kind: "ghost", testId: "test-ollama-generation" }),
-    `<details class="chat-toolbar-more" open><summary>Ещё</summary><div class="chat-toolbar-more-body"><span class="chat-model-note" data-testid="ollama-embeddings-status" data-raw-status="${escapeHtml(ctx.ollama?.embeddingsStatus || "unchecked")}">Эмбеддинги: ${escapeHtml(embeddingsLabel)}</span>${button("test-ollama-embeddings", "Тест эмбеддингов", { kind: "ghost", testId: "test-ollama-embeddings" })}<label class="chat-endpoint-field"><span>Адрес</span><input id="ollama-endpoint" data-testid="ollama-endpoint" value="${escapeHtml(endpoint)}" autocomplete="off" aria-label="Ollama endpoint"></label></div></details>`,
+    `<div class="chat-toolbar-more"><button type="button" class="chat-toolbar-more-toggle" data-action="toggle-chat-more" data-testid="chat-more-toggle" aria-expanded="${moreOpen ? "true" : "false"}">Ещё</button>${moreBody}</div>`,
     `</div>`,
     `</div>`,
     `<section class="chat-thread" data-testid="chat-thread">`,

@@ -160,6 +160,8 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
 
   await openSurface(page, "chat");
   await expect(page.getByTestId("ollama-status")).toBeVisible();
+  // Срез 7 фикс: адрес Ollama теперь в свёрнутом по умолчанию блоке «Ещё» - раскрываем.
+  await page.getByTestId("chat-more-toggle").click();
   await expect(page.getByTestId("ollama-endpoint")).toHaveValue(/(localhost|127\.0\.0\.1):11434/);
   await openSurface(page, "providers");
   await page.getByTestId("prepare-provider-mail").click();

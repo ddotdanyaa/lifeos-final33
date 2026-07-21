@@ -6759,6 +6759,12 @@ audio {
   border-bottom: 1px solid var(--line-hairline);
   background: var(--bg-surface-2);
   font-size: var(--text-xs);
+  /* Компактный: расширенные настройки (эмбеддинги/адрес) свёрнуты в «Ещё» (плавающий
+     дропдаун), поэтому тулбар - одна короткая строка и не налезает на тред. Именно это
+     чинит P19 J17: раньше открытый блок раздувал тулбар, и клик по chat-to-proposal в треде
+     перехватывался инпутом ollama-endpoint. Без z-index - чтобы дропдаун «Ещё» (z-index:5)
+     мог всплыть над тредом. */
+  position: relative;
 }
 
 .chat-toolbar-context {
@@ -6833,22 +6839,46 @@ audio {
   box-shadow: none;
 }
 
-.chat-toolbar-more summary {
+.chat-toolbar-more {
+  position: relative;
+}
+
+.chat-toolbar-more-toggle {
   cursor: pointer;
   color: var(--text-muted);
-  list-style: none;
+  background: none;
+  border: none;
+  padding: 3px 6px;
+  font: inherit;
+  border-radius: var(--radius-sm);
 }
 
-.chat-toolbar-more summary::-webkit-details-marker {
-  display: none;
+.chat-toolbar-more-toggle:hover {
+  color: var(--text-main);
+  background: var(--bg-surface-hover);
 }
 
+.chat-toolbar-more-toggle[aria-expanded="true"] {
+  color: var(--text-main);
+}
+
+/* Плавающий дропдаун: раскрытие «Ещё» НЕ увеличивает высоту тулбара (иначе тулбар налезал
+   на тред и перехватывал клики по сообщениям - падал P19 J17). */
 .chat-toolbar-more-body {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  max-width: 320px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-float);
 }
 
 .chat-endpoint-field {
@@ -6874,12 +6904,23 @@ audio {
 .chat-modern .chat-thread {
   height: min(58vh, 620px);
   overflow-y: auto;
-  display: grid;
-  align-content: end;
+  /* Срез 7 фикс (P19 J16): раньше было display:grid; align-content:end - при почти полном
+     треде верхнее сообщение «выпирало» выше верхней границы контейнера (scrollTop застревал
+     на 0) и пряталось за 2-строчным тулбаром, из-за чего клик по chat-to-proposal.last
+     перехватывался тулбаром намертво. Flex-колонка + margin-top:auto на первом элементе
+     прижимает короткий тред к низу БЕЗ выхода контента вверх; при переполнении scrollTop
+     работает штатно (mount ставит scrollTop=scrollHeight). */
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   padding: 22px max(18px, calc((100% - 900px) / 2));
-  scroll-behavior: smooth;
   min-height: 260px;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-modern .chat-thread > *:first-child {
+  margin-top: auto;
 }
 
 .chat-modern .chat-composer {
@@ -6891,6 +6932,8 @@ audio {
   border-top: 1px solid var(--line-hairline);
   background: var(--bg-surface);
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-modern .chat-composer textarea {

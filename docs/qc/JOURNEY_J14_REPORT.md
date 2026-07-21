@@ -42,7 +42,7 @@ Capture workspace collects unprocessed source artifacts into a review board with
 ```
 
 ## Graph Edges
-After: 755 edges, 755 with visible reasons.
+After: 759 edges, 759 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | provider.run: import file: Импорт: вечерний обзор: голосом записал идею про сон,....md (text) | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | chat.input.artifact: owner chat artifact recorded: вечерний обзор: голосом записал идею про сон, деньги и граф | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact

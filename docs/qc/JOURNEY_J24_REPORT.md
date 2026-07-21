@@ -45,7 +45,7 @@ status: PASS
 After: 11 edges, 11 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials | test.seed.exact-large-vault: Exact large vault seeded: at least 6751 graph nodes / 7250 graph edges | note.autosave: Graph search saved | control.rollback.restore: Rollback restored: Snapshot before Data Control change | control.corrupt.isolate: Fixture corrupt record failed JSON validation and was isolated. | note.create: Note created: Recovered corrupt fixture-json | control.corrupt.recover: Corrupt record recovered as safe note: fixture-json
+After: 300 audit events. Tail: capability.grant: Capability granted: mail/prepare (local) | provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials | test.seed.exact-large-vault: Exact large vault seeded: at least 6751 graph nodes / 7250 graph edges | control.rollback.restore: Rollback restored: Snapshot before Data Control change | control.corrupt.isolate: Fixture corrupt record failed JSON validation and was isolated. | note.create: Note created: Recovered corrupt fixture-json | control.corrupt.recover: Corrupt record recovered as safe note: fixture-json
 
 ## Remaining Gated
 Нет локального gate для этого journey.

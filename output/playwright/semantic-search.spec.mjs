@@ -74,6 +74,10 @@ test("semantic search: honest unavailable state, real embeddings test, index bui
   await page.route("**/api/embeddings", (route) => route.fulfill({ status: 500, body: "down" }));
   await page.getByTestId("probe-ollama").click();
   await expect(page.getByTestId("ollama-status")).toHaveAttribute("data-raw-status", "models_found");
+  // Срез 7 фикс: расширенные настройки (эмбеддинги/адрес) теперь в свёрнутом по умолчанию
+  // блоке «Ещё» (компактный тулбар, чтобы не налезал на тред). Открываем его один раз -
+  // состояние управляемое (ctx.chatToolbarMoreOpen), поэтому переживает ре-рендеры теста.
+  await page.getByTestId("chat-more-toggle").click();
   await page.getByTestId("test-ollama-embeddings").click();
   await expect(page.getByTestId("ollama-embeddings-status")).toHaveAttribute("data-raw-status", "provider_unavailable");
 

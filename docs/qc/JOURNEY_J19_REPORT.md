@@ -45,7 +45,7 @@ Graph has a dedicated large canvas, local/global mode, search with match reasons
 After: 21 edges, 21 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready | capability.grant: Capability granted: agent/run (local) | chat.answer.artifact: assistant chat artifact recorded: Локальный организатор подготовил действия для вечерний обзор: голосом записал идею про сон,.... | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Проверка сценария создала предложение: plan | flow.dry-run: Проверка сценария создала предложение: задача | graph.focus: Focused graph node note_b69dc7c48e82
+After: 300 audit events. Tail: chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready | capability.grant: Capability granted: agent/run (local) | chat.answer.artifact: assistant chat artifact recorded: Локальный организатор подготовил действия для вечерний обзор: голосом записал идею про сон,.... | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,... | flow.dry-run: Проверка сценария создала предложение: plan | flow.dry-run: Проверка сценария создала предложение: задача | graph.focus: Focused graph node note_c08967a867a7
 
 ## Remaining Gated
 None for this local journey.
