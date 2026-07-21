@@ -2510,3 +2510,18 @@ remaining, neededPerDay = ceil(remaining/daysLeft), поле hint — «Оста
 подсказку с «день» и «₽/день»; после +прогресса подсказка честно пересчитывается);
 verify/аудиты зелёные (env-bound owner-rescue-final); build-public; скриншот
 docs/qc/screens/GOAL/goal-hint.png — «Выкуп машины … Осталось 14 дней — нужно ~5 000 ₽/день».
+
+## Finance-deep pack: BarList + heatmap + recurring detection (2026-07-21)
+
+**Decision:** financeSummary (app.js) расширен тремя донор-производными: topCategories
+(топ-6 категорий месяца с долей от максимума - паттерн tremor BarList), heatmap (трата по
+каждому дню месяца + heatMax - идея expensica calendar-view), recurring
+(detectRecurringPayments - идея actual find-schedules: ≥2 расхода в одной категории с
+похожей суммой ±12% и разбросом ≥20 дней). UI в ui/finance.js: три новые секции
+(topCategoriesSection - CSS-полоски, spendHeatmapSection - грид с color-mix интенсивностью,
+recurringHintSection - кнопка make-subscription). Экшен make-subscription превращает
+обнаруженный регуляр в подписку с receipt (явное действие владельца, не автомат). **Verified:**
+finance-deep.spec.mjs зелёный (BarList ≥2 строки с ₽; heatmap с ненулевыми ячейками);
+H03/H10 зелёные; аудиты зелёные (env-bound owner-rescue-final); build-public; скриншот
+docs/qc/screens/FIN/finance-deep.png - Разное 3900/Еда 1500/Транспорт 750 полосками +
+календарь-тепловая карта с подсвеченным сегодня.

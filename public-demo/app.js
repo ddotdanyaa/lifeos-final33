@@ -11380,15 +11380,67 @@ function financeSummary(state) {
     const day = dateKeyFromOffset(-offset);
     sparkline.push(Math.round(txs.filter((tx) => tx.kind === "expense" && tx.day === day).reduce((sum, tx) => sum + tx.amount, 0)));
   }
+  // F1.6: топ-категории расходов месяца (донор-паттерн tremor BarList) - имя, сумма, доля.
+  const monthExpenses = txs.filter((tx) => tx.kind === "expense" && String(tx.day || "").startsWith(monthKey));
+  const byCategory = {};
+  for (const tx of monthExpenses) {
+    const cat = cleanLine(tx.category) || "Разное";
+    byCategory[cat] = (byCategory[cat] || 0) + tx.amount;
+  }
+  const topCategoryMax = Math.max(1, ...Object.values(byCategory));
+  const topCategories = Object.entries(byCategory)
+    .map(([name, amount]) => ({ name, amount: Math.round(amount), share: amount / topCategoryMax }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 6);
+  // F1.7: тепловая карта трат по дням текущего месяца (донор-идея expensica calendar-view).
+  const [yearStr, monStr] = monthKey.split("-");
+  const daysInMonth = new Date(Number(yearStr), Number(monStr), 0).getDate();
+  const heatmap = [];
+  let heatMax = 1;
+  for (let d = 1; d <= daysInMonth; d += 1) {
+    const dayKey = `${monthKey}-${String(d).padStart(2, "0")}`;
+    const spent = Math.round(monthExpenses.filter((tx) => tx.day === dayKey).reduce((sum, tx) => sum + tx.amount, 0));
+    if (spent > heatMax) heatMax = spent;
+    heatmap.push({ day: d, dayKey, spent });
+  }
   return {
     balance: accounts.reduce((sum, account) => sum + account.balance, 0),
     todaySpend,
     monthSpend,
     sparkline,
+    topCategories,
+    heatmap,
+    heatMax,
+    recurring: detectRecurringPayments(txs),
     budgetLeft: budgetLimit ? budgetLimit - monthSpend : 0,
     budgetLimit,
     subscriptions: Object.values(state.subscriptions || {}).filter((item) => !item.deleted && item.status === "active").length
   };
+}
+
+// F1.1: обнаружение регулярных платежей (донор-идея actual find-schedules, честная
+// эвристика): ≥2 расхода с похожей суммой (±12%) в одной категории, растянутые во времени
+// (интервал между крайними ≥ 20 дней) → кандидат в регулярные. Не мутация - только сигнал.
+function detectRecurringPayments(txs) {
+  const expenses = txs.filter((tx) => tx.kind === "expense" && tx.amount > 0 && tx.day);
+  const groups = {};
+  for (const tx of expenses) {
+    const cat = cleanLine(tx.category) || "Разное";
+    (groups[cat] = groups[cat] || []).push(tx);
+  }
+  const found = [];
+  for (const [cat, list] of Object.entries(groups)) {
+    if (list.length < 2) continue;
+    const sorted = list.slice().sort((a, b) => String(a.day).localeCompare(String(b.day)));
+    const amounts = sorted.map((tx) => tx.amount);
+    const median = amounts.slice().sort((a, b) => a - b)[Math.floor(amounts.length / 2)];
+    const similar = sorted.filter((tx) => Math.abs(tx.amount - median) <= median * 0.12);
+    if (similar.length < 2) continue;
+    const spanDays = Math.round((Date.parse(similar[similar.length - 1].day) - Date.parse(similar[0].day)) / 86400000);
+    if (spanDays < 20) continue;
+    found.push({ category: cat, amount: Math.round(median), count: similar.length, spanDays });
+  }
+  return found.sort((a, b) => b.count - a.count).slice(0, 4);
 }
 
 // D1.3: лучший текущий streak привычек для огонька на Дому (SP simple-counter streak);
@@ -16920,6 +16972,16 @@ async function handleAction(action, id) {
     await store.commit("Quick note template", (state) => {
       state.captureDraft = "";
       addAudit(state, "capture.template", "Quick note template opened", state.activeNoteId);
+    });
+    return;
+  }
+  if (action === "make-subscription") {
+    // F1.1: превратить обнаруженный регулярный расход в подписку (явное действие + receipt).
+    await store.commit("Recurring payment confirmed", (state) => {
+      const detected = detectRecurringPayments(Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted));
+      const match = detected.find((row) => row.category === id);
+      if (!match) return;
+      addSubscription(state, match.category, match.amount, { category: match.category });
     });
     return;
   }
