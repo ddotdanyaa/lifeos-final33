@@ -43,6 +43,7 @@ export function renderGraphCanvas(ctx) {
     `<button data-action="graph-zoom-in" data-testid="graph-zoom-in" aria-label="Приблизить" title="Приблизить">+</button>`,
     `<button data-action="graph-zoom-out" data-testid="graph-zoom-out" aria-label="Отдалить" title="Отдалить">−</button>`,
     `<button data-action="graph-zoom-fit" data-testid="graph-zoom-fit" aria-label="Вписать граф" title="Вписать граф">⛶</button>`,
+    `<button data-action="graph-reheat" data-testid="graph-reheat" aria-label="Оживить раскладку" title="Оживить раскладку">↻</button>`,
     `</div>`,
     `<aside class="graph-inspector" data-testid="graph-inspector">`,
     `<span data-testid="graph-counts">${graph.nodes.length} узлов · ${graph.links.length} связей</span>`,

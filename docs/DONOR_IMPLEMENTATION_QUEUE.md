@@ -18,8 +18,8 @@
 - [ ] G2.6 Глубина локального графа 1/2/3 хопа (Obsidian local graph depth).
 - [ ] G2.7 Подсветка входящих vs исходящих связей разным тоном (juggl/Obsidian).
 - [ ] G2.8 Anti-collision подписей (не наезжают при плотном графе; sigma.js label collision).
-- [ ] G2.9 «Оживить» кнопка — перезапуск раскладки (Obsidian restart layout).
-- [ ] G2.10 Edge-bundle/кривые связи для плотных пучков (sigma.js/cytoscape curve).
+- [x] G2.9 (2026-07-21) Кнопка «Оживить» - полный перезапуск физики раскладки.
+- [x] G2.10 (2026-07-21) Кривые bezier-рёбра НАСТОЯЩИМ кодом xyflow (vendored ui/vendor/xyflow-edge-paths.js, MIT, ~260 строк: bezier+smoothstep+straight - smoothstep/straight готовы для W2 Builder).
 - [ ] G2.11 Пульс новых узлов: появившиеся за сегодня мягко подсвечены (AFFiNE fresh-indicator).
 - [ ] G2.12 Фильтр по дате: показывать граф «на дату» (Timeline интеграция, слайдер).
 - [ ] G2.13 WebGL-фоллбэк для vault >2000 узлов (sigma.js — отдельное решение+DECISIONS).

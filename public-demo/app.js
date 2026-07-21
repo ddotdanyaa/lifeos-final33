@@ -9643,6 +9643,14 @@ class GraphCanvas {
     this.running = true;
     this.rafActive = true;
     this.minimap = null;
+    // G2.10: кривые рёбра - НАСТОЯЩИЙ донорский код xyflow (ui/vendor/xyflow-edge-paths.js,
+    // MIT, вырезан из packages/system как есть). SVG-path строки рисуются на canvas через
+    // Path2D; до загрузки модуля - прямые линии, как раньше.
+    this.edgePaths = null;
+    import("./ui/vendor/xyflow-edge-paths.js").then((module) => {
+      this.edgePaths = module;
+      this.draw();
+    }).catch(() => {});
     this.layoutTickLimit = this.graph.limited ? 18 : 260;
     this.animationFrameLimit = this.graph.limited ? 42 : 260;
     this.prepared = runForceLayout(this.graph, this.width, this.height, this.graph.limited ? 8 : 80);
@@ -9940,14 +9948,30 @@ class GraphCanvas {
       const incident = hasFocus && (link.source === focusId || link.target === focusId);
       let active = !hasFocus || activeSet.has(link.source) || activeSet.has(link.target);
       if (searchSet) active = active && (searchSet.has(link.source) || searchSet.has(link.target));
-      ctx.beginPath();
-      ctx.moveTo(link.sourceNode.x, link.sourceNode.y);
-      ctx.lineTo(link.targetNode.x, link.targetNode.y);
       // Тоньше и бледнее по умолчанию (как в Obsidian - линии почти не отвлекают), ярко
       // только у окрестности выбранного/наведённого узла.
       ctx.strokeStyle = incident ? theme.edgeActive : active ? theme.edge : dimEdge;
       ctx.lineWidth = incident ? 1.8 : 0.9;
-      ctx.stroke();
+      if (this.edgePaths) {
+        // Донорская математика xyflow getBezierPath: горизонтальным парам - Right/Left,
+        // вертикальным - Bottom/Top, лёгкая кривизна.
+        const horizontal = Math.abs(link.targetNode.x - link.sourceNode.x) >= Math.abs(link.targetNode.y - link.sourceNode.y);
+        const [pathString] = this.edgePaths.getBezierPath({
+          sourceX: link.sourceNode.x,
+          sourceY: link.sourceNode.y,
+          targetX: link.targetNode.x,
+          targetY: link.targetNode.y,
+          sourcePosition: horizontal ? this.edgePaths.Position.Right : this.edgePaths.Position.Bottom,
+          targetPosition: horizontal ? this.edgePaths.Position.Left : this.edgePaths.Position.Top,
+          curvature: 0.18
+        });
+        ctx.stroke(new Path2D(pathString));
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(link.sourceNode.x, link.sourceNode.y);
+        ctx.lineTo(link.targetNode.x, link.targetNode.y);
+        ctx.stroke();
+      }
     }
 
     for (const node of this.prepared.nodes) {
@@ -10063,9 +10087,15 @@ class GraphCanvas {
   // G2.4: легенда цветов типов узлов (Obsidian groups legend) - только типы, реально
   // присутствующие в графе, топ-6 по количеству.
   drawLegend(ctx, theme) {
+    // Агрегация по человеческой метке, не по сырому типу - иначе «система» дублируется.
     const counts = new Map();
-    for (const node of this.prepared.nodes) counts.set(node.type, (counts.get(node.type) || 0) + 1);
-    const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    for (const node of this.prepared.nodes) {
+      const label = graphNodeTypeLabel(node.type);
+      const row = counts.get(label) || { count: 0, type: node.type };
+      row.count += 1;
+      counts.set(label, row);
+    }
+    const rows = [...counts.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 6).map(([label, row]) => [row.type, label]);
     if (rows.length < 2) return;
     const rowH = 17;
     const pad = 9;
@@ -16565,6 +16595,14 @@ async function handleAction(action, id) {
   }
   if (action === "graph-zoom-fit") {
     if (graphEngine) graphEngine.zoomToFit();
+    return;
+  }
+  if (action === "graph-reheat") {
+    // G2.9: полный перезапуск физики раскладки (Obsidian restart layout).
+    if (graphEngine) {
+      graphEngine.frame = 0;
+      graphEngine.ensureAnimating();
+    }
     return;
   }
   if (action === "set-graph-mode") {

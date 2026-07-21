@@ -2454,3 +2454,25 @@ state.chatDraft (LibreChat draft-паттерн: input-хендлер без ren
 первым прогоном (хоткеи реально переключают поверхности; черновик переживает уход и
 возврат в чат); H01/H10 зелёные; verify/аудиты зелёные; build-public. Очередь
 DONOR_IMPLEMENTATION_QUEUE обновлена: 12 фич из очереди внедрено за день.
+
+## G2.9+G2.10: первый vendored-донор - код xyflow исполняется в рантайме (2026-07-21)
+
+**Found:** владелец: «я думал, возьмём функций на полмиллиона строк, а ты добавил 20-30».
+Разобрано честно: массовое копирование Angular/React-инфраструктуры в no-build vanilla
+невозможно и вредно, НО есть законный путь массового переноса - vendored-модули из
+framework-agnostic MIT-кода. Пробовали npm @xyflow/system - его ESM-бандл тянет bare-импорты
+d3 (как chart.js/@kurkle) и UMD у него нет → пакет удалён, вместо этого исходники
+трансплантированы из клона аудита.
+**Decision:** новый `ui/vendor/xyflow-edge-paths.js` (~260 строк) - дословный перенос
+`packages/system/src/utils/edges/` (bezier/smoothstep/straight + getEdgeCenter, MIT,
+атрибуция в шапке, типы сняты): первый файл проекта, где чужой код работает как есть.
+GraphCanvas рисует рёбра bezier-кривыми через `ctx.stroke(new Path2D(pathString))` -
+SVG-path донора на canvas; до догрузки модуля - прямые (изоляция отказа). smoothstep/
+straight лежат готовыми для W2 Agent/Workflow Builder. G2.9: кнопка «Оживить» (полный
+reheat физики). Попутно: легенда агрегируется по человеческой метке (было 3×«система»).
+Vendored-каталог: `ui/vendor/` (копируется build-public как часть ui/**; SW ui/ не
+прекэширует - обновление SW не требуется).
+**Verified:** graph-alive/urgency/ux-polish/evening-summary - 4/4 зелёные; H07 зелёный;
+verify/аудиты зелёные; build-public; скриншот docs/qc/screens/G3/graph-bezier-after.png -
+кривые рёбра видны. Сервер в контейнере умер между прогонами (ERR_CONNECTION_REFUSED) -
+перезапущен, не связано с кодом.
