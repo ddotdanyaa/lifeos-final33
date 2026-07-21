@@ -1,4 +1,5 @@
 import { button, escapeHtml, safeList } from "./shared.js";
+import { fuzzyMatch } from "../vendor/affine-fuzzy-match.js";
 
 export function renderGraphCanvas(ctx) {
   const graph = ctx.graph || { nodes: [], links: [] };
@@ -6,9 +7,10 @@ export function renderGraphCanvas(ctx) {
   const selected = ctx.selectedGraph || {};
   const mode = ctx.graphMode === "local" ? "local" : "global";
   const query = String(ctx.graphSearch || "").trim().toLowerCase();
+  // S1.1: точное вхождение приоритетно, затем fuzzy (донорский AFFiNE fuzzy-match).
   const results = query
     ? graph.nodes
-      .filter((node) => [node.title, node.label, node.type, node.id].some((value) => String(value || "").toLowerCase().includes(query)))
+      .filter((node) => [node.title, node.label, node.type, node.id].some((value) => String(value || "").toLowerCase().includes(query) || fuzzyMatch(String(value || ""), query)))
       .slice(0, 8)
     : [];
   const filterRows = [

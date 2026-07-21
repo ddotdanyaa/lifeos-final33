@@ -7,7 +7,7 @@ export function taskRow(ctx, task, testId = "task-row") {
     `<article class="today-task-row ${done ? "is-done" : ""} ${urgencyClass(task, ctx.todayKey)}" data-testid="${testId}">`,
     `<button class="round-check" data-action="toggle-task" data-id="${escapeHtml(task.id)}" data-testid="task-toggle">${done ? "✓" : ""}</button>`,
     `<div><strong>${escapeHtml(task.title || "Задача")}</strong><span data-testid="task-time">${escapeHtml(scheduleLine(task, ctx.todayKey, ctx.tomorrowKey))}</span>${done ? `<em>Готово</em>` : ""}</div>`,
-    `<div class="row-actions">${button("edit-task", "Изменить", { id: task.id, kind: "ghost" })}${button("task-reminder", "Напомнить", { id: task.id, kind: "ghost" })}</div>`,
+    `<div class="row-actions">${done ? "" : button("snooze-task-tomorrow", "→Завтра", { id: task.id, kind: "ghost", testId: "snooze-tomorrow" })}${button("edit-task", "Изменить", { id: task.id, kind: "ghost" })}${button("task-reminder", "Напомнить", { id: task.id, kind: "ghost" })}</div>`,
     `</article>`
   ].join("");
 }

@@ -171,10 +171,31 @@ function renderDashboardWidgets(ctx) {
   return `<div class="dash-widgets" data-testid="dash-widgets">${cards.join("")}${hiddenStrip}</div>`;
 }
 
+// D1.1/F1.5: микрографик 7 дней (идея tremor SparkChart) - инлайн-SVG polyline.
+function sparklineSvg(series, testId) {
+  const values = (series || []).map((value) => Math.max(0, Number(value) || 0));
+  if (values.length < 2 || !values.some((value) => value > 0)) return "";
+  const max = Math.max(...values);
+  const width = 72;
+  const height = 20;
+  const points = values.map((value, index) => `${(index / (values.length - 1)) * width},${height - 2 - (value / max) * (height - 4)}`).join(" ");
+  return `<svg class="mini-sparkline" viewBox="0 0 ${width} ${height}" aria-hidden="true" data-testid="${testId}"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+// D1.2: прогресс-кольцо дня (done/total задач) - мини-donut на SVG-дуге.
+function progressRing(done, total, testId) {
+  if (!total) return "";
+  const radius = 9;
+  const circumference = 2 * Math.PI * radius;
+  const share = Math.max(0, Math.min(1, done / total));
+  return `<svg class="mini-ring" viewBox="0 0 24 24" role="img" aria-label="Выполнено ${done} из ${total}" data-testid="${testId}"><circle cx="12" cy="12" r="${radius}" fill="none" stroke="currentColor" opacity="0.18" stroke-width="3"/><circle cx="12" cy="12" r="${radius}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="${(share * circumference).toFixed(1)} ${circumference.toFixed(1)}" transform="rotate(-90 12 12)"/></svg>`;
+}
+
 export function renderAssistantHome(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
   const habitsDone = `${today.habitDone || 0}/${today.habitTotal || 0}`;
+  const streak = today.habitStreak || 0;
   return [
     `<section class="assistant-home-v2" data-testid="command-center">`,
     `<div class="home-hero-copy">`,
@@ -186,9 +207,9 @@ export function renderAssistantHome(ctx) {
     renderAssistantInput(ctx),
     renderHumanAnswerCard(ctx),
     `<aside class="home-mini-summary">`,
-    `<button class="mini-summary-card" data-action="set-surface" data-id="today" data-testid="owner-next-zone"><span>Сегодня</span><strong>${escapeHtml(today.next?.title || "Нет следующего действия")}</strong><em>${today.todayCount || 0} сегодня · ${today.unscheduled || 0} без времени</em></button>`,
-    `<button class="mini-summary-card money" data-action="set-surface" data-id="finance" data-testid="owner-money-zone"><span>Деньги</span><strong>${money(finance.balance)}</strong><em>${money(finance.todaySpend)} сегодня</em></button>`,
-    `<button class="mini-summary-card habits" data-action="set-surface" data-id="habits" data-testid="owner-habit-zone"><span>Привычки</span><strong>${escapeHtml(habitsDone)}</strong><em>${ctx.goals?.length || 0} целей</em></button>`,
+    `<button class="mini-summary-card" data-action="set-surface" data-id="today" data-testid="owner-next-zone"><span>Сегодня ${progressRing(today.doneToday || 0, (today.doneToday || 0) + (today.todayCount || 0), "today-ring")}</span><strong>${escapeHtml(today.next?.title || "Нет следующего действия")}</strong><em>${today.todayCount || 0} сегодня · ${today.unscheduled || 0} без времени</em></button>`,
+    `<button class="mini-summary-card money" data-action="set-surface" data-id="finance" data-testid="owner-money-zone"><span>Деньги ${sparklineSvg(finance.sparkline, "money-sparkline")}</span><strong>${money(finance.balance)}</strong><em>${money(finance.todaySpend)} сегодня</em></button>`,
+    `<button class="mini-summary-card habits" data-action="set-surface" data-id="habits" data-testid="owner-habit-zone"><span>Привычки ${streak >= 2 ? `<em class="streak-flame" data-testid="habit-streak">🔥${streak}</em>` : ""}</span><strong>${escapeHtml(habitsDone)}</strong><em>${ctx.goals?.length || 0} целей</em></button>`,
     `</aside>`,
     `</div>`,
     renderDashboardWidgets(ctx),

@@ -7943,6 +7943,32 @@ audio {
   font-size: var(--text-sm);
 }
 
+/* D1.1/D1.2/D1.3: живые микро-данные в мини-картах Дома. */
+.mini-summary-card span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mini-sparkline {
+  width: 72px;
+  height: 20px;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.mini-ring {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+
+.streak-flame {
+  font-style: normal;
+  font-size: var(--text-xs);
+  color: var(--text-main);
+}
+
 /* D1.5: деликатный hover-glow интерактивных карточек (идея magicui glow, наш CSS). */
 .mini-summary-card,
 .dash-widget,

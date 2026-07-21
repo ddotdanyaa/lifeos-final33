@@ -3273,6 +3273,11 @@ function replaceWikiLinksForRename(body, oldTitle, newTitle) {
   return output + text.slice(cursor);
 }
 
+// S1.1: донорский fuzzy-match AFFiNE (MIT, vendored) - лениво, с изоляцией отказа: до
+// загрузки (или при ошибке) поиск работает старым точным вхождением.
+let fuzzyMatchFn = null;
+import("./ui/vendor/affine-fuzzy-match.js").then((module) => { fuzzyMatchFn = module.fuzzyMatch; }).catch(() => {});
+
 function renderMarkdown(body, state) {
   const titleLookup = notesByNormalizedTitle(state);
   const text = escapeHtml(body || "");
@@ -5348,7 +5353,30 @@ function isLegacyChatStubText(text) {
 function visibleChatMessages(state) {
   return Object.values(state.chatMessages || {})
     .filter((message) => !message.deleted && !(message.role === "assistant" && isLegacyChatStubText(message.text || message.content || "")))
-    .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+    .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""))
+    // C1.7: markdown в пузырях чата (LibreChat/ChatGPT-уровень чтения ответов). Рендер на
+    // проекции: ui/chat.js получает готовый безопасный html (внутри renderMarkdown вход
+    // экранируется ДО подстановок - тот же XSS-безопасный пайплайн, что markdown-preview).
+    .map((message) => Object.assign({}, message, {
+      html: renderChatMarkdown(shortenChatText(message.text || message.content || ""), state)
+    }));
+}
+
+function shortenChatText(text) {
+  const value = String(text || "");
+  return value.length > 1600 ? value.slice(0, 1600) + "…" : value;
+}
+
+// C1.7: чат-вариант renderMarkdown - те же безопасные подстановки + inline **жирный**,
+// *курсив*, `код` и нумерованные списки, которых достаточно для ответов ассистента.
+function renderChatMarkdown(body, state) {
+  let html = renderMarkdown(body, state);
+  html = html
+    .replace(/\*\*([^*<>]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*<>]+)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/`([^`<>]+)`/g, "<code>$1</code>")
+    .replace(/^(\d+)\. (.*)$/gm, "<li>$1. $2</li>");
+  return html;
 }
 
 function activeChatContext(state) {
@@ -9378,9 +9406,13 @@ function computeGraphProjection(state) {
     scopedNodes = scopedNodes.filter((node) => localIds.has(node.id));
   }
   const query = normalizeTitle(graphView.searchQuery || "");
+  const rawQuery = cleanLine(graphView.searchQuery || "");
   if (query) {
     const scopedNodeIds = new Set(scopedNodes.map((node) => node.id));
-    const matchedIds = new Set(scopedNodes.filter((node) => normalizeTitle(node.label + " " + node.type).includes(query)).map((node) => node.id));
+    // S1.1: точное вхождение ИЛИ fuzzy (донорский AFFiNE fuzzy-match, vendored) - «пвт»
+    // находит «Проверить отчёт». Fuzzy лениво загружен (fuzzyMatchFn); до загрузки - только
+    // точное вхождение, как раньше.
+    const matchedIds = new Set(scopedNodes.filter((node) => normalizeTitle(node.label + " " + node.type).includes(query) || (fuzzyMatchFn && fuzzyMatchFn(node.label + " " + node.type, rawQuery))).map((node) => node.id));
     const queryIds = new Set(matchedIds);
     for (const link of baseVisibleLinks) {
       if (!scopedNodeIds.has(link.source) || !scopedNodeIds.has(link.target)) continue;
@@ -10776,7 +10808,10 @@ function renderCommandPalette(state) {
   const items = commandPaletteItems(state)
     .filter((item) => {
       if (!normalizedQuery) return true;
-      return normalizeTitle([item.title, item.hint, item.group, item.shortcut].join(" ")).includes(normalizedQuery);
+      const haystack = normalizeTitle([item.title, item.hint, item.group, item.shortcut].join(" "));
+      // S1.1: сначала точное вхождение, затем fuzzy (донорский код AFFiNE fuzzy-match.ts,
+      // vendored в ui/vendor/affine-fuzzy-match.js) - «нз» находит «Новая заметка».
+      return haystack.includes(normalizedQuery) || (fuzzyMatchFn && fuzzyMatchFn(haystack, normalizedQuery));
     })
     .slice(0, 12);
   const saved = savedSearchList(state).slice(0, 8);
@@ -11338,14 +11373,28 @@ function financeSummary(state) {
   const monthKey = todayKey().slice(0, 7);
   const monthSpend = txs.filter((tx) => tx.kind === "expense" && String(tx.day || "").startsWith(monthKey)).reduce((sum, tx) => sum + tx.amount, 0);
   const budgetLimit = Object.values(state.budgets || {}).filter((budget) => !budget.deleted && budget.period === "month").reduce((sum, budget) => sum + budget.limit, 0);
+  // D1.1/F1.5: 7-дневная серия расходов для sparkline на Дому (идея tremor SparkChart,
+  // рендер - инлайн-SVG в ui/home.js, без chart.js для микрографика).
+  const sparkline = [];
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const day = dateKeyFromOffset(-offset);
+    sparkline.push(Math.round(txs.filter((tx) => tx.kind === "expense" && tx.day === day).reduce((sum, tx) => sum + tx.amount, 0)));
+  }
   return {
     balance: accounts.reduce((sum, account) => sum + account.balance, 0),
     todaySpend,
     monthSpend,
+    sparkline,
     budgetLeft: budgetLimit ? budgetLimit - monthSpend : 0,
     budgetLimit,
     subscriptions: Object.values(state.subscriptions || {}).filter((item) => !item.deleted && item.status === "active").length
   };
+}
+
+// D1.3: лучший текущий streak привычек для огонька на Дому (SP simple-counter streak);
+// сама серия считается существующим helper'ом habitStreak (объявлен ниже).
+function maxHabitStreak(state) {
+  return Object.values(state.habits || {}).filter((habit) => !habit.deleted).reduce((best, habit) => Math.max(best, habitStreak(habit)), 0);
 }
 
 // U2 MONEY_FAST weekly chart data: real per-day totals for the last 7 days (today back
@@ -11381,6 +11430,8 @@ function ownerTodaySummary(state) {
     unscheduled: openTasks.filter((task) => !task.startTime).length,
     habitDone: habits.filter((habit) => habit.checkins && habit.checkins[today]).length,
     habitTotal: habits.length,
+    habitStreak: maxHabitStreak(state),
+    doneToday: Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status === "done" && String(task.updatedAt || "").slice(0, 10) === today).length,
     nextReminder: reminders.sort(sortScheduledItems)[0] || null
   };
 }
@@ -16869,6 +16920,17 @@ async function handleAction(action, id) {
     await store.commit("Quick note template", (state) => {
       state.captureDraft = "";
       addAudit(state, "capture.template", "Quick note template opened", state.activeNoteId);
+    });
+    return;
+  }
+  if (action === "snooze-task-tomorrow") {
+    // T1.4: отложить одну задачу на завтра одним кликом (SP snooze-паттерн), с receipt.
+    await store.commit("Task snoozed to tomorrow", (state) => {
+      const task = state.tasks[id];
+      if (!task || task.deleted) return;
+      task.day = dateKeyFromOffset(1);
+      task.updatedAt = now();
+      addAudit(state, "task.snooze", "Задача отложена на завтра: " + shorten(task.title || id, 50), state.activeNoteId);
     });
     return;
   }

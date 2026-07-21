@@ -2476,3 +2476,22 @@ Vendored-каталог: `ui/vendor/` (копируется build-public как 
 verify/аудиты зелёные; build-public; скриншот docs/qc/screens/G3/graph-bezier-after.png -
 кривые рёбра видны. Сервер в контейнере умер между прогонами (ERR_CONNECTION_REFUSED) -
 перезапущен, не связано с кодом.
+
+## Notion-grade pack: markdown-чат, второй vendored-донор (AFFiNE fuzzy), живой Дом (2026-07-21)
+
+**Found:** владелец: «увижу не продукт уровня Notion — значит соврал». Нужен видимый скачок,
+не полировка. **Decision:** пакет из 6 фич. C1.7: markdown в пузырях чата
+(renderChatMarkdown поверх безопасного renderMarkdown - жирный/курсив/код/списки/заголовки/
+[[вики]], вход экранируется ДО подстановок). S1.1: ВТОРОЙ vendored-донор
+ui/vendor/affine-fuzzy-match.js (дословный AFFiNE fuzzy-match.ts, MIT) - применён в КОРНЕ
+(computeGraphProjection app.js:9411, где узлы реально фильтруются по запросу) и в палитре;
+критично: GraphCanvas.js получает УЖЕ отфильтрованный ctx.graph, поэтому fuzzy обязан
+стоять в источнике проекции, а не только в компоненте (диагностировано пошагово: nodeCount
+падал в 0 при вводе запроса). D1.1/D1.2/D1.3: живые микро-данные на Дому - 7-дневный
+sparkline трат (инлайн-SVG polyline, идея tremor SparkChart, БЕЗ chart.js для микрографика),
+прогресс-кольцо done/total (SVG-дуга), огонёк streak привычек (переиспользован существующий
+habitStreak - дубликат удалён по правилу «сначала ищи helper»). T1.4: snooze задачи на
+завтра одной кнопкой (SP-паттерн, receipt). **Verified:** notion-grade-pack.spec.mjs зелёный
+(markdown <strong>/<code> в пузыре; fuzzy «пвт»→«Проверить отчёт»; sparkline виден; snooze
+двигает день+receipt); H01/H07/H10 зелёные; аудиты зелёные (env-bound owner-rescue-final);
+build-public; скриншоты docs/qc/screens/NG/ (Дом с живыми картами, markdown-чат).
