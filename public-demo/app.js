@@ -2967,6 +2967,15 @@ function normalizeState(input) {
     task.repeat = ["daily", "weekly", "monthly"].includes(task.repeat) ? task.repeat : "";
     task.frog = Boolean(task.frog);
     task.repeatChildCreated = Boolean(task.repeatChildCreated);
+    // T1.5/T1.6: оценка времени и подзадачи переживают перезагрузку (normalizeState-gotcha).
+    task.timeEstimateMin = Number.isFinite(Number(task.timeEstimateMin)) ? Math.max(0, Math.round(Number(task.timeEstimateMin))) : 0;
+    task.subtasks = Array.isArray(task.subtasks)
+      ? task.subtasks.filter((item) => item && item.id).map((item) => ({
+          id: item.id,
+          title: cleanLine(item.title || "Подзадача"),
+          done: Boolean(item.done)
+        }))
+      : [];
     task.deleted = Boolean(task.deleted);
     task.createdAt = task.createdAt || now();
     task.updatedAt = task.updatedAt || task.createdAt;
@@ -7951,6 +7960,8 @@ function addTask(state, title, scheduleOptions) {
     endTime: schedule.endTime,
     dateHint: schedule.dateHint,
     repeat: detectTaskRepeat(cleanTitle),
+    timeEstimateMin: detectTaskEstimate(cleanTitle),
+    subtasks: [],
     status: "open",
     deleted: false,
     createdAt,
@@ -7994,6 +8005,20 @@ function nextRepeatDay(dayKey, repeat) {
   else if (repeat === "monthly") base.setUTCMonth(base.getUTCMonth() + 1);
   else base.setUTCDate(base.getUTCDate() + 1);
   return base.toISOString().slice(0, 10);
+}
+
+// T1.5: распознавание оценки времени из текста задачи (донор-идея super-productivity
+// timeEstimate) - "~25м"/"30 мин"/"1ч"/"1.5 часа" → минуты. Честный минимум, без парсера дат.
+// Cyrillic-gotcha: JS \b is ASCII-only ("\w" excludes а-я), так что для кириллицы вместо \b
+// используется negative lookahead на следующую кириллическую букву (иначе "мин" никогда не
+// матчится в "30 мин" - позиция после "н" не считается границей слова).
+function detectTaskEstimate(title) {
+  const t = normalizeTitle(title || "");
+  const hourMatch = t.match(/~?(\d+(?:[.,]\d+)?)\s*(?:часов|часа|час|ч)(?![а-яё])/);
+  if (hourMatch) return Math.round(parseFloat(hourMatch[1].replace(",", ".")) * 60);
+  const minMatch = t.match(/~?(\d+)\s*(?:минуты|минут|мин|м)(?![а-яё])/);
+  if (minMatch) return Math.round(Number(minMatch[1]));
+  return 0;
 }
 
 function toggleTask(state, taskId) {
@@ -8041,8 +8066,37 @@ function updateTask(state, taskId, updates) {
   task.day = nextDay;
   task.startTime = nextStart;
   task.endTime = nextEnd;
+  // T1.5: оценка времени - явное число минут (в т.ч. 0, чтобы можно было очистить оценку).
+  if (next.timeEstimateMin !== undefined) {
+    const estimate = Number(next.timeEstimateMin);
+    task.timeEstimateMin = Number.isFinite(estimate) ? Math.max(0, Math.round(estimate)) : task.timeEstimateMin;
+  }
   task.updatedAt = now();
   addAudit(state, "task.update", "Task updated: " + task.title + " " + task.day + " " + (task.startTime || "no-time"), task.noteId);
+}
+
+// T1.6: подзадачи-чеклист внутри задачи (донор-идея super-productivity subTaskIds), без
+// отдельной коллекции-артефакта - массив {id,title,done} прямо на задаче.
+function addSubtask(state, taskId, title) {
+  const task = state.tasks[taskId];
+  const cleanTitle = cleanLine(title);
+  if (!task || task.deleted || !cleanTitle) return "";
+  if (!Array.isArray(task.subtasks)) task.subtasks = [];
+  const id = makeId("subtask");
+  task.subtasks.push({ id, title: cleanTitle, done: false });
+  task.updatedAt = now();
+  addAudit(state, "task.subtask.add", "Subtask added: " + cleanTitle, task.noteId);
+  return id;
+}
+
+function toggleSubtask(state, taskId, subtaskId) {
+  const task = state.tasks[taskId];
+  if (!task || task.deleted || !Array.isArray(task.subtasks)) return;
+  const subtask = task.subtasks.find((item) => item.id === subtaskId);
+  if (!subtask) return;
+  subtask.done = !subtask.done;
+  task.updatedAt = now();
+  addAudit(state, "task.subtask.toggle", "Subtask " + (subtask.done ? "done" : "reopened") + ": " + subtask.title, task.noteId);
 }
 
 function moveTaskToTomorrow(state, taskId) {
@@ -11650,6 +11704,7 @@ function financeSummary(state) {
     if (spent > heatMax) heatMax = spent;
     heatmap.push({ day: d, dayKey, spent });
   }
+  const recurring = detectRecurringPayments(txs);
   return {
     balance: accounts.reduce((sum, account) => sum + account.balance, 0),
     todaySpend,
@@ -11658,7 +11713,9 @@ function financeSummary(state) {
     topCategories,
     heatmap,
     heatMax,
-    recurring: detectRecurringPayments(txs),
+    recurring,
+    // F1.2: регулярные платежи как коллекция прогнозов (донор-идея actual schedules).
+    recurringForecast: forecastRecurringSpend(recurring, todayKey()),
     budgetLeft: budgetLimit ? budgetLimit - monthSpend : 0,
     budgetLimit,
     subscriptions: Object.values(state.subscriptions || {}).filter((item) => !item.deleted && item.status === "active").length
@@ -11685,9 +11742,48 @@ function detectRecurringPayments(txs) {
     if (similar.length < 2) continue;
     const spanDays = Math.round((Date.parse(similar[similar.length - 1].day) - Date.parse(similar[0].day)) / 86400000);
     if (spanDays < 20) continue;
-    found.push({ category: cat, amount: Math.round(median), count: similar.length, spanDays });
+    found.push({
+      category: cat,
+      amount: Math.round(median),
+      count: similar.length,
+      spanDays,
+      lastDay: similar[similar.length - 1].day,
+      intervalDays: Math.max(1, Math.round(spanDays / (similar.length - 1)))
+    });
   }
   return found.sort((a, b) => b.count - a.count).slice(0, 4);
+}
+
+// F1.2: регулярные платежи как прогноз "до конца месяца ожидается ещё -X" (донор-идея
+// actual schedules). Честная проекция: от последнего замеченного платежа шаг на средний
+// интервал между уже случившимися, пока проекция не выйдет за конец текущего месяца или
+// за пределы разумного числа шагов - ничего не придумывается сверх наблюдаемого паттерна.
+function forecastRecurringSpend(recurring, today) {
+  const monthEnd = new Date(today + "T00:00:00Z");
+  monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1, 0);
+  const monthEndKey = monthEnd.toISOString().slice(0, 10);
+  const items = [];
+  let total = 0;
+  for (const item of recurring || []) {
+    if (!item.lastDay || !item.intervalDays) continue;
+    const cursor = new Date(item.lastDay + "T00:00:00Z");
+    let occurrences = 0;
+    let projected = 0;
+    for (let step = 0; step < 12; step += 1) {
+      cursor.setUTCDate(cursor.getUTCDate() + item.intervalDays);
+      const cursorKey = cursor.toISOString().slice(0, 10);
+      if (cursorKey > monthEndKey) break;
+      if (cursorKey >= today) {
+        occurrences += 1;
+        projected += item.amount;
+      }
+    }
+    if (occurrences > 0) {
+      total += projected;
+      items.push({ category: item.category, amount: item.amount, occurrences, projected });
+    }
+  }
+  return { total: Math.round(total), items };
 }
 
 // D1.3: лучший текущий streak привычек для огонька на Дому (SP simple-counter streak);
@@ -17837,7 +17933,23 @@ async function handleAction(action, id) {
     if (!title) return;
     const day = promptValue("Task date YYYY-MM-DD", task.day || todayKey()) || task.day;
     const startTime = promptValue("Task time HH:MM", task.startTime || "");
-    await store.commit("Task edited", (state) => updateTask(state, id, { title, day, startTime }));
+    const estimateRaw = promptValue("Оценка времени, минут (0 - без оценки)", String(task.timeEstimateMin || ""));
+    const timeEstimateMin = estimateRaw === "" ? task.timeEstimateMin : Number(estimateRaw) || 0;
+    await store.commit("Task edited", (state) => updateTask(state, id, { title, day, startTime, timeEstimateMin }));
+    return;
+  }
+  // T1.6: подзадачи-чеклист (донор-идея super-productivity subTaskIds).
+  if (action === "add-subtask") {
+    const input = document.querySelector(`.subtask-input[data-task-id="${id}"]`);
+    const title = input ? input.value : "";
+    if (!cleanLine(title)) return;
+    await store.commit("Subtask added", (state) => addSubtask(state, id, title));
+    if (input) input.value = "";
+    return;
+  }
+  if (action === "toggle-subtask") {
+    const [taskId, subtaskId] = String(id || "").split("::");
+    await store.commit("Subtask toggled", (state) => toggleSubtask(state, taskId, subtaskId));
     return;
   }
   if (action === "task-tomorrow") {
@@ -18943,6 +19055,23 @@ async function setArtifactDayForTest(collectionKey, id, day) {
   return true;
 }
 
+// F1.1/F1.2 test hook: seed N similar expenses in one category, evenly spaced backward from
+// today by intervalDays, so detectRecurringPayments/forecastRecurringSpend have a real
+// pattern to find without depending on the real capture-text classifier in e2e.
+async function seedRecurringExpensesForTest(category, amount, count, intervalDays) {
+  if (!store) return false;
+  await store.commit("Test: seed recurring expenses", (state) => {
+    const occurrences = Math.max(2, Math.min(12, Number(count) || 3));
+    const interval = Math.max(1, Number(intervalDays) || 10);
+    const value = Math.max(1, Number(amount) || 500);
+    const cat = cleanLine(category) || "Разное";
+    for (let step = occurrences - 1; step >= 0; step -= 1) {
+      addFinanceTransaction(state, cat, value, "expense", { category: cat, day: dateKeyFromOffset(-(step * interval)) });
+    }
+  });
+  return true;
+}
+
 async function resetRepositoryForTest() {
   if (repository && typeof repository.close === "function") repository.close();
   repository = null;
@@ -19118,6 +19247,7 @@ window.__lifeosKnowledgeBase = {
   backdateTrashItemForTest,
   backdateNoteForTest,
   setArtifactDayForTest,
+  seedRecurringExpensesForTest,
   activeOwnerInstructions,
   buildOllamaChatPrompt,
   injectStorageFailureForTest,

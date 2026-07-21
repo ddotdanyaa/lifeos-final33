@@ -91,12 +91,18 @@ function spendHeatmapSection(ctx) {
 }
 
 // F1.1: подсказка об обнаруженных регулярных платежах (донор-идея actual find-schedules).
+// F1.2: та же коллекция как прогноз "до конца месяца ожидается ещё -X" (донор-идея actual
+// schedules) - честная проекция по среднему интервалу, показана строкой над списком.
 function recurringHintSection(ctx) {
   const rows = (ctx.financeSummary && ctx.financeSummary.recurring) || [];
   if (!rows.length) return "";
+  const forecast = (ctx.financeSummary && ctx.financeSummary.recurringForecast) || { total: 0, items: [] };
   return [
     `<section class="finance-recurring" data-testid="finance-recurring">`,
     `<h3>Похоже на регулярные платежи</h3>`,
+    forecast.total > 0
+      ? `<p class="recurring-forecast" data-testid="recurring-forecast">До конца месяца ожидается ещё ~${money(forecast.total)} по регулярным платежам</p>`
+      : "",
     rows.map((row) => `<div class="recurring-row" data-testid="recurring-row"><span>${escapeHtml(row.category)}</span><em>~${money(row.amount)} · ${row.count} раза</em>${button("make-subscription", "Сделать регулярным", { id: row.category, kind: "ghost", testId: "make-subscription" })}</div>`).join(""),
     `</section>`
   ].join("");

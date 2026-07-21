@@ -71,3 +71,19 @@ test("finance deep: BarList, heatmap, recurring detection", async ({ page }) => 
   );
   expect(hotCells).toBeGreaterThan(0);
 });
+
+test("F1.2 recurring forecast: projects remaining spend for the current month honestly", async ({ page }) => {
+  await reset(page);
+
+  // Three "Такси" expenses 10 days apart, ending today: spanDays=20 (recurring threshold),
+  // intervalDays=10, so the next projected occurrence lands ~10 days from today - well inside
+  // the current month unless the test runs in the final ~9 days of a month (accepted, same
+  // class of date-dependence as the existing heatmap/month-key tests in this file).
+  await page.evaluate(() => window.__lifeosKnowledgeBase.seedRecurringExpensesForTest("Такси", 600, 3, 10));
+
+  await openSurface(page, "finance");
+  await expect(page.getByTestId("finance-recurring")).toBeVisible();
+  await expect(page.getByTestId("recurring-row").filter({ hasText: "Такси" })).toBeVisible();
+  await expect(page.getByTestId("recurring-forecast")).toContainText("До конца месяца");
+  await expect(page.getByTestId("recurring-forecast")).toContainText("600");
+});

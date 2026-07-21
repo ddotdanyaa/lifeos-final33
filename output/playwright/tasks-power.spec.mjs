@@ -65,3 +65,48 @@ test("T1.7 frog: main task floats to the now slot", async ({ page }) => {
   await expect(page.getByTestId("today-next-action")).toContainText("Важное дело");
   await expect(page.getByTestId("today-next-action").getByTestId("frog-badge")).toBeVisible();
 });
+
+test("T1.5 time estimate: parsed from text, shown as a badge, summed for the day", async ({ page }) => {
+  await reset(page);
+  // Direct Today "new task" input goes straight through addTask (no classifier/proposal
+  // detour), matching how a plain time-estimate phrase should be parsed by detectTaskEstimate.
+  await openSurface(page, "today");
+  await page.getByTestId("task-input").fill("Помыть машину 30 мин");
+  await page.getByTestId("add-task").click();
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    return Object.values(state.tasks).some((t) => /машину/i.test(t.title) && t.timeEstimateMin === 30);
+  }).toBe(true);
+
+  await expect(page.getByTestId("estimate-badge").first()).toContainText("30м");
+  await expect(page.getByTestId("today-estimate-total")).toContainText("30м");
+});
+
+test("T1.6 subtasks: add + toggle a checklist item inside a task, progress badge updates", async ({ page }) => {
+  await reset(page);
+  await page.locator("#capture-input").fill("Собрать отчёт");
+  await page.getByTestId("quick-task").click();
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    return Object.values(state.tasks).some((t) => /отчёт/i.test(t.title));
+  }).toBe(true);
+
+  await openSurface(page, "today");
+  const row = page.locator('[data-testid="task-row"], [data-testid="today-next-action"]').filter({ hasText: "Собрать отчёт" }).first();
+  await row.locator(".subtask-input").fill("Собрать цифры");
+  await row.getByTestId("add-subtask").click();
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    const task = Object.values(state.tasks).find((t) => /отчёт/i.test(t.title));
+    return task && task.subtasks.length;
+  }).toBe(1);
+  await expect(row.getByTestId("subtask-progress")).toContainText("0/1");
+
+  await row.getByTestId("subtask-toggle").click();
+  await expect(row.getByTestId("subtask-progress")).toContainText("1/1");
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    const task = Object.values(state.tasks).find((t) => /отчёт/i.test(t.title));
+    return task && task.subtasks[0].done;
+  }).toBe(true);
+});

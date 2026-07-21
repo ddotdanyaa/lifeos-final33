@@ -8164,6 +8164,13 @@ audio {
   font-size: var(--text-sm);
 }
 
+/* F1.2: прогноз "до конца месяца ожидается ещё -X" по регулярным платежам (actual schedules). */
+.recurring-forecast {
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 /* Подсказка по цели: сколько в день нужно откладывать (actual-forecast идея). */
 .goal-hint {
   margin-top: var(--space-1);
@@ -8209,6 +8216,62 @@ audio {
 }
 
 .frog-badge {
+  font-size: var(--text-sm);
+}
+
+/* T1.5: бейдж оценки времени в строке задачи + суммарная оценка на день. */
+.estimate-badge {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.estimate-total {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin: -4px 0 4px;
+}
+
+/* T1.6: подзадачи-чеклист внутри строки задачи (донор-идея super-productivity subTaskIds) -
+   растягивается на всю ширину грида строки задачи, а не в третью колонку row-actions. */
+.task-subtasks {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 42px;
+}
+
+.subtask-progress {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.subtask-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.subtask-row.is-done span {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.subtask-add-row {
+  display: flex;
+  gap: 6px;
+}
+
+.subtask-add-row .subtask-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
   font-size: var(--text-sm);
 }
 
