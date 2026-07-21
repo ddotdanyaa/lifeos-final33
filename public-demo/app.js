@@ -3049,6 +3049,11 @@ function normalizeState(input) {
     // принудительный сброс здесь гонялся бы с реальным потоком и мог погасить индикатор
     // «печатает» посреди генерации. Настоящий сброс - только на явном boot/hydrate ниже.
     message.streaming = Boolean(message.streaming);
+    // C1.4: цитаты переживают перезагрузку - только реально существующие открытые заметки.
+    message.citations = Array.isArray(message.citations)
+      ? message.citations.filter((item) => item && item.id && state.notes[item.id] && !state.notes[item.id].deleted).map((item) => ({ id: item.id, title: cleanLine(item.title || "") }))
+      : [];
+    message.attachmentId = state.notes[message.attachmentId] && !state.notes[message.attachmentId].deleted ? message.attachmentId : "";
   }
   for (const run of Object.values(state.agentRuns)) {
     run.name = cleanLine(run.name || "Local agent");
@@ -5417,6 +5422,13 @@ function addChatMessage(state, role, text, sourceId, noteId) {
     noteId: resolvedNoteId,
     proposalId: "",
     receiptId,
+    // C1.4: цитаты-источники - какие заметки реально пошли в контекст промпта (LibreChat
+    // citations идея), структурными данными, а не текстом внутри ответа - рендерятся как
+    // кликабельные чипы (ui/chat.js), открывающие артефакт напрямую.
+    citations: [],
+    // C1.6: вложенный артефакт - ссылка на существующую заметку, выбранную владельцем перед
+    // отправкой (LibreChat attachments-паттерн, но локально - никакой загрузки файла).
+    attachmentId: "",
     deleted: false,
     createdAt
   };
@@ -17670,6 +17682,10 @@ async function handleAction(action, id) {
       || chatInputs[0];
     const text = input ? input.value : "";
     const cleanText = String(text || "").trim();
+    // C1.6: вложение артефакта в сообщение - выбор из базы (LibreChat attachments-паттерн,
+    // локально: ссылка на существующую заметку, ничего не загружается никуда).
+    const attachmentSelect = document.querySelector("#chat-attachment-select");
+    const attachmentId = attachmentSelect ? cleanLine(attachmentSelect.value) : "";
     const normalizedChatText = normalizeRuText(cleanText);
     const wantsDevAnswer = /^\/dev\b/i.test(cleanText) || normalizedChatText.includes("спросить о разработке") || normalizedChatText.includes("состояние разработки");
     // V1 CHAT_BRAIN: "какая ты модель / какого уровня" must be answered from the real
@@ -17725,6 +17741,9 @@ async function handleAction(action, id) {
         state.chatDraft = "";
         const ownerMessageId = addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
         createChatMessageProposal(state, ownerMessageId, cleanText);
+        if (attachmentId && state.notes[attachmentId] && !state.notes[attachmentId].deleted) {
+          state.chatMessages[ownerMessageId].attachmentId = attachmentId;
+        }
         assistantMessageId = addChatMessage(state, "assistant", "", "", state.activeNoteId);
         state.chatMessages[assistantMessageId].streaming = true;
       });
@@ -17739,11 +17758,13 @@ async function handleAction(action, id) {
             if (msg) msg.text = partialText;
           });
         });
-        const citationLine = citedNotes.length ? " Источники: " + citedNotes.map((note) => note.title).join(", ") + "." : "";
+        // C1.4: цитаты - структурные данные на сообщении (кликабельные чипы в ui/chat.js),
+        // не текст внутри ответа - раньше "Источники: ..." дописывалось прямо в msg.text.
         await store.commit("Chat stream completed", (state) => {
           const msg = state.chatMessages[assistantMessageId];
           if (msg) {
-            msg.text = result.text + citationLine;
+            msg.text = result.text;
+            msg.citations = citedNotes.map((note) => ({ id: note.id, title: note.title }));
             msg.streaming = false;
           }
           recordProviderRun(state, "ollama", "chat", "generation_ok", "Ollama chat ответил моделью " + model + " за " + result.latencyMs + "мс (стрим), источников: " + citedNotes.length, { model, citationIds: citedNotes.map((note) => note.id), latencyMs: result.latencyMs });
@@ -17782,6 +17803,9 @@ async function handleAction(action, id) {
       }
       const ownerMessageId = addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
       createChatMessageProposal(state, ownerMessageId, cleanText);
+      if (attachmentId && state.notes[attachmentId] && !state.notes[attachmentId].deleted) {
+        state.chatMessages[ownerMessageId].attachmentId = attachmentId;
+      }
       if (wantsModelIdentity) {
         const modelAnswer = state.ollama.selectedModel
           ? "Я работаю через локальную модель " + state.ollama.selectedModel + " (Ollama, целиком на твоём компьютере) - это не ChatGPT и не облачная модель, у неё нет версии 3 или 4 в этом смысле, сравнение по чужим бенчмаркам я дать не могу."
@@ -19025,6 +19049,19 @@ function handleInput(event) {
 async function handleChange(event) {
   const target = event.target;
   if (!store || !(target instanceof HTMLElement)) return;
+  // C1.5: селектор модели в тулбаре чата - применяется сразу при выборе, без отдельной
+  // кнопки «Сохранить» (тот же вызов, что save-ollama-model на Подключениях).
+  if (target.id === "chat-model-select") {
+    await store.commit("Ollama model selected", (state) => {
+      const selected = cleanLine(target.value);
+      if (selected && state.ollama.models.includes(selected)) {
+        state.ollama.selectedModel = selected;
+        syncOllamaProviderState(state);
+        recordProviderRun(state, "ollama", "model-select", "selected", "Selected model " + selected, { selected });
+      }
+    });
+    return;
+  }
   if (target.dataset && target.dataset.graphFilter) {
     const key = target.dataset.graphFilter;
     await store.commit("Graph filter changed", (state) => {

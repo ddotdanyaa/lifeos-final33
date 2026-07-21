@@ -7017,6 +7017,65 @@ audio {
   box-shadow: none;
 }
 
+/* C1.5: селектор модели прямо в тулбаре чата (донор-идея LibreChat model-select). */
+#chat-model-select {
+  min-height: 28px;
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+
+/* C1.4: цитаты-источники - кликабельные чипы под ответом (LibreChat citations идея). */
+.chat-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.chat-citation-chip {
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: var(--text-xs);
+  color: var(--accent-chat, var(--accent));
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+
+.chat-citation-chip:hover {
+  background: var(--bg-surface-hover);
+}
+
+/* C1.6: вложение артефакта - чип с открытием (LibreChat attachments-паттерн, локально). */
+.chat-attachment {
+  margin: 4px 0;
+}
+
+.chat-attachment-chip {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+
+#chat-attachment-select {
+  min-height: 36px;
+  padding: 4px 8px;
+  font-size: var(--text-xs);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  max-width: 160px;
+}
+
 .chat-toolbar-more {
   position: relative;
 }

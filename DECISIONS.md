@@ -2835,3 +2835,58 @@ plus the pre-existing 2 tests in that file still pass (5/5 total). `npm run veri
 `build-public.mjs` run; screenshots `docs/qc/screens/FIN/category-rules-budget-payday.png`
 and `docs/qc/screens/FIN/budget-envelope.png`. Full P19 (24 owner journeys) 24/24 green,
 run cleanly after all edits landed (no mid-run file changes this time).
+
+## C1.4+C1.5+C1.6: clickable citations, chat model selector, note attachment (2026-07-21)
+
+**Decision:** C1.4 - citations were already computed (`citedNotes`, the notes that really
+went into the Ollama prompt) but only ever appended as plain text (" Источники: X, Y.")
+baked into the answer. Moved them to structured data: `chatMessage.citations` (array of
+`{id, title}`, new field on `addChatMessage`'s record, normalized/hydrated like other
+fields), set on the assistant message at stream-completion instead of string-concatenated
+into `msg.text`. `ui/chat.js` renders each as a clickable chip (`data-action="open-note"`)
+under the answer - donor idea: LibreChat citations, grounded in our existing graph-context
+computation rather than a new retrieval path. C1.5 - a `<select>` in the chat toolbar
+(`ctx.ollama.models`, only rendered when models exist) applies immediately on change via
+`handleChange`, reusing the exact same commit logic as the pre-existing Providers-surface
+`save-ollama-model` action (`state.ollama.selectedModel` + `syncOllamaProviderState` +
+`recordProviderRun`) - donor idea: LibreChat model-select, no new state shape needed. C1.6 -
+a `<select id="chat-attachment-select">` in the composer (recent notes, default "Без
+вложения") is read once at the top of the `send-chat` handler and, if a real non-deleted
+note was chosen, stamped onto the just-created owner message as `attachmentId` (new field,
+same normalize/hydrate treatment as citations) - donor idea: LibreChat attachments, kept
+strictly local (a link to an existing artifact, never an upload). Rendered as a 📎 chip that
+opens the note. The select naturally resets to its default after send since this codebase
+re-renders the whole DOM tree per commit and the option has no bound `value=`.
+
+**Bug found and fixed while verifying (H05 regression):** the first version of
+`chatAttachmentPicker` listed `ctx.notes` unfiltered. `ctx.notes` is the RAW note list (not
+pre-filtered for the chat surface), so it included the vault's internal dev-canon notes
+(systemType `product_brain` - "LifeOS Product Brain", "Product Vision", "Artifact OS
+Contract", etc.), and their titles leaked into the chat UI as attachment options - caught
+immediately by the existing `final-human-product.spec.mjs` H05 test, which asserts the human
+Chat surface never contains "Product Brain" text. Fixed by filtering
+`note.systemType !== "product_brain"` in the picker, the exact same filter already used for
+`citedNotes` at the call site in app.js. A second, unrelated failure surfaced from the SAME
+root cause one level down: my explanatory code comment for that fix literally contained the
+English phrase "Product Brain", which `tools/audit-no-label-theater(-hard).mjs` bans as a
+raw substring anywhere in `ui/*.js` (including comments, by design - it's a static text
+scan, not a runtime check) to keep internal canon terminology from ever reaching the primary
+UI files. Reworded the comment to avoid the literal banned phrase without losing the
+explanation.
+
+**Verified:** new `chat-citations-model-attachment.spec.mjs` - C1.4 (a captured note titled
+with a distinctive word, asked about by chat text containing that word, produces a citation
+chip that navigates to Library on click), C1.5 (two mocked models in the dropdown, selecting
+the second one updates `state.ollama.selectedModel` for real), C1.6 (picking a note before
+sending stamps `attachmentId` on the real owner chat message, chip opens the note) - 3/3
+green. Existing `chat-streaming.spec.mjs` (C1.1-C1.3) rerun clean - no regression from the
+shared `addChatMessage`/toolbar changes. `npm run verify` ✅; all `tools/audit-*.mjs` green
+except env-bound `audit-owner-rescue-final` (the two label-theater audits and
+`audit-nonstop-until-done` briefly showed red from the H05 bug and a concurrent-P19-run race
+respectively - both confirmed clean after the fix, matching the same race-condition pattern
+already documented earlier this session). Full `final-human-product.spec.mjs` H01-H10 10/10
+green (H05 was the one that caught the real bug); `build-public.mjs` run; screenshot
+`docs/qc/screens/C1/citations-model-attachment.png` shows all three features live in one
+exchange. Full P19 (24 owner journeys) 24/24 green, re-run after the functional fix landed
+(the trailing comment-wording fix afterward carries zero runtime behavior change, so that
+P19 pass was kept rather than re-run a third time).
