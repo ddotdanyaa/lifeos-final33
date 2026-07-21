@@ -1014,6 +1014,7 @@ function createInitialState() {
     searchQuery: "",
     chatSearchQuery: "",
     chatToolbarMoreOpen: false,
+    timelineDay: "",
     theme: "system",
     financeWeeklyGoal: 0,
     commandPaletteOpen: false,
@@ -2424,6 +2425,7 @@ function normalizeState(input) {
     searchQuery: base.searchQuery || "",
     chatSearchQuery: base.chatSearchQuery || "",
     chatToolbarMoreOpen: Boolean(base.chatToolbarMoreOpen),
+    timelineDay: cleanLine(base.timelineDay || ""),
     theme: base.theme === "dark" || base.theme === "light" ? base.theme : "system",
     financeWeeklyGoal: Number.isFinite(Number(base.financeWeeklyGoal)) ? Math.max(0, Number(base.financeWeeklyGoal)) : 0,
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
@@ -10052,6 +10054,94 @@ function lifeFeedEvents(state) {
     .slice(0, 80);
 }
 
+// Срез 9: единая ось жизни - реконструкция любого дня. Это НЕ машинерия (провайдер-раны, паки,
+// твин - они живут в Ленте-каналах/аудите), а ЖИЗНЬ владельца: смены, деньги, задачи, планы,
+// напоминания, входы/мысли. Проекция над теми же артефактами, сгруппированная по дню; фильтр
+// state.timelineDay = один день (реконструкция). Repository First: переиспользуем коллекции
+// state.* и уже готовые поля .day/.createdAt, ничего нового не храним.
+const TIMELINE_TYPE_META = {
+  shift: { icon: "🧑‍🍳", label: "Смена" },
+  income: { icon: "💵", label: "Доход" },
+  expense: { icon: "🧾", label: "Расход" },
+  task: { icon: "✅", label: "Задача" },
+  plan: { icon: "🗓", label: "План" },
+  reminder: { icon: "⏰", label: "Напоминание" },
+  capture: { icon: "✍️", label: "Мысль" }
+};
+function timelineTimeFromIso(iso) {
+  const value = String(iso || "");
+  return value.length >= 16 && value[10] === "T" ? value.slice(11, 16) : "";
+}
+function formatTimelineDayLabel(day) {
+  if (day === todayKey()) return "Сегодня";
+  if (day === dateKeyFromOffset(-1)) return "Вчера";
+  const date = new Date(day + "T00:00:00Z");
+  if (!Number.isNaN(date.getTime())) return date.getUTCDate() + " " + RU_MONTHS[date.getUTCMonth()] + ", " + RU_WEEKDAYS[date.getUTCDay()];
+  return day;
+}
+function collectTimelineEvents(state) {
+  const events = [];
+  const add = (type, day, iso, title, extra) => {
+    const resolvedDay = cleanLine(day) || String(iso || "").slice(0, 10);
+    if (!resolvedDay) return;
+    events.push(Object.assign({
+      type,
+      icon: TIMELINE_TYPE_META[type].icon,
+      typeLabel: TIMELINE_TYPE_META[type].label,
+      day: resolvedDay,
+      time: timelineTimeFromIso(iso),
+      title: cleanLine(title) || TIMELINE_TYPE_META[type].label
+    }, extra || {}));
+  };
+  const txNoteIds = new Set();
+  for (const tx of Object.values(state.financeTransactions || {}).filter((item) => !item.deleted)) {
+    const type = tx.kind === "income" ? (Number(tx.shiftHours) > 0 ? "shift" : "income") : "expense";
+    add(type, tx.day, tx.createdAt, tx.title || tx.category || TIMELINE_TYPE_META[type].label, { amount: Math.round(Number(tx.amount) || 0), noteId: tx.noteId, hours: Number(tx.shiftHours) || 0 });
+    if (tx.noteId) txNoteIds.add(tx.noteId);
+  }
+  for (const task of Object.values(state.tasks || {}).filter((item) => !item.deleted)) {
+    add("task", task.day, task.createdAt, task.title, { noteId: task.noteId, done: task.status === "done" });
+  }
+  // Срез 9 (антимусор): план/напоминание, автоматически созданное вместе со сменой (общий noteId
+  // с транзакцией), - это тень смены, а не отдельное событие; самостоятельный блок (свой noteId)
+  // остаётся.
+  for (const block of Object.values(state.planBlocks || {}).filter((item) => !item.deleted)) {
+    if (block.noteId && txNoteIds.has(block.noteId)) continue;
+    add("plan", block.day, block.createdAt, block.title, { noteId: block.noteId, at: cleanLine(block.time || ""), done: block.status === "done" });
+  }
+  for (const reminder of Object.values(state.reminders || {}).filter((item) => !item.deleted)) {
+    if (reminder.noteId && txNoteIds.has(reminder.noteId)) continue;
+    add("reminder", reminder.day, reminder.createdAt, reminder.title, { noteId: reminder.noteId, at: cleanLine(reminder.time || "") });
+  }
+  // Срез 9 (антимусор): «мысль» (сырой .md-источник) показываем ТОЛЬКО если она не породила
+  // структурный артефакт. Иначе на оси дублировались бы «Смена» + «Расход» + «Отработал…md» из
+  // одной фразы. Источник, чей noteId уже держит смена/расход/задача/план/напоминание - это вход,
+  // а не отдельное событие; чистая мысль (её noteId никем не занят) остаётся как «Мысль».
+  const structuredNoteIds = new Set(events.map((event) => event.noteId).filter(Boolean));
+  for (const source of Object.values(state.sources || {}).filter((item) => !item.deleted)) {
+    if (source.noteId && structuredNoteIds.has(source.noteId)) continue;
+    add("capture", String(source.createdAt || "").slice(0, 10), source.createdAt, source.name, { noteId: source.noteId });
+  }
+  return events;
+}
+function timelineDays(state) {
+  const filterDay = cleanLine(state.timelineDay || "");
+  const byDay = new Map();
+  for (const event of collectTimelineEvents(state)) {
+    if (filterDay && event.day !== filterDay) continue;
+    if (!byDay.has(event.day)) byDay.set(event.day, []);
+    byDay.get(event.day).push(event);
+  }
+  const days = [...byDay.keys()].sort((a, b) => b.localeCompare(a));
+  const shown = filterDay ? days : days.slice(0, 7);
+  return shown.map((day) => {
+    const events = byDay.get(day).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    const income = events.filter((event) => event.type === "income" || event.type === "shift").reduce((sum, event) => sum + (event.amount || 0), 0);
+    const expense = events.filter((event) => event.type === "expense").reduce((sum, event) => sum + (event.amount || 0), 0);
+    return { day, label: formatTimelineDayLabel(day), events, income, expense, count: events.length };
+  });
+}
+
 function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
   // Срез 7 фикс: чистый граф (без машинерии-логов) - и для канваса, и для причин рёбер,
   // и для счётчика узлов/связей в инспекторе.
@@ -10130,6 +10220,8 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     flows: Object.values(state.flows || {}),
     agentRuns: Object.values(state.agentRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     feedEvents: lifeFeedEvents(state),
+    timelineDays: timelineDays(state),
+    timelineDay: state.timelineDay || "",
     goals,
     graph,
     graphFilters: Object.assign({}, state.graphFilters || {}),
@@ -15516,6 +15608,13 @@ async function handleAction(action, id) {
     store.toggleChatToolbarMore();
     return;
   }
+  if (action === "set-timeline-day") {
+    // Срез 9: клик по дню/событию оси фиксирует день реконструкции (id = YYYY-MM-DD, "" сбрасывает).
+    store.state.timelineDay = cleanLine(id || "");
+    store.scheduleSave("Timeline day set");
+    render();
+    return;
+  }
   if (action === "toggle-system-record-state") {
     await store.commit("System record state changed", (state) => {
       toggleSystemRecordState(state, id);
@@ -17253,6 +17352,13 @@ function handleInput(event) {
     store.updateChatSearch(target.value);
     return;
   }
+  if (target.id === "timeline-day-input") {
+    // Срез 9: реконструкция дня - фильтр оси по одному дню (UI-состояние, как поиск).
+    store.state.timelineDay = cleanLine(target.value || "");
+    store.scheduleSave("Timeline day saved");
+    render();
+    return;
+  }
   if (target.id === "command-palette-query") {
     store.updateCommandPaletteQuery(target.value);
     return;
@@ -17528,6 +17634,17 @@ async function backdateNoteForTest(noteId, days) {
   return true;
 }
 
+// Срез 9: тестовый хук для проверки многодневной хроники - ставит поле .day артефакту (смена/
+// расход/задача/план) на конкретный день, чтобы e2e доказал группировку и реконструкцию дня.
+async function setArtifactDayForTest(collectionKey, id, day) {
+  if (!store) return false;
+  await store.commit("Test: set artifact day", (state) => {
+    const item = state[collectionKey] && state[collectionKey][id];
+    if (item) item.day = cleanLine(day);
+  });
+  return true;
+}
+
 async function resetRepositoryForTest() {
   if (repository && typeof repository.close === "function") repository.close();
   repository = null;
@@ -17702,6 +17819,7 @@ window.__lifeosKnowledgeBase = {
   seedExactLargeVault,
   backdateTrashItemForTest,
   backdateNoteForTest,
+  setArtifactDayForTest,
   injectStorageFailureForTest,
   injectProviderFailureForTest,
   isolateCorruptRecord,

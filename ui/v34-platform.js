@@ -66,6 +66,57 @@ function healthAlertBanner(alerts) {
   ].join("");
 }
 
+// Срез 9: хроника жизни - единая ось по дням (реконструкция любого дня). Проекция timelineDays
+// приходит из app.js (жизненные артефакты, без машинерии). Клик по событию открывает артефакт;
+// поле даты и клик по заголовку дня фиксируют день реконструкции.
+function timelineEventRow(event) {
+  const amountText = typeof event.amount === "number" && event.amount
+    ? (event.type === "expense" ? "−" : "+") + event.amount.toLocaleString("ru-RU") + " ₽"
+    : "";
+  const timeText = event.time || event.at || "";
+  const inner = [
+    `<span class="timeline-ev-time">${escapeHtml(timeText)}</span>`,
+    `<span class="timeline-ev-icon" aria-hidden="true">${event.icon}</span>`,
+    `<span class="timeline-ev-body"><strong>${escapeHtml(compactText(event.title, 80))}</strong><span class="timeline-ev-type">${escapeHtml(event.typeLabel)}${event.hours ? " · " + event.hours + " ч" : ""}${event.done ? " · готово" : ""}</span></span>`,
+    amountText ? `<span class="timeline-ev-amount ${event.type === "expense" ? "out" : "in"}">${escapeHtml(amountText)}</span>` : ""
+  ].join("");
+  return event.noteId
+    ? `<button class="timeline-ev" data-action="open-note" data-id="${escapeHtml(event.noteId)}" data-testid="timeline-event" data-ev-type="${escapeHtml(event.type)}">${inner}</button>`
+    : `<div class="timeline-ev" data-testid="timeline-event" data-ev-type="${escapeHtml(event.type)}">${inner}</div>`;
+}
+
+function timelineDayBlock(day) {
+  const money = [];
+  if (day.income) money.push(`<span class="timeline-day-in">+${day.income.toLocaleString("ru-RU")} ₽</span>`);
+  if (day.expense) money.push(`<span class="timeline-day-out">−${day.expense.toLocaleString("ru-RU")} ₽</span>`);
+  return [
+    `<section class="timeline-day" data-testid="timeline-day" data-day="${escapeHtml(day.day)}">`,
+    `<header class="timeline-day-head">`,
+    `<button class="timeline-day-label" data-action="set-timeline-day" data-id="${escapeHtml(day.day)}" data-testid="timeline-day-label">${escapeHtml(day.label)}</button>`,
+    `<span class="timeline-day-meta">${day.count} соб.${money.length ? " · " + money.join(" ") : ""}</span>`,
+    `</header>`,
+    `<div class="timeline-day-events">${day.events.map(timelineEventRow).join("")}</div>`,
+    `</section>`
+  ].join("");
+}
+
+function timelineSection(ctx) {
+  const days = ctx.timelineDays || [];
+  const filtered = Boolean(ctx.timelineDay);
+  return [
+    `<section class="v34-panel timeline-panel" data-testid="timeline-panel">`,
+    `<header class="timeline-head"><h3>Хроника жизни</h3>`,
+    `<div class="timeline-controls">`,
+    `<label class="timeline-day-field"><span>Восстановить день</span><input type="date" id="timeline-day-input" data-testid="timeline-day-input" value="${escapeHtml(ctx.timelineDay || "")}"></label>`,
+    filtered ? button("set-timeline-day", "Все дни", { id: "", kind: "ghost", testId: "timeline-clear-day" }) : "",
+    `</div></header>`,
+    days.length
+      ? `<div class="timeline-days" data-testid="timeline-days">${days.map(timelineDayBlock).join("")}</div>`
+      : `<div class="empty-inline" data-testid="timeline-empty">${filtered ? "В этот день записей нет." : "Записывай смены, деньги, задачи и мысли — они соберутся в хронику по дням."}</div>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderFeed(ctx) {
   const channels = sortRecent(live(ctx.channels));
   const events = sortRecent(ctx.feedEvents || []).slice(0, 24);
@@ -81,6 +132,7 @@ export function renderFeed(ctx) {
     `</section>`,
     healthAlertBanner(healthAlerts),
     importJobs.length ? `<section class="v34-panel" data-testid="import-jobs-panel"><header><h3>Фоновые импорты</h3></header>${importJobs.map(importJobRow).join("")}</section>` : "",
+    timelineSection(ctx),
     `<div class="v34-split">`,
     `<section class="v34-panel">`,
     `<header><h3>Поток жизни</h3>${button("set-surface", "Добавить вход", { id: "capture", kind: "primary", testId: "feed-open-capture" })}</header>`,

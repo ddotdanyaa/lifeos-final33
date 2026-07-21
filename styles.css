@@ -7497,6 +7497,156 @@ audio {
   align-content: start;
 }
 
+/* Срез 9: хроника жизни - спокойная вертикальная ось по дням. */
+.timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.timeline-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.timeline-day-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.timeline-day-field input {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  padding: 6px 10px;
+  font-size: var(--text-sm);
+}
+
+.timeline-days {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.timeline-day {
+  display: grid;
+  gap: 8px;
+}
+
+.timeline-day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line-hairline);
+  padding-bottom: 4px;
+}
+
+.timeline-day-label {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.timeline-day-label:hover {
+  color: #2563eb;
+}
+
+.timeline-day-meta {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.timeline-day-in {
+  color: #16a34a;
+}
+
+.timeline-day-out {
+  color: #dc2626;
+}
+
+.timeline-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 2px solid var(--line-hairline);
+  padding-left: 12px;
+}
+
+.timeline-ev {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--text-main);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.timeline-ev:hover {
+  background: var(--bg-surface-hover);
+}
+
+.timeline-ev-time {
+  flex: 0 0 40px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-ev-icon {
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
+.timeline-ev-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.timeline-ev-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.timeline-ev-type {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.timeline-ev-amount {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.timeline-ev-amount.in {
+  color: #16a34a;
+}
+
+.timeline-ev-amount.out {
+  color: #dc2626;
+}
+
 .v34-panel > header,
 .v34-pack-card header,
 .v34-pack-card footer {
