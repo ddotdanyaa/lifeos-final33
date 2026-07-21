@@ -120,6 +120,43 @@ function renderUserModelPanel(ctx) {
   ].join("");
 }
 
+// Срез 14: адаптивный дашборд - виджеты Дома в порядке владельца, каждый можно скрыть/переставить.
+// Раскладка приходит из app.js (dashboardLayout). Пустые виджеты не рисуются; скрытые - в отдельной
+// полоске с «показать». Капча-первый принцип сохранён: ввод выше настраиваемых панелей.
+const DASHBOARD_WIDGET_RENDERERS = {
+  morning: renderMorningSummary,
+  insights: renderInsightsPanel,
+  usermodel: renderUserModelPanel,
+  reflection: renderEveningReflection,
+  myday: renderMyDay
+};
+function renderDashboardWidgets(ctx) {
+  const layout = ctx.dashboardLayout || { order: [], hiddenKeys: [] };
+  const cards = [];
+  for (const item of layout.order || []) {
+    if (item.hidden) continue;
+    const renderer = DASHBOARD_WIDGET_RENDERERS[item.key];
+    const content = renderer ? renderer(ctx) : "";
+    if (!content) continue;
+    cards.push([
+      `<div class="dash-widget" data-testid="dash-widget" data-widget="${escapeHtml(item.key)}">`,
+      `<div class="dash-widget-bar"><span class="dash-widget-name">${escapeHtml(item.label)}</span>`,
+      `<span class="dash-widget-ctl">`,
+      button("move-widget-up", "↑", { id: item.key, kind: "ghost", testId: "widget-up" }),
+      button("move-widget-down", "↓", { id: item.key, kind: "ghost", testId: "widget-down" }),
+      button("hide-widget", "Скрыть", { id: item.key, kind: "ghost", testId: "widget-hide" }),
+      `</span></div>`,
+      content,
+      `</div>`
+    ].join(""));
+  }
+  const hidden = (layout.order || []).filter((item) => item.hidden);
+  const hiddenStrip = hidden.length
+    ? `<div class="dash-hidden" data-testid="dash-hidden"><span>Скрытые виджеты:</span>${hidden.map((item) => button("show-widget", item.label, { id: item.key, kind: "ghost", testId: "widget-show" })).join("")}</div>`
+    : "";
+  return `<div class="dash-widgets" data-testid="dash-widgets">${cards.join("")}${hiddenStrip}</div>`;
+}
+
 export function renderAssistantHome(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
@@ -131,10 +168,6 @@ export function renderAssistantHome(ctx) {
     `<h1>Локальная ОС для дня, знаний и контроля</h1>`,
     `<p>Один вход превращает хаос в артефакты: задачи, деньги, знания, календарь, привычки и связи.</p>`,
     `</div>`,
-    renderMorningSummary(ctx),
-    renderInsightsPanel(ctx),
-    renderUserModelPanel(ctx),
-    renderEveningReflection(ctx),
     `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
     renderHumanAnswerCard(ctx),
@@ -144,7 +177,7 @@ export function renderAssistantHome(ctx) {
     `<button class="mini-summary-card habits" data-action="set-surface" data-id="habits" data-testid="owner-habit-zone"><span>Привычки</span><strong>${escapeHtml(habitsDone)}</strong><em>${ctx.goals?.length || 0} целей</em></button>`,
     `</aside>`,
     `</div>`,
-    renderMyDay(ctx),
+    renderDashboardWidgets(ctx),
     ctx.commandMessage ? `<div class="human-toast" data-testid="home-command-message">${escapeHtml(ctx.commandMessage)}</div>` : "",
     `</section>`
   ].join("");

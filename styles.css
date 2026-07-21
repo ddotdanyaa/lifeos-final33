@@ -7497,6 +7497,135 @@ audio {
   align-content: start;
 }
 
+/* Срез 14: правила системы от владельца. */
+.owner-rules {
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.owner-rules p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.owner-rule-add {
+  display: flex;
+  gap: 8px;
+}
+
+.owner-rule-add input {
+  flex: 1 1 auto;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  padding: 8px 12px;
+  font-size: var(--text-sm);
+}
+
+.owner-rule-presets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.owner-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.owner-rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.owner-rule.inactive {
+  opacity: 0.55;
+}
+
+.owner-rule.inactive span:first-child {
+  text-decoration: line-through;
+}
+
+.owner-rule-ctl {
+  display: inline-flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+/* Срез 14: адаптивный дашборд - виджеты со скрытием/перестановкой. */
+.dash-widgets {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.dash-widget {
+  position: relative;
+}
+
+.dash-widget-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 6px;
+}
+
+.dash-widget-name {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dash-widget-ctl {
+  display: inline-flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--ease, 0.15s ease);
+}
+
+.dash-widget:hover .dash-widget-ctl,
+.dash-widget:focus-within .dash-widget-ctl {
+  opacity: 1;
+}
+
+.dash-widget-ctl .ui-btn {
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+}
+
+.dash-hidden {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px dashed var(--line-soft);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
 /* Срез 13: центр агентов - делегирование + статус/прогресс/результат. */
 .agent-center {
   border: 1px solid var(--line-hairline);

@@ -201,6 +201,22 @@ function productMapPanel(productMap) {
   ].join("");
 }
 
+// Срез 14: правила поведения системы от владельца (артефакты). Активные реально вплетаются в
+// ответы локальной модели (app.js buildOllamaChatPrompt). Пресеты - готовые частые правила.
+function renderOwnerInstructions(ctx) {
+  const rules = ctx.ownerInstructions || [];
+  const presets = ctx.instructionPresets || [];
+  return [
+    `<section class="owner-rules" data-testid="owner-rules">`,
+    `<h3>Правила системы</h3>`,
+    `<p>Правила поведения от тебя. Активные вплетаются в ответы локальной модели в Чате.</p>`,
+    `<div class="owner-rule-add"><input id="instruction-input" data-testid="instruction-input" autocomplete="off" placeholder="Например: отвечай коротко и по-русски" aria-label="Новое правило">${button("add-instruction", "Добавить правило", { kind: "primary", testId: "add-instruction" })}</div>`,
+    presets.length ? `<div class="owner-rule-presets" data-testid="instruction-presets"><span>Пресеты:</span>${presets.map((preset) => button("apply-instruction-preset", preset.text, { id: preset.id, kind: "ghost", testId: "instruction-preset" })).join("")}</div>` : "",
+    `<div class="owner-rule-list" data-testid="owner-rule-list">${safeList(rules, (rule) => `<div class="owner-rule ${rule.active ? "active" : "inactive"}" data-testid="owner-rule" data-rule="${escapeHtml(rule.id)}" data-active="${rule.active ? "1" : "0"}"><span>${escapeHtml(rule.text)}</span><span class="owner-rule-ctl">${button("toggle-instruction", rule.active ? "Вкл" : "Выкл", { id: rule.id, kind: "ghost", testId: "toggle-instruction" })}${button("remove-instruction", "Удалить", { id: rule.id, kind: "ghost", testId: "remove-instruction" })}</span></div>`, `<div class="empty-inline" data-testid="owner-rules-empty">Пока нет правил. Добавь своё или выбери пресет.</div>`)}</div>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderControl(ctx) {
   const audit = ctx.auditLog || [];
   const snapshots = ctx.control?.rollbackSnapshots || [];
@@ -226,6 +242,7 @@ export function renderControl(ctx) {
       (event) => `<div class="control-event" data-testid="audit-row"><strong>${escapeHtml(auditTypeLabel(event.type))}</strong><span>${escapeHtml(compactText(auditSummaryText(event.summary || ""), 130))}</span><time>${escapeHtml(String(event.createdAt || event.at || "").slice(0, 16))}</time></div>`,
       `<div class="empty-inline">Изменений пока нет.</div>`
     ),
+    renderOwnerInstructions(ctx),
     `</section>`,
     `<aside class="control-actions">`,
     `<h3>Данные</h3>`,

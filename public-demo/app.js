@@ -1015,6 +1015,8 @@ function createInitialState() {
     chatSearchQuery: "",
     chatToolbarMoreOpen: false,
     timelineDay: "",
+    dashboardLayout: { order: [], hidden: [] },
+    ownerInstructions: [],
     theme: "system",
     financeWeeklyGoal: 0,
     commandPaletteOpen: false,
@@ -2428,6 +2430,11 @@ function normalizeState(input) {
     chatSearchQuery: base.chatSearchQuery || "",
     chatToolbarMoreOpen: Boolean(base.chatToolbarMoreOpen),
     timelineDay: cleanLine(base.timelineDay || ""),
+    dashboardLayout: {
+      order: Array.isArray(base.dashboardLayout && base.dashboardLayout.order) ? base.dashboardLayout.order.filter((key) => typeof key === "string") : [],
+      hidden: Array.isArray(base.dashboardLayout && base.dashboardLayout.hidden) ? base.dashboardLayout.hidden.filter((key) => typeof key === "string") : []
+    },
+    ownerInstructions: Array.isArray(base.ownerInstructions) ? base.ownerInstructions : [],
     theme: base.theme === "dark" || base.theme === "light" ? base.theme : "system",
     financeWeeklyGoal: Number.isFinite(Number(base.financeWeeklyGoal)) ? Math.max(0, Number(base.financeWeeklyGoal)) : 0,
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
@@ -8438,9 +8445,13 @@ function isModelIdentityQuestion(text) {
 // includes the same graph/day facts the app itself computes, and drops the universal 40-word
 // cap for insight-style questions (graphSummary/daySummary are always included; they're
 // short enough not to need a separate budget).
-function buildOllamaChatPrompt(context, citedNotes, question, graphSummary, daySummary, isInsightMode) {
+function buildOllamaChatPrompt(context, citedNotes, question, graphSummary, daySummary, isInsightMode, ownerInstructions) {
   const citationBlock = citedNotes.length
     ? "Связанные локальные заметки:\n" + citedNotes.map((note) => "- " + note.title + ": " + shorten(cleanLine(note.body || ""), 200)).join("\n") + "\n\n"
+    : "";
+  // Срез 14: активные правила владельца реально влияют на ответ - вплетаем их в промпт.
+  const instructionBlock = Array.isArray(ownerInstructions) && ownerInstructions.length
+    ? "Правила владельца (соблюдай их): " + ownerInstructions.map((rule) => "«" + rule + "»").join("; ") + ". "
     : "";
   // The length cap is load-bearing, not stylistic: against a real qwen3:4b daemon, an
   // open-ended question with no output-length constraint made the model's own "thinking" phase
@@ -8452,7 +8463,7 @@ function buildOllamaChatPrompt(context, citedNotes, question, graphSummary, dayS
     : "Отвечай коротко и по делу - не больше 2 коротких предложений, максимум 40 слов.";
   return "Ты - локальный честный ассистент LifeOS, персональной ОС данных владельца. " +
     "Отвечай ТОЛЬКО на русском языке, независимо от языка вопроса. " +
-    "Используй ТОЛЬКО факты ниже, ничего не выдумывай. " + lengthRule +
+    "Используй ТОЛЬКО факты ниже, ничего не выдумывай. " + lengthRule + " " + instructionBlock +
     "\n\nАктивный контекст: " + context.title + " - " + context.text +
     "\n\n" + graphSummary + "\n" + daySummary + "\n\n" + citationBlock +
     "Вопрос: " + question + "\nОтвет:";
@@ -10379,6 +10390,9 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     eveningReflection: eveningReflection(state),
     userModel: computeUserModel(state),
     workDecision: workDecisionSupport(state),
+    dashboardLayout: resolveDashboardLayout(state),
+    ownerInstructions: (state.ownerInstructions || []).map((rule) => ({ id: rule.id, text: rule.text, active: rule.active, kind: rule.kind })),
+    instructionPresets: OWNER_INSTRUCTION_PRESETS.filter((preset) => !(state.ownerInstructions || []).some((rule) => cleanLine(rule.text) === cleanLine(preset.text))),
     trashItems: allTrashRows(state).slice(0, 30).map((row) => Object.assign({}, row, { daysLeft: Math.max(0, Math.ceil(TRASH_GRACE_DAYS - daysSinceTimestamp(row.updatedAt))) })),
     trashGraceDays: TRASH_GRACE_DAYS,
     ollama: state.ollama || {},
@@ -11202,6 +11216,71 @@ function eveningReflection(state) {
     topInsight,
     hasActivity: Boolean(income || expense || tasksDone || captures)
   };
+}
+
+// Срез 14: адаптивный дашборд - владелец скрывает/переставляет виджеты Дома. Порядок и скрытые
+// живут в state.dashboardLayout; проекция дополняет недостающие ключи (новые виджеты появляются
+// в конце). Это UI-предпочтение, не данные.
+const DASHBOARD_WIDGETS = [
+  { key: "morning", label: "Утренняя сводка" },
+  { key: "insights", label: "Инсайты" },
+  { key: "usermodel", label: "О тебе" },
+  { key: "reflection", label: "Подвести день" },
+  { key: "myday", label: "Мой день" }
+];
+function resolveDashboardLayout(state) {
+  const layout = state.dashboardLayout || { order: [], hidden: [] };
+  const allKeys = DASHBOARD_WIDGETS.map((widget) => widget.key);
+  const hidden = new Set((layout.hidden || []).filter((key) => allKeys.includes(key)));
+  const order = [];
+  for (const key of layout.order || []) if (allKeys.includes(key) && !order.includes(key)) order.push(key);
+  for (const key of allKeys) if (!order.includes(key)) order.push(key);
+  return {
+    order: order.map((key) => ({ key, label: (DASHBOARD_WIDGETS.find((widget) => widget.key === key) || {}).label || key, hidden: hidden.has(key) })),
+    hiddenKeys: order.filter((key) => hidden.has(key))
+  };
+}
+function moveWidgetInLayout(state, key, direction) {
+  const order = resolveDashboardLayout(state).order.map((item) => item.key);
+  const index = order.indexOf(key);
+  if (index < 0) return order;
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (target < 0 || target >= order.length) return order;
+  const copy = order.slice();
+  [copy[index], copy[target]] = [copy[target], copy[index]];
+  return copy;
+}
+
+// Срез 14: инструкции владельца - правила поведения системы как артефакты. Активные правила
+// РЕАЛЬНО влияют: вплетаются в промпт локальной модели (buildOllamaChatPrompt). Пресеты - готовые
+// частые правила. «Дообучение через обратную связь» = превращение реплики в правило (feedback→rule).
+const OWNER_INSTRUCTION_PRESETS = [
+  { id: "preset-short", text: "Отвечай кратко и по делу, без воды." },
+  { id: "preset-rub", text: "Все суммы показывай в рублях." },
+  { id: "preset-morning-focus", text: "Утром напоминай про одну главную задачу дня." },
+  { id: "preset-no-guilt", text: "Не дави и не стыди за пропущенные задачи." }
+];
+function activeOwnerInstructions(state) {
+  return (state.ownerInstructions || []).filter((rule) => rule && rule.active && cleanLine(rule.text)).map((rule) => cleanLine(rule.text));
+}
+function addOwnerInstruction(state, text, kind) {
+  const clean = cleanLine(text);
+  if (!clean) return "";
+  if ((state.ownerInstructions || []).some((rule) => cleanLine(rule.text) === clean)) return "";
+  const id = makeId("rule");
+  state.ownerInstructions = (state.ownerInstructions || []).concat([{ id, text: clean, active: true, kind: kind || "custom", createdAt: now() }]);
+  addAudit(state, "owner.instruction.add", "Правило владельца добавлено: " + shorten(clean, 60), state.activeNoteId);
+  return id;
+}
+function toggleOwnerInstruction(state, id) {
+  state.ownerInstructions = (state.ownerInstructions || []).map((rule) => rule.id === id ? Object.assign({}, rule, { active: !rule.active }) : rule);
+}
+function removeOwnerInstruction(state, id) {
+  state.ownerInstructions = (state.ownerInstructions || []).filter((rule) => rule.id !== id);
+}
+function applyInstructionPreset(state, presetId) {
+  const preset = OWNER_INSTRUCTION_PRESETS.find((item) => item.id === presetId);
+  if (preset) addOwnerInstruction(state, preset.text, "preset");
 }
 
 // Срез 12: модель пользователя - ВЫЧИСЛЯЕМЫЕ характеристики (дисциплина/ритм/энергия) из
@@ -15897,6 +15976,38 @@ async function handleAction(action, id) {
     store.toggleChatToolbarMore();
     return;
   }
+  if (action === "add-instruction") {
+    // Срез 14: владелец добавляет правило поведения (артефакт).
+    const input = document.getElementById("instruction-input");
+    const text = input ? input.value : "";
+    if (cleanLine(text)) await store.commit("Правило владельца добавлено", (state) => addOwnerInstruction(state, text, "custom"));
+    return;
+  }
+  if (action === "toggle-instruction") {
+    await store.commit("Правило переключено", (state) => toggleOwnerInstruction(state, id));
+    return;
+  }
+  if (action === "remove-instruction") {
+    await store.commit("Правило удалено", (state) => removeOwnerInstruction(state, id));
+    return;
+  }
+  if (action === "apply-instruction-preset") {
+    await store.commit("Пресет правила применён", (state) => applyInstructionPreset(state, id));
+    return;
+  }
+  if (action === "hide-widget" || action === "show-widget" || action === "move-widget-up" || action === "move-widget-down") {
+    // Срез 14: адаптивный дашборд - скрыть/показать/переставить виджет Дома.
+    await store.commit("Дашборд настроен", (state) => {
+      const layout = resolveDashboardLayout(state);
+      let order = layout.order.map((item) => item.key);
+      const hidden = new Set(layout.hiddenKeys);
+      if (action === "hide-widget") hidden.add(id);
+      else if (action === "show-widget") hidden.delete(id);
+      else order = moveWidgetInLayout(state, id, action === "move-widget-up" ? "up" : "down");
+      state.dashboardLayout = { order, hidden: [...hidden] };
+    });
+    return;
+  }
   if (action === "set-timeline-day") {
     // Срез 9: клик по дню/событию оси фиксирует день реконструкции (id = YYYY-MM-DD, "" сбрасывает).
     store.state.timelineDay = cleanLine(id || "");
@@ -16500,7 +16611,7 @@ async function handleAction(action, id) {
         const context = activeChatContext(store.state);
         const graphSummary = buildGraphContextSummary(store.state);
         const daySummary = buildDaySummaryText(store.state);
-        const prompt = buildOllamaChatPrompt(context, citedNotes, cleanText, graphSummary, daySummary, wantsInsight);
+        const prompt = buildOllamaChatPrompt(context, citedNotes, cleanText, graphSummary, daySummary, wantsInsight, activeOwnerInstructions(store.state));
         const result = await generateOllamaChatAnswer(store.state.ollama.endpoint, store.state.ollama.selectedModel, prompt, wantsInsight ? 900 : 500);
         liveAnswer = {
           text: result.text,
@@ -18144,6 +18255,8 @@ window.__lifeosKnowledgeBase = {
   backdateTrashItemForTest,
   backdateNoteForTest,
   setArtifactDayForTest,
+  activeOwnerInstructions,
+  buildOllamaChatPrompt,
   injectStorageFailureForTest,
   injectProviderFailureForTest,
   isolateCorruptRecord,
