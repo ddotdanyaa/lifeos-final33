@@ -318,4 +318,27 @@ planBlocks), никаких новых источников правды.
   re-run green (no regression from the `parsePdfSource`/`parseEpubSource`/`addHighlight`
   signature changes). `node tools/build-public.mjs` run. Screenshots in `docs/qc/screens/U5/`
   (Чтение/Плеер до/после). DECISIONS.md carries the full technical trail.
-- [ ] U6 EVENING_SUMMARY
+- [x] U6 EVENING_SUMMARY (2026-07-21) — первый пакет по новому процессу «донорский код
+  вместо кода с нуля»: перед реализацией проведён OSS-аудит гигантов
+  (docs/OSS_DONOR_AUDIT.md — super-productivity ~722K строк MIT, actual ~284K MIT,
+  obsidian-tasks ~193K MIT; лицензии прочитаны из LICENSE клонов). U6 собран по образцу
+  super-productivity: метрики дня — `daily-summary.component.ts`, перенос незавершённых —
+  `plan-tasks-tomorrow.component.ts` (`planAllTodayTomorrow`), порядок «показать → по явной
+  кнопке мутировать» — `finishDay()`. Реализация — расширение существующего, не новая
+  поверхность: `eveningReflection(state)` (app.js) дополнена `remaining` (невыполненное
+  сегодня) и `tomorrowPreview` (задачи+planBlocks завтра); виджет «Подвести день» на Доме
+  (ui/home.js `renderEveningReflection`) дополнен списком «Не выполнено (N)» + кнопкой
+  «Перенести на завтра» (`carry-over-tomorrow` handler: day→завтра всем незавершённым
+  сегодняшним, `addAudit("task.carryover")` receipt, честное сообщение «переносить нечего»
+  при пустом дне) + строкой «Завтра: …». Перенос — ТОЛЬКО явная кнопка владельца (CLAUDE.md
+  §7), не автоматика. **Гейты**: `npm run verify` зелёный; новый
+  `output/playwright/evening-summary.spec.mjs` зелёный (день с 2 задачами/1 done + трата
+  «350 бензин» через реальный U2-парсер → сводка честно показывает «выполнено задач: 1» и
+  −350 ₽ → клик переносит ровно незакрытую задачу в завтра, done не тронута, receipt в
+  auditLog, «Завтра:» показывает перенесённую); H01-H10 10/10; P19 24-journey re-run;
+  аудиты зелёные; `node tools/build-public.mjs`; скриншоты до/после в
+  `docs/qc/screens/U6/`. Среда: chromium rev-симлинк 1194→1228 (без скачивания браузера);
+  J06-фикстура `market-home.png` пересоздана (гитигнорена, генератор-спек давно skipped —
+  латентная особенность свежего клона, не регрессия); J15-мок Ollama исправлен с
+  `localhost` на реальный endpoint приложения `127.0.0.1` (мок никогда не перехватывал,
+  на машине владельца его маскировал живой демон — см. DECISIONS.md 2026-07-21).

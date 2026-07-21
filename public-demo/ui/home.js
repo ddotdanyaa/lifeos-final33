@@ -78,11 +78,23 @@ function renderEveningReflection(ctx) {
   if (reflection.tasksDone) parts.push(`выполнено задач: ${reflection.tasksDone}`);
   if (reflection.captures) parts.push(`записей: ${reflection.captures}`);
   if (reflection.tasksOpen) parts.push(`осталось задач: ${reflection.tasksOpen}`);
+  // U6: полная вечерняя сводка (образец: super-productivity daily-summary, MIT —
+  // docs/OSS_DONOR_AUDIT.md): факт дня, невыполненное с явным переносом, превью завтра.
+  const remaining = reflection.remaining || [];
+  const tomorrowPreview = reflection.tomorrowPreview || [];
   return [
     `<section class="evening-reflection" data-testid="evening-reflection">`,
     `<div class="evening-head"><span>Подвести день</span></div>`,
     `<p data-testid="evening-summary">Сегодня — ${parts.join(", ")}.</p>`,
     reflection.topInsight ? `<p class="evening-insight" data-testid="evening-insight">${reflection.topInsight.icon} ${escapeHtml(reflection.topInsight.title)}</p>` : "",
+    remaining.length ? [
+      `<div class="evening-remaining" data-testid="evening-remaining">`,
+      `<span>Не выполнено (${remaining.length}):</span>`,
+      `<ul>${remaining.slice(0, 7).map((task) => `<li data-testid="evening-remaining-task">${escapeHtml(task.title)}</li>`).join("")}</ul>`,
+      button("carry-over-tomorrow", "Перенести на завтра", { kind: "primary", testId: "carry-over-tomorrow" }),
+      `</div>`
+    ].join("") : "",
+    tomorrowPreview.length ? `<p class="evening-tomorrow" data-testid="evening-tomorrow">Завтра: ${tomorrowPreview.map((title) => escapeHtml(title)).join(" · ")}</p>` : "",
     `</section>`
   ].join("");
 }

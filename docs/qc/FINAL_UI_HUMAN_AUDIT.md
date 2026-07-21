@@ -97,3 +97,12 @@ Scores are deliberately strict. A score below 9 is a local product gate unless t
 ## Remaining Continuation Reason
 
 The remaining work is `P_OWNER_PROVIDER_CONNECTIONS_EXTERNAL`: Ollama daemon, Gmail OAuth, external calendar OAuth, OCR/STT engines, PDF/EPUB parsers, Notifications/PWA permission and optional external evidence archive. These are not counted as local UX failures because every one has an owner-visible provider passport, setup path and local fallback.
+
+## U6 EVENING_SUMMARY note (2026-07-21)
+
+U6 extends the existing "Подвести день" Home widget with the unfinished-task list, the
+explicit "Перенести на завтра" action (receipt-backed) and a tomorrow preview. Scores are
+unchanged: the widget follows the existing card/token system (U0), adds no new surface, and
+the carry-over is an explicit owner action with an audit receipt — no hidden mutation.
+Evidence: evening-summary.spec.mjs green, H01-H10 green, before/after screenshots in
+docs/qc/screens/U6/.

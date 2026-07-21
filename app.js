@@ -11207,6 +11207,19 @@ function eveningReflection(state) {
   const tasksOpen = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && (task.day === today || !task.day)).length;
   const captures = Object.values(state.sources || {}).filter((item) => !item.deleted && String(item.createdAt || "").slice(0, 10) === today).length;
   const topInsight = computeInsights(state)[0] || null;
+  // U6: полная вечерняя сводка (образец: super-productivity daily-summary + plan-tasks-tomorrow,
+  // MIT — см. docs/OSS_DONOR_AUDIT.md). Невыполненное сегодня + превью завтра; перенос — только
+  // явной кнопкой владельца (carry-over-tomorrow), не автоматом.
+  const tomorrow = dateKeyFromOffset(1);
+  const remaining = Object.values(state.tasks || {})
+    .filter((task) => !task.deleted && task.status !== "done" && task.day === today)
+    .map((task) => ({ id: task.id, title: task.title || "Задача" }));
+  const tomorrowTasks = Object.values(state.tasks || {})
+    .filter((task) => !task.deleted && task.status !== "done" && task.day === tomorrow)
+    .map((task) => task.title || "Задача");
+  const tomorrowBlocks = Object.values(state.planBlocks || {})
+    .filter((block) => !block.deleted && block.day === tomorrow)
+    .map((block) => block.title || "Блок");
   return {
     income: Math.round(income),
     expense: Math.round(expense),
@@ -11214,7 +11227,9 @@ function eveningReflection(state) {
     tasksOpen,
     captures,
     topInsight,
-    hasActivity: Boolean(income || expense || tasksDone || captures)
+    remaining,
+    tomorrowPreview: tomorrowTasks.concat(tomorrowBlocks).slice(0, 5),
+    hasActivity: Boolean(income || expense || tasksDone || captures || remaining.length)
   };
 }
 
@@ -16559,6 +16574,25 @@ async function handleAction(action, id) {
     await store.commit("Quick note template", (state) => {
       state.captureDraft = "";
       addAudit(state, "capture.template", "Quick note template opened", state.activeNoteId);
+    });
+    return;
+  }
+  if (action === "carry-over-tomorrow") {
+    // U6: явный перенос невыполненного на завтра (образец: super-productivity
+    // planAllTodayTomorrow, MIT — docs/OSS_DONOR_AUDIT.md). Только по кнопке, с receipt.
+    await store.commit("Carry over undone tasks", (state) => {
+      const today = todayKey();
+      const tomorrow = dateKeyFromOffset(1);
+      const undone = Object.values(state.tasks || {})
+        .filter((task) => !task.deleted && task.status !== "done" && task.day === today);
+      for (const task of undone) {
+        task.day = tomorrow;
+        task.updatedAt = now();
+      }
+      addAudit(state, "task.carryover", "Вечерняя сводка: перенос незавершённых на завтра (" + undone.length + ")", state.activeNoteId);
+      state.commandMessage = undone.length
+        ? "Перенесено на завтра: " + undone.length + " " + pluralRu(undone.length, "задача", "задачи", "задач")
+        : "Переносить нечего — все задачи дня закрыты";
     });
     return;
   }

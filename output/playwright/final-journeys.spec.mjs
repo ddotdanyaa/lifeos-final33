@@ -500,7 +500,11 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   });
 
   before = await beginJourney(page, "J15");
-  await page.route("http://localhost:11434/api/tags", async (route) => {
+  // The app's endpoint is 127.0.0.1 (see state.providers.ollama.endpoint) - the mock must
+  // match that exact host. The old "localhost" pattern never intercepted anything and the
+  // journey silently leaned on the owner machine's real daemon; in a clean container that
+  // surfaced as blocked_by_browser_or_cors.
+  await page.route("http://127.0.0.1:11434/api/tags", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",

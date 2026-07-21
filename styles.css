@@ -7914,6 +7914,35 @@ audio {
   font-size: var(--text-sm);
 }
 
+/* U6: вечерняя сводка - невыполненное + перенос + превью завтра. */
+.evening-remaining {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.evening-remaining > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.evening-remaining ul {
+  margin: var(--space-2) 0;
+  padding-left: 18px;
+  color: var(--text-main);
+  font-size: var(--text-sm);
+}
+
+.evening-remaining li {
+  margin: 2px 0;
+}
+
+.evening-tomorrow {
+  margin-top: var(--space-2) !important;
+  color: var(--text-muted) !important;
+  font-size: var(--text-sm);
+}
+
 /* Срез 10: разрешение людей - канонические сущности + предложения слить. */
 .people-panel .person-merges {
   display: flex;
