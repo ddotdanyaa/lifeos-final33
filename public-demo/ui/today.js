@@ -1,10 +1,10 @@
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, emptyState, escapeHtml, safeList, scheduleLine } from "./components/shared.js";
+import { button, emptyState, escapeHtml, safeList, scheduleLine, taskUrgency, urgencyClass } from "./components/shared.js";
 
 export function taskRow(ctx, task, testId = "task-row") {
   const done = task.status === "done";
   return [
-    `<article class="today-task-row ${done ? "is-done" : ""}" data-testid="${testId}">`,
+    `<article class="today-task-row ${done ? "is-done" : ""} ${urgencyClass(task, ctx.todayKey)}" data-testid="${testId}">`,
     `<button class="round-check" data-action="toggle-task" data-id="${escapeHtml(task.id)}" data-testid="task-toggle">${done ? "✓" : ""}</button>`,
     `<div><strong>${escapeHtml(task.title || "Задача")}</strong><span data-testid="task-time">${escapeHtml(scheduleLine(task, ctx.todayKey, ctx.tomorrowKey))}</span>${done ? `<em>Готово</em>` : ""}</div>`,
     `<div class="row-actions">${button("edit-task", "Изменить", { id: task.id, kind: "ghost" })}${button("task-reminder", "Напомнить", { id: task.id, kind: "ghost" })}</div>`,
@@ -24,7 +24,10 @@ function planRow(ctx, block) {
 }
 
 export function renderToday(ctx) {
-  const todayTasks = ctx.tasks.filter((task) => !task.deleted && task.status !== "done" && task.day === ctx.todayKey);
+  // T1.1: «Что делать сейчас» и списки дня отсортированы по срочности (obsidian-tasks
+  // Urgency-паттерн), а не по порядку создания.
+  const byUrgency = (a, b) => taskUrgency(b, ctx.todayKey) - taskUrgency(a, ctx.todayKey);
+  const todayTasks = ctx.tasks.filter((task) => !task.deleted && task.status !== "done" && task.day === ctx.todayKey).sort(byUrgency);
   const doneToday = ctx.tasks.filter((task) => !task.deleted && task.status === "done" && task.day === ctx.todayKey);
   const timed = todayTasks.concat(doneToday).filter((task) => task.startTime).sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
   const noTime = todayTasks.filter((task) => !task.startTime);

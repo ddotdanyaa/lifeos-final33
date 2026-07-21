@@ -7943,6 +7943,17 @@ audio {
   font-size: var(--text-sm);
 }
 
+/* T1.2: тихая полоска срочности на строке задачи (idea: obsidian-tasks urgency). */
+.today-task-row.urgency-med {
+  border-left: 3px solid var(--accent);
+  padding-left: 9px;
+}
+
+.today-task-row.urgency-high {
+  border-left: 3px solid var(--danger);
+  padding-left: 9px;
+}
+
 /* U6: вечерняя сводка - невыполненное + перенос + превью завтра. */
 .evening-remaining {
   margin-top: var(--space-3);

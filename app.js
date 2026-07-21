@@ -9669,6 +9669,7 @@ class GraphCanvas {
     this.onPointerDown = this.onPointerDown.bind(this);
     this.onPointerMove = this.onPointerMove.bind(this);
     this.onPointerUp = this.onPointerUp.bind(this);
+    this.onDoubleClick = this.onDoubleClick.bind(this);
     this.animate = this.animate.bind(this);
     window.addEventListener("resize", this.resize);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
@@ -9676,6 +9677,7 @@ class GraphCanvas {
     canvas.addEventListener("pointermove", this.onPointerMove);
     canvas.addEventListener("pointerup", this.onPointerUp);
     canvas.addEventListener("pointerleave", this.onPointerUp);
+    canvas.addEventListener("dblclick", this.onDoubleClick);
     this.resize();
     requestAnimationFrame(this.animate);
   }
@@ -9688,6 +9690,17 @@ class GraphCanvas {
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointerleave", this.onPointerUp);
+    this.canvas.removeEventListener("dblclick", this.onDoubleClick);
+  }
+
+  // G2.3: двойной клик по узлу открывает артефакт (Obsidian click-to-open).
+  onDoubleClick(event) {
+    const node = this.hitNode(this.screenToWorld(event.clientX, event.clientY));
+    if (!node || !store) return;
+    store.commit("Graph node opened", (state) => {
+      openGraphNodeInState(state, node.id);
+      addAudit(state, "graph.open", "Opened graph node " + node.id, state.activeNoteId);
+    });
   }
 
   resize() {
@@ -9891,6 +9904,14 @@ class GraphCanvas {
     const hasFocus = Boolean(focusId) && this.neighbors.has(focusId);
     const activeSet = hasFocus ? new Set([focusId, ...(this.neighbors.get(focusId) || [])]) : null;
     const dimEdge = theme.dark ? "rgba(148, 175, 200, 0.05)" : "rgba(71, 85, 105, 0.06)";
+    // G2.1: поиск подсвечивает совпавшие узлы прямо на canvas (Obsidian search-in-graph):
+    // совпадения ярко с акцентным кольцом, остальной граф гаснет.
+    const query = String(this.state.graphView.searchQuery || "").trim().toLowerCase();
+    const searchSet = query
+      ? new Set(this.prepared.nodes
+          .filter((node) => [node.label, node.title, node.type].some((value) => String(value || "").toLowerCase().includes(query)))
+          .map((node) => node.id))
+      : null;
 
     ctx.save();
     ctx.clearRect(0, 0, this.width, this.height);
@@ -9915,7 +9936,8 @@ class GraphCanvas {
 
     for (const link of this.prepared.links) {
       const incident = hasFocus && (link.source === focusId || link.target === focusId);
-      const active = !hasFocus || activeSet.has(link.source) || activeSet.has(link.target);
+      let active = !hasFocus || activeSet.has(link.source) || activeSet.has(link.target);
+      if (searchSet) active = active && (searchSet.has(link.source) || searchSet.has(link.target));
       ctx.beginPath();
       ctx.moveTo(link.sourceNode.x, link.sourceNode.y);
       ctx.lineTo(link.targetNode.x, link.targetNode.y);
@@ -9929,9 +9951,11 @@ class GraphCanvas {
     for (const node of this.prepared.nodes) {
       const isSelected = node.id === selectedId;
       const isHover = node.id === hoverId;
-      const active = !hasFocus || activeSet.has(node.id);
+      const isSearchHit = Boolean(searchSet && searchSet.has(node.id));
+      let active = !hasFocus || activeSet.has(node.id);
+      if (searchSet) active = isSearchHit;
       const fill = graphNodeFill(node.type);
-      ctx.globalAlpha = active ? (isSelected || isHover ? 1 : 0.9) : 0.16;
+      ctx.globalAlpha = active ? (isSelected || isHover || isSearchHit ? 1 : 0.9) : 0.16;
       if (isSelected || isHover) {
         ctx.save();
         ctx.shadowColor = fill;
@@ -9951,6 +9975,14 @@ class GraphCanvas {
       ctx.lineWidth = isSelected ? 2 : isHover ? 1.6 : 1;
       ctx.strokeStyle = isSelected ? (theme.dark ? "#ffffff" : "#0d1017") : theme.ring;
       ctx.stroke();
+      if (isSearchHit) {
+        // Акцентное кольцо вокруг совпадения поиска.
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius + 3.5, 0, Math.PI * 2);
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = theme.dark ? "rgba(148, 196, 255, 0.9)" : "rgba(37, 99, 235, 0.8)";
+        ctx.stroke();
+      }
       ctx.globalAlpha = 1;
     }
 
@@ -9963,9 +9995,11 @@ class GraphCanvas {
     for (const node of this.prepared.nodes) {
       const isSelected = node.id === selectedId;
       const isHover = node.id === hoverId;
-      const active = !hasFocus || activeSet.has(node.id);
+      const isSearchHit = Boolean(searchSet && searchSet.has(node.id));
+      let active = !hasFocus || activeSet.has(node.id);
+      if (searchSet) active = isSearchHit;
       const deg = this.degree.get(node.id) || 0;
-      const alwaysVisible = isSelected || isHover || showAllLabels || (active && deg >= 4);
+      const alwaysVisible = isSelected || isHover || isSearchHit || showAllLabels || (active && deg >= 4);
       if (!(alwaysVisible || (active && zoomReveal > 0.05))) continue;
       ctx.font = (isSelected || isHover ? "600 11px" : "11px") + " Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
@@ -9978,6 +10012,8 @@ class GraphCanvas {
 
     ctx.restore();
     this.drawMinimap(ctx, theme);
+    this.drawLegend(ctx, theme);
+    this.drawHoverTooltip(ctx, theme);
     if (this.graph.limited) {
       ctx.save();
       ctx.fillStyle = theme.dark ? "rgba(11, 13, 17, 0.82)" : "rgba(247, 249, 252, 0.9)";
@@ -9989,6 +10025,74 @@ class GraphCanvas {
       ctx.fillText("Большое хранилище: показано " + this.graph.canvasNodeCount + "/" + this.graph.fullNodeCount + " узлов, поиск по полному графу", 28, 38);
       ctx.restore();
     }
+  }
+
+  // G2.2: hover-tooltip у узла - тип, число связей (Obsidian hover preview, компактно).
+  drawHoverTooltip(ctx, theme) {
+    const node = this.hoverNode;
+    if (!node || this.dragMode) return;
+    const deg = this.degree.get(node.id) || 0;
+    const line1 = shorten(node.label || "Узел", 34);
+    const line2 = graphNodeTypeLabel(node.type) + " · " + deg + " " + pluralRu(deg, "связь", "связи", "связей");
+    ctx.save();
+    ctx.font = "600 12px Inter, system-ui, sans-serif";
+    const w = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width) + 22;
+    const h = 44;
+    let x = node.x * this.scale + this.panX + 14;
+    let y = node.y * this.scale + this.panY - h - 10;
+    x = Math.max(6, Math.min(this.width - w - 6, x));
+    y = Math.max(6, Math.min(this.height - h - 6, y));
+    ctx.fillStyle = theme.dark ? "rgba(11, 13, 17, 0.92)" : "rgba(255, 255, 255, 0.95)";
+    ctx.strokeStyle = theme.grid;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = theme.label;
+    ctx.fillText(line1, x + 11, y + 8);
+    ctx.font = "11px Inter, system-ui, sans-serif";
+    ctx.fillStyle = theme.labelDim;
+    ctx.fillText(line2, x + 11, y + 25);
+    ctx.restore();
+  }
+
+  // G2.4: легенда цветов типов узлов (Obsidian groups legend) - только типы, реально
+  // присутствующие в графе, топ-6 по количеству.
+  drawLegend(ctx, theme) {
+    const counts = new Map();
+    for (const node of this.prepared.nodes) counts.set(node.type, (counts.get(node.type) || 0) + 1);
+    const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    if (rows.length < 2) return;
+    const rowH = 17;
+    const pad = 9;
+    ctx.save();
+    ctx.font = "11px Inter, system-ui, sans-serif";
+    let w = 0;
+    for (const [type] of rows) w = Math.max(w, ctx.measureText(graphNodeTypeLabel(type)).width);
+    w += 34;
+    const h = rows.length * rowH + pad * 2 - 4;
+    const x0 = 14;
+    const y0 = this.height - h - 14;
+    ctx.fillStyle = theme.dark ? "rgba(11, 13, 17, 0.78)" : "rgba(247, 249, 252, 0.88)";
+    ctx.strokeStyle = theme.grid;
+    ctx.beginPath();
+    ctx.roundRect(x0, y0, w, h, 8);
+    ctx.fill();
+    ctx.stroke();
+    rows.forEach(([type], index) => {
+      const y = y0 + pad + index * rowH;
+      ctx.beginPath();
+      ctx.arc(x0 + 14, y + 5, 4, 0, Math.PI * 2);
+      ctx.fillStyle = graphNodeFill(type);
+      ctx.fill();
+      ctx.fillStyle = theme.labelDim;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(graphNodeTypeLabel(type), x0 + 25, y);
+    });
+    ctx.restore();
   }
 
   // G1: минимап в углу с рамкой вьюпорта (паттерн xyflow MiniMap / tldraw, реализация своя
@@ -12710,6 +12814,7 @@ function graphEdgeReasonLabel(label) {
 function graphNodeTypeLabel(type) {
   const key = String(type || "");
   if (key.includes("product-brain")) return "Product Brain";
+  if (key.includes("note")) return "заметка";
   if (key.includes("source")) return "источник";
   if (key.includes("task")) return "задача";
   if (key.includes("plan") || key.includes("reminder")) return "календарь";

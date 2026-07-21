@@ -2,12 +2,14 @@ import { renderAssistantInput } from "./components/AssistantInput.js";
 import { renderHumanAnswerCard } from "./components/HumanAnswerCard.js";
 import { renderRecordPanel } from "./components/PlayerSurface.js";
 import { renderTimeGrid } from "./components/TimeGrid.js";
-import { button, emptyState, escapeHtml, money, plural, safeList } from "./components/shared.js";
+import { button, emptyState, escapeHtml, money, plural, safeList, taskUrgency } from "./components/shared.js";
 import { taskRow } from "./today.js";
 
 function renderMyDay(ctx) {
   const todayItems = (ctx.scheduleItems || []).filter((item) => item.day === ctx.todayKey);
-  const undoneToday = (ctx.tasks || []).filter((task) => !task.deleted && task.status !== "done" && task.day === ctx.todayKey).slice(0, 5);
+  const undoneToday = (ctx.tasks || []).filter((task) => !task.deleted && task.status !== "done" && task.day === ctx.todayKey)
+    .sort((a, b) => taskUrgency(b, ctx.todayKey) - taskUrgency(a, ctx.todayKey))
+    .slice(0, 5);
   const recordingStatus = ctx.control?.audioRecordingStatus;
   const isRecordingActive = recordingStatus && recordingStatus.status && recordingStatus.status !== "idle";
   return [

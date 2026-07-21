@@ -32,6 +32,31 @@ export function plural(value, one, few, many) {
   return many;
 }
 
+// T1.1: срочность задачи (идея obsidian-tasks Urgency.ts, MIT - docs/OSS_DONOR_AUDIT.md):
+// просрочка растёт со днями, сегодня > скоро > без даты; назначенное время и напоминание
+// повышают. Честная арифметика, не ML.
+export function taskUrgency(task, todayKey) {
+  if (!task || task.status === "done" || task.deleted) return 0;
+  let score = 0;
+  if (task.day) {
+    const gap = Math.round((Date.parse(task.day) - Date.parse(todayKey)) / 86400000);
+    if (gap < 0) score += 12 + Math.min(12, -gap);
+    else if (gap === 0) score += 9;
+    else score += Math.max(0, 6 - gap);
+  }
+  if (task.startTime) score += 3;
+  if (task.remindAt || task.reminderId) score += 2;
+  return score;
+}
+
+// T1.2: класс-полоска срочности для строки задачи (тихая, не «мультяшная»).
+export function urgencyClass(task, todayKey) {
+  const score = taskUrgency(task, todayKey);
+  if (score >= 13) return "urgency-high";
+  if (score >= 9) return "urgency-med";
+  return "";
+}
+
 export function humanDay(day, today, tomorrow) {
   if (!day) return "без даты";
   if (day === today) return "сегодня";
