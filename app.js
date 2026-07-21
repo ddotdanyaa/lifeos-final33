@@ -4138,7 +4138,12 @@ function inferSourceKind(name, mime, forcedKind) {
   if (forcedKind === "audio") return "audio";
   const ext = extensionForName(name);
   const mediaType = String(mime || "").toLocaleLowerCase();
-  if (mediaType.startsWith("audio/") || ["mp3", "wav", "m4a", "ogg", "flac", "aac", "webm"].includes(ext)) return "audio";
+  // Аудио- и видео-контейнеры оба несут аудиодорожку, которую decodeAudioData вытащит для
+  // расшифровки (у LifeOS нет видео-поверхности - брошенный .mp4/.mov обрабатываем как его
+  // звук). Телеграм экспортирует голосовые/аудио как .mp4 с MIME video/mp4 - старая проверка
+  // «только audio/» роняла их в "file", и кнопки расшифровки не было вовсе.
+  if (mediaType.startsWith("audio/") || mediaType.startsWith("video/")
+    || ["mp3", "wav", "m4a", "m4b", "mp4", "ogg", "oga", "opus", "flac", "aac", "webm", "mpeg", "mpga", "mov", "mkv", "3gp", "3gpp", "amr", "wma", "caf", "aiff", "aif"].includes(ext)) return "audio";
   if (mediaType.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "bmp"].includes(ext)) return "image";
   if (["epub", "pdf", "mobi", "azw3"].includes(ext)) return "book";
   if (["md", "markdown", "txt"].includes(ext)) return "book";
@@ -11358,7 +11363,7 @@ function renderTopbar(state, activeNote) {
     topActionButtons,
     "<button data-action=\"open-command-palette\" data-testid=\"open-command-palette\" title=\"Ctrl+K\">Команды</button>",
     "<input id=\"file-import\" data-testid=\"file-import\" type=\"file\" multiple hidden>",
-    "<input id=\"audio-import\" data-testid=\"audio-import\" type=\"file\" accept=\"audio/*\" multiple hidden>",
+    "<input id=\"audio-import\" data-testid=\"audio-import\" type=\"file\" accept=\"audio/*,video/*,.mp4,.m4a,.m4b,.ogg,.oga,.opus,.amr,.3gp,.caf\" multiple hidden>",
     "<input id=\"backup-import\" data-testid=\"backup-import\" type=\"file\" accept=\"application/json,.json\" hidden>",
     "</div>",
     "<div class=\"vault-status\">",
