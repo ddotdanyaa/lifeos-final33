@@ -2548,3 +2548,22 @@ set-audio-rate применяет playbackRate к живому <audio> мгно�
 normalizeState клампит 0.5-3×. Идея — Audiobookshelf, код свой. **Verified:** audio-speed.spec.mjs
 зелёный с РЕАЛЬНОЙ записью (fake-device Голос → плеер → 1.5× → живой playbackRate=1.5 и
 персист в артефакте); H09/H10 зелёные; verify/аудиты зелёные; build-public.
+
+## K1.3+K1.4: линия «сейчас» + конфликты времени в календаре (2026-07-21)
+
+**Decision:** ctx.nowTime (HH:MM, донор-идея tui.calendar now-indicator) добавлен в
+buildNewShellContext рядом с todayKey - чистая проекция now(), без Date-объекта в ctx.
+renderTimeGrid (используется и Календарём, и «Мой день» на Дому): линия .now-line рисуется
+только когда сетка показывает СЕГОДНЯ (не «Завтра»); конфликт (2+ блока в одном часе) красит
+строку и добавляет бейдж «⚠ пересечение» (донор-идея tui.calendar collision).
+**Found & fixed regression:** первая реализация автоскролла использовала
+`nowLine.scrollIntoView()`, что каскадно скроллит ВСЕ scroll-предки, включая window - сломало
+H08 (контракт «поверхность открывается с scrollY=0») именно на Доме, где виджет «Мой день»
+ниже сгиба. Исправлено: mountCalendarNowScroll вычисляет нужный scrollTop только для
+ближайшего предка с overflow-y:auto/scroll через getBoundingClientRect-дельту, никогда не
+трогая window/body; на самой поверхности Календарь (overflow:hidden, не scroll-бокс) функция
+осознанно не скроллит вообще - соответствует прежнему поведению H08.
+**Verified:** новый calendar-live.spec.mjs 2/2 зелёные (линия «сейчас» присутствует/отсутствует
+по времени суток; два блока в 14:00 помечены классом has-conflict + бейджем); полный
+final-human-product.spec.mjs 12/12 зелёный (включая починенный H08); аудиты зелёные
+(env-bound owner-rescue-final); build-public; скриншот docs/qc/screens/K1/calendar-conflict.png.

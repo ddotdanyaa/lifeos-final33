@@ -6390,6 +6390,41 @@ audio {
 
 .planning-hour-items {
   padding: 8px;
+  position: relative;
+}
+
+/* K1.3: линия «сейчас» в дневном виде (донор-идея tui.calendar now-indicator). */
+.now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--danger);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.now-line::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+/* K1.4: подсветка часа с пересечением по времени (донор-идея tui.calendar collision). */
+.planning-hour.has-conflict {
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+.conflict-badge {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: var(--text-xs);
+  color: var(--danger);
 }
 
 .calendar-time-block,

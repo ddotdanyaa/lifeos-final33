@@ -10438,6 +10438,7 @@ function render() {
   mountCalendarDragDrop();
   mountFinanceChart();
   mountAudioPlayer();
+  mountCalendarNowScroll();
   scrollChatThreadToLatest();
   updateSaveStatus();
 }
@@ -10801,6 +10802,9 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     transcriptSegments: Object.values(state.transcriptSegments || {}).filter((item) => !item.deleted),
     todayKey: todayKey(),
     tomorrowKey: dateKeyFromOffset(1),
+    // K1.3: текущее время HH:MM для линии «сейчас» и автоскролла в дневном виде (донор-идея
+    // tui.calendar now-indicator). Проекция, не мутация - ctx остаётся чистым от объекта Date.
+    nowTime: now().slice(11, 16),
     transactions: Object.values(state.financeTransactions || {}).filter((item) => !item.deleted).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
     accounts: Object.values(state.financeAccounts || {}).filter((item) => !item.deleted),
     todaySummary: ownerTodaySummary(state),
@@ -15967,6 +15971,33 @@ function mountGraph() {
   const canvas = document.querySelector("#graph-canvas");
   if (!canvas || !store) return;
   graphEngine = new GraphCanvas(canvas, graphForDisplay(store.state), store.state);
+}
+
+let calendarNowScrolled = false;
+
+// K1.3: автоскролл к текущему часу при первом открытии дневного вида (донор-идея
+// tui.calendar now-indicator). Sets scrollTop directly on the nearest internally-scrollable
+// ancestor (Home's bounded "Мой день" box) instead of calling scrollIntoView(), which
+// cascades to EVERY scrollable ancestor including the window - that broke H08's "surface
+// opens at scrollY=0" contract when the widget sits below the fold. On the full Calendar
+// surface (grid has overflow:hidden, no scroll box) this intentionally does nothing.
+// Once-флаг не даёт прыгать при каждом ре-рендере.
+function mountCalendarNowScroll() {
+  const nowLine = document.querySelector('[data-testid="calendar-now-line"]');
+  if (!nowLine || calendarNowScrolled) return;
+  let ancestor = nowLine.parentElement;
+  while (ancestor && ancestor !== document.body) {
+    const style = getComputedStyle(ancestor);
+    if (style.overflowY === "auto" || style.overflowY === "scroll") {
+      calendarNowScrolled = true;
+      const ancestorRect = ancestor.getBoundingClientRect();
+      const nowRect = nowLine.getBoundingClientRect();
+      const delta = (nowRect.top - ancestorRect.top) - ancestor.clientHeight / 2;
+      ancestor.scrollTop = Math.max(0, ancestor.scrollTop + delta);
+      return;
+    }
+    ancestor = ancestor.parentElement;
+  }
 }
 
 let calendarSortableInstances = [];
