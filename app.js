@@ -3390,6 +3390,68 @@ function searchNotes(state, query) {
   return scored.map((entry) => entry.note);
 }
 
+// Срез 8: 4 слоя памяти — НЕ 4 хранилища (это нарушило бы SSoT), а ВЫЧИСЛЯЕМАЯ проекция над
+// теми же заметками по возрасту (updatedAt) и связности (backlinks + wikilinks). Каждая
+// заметка попадает РОВНО в один слой. Это делает «память» человеко-понятной проекцией, а не
+// новой сущностью: свежее/тёплое = активная/рабочая, старое-но-связанное = долговременная,
+// старое-и-одинокое = архив. Пороги — явные константы (не магия).
+const MEMORY_LAYER_DEFS = [
+  { key: "active", label: "Активная", hint: "Здесь и сейчас: правил на днях или открыто прямо сейчас." },
+  { key: "working", label: "Рабочая", hint: "Тёплый рабочий набор: недавнее или хорошо связанное." },
+  { key: "longTerm", label: "Долговременная", hint: "Устоявшееся знание: старее, но со связями." },
+  { key: "archive", label: "Архив", hint: "Холодное хранение: давно не трогали и без связей." }
+];
+const MEMORY_ACTIVE_DAYS = 2;
+const MEMORY_WORKING_DAYS = 14;
+const MEMORY_WORKING_DEGREE = 3;
+
+function ageInDays(iso, reference) {
+  const then = Date.parse(iso || "");
+  if (!Number.isFinite(then)) return Infinity;
+  const ref = Number.isFinite(reference) ? reference : Date.now();
+  return Math.max(0, (ref - then) / 86400000);
+}
+
+function noteConnectivityDegree(state, note) {
+  const incoming = incomingBacklinks(state, note.id).length;
+  const outgoingIds = new Set(
+    outgoingLinks(state, note)
+      .map((link) => link.targetId)
+      .filter((id) => id && state.notes[id] && !state.notes[id].deleted)
+  );
+  return incoming + outgoingIds.size;
+}
+
+function classifyMemoryLayer(state, note, reference) {
+  if (note.id === state.activeNoteId) return "active";
+  const age = ageInDays(note.updatedAt, reference);
+  const degree = noteConnectivityDegree(state, note);
+  if (age <= MEMORY_ACTIVE_DAYS) return "active";
+  if (age <= MEMORY_WORKING_DAYS || degree >= MEMORY_WORKING_DEGREE) return "working";
+  if (degree >= 1) return "longTerm";
+  return "archive";
+}
+
+function memoryLayers(state) {
+  const reference = Date.parse(now());
+  const buckets = { active: [], working: [], longTerm: [], archive: [] };
+  const liveNotes = Object.values(state.notes || {})
+    .filter((note) => note && !note.deleted && note.systemType !== "product_brain");
+  for (const note of liveNotes) {
+    const layer = classifyMemoryLayer(state, note, reference);
+    buckets[layer].push({
+      id: note.id,
+      title: note.title || "Заметка",
+      ageDays: Math.round(ageInDays(note.updatedAt, reference)),
+      degree: noteConnectivityDegree(state, note)
+    });
+  }
+  return MEMORY_LAYER_DEFS.map((def) => {
+    const items = buckets[def.key].sort((a, b) => a.ageDays - b.ageDays || b.degree - a.degree);
+    return { key: def.key, label: def.label, hint: def.hint, count: items.length, notes: items };
+  });
+}
+
 function savedSearchList(state) {
   return Object.values(state.savedSearches || {})
     .filter((search) => !search.deleted && search.query)
@@ -10002,6 +10064,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     notes: Object.values(state.notes || {}).filter((note) => !note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     deletedNotes: Object.values(state.notes || {}).filter((note) => note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     backlinks: state.backlinks || {},
+    memoryLayers: memoryLayers(state),
     trashItems: allTrashRows(state).slice(0, 30).map((row) => Object.assign({}, row, { daysLeft: Math.max(0, Math.ceil(TRASH_GRACE_DAYS - daysSinceTimestamp(row.updatedAt))) })),
     trashGraceDays: TRASH_GRACE_DAYS,
     ollama: state.ollama || {},
@@ -17333,6 +17396,18 @@ async function backdateTrashItemForTest(kind, id, isoTimestamp) {
   return true;
 }
 
+// Срез 8: тестовый хук для проверки возрастных слоёв памяти - «состаривает» заметку на N дней
+// назад (updatedAt), как backdateTrashItemForTest делает для корзины. Только для e2e.
+async function backdateNoteForTest(noteId, days) {
+  if (!store) return false;
+  const iso = new Date(Date.now() - Math.max(0, Number(days) || 0) * 86400000).toISOString();
+  await store.commit("Test: backdate note", (state) => {
+    const note = state.notes ? state.notes[noteId] : null;
+    if (note) note.updatedAt = iso;
+  });
+  return true;
+}
+
 async function resetRepositoryForTest() {
   if (repository && typeof repository.close === "function") repository.close();
   repository = null;
@@ -17506,6 +17581,7 @@ window.__lifeosKnowledgeBase = {
   analyzeSourceArtifact,
   seedExactLargeVault,
   backdateTrashItemForTest,
+  backdateNoteForTest,
   injectStorageFailureForTest,
   injectProviderFailureForTest,
   isolateCorruptRecord,

@@ -49,6 +49,30 @@ function semanticSearchSection(ctx) {
   ].join("");
 }
 
+// Срез 8: панель «Память» - 4 слоя как вычисляемая проекция (app.js memoryLayers). Не новое
+// хранилище: те же заметки, разложенные по возрасту+связности. Каждый слой - счётчик, подсказка
+// и топ-заметки (кликабельны в редактор). Пустой слой честно показывает 0, а не прячется.
+function renderMemorySection(ctx) {
+  const layers = ctx.memoryLayers || [];
+  const total = layers.reduce((sum, layer) => sum + layer.count, 0);
+  return [
+    `<section class="info-panel memory-panel" data-testid="memory-panel">`,
+    `<div class="section-title">Память <span class="memory-total" data-testid="memory-total">${total}</span></div>`,
+    `<div class="memory-layers">`,
+    layers.map((layer) => [
+      `<div class="memory-layer" data-testid="memory-layer" data-layer="${escapeHtml(layer.key)}">`,
+      `<div class="memory-layer-head"><strong>${escapeHtml(layer.label)}</strong><span class="memory-layer-count" data-testid="memory-layer-count-${escapeHtml(layer.key)}">${layer.count}</span></div>`,
+      `<p class="memory-layer-hint">${escapeHtml(layer.hint)}</p>`,
+      layer.notes.length
+        ? `<div class="memory-layer-notes">${safeList(layer.notes.slice(0, 5), (note) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(note.id)}" data-testid="memory-note-row"><strong>${escapeHtml(compactText(note.title, 60))}</strong><span>${note.degree} св · ${note.ageDays} дн</span></button>`, "")}</div>`
+        : `<div class="empty-inline" data-testid="memory-layer-empty">Пусто</div>`,
+      `</div>`
+    ].join("")).join(""),
+    `</div>`,
+    `</section>`
+  ].join("");
+}
+
 // R3 BACKLINKS_PANEL: Foam-style incoming-links panel. state.backlinks (noteId -> [linking
 // note ids]) is already computed on every commit; this just resolves and renders it.
 function renderBacklinksPanel(ctx, noteId) {
@@ -119,6 +143,7 @@ export function renderLibrary(ctx) {
     `<aside class="knowledge-cards"><h3>Выводы</h3>${safeList(claims.slice(0, 8), renderClaimEntry, `<div class="empty-inline">Инсайты появятся из чтения, аудио и заметок.</div>`)}<h3>Вопросы</h3>${safeList(questions.slice(0, 6), renderQuestionEntry, `<div class="empty-inline">Вопросы станут задачами без потери источника.</div>`)}<h3>Повторение</h3>${safeList(reviewItems.slice(0, 6), renderReviewEntry, `<div class="empty-inline">Карточка повторения появится после извлечения смысла.</div>`)}</aside>`,
     `</div>`,
     renderBookWorkbenchPanel(ctx),
+    renderMemorySection(ctx),
     semanticSearchSection(ctx),
     active ? renderBacklinksPanel(ctx, active.id) : "",
     active ? renderControlTrail(ctx, active.id) : ""
