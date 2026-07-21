@@ -10263,6 +10263,36 @@ class GraphCanvas {
   }
 }
 
+// P1.1: чисто навигационные/просмотровые commit()-и (переключение поверхности, открытие
+// узла графа, командная палитра, фильтры вида) - НЕ данные владельца, не должны попадать
+// в Ctrl+Z историю. Список составлен по фактическим summary-строкам commit() в этом файле.
+const VIEW_ONLY_COMMIT_SUMMARIES = new Set([
+  "Рабочее место открыто",
+  "Командная палитра открыта",
+  "Командная палитра закрыта",
+  "Graph mode selected",
+  "Graph node focused",
+  "Graph node opened",
+  "Graph filter changed",
+  "Graph search cleared",
+  "Folder selected",
+  "Note opened",
+  "Task control opened",
+  "Reminder control opened",
+  "Plan control opened",
+  "Knowledge control opened",
+  "Proposal graph/control opened",
+  "Proposal source opened",
+  "Task source opened",
+  "Reminder source opened",
+  "Source note opened",
+  "Plan source opened",
+  "System view mode selected",
+  "Inspector renderer changed",
+  "Test surface selected",
+  "Тема изменена"
+]);
+
 class ReactiveStore {
   constructor(repo) {
     this.repo = repo;
@@ -10272,6 +10302,14 @@ class ReactiveStore {
     this.saveState = "idle";
     this.writeQueue = Promise.resolve();
     this.stateRevision = 0;
+    // P1.1: undo/redo стек мутаций (донор-идея Excalidraw history.ts - diff-based batching
+    // не переносим, берём только принцип "снапшот перед мутацией"). commit() уже клонирует
+    // состояние на каждый вызов, поэтому push старой ссылки на this.state сюда бесплатен -
+    // никакого лишнего клонирования. Только реальные commit() (задачи/захват/удаление и т.д.)
+    // попадают в историю - view-only мутации (поиск по графу, драфт чата, пан/зум) идут в
+    // обход commit() и уже исключены естественным образом.
+    this.undoStack = [];
+    this.redoStack = [];
   }
 
   async hydrate() {
@@ -10323,6 +10361,16 @@ class ReactiveStore {
 
   async commit(summary, mutator) {
     clearTimeout(this.saveTimer);
+    // P1.1: только реальные мутации данных попадают в историю отмены - навигация/просмотр
+    // (переключить поверхность, открыть узел графа, свернуть палитру) тоже идёт через
+    // commit(), но Ctrl+Z должен откатывать последнее ДЕЙСТВИЕ владельца, а не последний
+    // клик по интерфейсу (найдено и исправлено этим же пакетом: без фильтра Ctrl+Z после
+    // "создать задачу -> открыть Контроль" отменял открытие Контроля, не задачу).
+    if (!VIEW_ONLY_COMMIT_SUMMARIES.has(summary)) {
+      this.undoStack.push(this.state);
+      if (this.undoStack.length > 15) this.undoStack.shift();
+      this.redoStack = [];
+    }
     const next = clone(this.state);
     const previousMessage = next.commandMessage;
     mutator(next);
@@ -10343,6 +10391,46 @@ class ReactiveStore {
     this.saveState = "saving";
     this.emit();
     return this.persistCurrent(revision);
+  }
+
+  // P1.1: отменить последнюю мутацию (Ctrl+Z, донор-идея Excalidraw history). Возвращает
+  // false если истории нет (честно, не ложное действие). Сама операция отмены тоже проходит
+  // через commit-подобный путь (revision++/save/receipt), чтобы undo пережил перезагрузку.
+  async undo() {
+    if (!this.undoStack.length) return false;
+    clearTimeout(this.saveTimer);
+    const previous = this.undoStack.pop();
+    this.redoStack.push(this.state);
+    if (this.redoStack.length > 15) this.redoStack.shift();
+    const next = clone(previous);
+    addAudit(next, "platform.undo", "Отменено последнее действие", next.activeNoteId);
+    rebuildIndexes(next);
+    this.state = next;
+    this.stateRevision += 1;
+    const revision = this.stateRevision;
+    this.saveState = "saving";
+    this.emit();
+    await this.persistCurrent(revision);
+    return true;
+  }
+
+  // P1.1: вернуть отменённое (Ctrl+Shift+Z).
+  async redo() {
+    if (!this.redoStack.length) return false;
+    clearTimeout(this.saveTimer);
+    const restored = this.redoStack.pop();
+    this.undoStack.push(this.state);
+    if (this.undoStack.length > 15) this.undoStack.shift();
+    const next = clone(restored);
+    addAudit(next, "platform.redo", "Возвращено отменённое действие", next.activeNoteId);
+    rebuildIndexes(next);
+    this.state = next;
+    this.stateRevision += 1;
+    const revision = this.stateRevision;
+    this.saveState = "saving";
+    this.emit();
+    await this.persistCurrent(revision);
+    return true;
   }
 
   updateEditor(noteId, body) {
@@ -18542,6 +18630,18 @@ function bindGlobalEvents() {
           renderError(error);
         });
       }
+      return;
+    }
+    // P1.1: Ctrl/Cmd+Z отменяет последнюю мутацию, Ctrl/Cmd+Shift+Z возвращает (Excalidraw
+    // history паттерн). Никогда не перехватывается внутри полей ввода - там должен работать
+    // родной textarea/input undo браузера, не наш платформенный.
+    if ((event.ctrlKey || event.metaKey) && key === "z" && !isTypingTarget(event.target)) {
+      event.preventDefault();
+      // store.emit() (called inside undo/redo) already re-renders via store.subscribe(render).
+      (event.shiftKey ? store.redo() : store.undo()).catch((error) => {
+        bootError = error;
+        renderError(error);
+      });
       return;
     }
     if ((event.ctrlKey || event.metaKey) && key === "k") {

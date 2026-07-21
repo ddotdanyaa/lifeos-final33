@@ -88,7 +88,7 @@
 
 ## ПЛАТФОРМА (доноры: Excalidraw MIT history, AFFiNE MIT)
 
-- [ ] P1.1 Undo/redo последней мутации (Ctrl+Z, Excalidraw history.ts diff-паттерн; с receipt).
+- [x] P1.1 (2026-07-21) Undo/redo последней мутации: Ctrl+Z/Ctrl+Shift+Z, снапшот-стек в ReactiveStore (Excalidraw history-принцип), не перехватывает поля ввода, audit-запись.
 - [x] P1.2 (2026-07-21) Мягкое появление виджетов Дома (CSS-only, prefers-reduced-motion уважён).
 - [x] P1.3 (2026-07-21) Ctrl/Cmd+1..9 - мгновенный переход по 9 primary-поверхностям.
 
