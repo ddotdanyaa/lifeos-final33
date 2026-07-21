@@ -6361,6 +6361,87 @@ audio {
   gap: 16px;
 }
 
+/* K1.1: месячный вид - плотные полоски событий по дням (донор-идея tui.calendar month-view). */
+.calendar-month-view {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.calendar-month-head {
+  font-size: var(--text-lg);
+  text-transform: capitalize;
+}
+
+.calendar-month-weekdays,
+.calendar-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.calendar-month-weekdays span {
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.calendar-month-day {
+  min-height: 96px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-month-day.is-blank {
+  border-color: transparent;
+  background: transparent;
+}
+
+.calendar-month-day.is-today {
+  border-color: var(--accent-calendar);
+  box-shadow: 0 0 0 1px var(--accent-calendar) inset;
+}
+
+.calendar-month-day-num {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.calendar-month-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.calendar-month-pill {
+  font-size: var(--text-xs);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-calendar) 16%, transparent);
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-month-pill-reminder {
+  background: color-mix(in srgb, var(--accent-goal) 16%, transparent);
+}
+
+.calendar-month-pill-plan {
+  background: color-mix(in srgb, var(--accent-agent) 16%, transparent);
+}
+
+.calendar-month-more {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 .calendar-load-state {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -6476,6 +6557,26 @@ audio {
   border-radius: var(--radius-lg);
   padding: 14px;
   background: rgba(249, 115, 22, 0.04);
+}
+
+/* K1.2: ручка-хват для растягивания длительности блока перетаскиванием в другой час
+   (донор-идея tui.calendar resize). */
+.calendar-resize-handle {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin: -4px 0 6px;
+  padding: 2px 0;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.calendar-resize-handle:hover {
+  color: var(--text-main);
+  background: var(--bg-surface-hover);
 }
 
 .calendar-agenda-strip {

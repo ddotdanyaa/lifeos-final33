@@ -2890,3 +2890,41 @@ green (H05 was the one that caught the real bug); `build-public.mjs` run; screen
 exchange. Full P19 (24 owner journeys) 24/24 green, re-run after the functional fix landed
 (the trailing comment-wording fix afterward carries zero runtime behavior change, so that
 P19 pass was kept rather than re-run a third time).
+
+## K1.1+K1.2: calendar month view, drag-to-resize block duration (2026-07-21)
+
+**Decision:** K1.1 - `state.calendarView` ("day"/"month", new field, normalized/hydrated
+like `graphView.mode`) toggled by a new "Месяц" tab added to the calendar's existing
+(previously entirely decorative) tab bar; the pre-existing "Сегодня" button was wired to
+explicitly set "day" too (a 1-line, in-scope necessity - without it, clicking "Месяц" would
+be a UX dead end with no way back, since "Завтра"/"Неделя" were and remain unwired, genuinely
+out of this package's scope). `buildCalendarMonthView(state)` builds a real ISO-week-aligned
+grid (Monday-start, blank leading cells) for the current calendar month directly from
+tasks/planBlocks/reminders by day-key, capping each cell at 4 pills with a "+N" overflow
+indicator (donor idea: tui.calendar month-view). K1.2 - a small drag handle (⋮⋮) is rendered
+next to any calendar block that has a real duration (tasks/plan blocks, not point-in-time
+reminders); dragging it from its hour row into a later hour row sets that block's `endTime`
+to the target hour. Implemented on the SAME sortablejs mechanism already approved and wired
+for schedule-drag (`mountCalendarDragDrop`) rather than hand-rolled pointer-event math: the
+hour-row Sortable instances gained a function-based `group.pull` that only allows
+`.calendar-resize-handle` elements to leave their cell (blocks themselves remain
+`pull:false`, completely unaffected - zero behavior change to the existing schedule-drag
+path), and `onAdd` branches on the dragged element's class to call the new
+`resizeItemEndToHour` instead of `rescheduleItemToHour`. A true continuous-pixel drag (block
+height proportional to duration, handle following the pointer in real time) isn't possible
+without restructuring the grid from discrete hour-buckets to an absolute-positioned
+timeline - out of scope for one package; this is a genuine drag gesture with a real,
+disclosed hour-granularity, not buttons pretending to be a donor pattern they aren't.
+
+**Verified:** new `calendar-month-resize.spec.mjs` - K1.1 (a task added via the calendar's
+direct "new block" form appears as a pill in today's cell in month view; switching back to
+"Сегодня" restores the hourly grid and the month grid disappears) and K1.2 (a block scheduled
+at 10:00, its resize handle dragged via real mouse events - the same `dragElementTo` helper
+already proven in `drag-timeblock.spec.mjs` - into the 13:00 row - `endTime` changes to a
+real time later than `startTime`, and a `task.resize` audit entry is recorded) - 2/2 green.
+Existing `calendar-live.spec.mjs` (K1.3/K1.4) and `drag-timeblock.spec.mjs` (schedule-drag)
+rerun clean - no regression from touching the shared `mountCalendarDragDrop`/TimeGrid code.
+`npm run verify` ✅; all `tools/audit-*.mjs` green except env-bound `audit-owner-rescue-final`;
+full `final-human-product.spec.mjs` H01-H10 10/10 green (H08 calendar test included);
+`build-public.mjs` run; screenshot `docs/qc/screens/K1/month-view.png`. Full P19 (24 owner
+journeys) 24/24 green.

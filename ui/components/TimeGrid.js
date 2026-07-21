@@ -21,7 +21,13 @@ export function renderTimeGrid(ctx, items = []) {
       hasConflict ? `<span class="conflict-badge" data-testid="time-conflict-badge" title="Пересечение по времени">⚠ пересечение</span>` : "",
       safeList(rowItems, (item) => {
         const id = item.id || "";
-        return `<button class="calendar-time-block" data-action="focus-graph-node" data-id="${escapeHtml(id)}" data-testid="calendar-item"><span>${escapeHtml(scheduleLine(item, ctx.todayKey, ctx.tomorrowKey))}</span><strong>${escapeHtml(item.title || "Блок времени")}</strong></button>`;
+        // K1.2: ручка-хват для растягивания длительности - только у задач/блоков плана
+        // (у них есть endTime); у напоминаний нет длительности, ручки не показываем.
+        const canResize = typeof item.endTime === "string" && item.kind !== "reminder";
+        const handle = canResize
+          ? `<span class="calendar-resize-handle" data-id="${escapeHtml(id)}" data-testid="calendar-resize-handle" title="Перетащи в другой час, чтобы растянуть блок">⋮⋮</span>`
+          : "";
+        return `<button class="calendar-time-block" data-action="focus-graph-node" data-id="${escapeHtml(id)}" data-testid="calendar-item"><span>${escapeHtml(scheduleLine(item, ctx.todayKey, ctx.tomorrowKey))}</span><strong>${escapeHtml(item.title || "Блок времени")}</strong></button>${handle}`;
       }, `<span class="planning-empty"></span>`),
       `</div>`,
       `</div>`

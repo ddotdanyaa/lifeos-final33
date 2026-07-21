@@ -1048,6 +1048,9 @@ function createInitialState() {
     // G2.5/G2.6: та же управляемая (не нативный <details>) панель, что chatToolbarMoreOpen -
     // нативный <details> схлопывается на каждом ре-рендере после клика по слайдеру/глубине.
     graphSettingsOpen: false,
+    // K1.1: месячный вид календаря - переключатель поверх уже существующего дневного грида
+    // (донор-идея tui.calendar month-view).
+    calendarView: "day",
     timelineDay: "",
     dashboardLayout: { order: [], hidden: [] },
     ownerInstructions: [],
@@ -2471,6 +2474,7 @@ function normalizeState(input) {
     chatSearchQuery: base.chatSearchQuery || "",
     chatToolbarMoreOpen: Boolean(base.chatToolbarMoreOpen),
     graphSettingsOpen: Boolean(base.graphSettingsOpen),
+    calendarView: base.calendarView === "month" ? "month" : "day",
     timelineDay: cleanLine(base.timelineDay || ""),
     dashboardLayout: {
       order: Array.isArray(base.dashboardLayout && base.dashboardLayout.order) ? base.dashboardLayout.order.filter((key) => typeof key === "string") : [],
@@ -10575,6 +10579,7 @@ const VIEW_ONLY_COMMIT_SUMMARIES = new Set([
   "Командная палитра закрыта",
   "Graph mode selected",
   "Graph depth selected",
+  "Calendar view selected",
   "Graph node focused",
   "Graph node opened",
   "Graph filter changed",
@@ -10890,6 +10895,47 @@ function dedupeScheduleProjection(items) {
   return Array.from(byKey.values()).sort(sortScheduledItems);
 }
 
+// K1.1: месячный вид (донор-идея tui.calendar month-view) - плотные полоски событий по
+// дням в сетке недель, а не таблица строк. Собирает те же живые коллекции, что и
+// scheduleItems, напрямую по month-ключу (не через dedupeScheduleProjection - тот индекс
+// нужен для timeline-склейки System-записей, здесь достаточно честного списка по дню).
+function buildCalendarMonthView(state) {
+  const monthKey = todayKey().slice(0, 7);
+  const [yearStr, monStr] = monthKey.split("-");
+  const year = Number(yearStr);
+  const month = Number(monStr);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const byDay = new Map();
+  function push(dayKey, title, kind) {
+    if (!dayKey) return;
+    if (!byDay.has(dayKey)) byDay.set(dayKey, []);
+    byDay.get(dayKey).push({ title: cleanLine(title) || "Без названия", kind });
+  }
+  for (const task of Object.values(state.tasks || {})) if (!task.deleted) push(task.day, task.title, "task");
+  for (const block of Object.values(state.planBlocks || {})) if (!block.deleted) push(block.day, block.title, "plan");
+  for (const reminder of Object.values(state.reminders || {})) if (!reminder.deleted) push(reminder.day, reminder.title, "reminder");
+  const today = todayKey();
+  const days = [];
+  const MONTH_CELL_LIMIT = 4;
+  for (let d = 1; d <= daysInMonth; d += 1) {
+    const dayKey = `${monthKey}-${String(d).padStart(2, "0")}`;
+    const dayItems = byDay.get(dayKey) || [];
+    days.push({ day: d, dayKey, isToday: dayKey === today, items: dayItems.slice(0, MONTH_CELL_LIMIT), overflow: Math.max(0, dayItems.length - MONTH_CELL_LIMIT) });
+  }
+  // Первая неделя дополняется пустыми ячейками до понедельника (ISO week start), чтобы дни
+  // недели совпадали по колонкам - как в tui.calendar и большинстве месячных сеток.
+  const firstWeekday = (new Date(year, month - 1, 1).getDay() + 6) % 7;
+  const cells = Array.from({ length: firstWeekday }, () => null).concat(days);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  if (weeks.length) {
+    const lastWeek = weeks[weeks.length - 1];
+    while (lastWeek.length < 7) lastWeek.push(null);
+  }
+  const monthNames = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
+  return { monthLabel: monthNames[month - 1] + " " + year, weeks };
+}
+
 function lifeFeedEvents(state) {
   const events = [];
   for (const event of (state.auditLog || []).slice(-40)) {
@@ -11127,6 +11173,8 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     chatDraft: state.chatDraft || "",
     chatToolbarMoreOpen: Boolean(state.chatToolbarMoreOpen),
     graphSettingsOpen: Boolean(state.graphSettingsOpen),
+    calendarView: state.calendarView === "month" ? "month" : "day",
+    calendarMonth: buildCalendarMonthView(state),
     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
     theme: state.theme === "dark" || state.theme === "light" ? state.theme : "system",
     commandMessage: state.commandMessage || "",
@@ -16545,15 +16593,22 @@ async function mountCalendarDragDrop() {
   }));
   for (const container of hourContainers) {
     calendarSortableInstances.push(Sortable.create(container, {
-      group: { name: group, pull: false, put: true },
+      // K1.2: только сама ручка-хват (.calendar-resize-handle) может покинуть свою ячейку -
+      // блоки времени (.calendar-time-block) остаются как были, pull:false, никакого
+      // изменения их поведения (донор-идея tui.calendar resize, на нашем sortable/pointer).
+      group: { name: group, pull: (to, from, dragEl) => dragEl.classList.contains("calendar-resize-handle"), put: true },
+      draggable: ".calendar-resize-handle",
       animation: 150,
       forceFallback: true,
       onAdd: (event) => {
         const itemId = event.item.dataset.id;
         const hourRow = event.to.closest(".planning-hour");
         const match = hourRow ? /^time-row-(.+)$/.exec(hourRow.dataset.testid || "") : null;
+        const isResizeHandle = event.item.classList.contains("calendar-resize-handle");
         event.item.remove();
-        if (itemId && match) rescheduleItemToHour(itemId, match[1]);
+        if (!itemId || !match) return;
+        if (isResizeHandle) resizeItemEndToHour(itemId, match[1]);
+        else rescheduleItemToHour(itemId, match[1]);
       }
     }));
   }
@@ -16653,6 +16708,30 @@ async function rescheduleItemToHour(itemId, hour) {
       reminder.time = hour;
       reminder.updatedAt = now();
       addAudit(state, "reminder.reschedule", "Напоминание перенесено на " + hour + " перетаскиванием: " + reminder.title, "");
+    }
+  });
+}
+
+// K1.2: drag длительности блока - перетащи ручку-хват (⋮⋮) блока в другую часовую строку,
+// чтобы растянуть его до этого часа (донор-идея tui.calendar resize, на нашем sortable/
+// pointer - реальный drag, не кнопки +/-). Только вперёд от начала: перетащить раньше
+// старта блока молча игнорируется, честнее, чем создавать отрицательную длительность.
+async function resizeItemEndToHour(itemId, hour) {
+  await store.commit("Item duration resized by drag", (state) => {
+    const task = state.tasks[itemId];
+    if (task) {
+      if (hour <= (task.startTime || "00:00")) return;
+      task.endTime = hour;
+      task.updatedAt = now();
+      addAudit(state, "task.resize", "Задача растянута до " + hour + " перетаскиванием: " + task.title, task.noteId || "");
+      return;
+    }
+    const block = state.planBlocks[itemId];
+    if (block) {
+      if (hour <= (block.startTime || "00:00")) return;
+      block.endTime = hour;
+      block.updatedAt = now();
+      addAudit(state, "plan.resize", "Блок растянут до " + hour + " перетаскиванием: " + block.title, block.noteId || "");
     }
   });
 }
@@ -17310,6 +17389,14 @@ async function handleAction(action, id) {
       graphEngine.frame = 0;
       graphEngine.ensureAnimating();
     }
+    return;
+  }
+  // K1.1: переключатель дневного/месячного вида календаря - view-only, как set-graph-mode.
+  if (action === "set-calendar-view") {
+    await store.commit("Calendar view selected", (state) => {
+      state.calendarView = id === "month" ? "month" : "day";
+      addAudit(state, "calendar.view", "Calendar view set to " + state.calendarView, state.activeNoteId);
+    });
     return;
   }
   if (action === "set-graph-mode") {
