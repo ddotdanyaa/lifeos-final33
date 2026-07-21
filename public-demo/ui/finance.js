@@ -108,6 +108,41 @@ function recurringHintSection(ctx) {
   ].join("");
 }
 
+// F1.4: бюджет-конверт по категориям (донор-идея actual budget) - потрачено/лимит/остаток
+// вместо голого числа лимита, с прогресс-полоской и предупреждением о перерасходе.
+function budgetEnvelopeRow(ctx, budget) {
+  const envelopes = (ctx.financeSummary && ctx.financeSummary.budgetEnvelopes) || [];
+  const envelope = envelopes.find((item) => item.category === budget.category);
+  if (!envelope) return `<div class="budget-row" data-testid="budget-row"><span>${escapeHtml(budget.category || "Категория")}</span><strong>${money(budget.limit)}</strong></div>`;
+  const share = envelope.limit ? Math.max(0, Math.min(100, Math.round((envelope.spent / envelope.limit) * 100))) : 0;
+  return [
+    `<div class="budget-row budget-envelope ${envelope.over ? "is-over" : ""}" data-testid="budget-row" data-raw-over="${envelope.over ? "true" : "false"}">`,
+    `<div class="budget-envelope-head"><span>${escapeHtml(budget.category || "Категория")}</span><strong>${money(envelope.spent)} / ${money(envelope.limit)}</strong></div>`,
+    `<div class="budget-envelope-bar"><span style="width:${share}%"></span></div>`,
+    `<em data-testid="budget-envelope-remaining">${envelope.over ? "Перерасход на " + money(-envelope.remaining) : "Осталось " + money(envelope.remaining)}</em>`,
+    `</div>`
+  ].join("");
+}
+
+// F1.8: "хватит ли до зарплаты" - линейный burn-rate прогноз (донор-идея actual forecast,
+// честная арифметика). Пусто, если день зарплаты не задан - никогда не имитирует прогноз.
+function paydayForecastSection(ctx) {
+  const summary = ctx.financeSummary || {};
+  const forecast = summary.paydayForecast;
+  const paydayDay = Number(ctx.financePaydayDay || 0);
+  return [
+    `<section class="finance-payday" data-testid="finance-payday">`,
+    `<h3>Хватит ли до зарплаты</h3>`,
+    `<div class="payday-input-row"><label>День зарплаты<input id="finance-payday-input" data-testid="finance-payday-input" type="number" min="0" max="28" step="1" value="${escapeHtml(paydayDay || "")}" placeholder="5" aria-label="День зарплаты в месяце"></label>${button("set-finance-payday", "Сохранить", { kind: "ghost", testId: "set-finance-payday" })}</div>`,
+    forecast
+      ? `<p class="payday-forecast" data-testid="payday-forecast-text" data-raw-will-last="${forecast.willLast ? "true" : "false"}">${forecast.willLast
+          ? `При текущем темпе трат (~${money(summary.dailyBurnRate)}/день) баланса хватит до зарплаты ${escapeHtml(forecast.paydayDate)} (через ${forecast.daysUntil} дн.)`
+          : `При текущем темпе трат (~${money(summary.dailyBurnRate)}/день) может не хватить ~${money(forecast.shortfall)} до зарплаты ${escapeHtml(forecast.paydayDate)} (через ${forecast.daysUntil} дн.)`}</p>`
+      : `<p class="empty-inline" data-testid="payday-forecast-empty">Укажи день зарплаты, чтобы увидеть прогноз.</p>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderFinance(ctx) {
   const body = [
     `<div data-testid="finance-panel">`,
@@ -116,8 +151,9 @@ export function renderFinance(ctx) {
     topCategoriesSection(ctx),
     spendHeatmapSection(ctx),
     recurringHintSection(ctx),
+    paydayForecastSection(ctx),
     `<section class="finance-deep-row">`,
-    `<div class="budget-panel"><h3>Категории</h3>${safeList(ctx.budgets, (budget) => `<div class="budget-row" data-testid="budget-row"><span>${escapeHtml(budget.category || "Категория")}</span><strong>${money(budget.limit)}</strong></div>`, `<div class="empty-inline">Добавь бюджет для категории.</div>`)}</div>`,
+    `<div class="budget-panel"><h3>Категории</h3>${safeList(ctx.budgets, (budget) => budgetEnvelopeRow(ctx, budget), `<div class="empty-inline">Добавь бюджет для категории.</div>`)}<div class="budget-add-row"><input id="budget-category" data-testid="budget-category" placeholder="Категория" aria-label="Категория бюджета"><input id="budget-limit" data-testid="budget-limit" type="number" min="0" step="500" placeholder="Лимит" aria-label="Лимит бюджета">${button("add-budget-entry", "Добавить бюджет", { kind: "ghost", testId: "add-budget-entry" })}</div></div>`,
     `<div class="subscription-panel"><h3>Подписки</h3>${safeList(ctx.subscriptions, (sub) => `<div class="subscription-row" data-testid="subscription-row"><span>${escapeHtml(sub.title || "Подписка")}</span><strong>${money(sub.amount)}</strong></div>`, `<div class="empty-inline">Регулярные платежи появятся здесь.</div>`)}</div>`,
     `<div class="receipt-panel" data-testid="receipt-workbench"><h3>Скрин чека</h3><p>Чек сохраняется локально. Если OCR не подключён, расход можно заполнить вручную.</p>${button("import-file", "Добавить скрин", { kind: "primary", testId: "capture-import" })}</div>`,
     safeList(ctx.receiptSources || [], (source) => receiptCard(ctx, source), ""),

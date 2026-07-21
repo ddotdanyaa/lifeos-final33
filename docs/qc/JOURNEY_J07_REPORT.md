@@ -32,12 +32,12 @@ Finance shows balance/account rows, spending, transactions, budgets, subscriptio
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 0,
-  "proposalsOpen": 3,
+  "proposalsOpen": 0,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 3,
-  "graphEdges": 6,
-  "graphEdgeReasons": 6
+  "graphNodes": 0,
+  "graphEdges": 0,
+  "graphEdgeReasons": 0
 }
 ```
 

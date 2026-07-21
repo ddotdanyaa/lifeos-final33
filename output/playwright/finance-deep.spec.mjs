@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 // Finance-deep gate: F1.6 top-category BarList, F1.7 spend heatmap, F1.1 recurring-payment
-// detection + one-click "make regular". Donors: tremor BarList, expensica calendar-view,
-// actual find-schedules (see docs/DONOR_IMPLEMENTATION_QUEUE.md).
+// detection + one-click "make regular", F1.3 category auto-rules, F1.4 budget envelopes,
+// F1.8 payday burn-rate forecast. Donors: tremor BarList, expensica calendar-view, actual
+// find-schedules/transaction-rules/budget/forecast (see docs/DONOR_IMPLEMENTATION_QUEUE.md).
 
 const appUrl = "http://127.0.0.1:4173";
 
@@ -86,4 +87,93 @@ test("F1.2 recurring forecast: projects remaining spend for the current month ho
   await expect(page.getByTestId("recurring-row").filter({ hasText: "Такси" })).toBeVisible();
   await expect(page.getByTestId("recurring-forecast")).toContainText("До конца месяца");
   await expect(page.getByTestId("recurring-forecast")).toContainText("600");
+});
+
+test("F1.3 category rules: correcting one transaction teaches a rule applied to the next", async ({ page }) => {
+  const dialogResponses = [];
+  page.on("dialog", async (dialog) => {
+    const response = dialogResponses.length ? dialogResponses.shift() : undefined;
+    await dialog.accept(response);
+  });
+  await reset(page);
+  await openSurface(page, "finance");
+
+  // "Аптека" is not in the built-in keyword heuristic (inferFinanceCategory), so a manual
+  // entry defaults to "Разное" - the honest starting point the rule engine is meant to fix.
+  await page.getByTestId("finance-title").fill("Аптека");
+  await page.getByTestId("finance-amount").fill("500");
+  await page.getByTestId("add-finance").click();
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    return Object.values(state.financeTransactions).some((tx) => tx.title === "Аптека" && tx.category === "Разное");
+  }).toBe(true);
+
+  dialogResponses.push("Здоровье");
+  await page.getByTestId("correct-category").first().click();
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    const tx = Object.values(state.financeTransactions).find((t) => t.title === "Аптека");
+    return tx && tx.category;
+  }).toBe("Здоровье");
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    return (state.financeCategoryRules || []).some((rule) => rule.keyword === "Аптека" && rule.category === "Здоровье");
+  }).toBe(true);
+
+  // A second "Аптека" entry (fresh form, category input resets to its default "Разное" on
+  // every re-render) should now auto-resolve to "Здоровье" via the just-taught rule.
+  await page.getByTestId("finance-title").fill("Аптека");
+  await page.getByTestId("finance-amount").fill("300");
+  await page.getByTestId("add-finance").click();
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    return Object.values(state.financeTransactions).filter((tx) => tx.title === "Аптека" && tx.category === "Здоровье").length;
+  }).toBe(2);
+});
+
+test("F1.4 budget envelopes: spent/remaining/over-budget shown per category", async ({ page }) => {
+  await reset(page);
+  await openSurface(page, "finance");
+
+  await page.getByTestId("budget-category").fill("Еда");
+  await page.getByTestId("budget-limit").fill("1000");
+  await page.getByTestId("add-budget-entry").click();
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    return Object.values(state.budgets).some((b) => b.category === "Еда" && b.limit === 1000);
+  }).toBe(true);
+
+  for (const amount of ["600", "700"]) {
+    await page.getByTestId("finance-title").fill("Обед");
+    await page.getByTestId("finance-amount").fill(amount);
+    await page.getByTestId("finance-category").fill("Еда");
+    await page.getByTestId("add-finance").click();
+    await page.waitForTimeout(150);
+  }
+
+  const row = page.locator('[data-testid="budget-row"][data-raw-over="true"]').filter({ hasText: "Еда" });
+  await expect(row).toBeVisible();
+  await expect(row.getByTestId("budget-envelope-remaining")).toContainText("Перерасход");
+});
+
+test("F1.8 payday forecast: honest linear burn-rate projection, silent until a payday is set", async ({ page }) => {
+  await reset(page);
+  await openSurface(page, "finance");
+
+  await expect(page.getByTestId("payday-forecast-empty")).toBeVisible();
+
+  await page.getByTestId("finance-title").fill("Кофе");
+  await page.getByTestId("finance-amount").fill("300");
+  await page.getByTestId("add-finance").click();
+  await page.waitForTimeout(150);
+
+  const paydayDay = ((new Date().getUTCDate() + 5 - 1) % 28) + 1;
+  await page.getByTestId("finance-payday-input").fill(String(paydayDay));
+  await page.getByTestId("set-finance-payday").click();
+
+  await expect.poll(async () =>
+    page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot().financePaydayDay)
+  ).toBe(paydayDay);
+  await expect(page.getByTestId("payday-forecast-text")).toBeVisible();
+  await expect(page.getByTestId("payday-forecast-text")).toContainText("до зарплаты");
 });

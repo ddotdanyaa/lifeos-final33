@@ -8231,6 +8231,82 @@ audio {
   color: var(--text-muted);
 }
 
+/* F1.4: бюджет-конверт - переопределяет общий grid .budget-row (auto 1fr auto) колонкой,
+   т.к. голова/полоска/остаток должны идти друг под другом, а не в три колонки одной строки. */
+.budget-row.budget-envelope {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.budget-envelope-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.budget-envelope-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-surface-2);
+  overflow: hidden;
+}
+
+.budget-envelope-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent-finance, var(--accent));
+  border-radius: 3px;
+}
+
+.budget-row.budget-envelope.is-over .budget-envelope-bar span {
+  background: var(--danger, #dc2626);
+}
+
+.budget-row.budget-envelope em {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.budget-row.budget-envelope.is-over em {
+  color: var(--danger, #dc2626);
+}
+
+.budget-add-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.budget-add-row input {
+  flex: 1;
+}
+
+/* F1.8: "хватит ли до зарплаты" - линейный burn-rate прогноз (actual forecast идея). */
+.finance-payday {
+  margin-top: var(--space-4);
+}
+
+.payday-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.payday-input-row input {
+  width: 70px;
+}
+
+.payday-forecast {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.payday-forecast[data-raw-will-last="false"] {
+  color: var(--danger, #dc2626);
+}
+
 /* Подсказка по цели: сколько в день нужно откладывать (actual-forecast идея). */
 .goal-hint {
   margin-top: var(--space-1);

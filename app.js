@@ -1051,8 +1051,13 @@ function createInitialState() {
     timelineDay: "",
     dashboardLayout: { order: [], hidden: [] },
     ownerInstructions: [],
+    // F1.3: правила авто-категорий (донор-идея actual transaction-rules) - плоский список
+    // {id, keyword, category}, тот же паттерн, что ownerInstructions (не Object Contract v4
+    // коллекция - настройка поведения, не артефакт).
+    financeCategoryRules: [],
     theme: "system",
     financeWeeklyGoal: 0,
+    financePaydayDay: 0,
     commandPaletteOpen: false,
     commandPaletteQuery: "",
     commandPaletteRecents: [],
@@ -2472,8 +2477,17 @@ function normalizeState(input) {
       hidden: Array.isArray(base.dashboardLayout && base.dashboardLayout.hidden) ? base.dashboardLayout.hidden.filter((key) => typeof key === "string") : []
     },
     ownerInstructions: Array.isArray(base.ownerInstructions) ? base.ownerInstructions : [],
+    financeCategoryRules: Array.isArray(base.financeCategoryRules)
+      ? base.financeCategoryRules.filter((rule) => rule && rule.id).map((rule) => ({
+          id: rule.id,
+          keyword: cleanLine(rule.keyword || ""),
+          category: cleanLine(rule.category || "Разное"),
+          createdAt: rule.createdAt || now()
+        }))
+      : [],
     theme: base.theme === "dark" || base.theme === "light" ? base.theme : "system",
     financeWeeklyGoal: Number.isFinite(Number(base.financeWeeklyGoal)) ? Math.max(0, Number(base.financeWeeklyGoal)) : 0,
+    financePaydayDay: Number.isFinite(Number(base.financePaydayDay)) ? Math.max(0, Math.min(28, Math.round(Number(base.financePaydayDay)))) : 0,
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
     commandPaletteQuery: cleanLine(base.commandPaletteQuery || ""),
     commandPaletteRecents: Array.isArray(base.commandPaletteRecents) ? base.commandPaletteRecents.filter((id) => typeof id === "string").slice(0, 6) : [],
@@ -6167,6 +6181,44 @@ function ensureFinanceAccount(state, name, balance) {
   return id;
 }
 
+// F1.3: правила авто-категорий (донор-идея actual transaction-rules) - первое правило, чьё
+// ключевое слово входит в название транзакции, побеждает. Честный минимум: подстрока, без
+// regex/DSL-условий actual.
+function applyCategoryRule(state, title) {
+  const haystack = normalizeTitle(title || "");
+  if (!haystack) return "";
+  const rule = (state.financeCategoryRules || []).find((item) => item.keyword && haystack.includes(normalizeTitle(item.keyword)));
+  return rule ? rule.category : "";
+}
+
+function upsertCategoryRule(state, keyword, category) {
+  const cleanKeyword = cleanLine(keyword);
+  const cleanCategory = cleanLine(category) || "Разное";
+  if (!cleanKeyword) return "";
+  const existing = (state.financeCategoryRules || []).find((item) => normalizeTitle(item.keyword) === normalizeTitle(cleanKeyword));
+  if (existing) {
+    existing.category = cleanCategory;
+    return existing.id;
+  }
+  const id = makeId("catrule");
+  state.financeCategoryRules = (state.financeCategoryRules || []).concat([{ id, keyword: cleanKeyword, category: cleanCategory, createdAt: now() }]);
+  return id;
+}
+
+// F1.3: владелец поправил категорию один раз ("бензин" -> "Транспорт") - запоминается как
+// правило (ключевое слово = название операции) и применяется автоматически к будущим
+// транзакциям с тем же словом в названии.
+function correctTransactionCategory(state, txId, newCategory) {
+  const tx = state.financeTransactions[txId];
+  const cleanCategory = cleanLine(newCategory);
+  if (!tx || tx.deleted || !cleanCategory) return;
+  const oldCategory = tx.category;
+  tx.category = cleanCategory;
+  tx.updatedAt = now();
+  upsertCategoryRule(state, tx.title, cleanCategory);
+  addAudit(state, "finance.category.correct", "Category corrected: " + tx.title + " " + oldCategory + " -> " + cleanCategory, tx.noteId);
+}
+
 function addFinanceTransaction(state, title, amount, kind, options) {
   const cleanTitle = cleanLine(title);
   const value = Math.abs(Number(amount || 0));
@@ -6175,12 +6227,20 @@ function addFinanceTransaction(state, title, amount, kind, options) {
   const id = makeId("tx");
   const createdAt = now();
   const txKind = ["expense", "income", "transfer", "debt"].includes(kind) ? kind : "expense";
+  // F1.3: правило владельца побеждает только там, где категория ещё не решена конкретно -
+  // "Разное"/пусто. inferFinanceCategory уже угадывает частые слова (бензин→Транспорт и т.п.)
+  // и явную категорию из ручной формы правило никогда не перекрывает - оно закрывает именно
+  // случай, для которого и задумано: слово, для которого встроенная эвристика сдалась.
+  const explicitCategory = options && options.category ? cleanLine(options.category) : "";
+  const resolvedCategory = explicitCategory && explicitCategory !== "Разное"
+    ? explicitCategory
+    : applyCategoryRule(state, cleanTitle) || explicitCategory || "Разное";
   state.financeTransactions[id] = {
     id,
     title: cleanTitle,
     amount: value,
     kind: txKind,
-    category: cleanLine(options && options.category ? options.category : "Разное"),
+    category: resolvedCategory,
     accountId,
     // Срез 3: часы смены живут прямо на доходной транзакции (не отдельная коллекция) -
     // недельный виджет считает часы/доход-в-час из того же источника правды, что и деньги.
@@ -11070,6 +11130,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     financeSummary: financeSummary(state),
     financeWeekly: financeWeeklySeries(state),
     financeWeeklyGoal: Number(state.financeWeeklyGoal || 0),
+    financePaydayDay: Number(state.financePaydayDay || 0),
     flowRuns: Object.values(state.flowRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     flows: Object.values(state.flows || {}),
     agentRuns: Object.values(state.agentRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
@@ -11825,8 +11886,22 @@ function financeSummary(state) {
     heatmap.push({ day: d, dayKey, spent });
   }
   const recurring = detectRecurringPayments(txs);
+  const balance = accounts.reduce((sum, account) => sum + account.balance, 0);
+  // F1.4: бюджет-конверт по категориям (донор-идея actual budget) - для каждой активной
+  // месячной категории считаем реально потраченное и остаток, не только заданный лимит.
+  const budgetEnvelopes = Object.values(state.budgets || {})
+    .filter((budget) => !budget.deleted && budget.period === "month")
+    .map((budget) => {
+      const spent = Math.round(byCategory[budget.category] || 0);
+      return { category: budget.category, limit: Math.round(budget.limit), spent, remaining: Math.round(budget.limit) - spent, over: spent > budget.limit };
+    });
+  // F1.8: средний дневной burn-rate (7-дневная серия sparkline) - проекция на дни до
+  // зарплаты (state.financePaydayDay, 1-28), честная линейная арифметика, без прогноза
+  // категорий, которых ещё не было. Пусто, если день зарплаты не задан владельцем.
+  const dailyBurnRate = sparkline.reduce((sum, value) => sum + value, 0) / sparkline.length;
+  const paydayForecast = financePaydayForecast(state, balance, dailyBurnRate);
   return {
-    balance: accounts.reduce((sum, account) => sum + account.balance, 0),
+    balance,
     todaySpend,
     monthSpend,
     sparkline,
@@ -11838,8 +11913,27 @@ function financeSummary(state) {
     recurringForecast: forecastRecurringSpend(recurring, todayKey()),
     budgetLeft: budgetLimit ? budgetLimit - monthSpend : 0,
     budgetLimit,
+    budgetEnvelopes,
+    dailyBurnRate: Math.round(dailyBurnRate),
+    paydayForecast,
     subscriptions: Object.values(state.subscriptions || {}).filter((item) => !item.deleted && item.status === "active").length
   };
+}
+
+// F1.8: линейный прогноз "хватит ли до зарплаты" (донор-идея actual forecast) - честная
+// арифметика: burn-rate * дней-до-зарплаты сравнивается с текущим балансом. Возвращает null,
+// если владелец не задал день зарплаты - никогда не имитирует данные, которых нет.
+function financePaydayForecast(state, balance, dailyBurnRate) {
+  const paydayDay = Math.max(0, Math.min(28, Math.round(Number(state.financePaydayDay) || 0)));
+  if (!paydayDay || !(dailyBurnRate > 0)) return null;
+  const today = new Date(todayKey() + "T00:00:00Z");
+  const next = new Date(today);
+  next.setUTCDate(paydayDay);
+  if (next <= today) next.setUTCMonth(next.getUTCMonth() + 1);
+  const daysUntil = Math.max(0, Math.round((next - today) / 86400000));
+  const projectedNeed = Math.round(dailyBurnRate * daysUntil);
+  const shortfall = Math.round(projectedNeed - balance);
+  return { paydayDate: next.toISOString().slice(0, 10), daysUntil, projectedNeed, shortfall, willLast: shortfall <= 0 };
 }
 
 // F1.1: обнаружение регулярных платежей (донор-идея actual find-schedules, честная
@@ -17504,6 +17598,16 @@ async function handleAction(action, id) {
     });
     return;
   }
+  // F1.3: владелец правит категорию транзакции - правило запоминается для будущих операций
+  // с тем же словом в названии (донор-идея actual transaction-rules).
+  if (action === "correct-category") {
+    const tx = store.state.financeTransactions[id];
+    if (!tx) return;
+    const category = promptValue("Категория для «" + tx.title + "»", tx.category);
+    if (!category) return;
+    await store.commit("Transaction category corrected", (state) => correctTransactionCategory(state, id, category));
+    return;
+  }
   if (action === "toggle-frog") {
     // T1.7: пометить/снять «главную задачу дня» (SP frog/today-tag). Одна лягушка на день -
     // назначение снимает её с других задач того же дня.
@@ -18302,6 +18406,17 @@ async function handleAction(action, id) {
     await store.commit("Weekly goal set", (state) => {
       state.financeWeeklyGoal = Number.isFinite(value) ? Math.max(0, value) : 0;
       addAudit(state, "finance.weekly-goal", "Недельная цель дохода: " + state.financeWeeklyGoal + " ₽", state.activeNoteId);
+    });
+    return;
+  }
+  // F1.8: день зарплаты владельца - вход для линейного burn-rate прогноза "хватит ли до
+  // зарплаты" (financePaydayForecast). 0 = не задан, прогноз честно молчит.
+  if (action === "set-finance-payday") {
+    const input = document.getElementById("finance-payday-input");
+    const value = input ? Number(input.value) : 0;
+    await store.commit("Payday set", (state) => {
+      state.financePaydayDay = Number.isFinite(value) ? Math.max(0, Math.min(28, Math.round(value))) : 0;
+      addAudit(state, "finance.payday", "День зарплаты: " + (state.financePaydayDay || "не задан"), state.activeNoteId);
     });
     return;
   }

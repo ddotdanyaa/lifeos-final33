@@ -2788,3 +2788,50 @@ active, and the incoming-edge amber tone on canvas. Full P19 (24 owner journeys)
 package boundary, after the settings-panel fix (an earlier P19 run was discarded and
 re-run because it started before that fix landed, so its result would have reflected a
 mixed pre/post-fix code state mid-run - re-ran clean instead of trusting a stale pass).
+
+## F1.3+F1.4+F1.8: category auto-rules, budget envelopes, payday forecast (2026-07-21)
+
+**Decision:** F1.3 - `state.financeCategoryRules` (flat array `{id, keyword, category}`,
+same pattern as the pre-existing `ownerInstructions` - a preference list, not an Object
+Contract v4 artifact collection). `applyCategoryRule(state, title)` matches the first rule
+whose keyword is a substring of the transaction title; `correctTransactionCategory` (wired
+to a new "Категория" button on every transaction row, `promptValue` dialog like the existing
+`edit-task` flow) updates the transaction AND teaches/reinforces a rule via
+`upsertCategoryRule` (donor idea: actual transaction-rules). In `addFinanceTransaction`, the
+rule only wins when the caller's category is empty or the generic "Разное" fallback - an
+explicit category from the manual entry form or a confident `inferFinanceCategory` guess is
+never overridden, so this only fills the real gap: words the built-in heuristic doesn't
+recognize. F1.4 - `financeSummary` gained `budgetEnvelopes`: for every active monthly
+`state.budgets` entry, real spent-this-month (cross-referenced from the already-computed
+per-category totals), remaining, and an `over` flag. `ui/finance.js`'s budget-panel now
+renders a spent/limit progress bar and "Осталось X" / "Перерасход на X" per category (donor
+idea: actual budget/envelope). Also closed a pre-existing dead end found while wiring this:
+`action === "add-budget-entry"` and its `#budget-category`/`#budget-limit` DOM ids already
+existed in app.js with zero UI ever rendering those inputs - added the missing form. F1.8 -
+`financePaydayForecast(state, balance, dailyBurnRate)` is honest linear arithmetic: average
+of the existing 7-day sparkline as the daily burn rate, projected forward to the next
+occurrence of `state.financePaydayDay` (owner-set, 1-28, new input), compared against the
+current balance (donor idea: actual forecast). Returns `null` - not a fabricated number -
+when the owner hasn't set a payday day, and the UI shows an honest "Укажи день зарплаты"
+placeholder in that case rather than any invented figure.
+
+**Recovered mid-package:** the container restarted a second time this session partway
+through building this package, wiping all of this package's uncommitted work (the earlier
+G2.5-G2.7 package was already pushed and survived intact via `git fetch` + `git merge
+--ff-only`). Re-implemented F1.3/F1.4/F1.8 from scratch against the confirmed-intact
+`9e8b243` base rather than guessing at a diff - re-verified via the same gate sequence
+before this commit.
+
+**Verified:** three new tests in `finance-deep.spec.mjs` - F1.3 (manual entry of "Аптека"
+defaults to "Разное" since it's not in the built-in keyword list; correcting to "Здоровье"
+via the dialog-driven "Категория" button; a second identically-titled entry auto-resolves to
+"Здоровье" without any further correction - checked against real state, not DOM text alone),
+F1.4 (add a 1000₽ "Еда" budget, two expenses totaling 1300₽ in that category, the row gets
+`data-raw-over="true"` and "Перерасход на 300 ₽"), F1.8 (forecast section shows the honest
+empty state before a payday is set, then a real "до зарплаты" projection after) - 3/3 green,
+plus the pre-existing 2 tests in that file still pass (5/5 total). `npm run verify` ✅; all
+`tools/audit-*.mjs` green except env-bound `audit-owner-rescue-final`; full
+`final-human-product.spec.mjs` H01-H10 10/10 green (H03 finance test included);
+`build-public.mjs` run; screenshots `docs/qc/screens/FIN/category-rules-budget-payday.png`
+and `docs/qc/screens/FIN/budget-envelope.png`. Full P19 (24 owner journeys) 24/24 green,
+run cleanly after all edits landed (no mid-run file changes this time).
