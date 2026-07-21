@@ -7497,6 +7497,111 @@ audio {
   align-content: start;
 }
 
+/* Срез 13: центр агентов - делегирование + статус/прогресс/результат. */
+.agent-center {
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.agent-delegate {
+  display: grid;
+  gap: 6px;
+}
+
+.agent-delegate-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.delegate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+}
+
+.agent-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agent-run-card {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.agent-run-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-run-task {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.agent-run-status {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.agent-run-card[data-status="applied"] .agent-run-status {
+  color: #16a34a;
+}
+
+.agent-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+}
+
+.agent-steps li {
+  font-size: var(--text-sm);
+  color: var(--text-main);
+}
+
+.agent-steps li.step-done {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.agent-run-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.agent-run-progress {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-run-result {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 /* Срез 12: модель пользователя + поддержка решения. */
 .user-model-panel {
   border: 1px solid var(--line-hairline);

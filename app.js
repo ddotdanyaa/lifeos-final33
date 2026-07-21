@@ -5835,6 +5835,46 @@ function runLocalAgent(state, sourceId, noteId) {
   return id;
 }
 
+// Срез 13: Agent Center - делегирование ЗАДАЧИ агенту поверх существующих agentRuns. Агент
+// разбивает задачу на шаги-предложения (запланировать время + напоминание), с видимым статусом/
+// прогрессом/результатом. Всё как предложения - применяется по явному «Одобрить» (та же граница,
+// что runLocalAgent/approveAgentRun). Repository First: тот же agentRuns/proposals/approve.
+function delegateTaskToAgent(state, taskId) {
+  const task = state.tasks[taskId];
+  if (!task || task.deleted) return "";
+  ensureCapabilityGrant(state, "agent", "run", { scope: "delegate-task", locality: "local" });
+  const id = makeId("agent");
+  const createdAt = now();
+  const title = task.title || "Задача";
+  const planProposalId = addProposal(state, "plan", "Выделить время под: " + title, "", task.noteId || "");
+  const reminderProposalId = addProposal(state, "reminder", "Напомнить о: " + title, "", task.noteId || "");
+  const proposalIds = [planProposalId, reminderProposalId].filter(Boolean);
+  state.agentRuns[id] = {
+    id,
+    name: "Делегат задачи",
+    kind: "task-delegation",
+    taskId,
+    taskTitle: title,
+    status: "preview",
+    noteId: task.noteId || "",
+    summary: "Разбил «" + title + "» на шаги: выделить время и поставить напоминание. Применяются по «Одобрить».",
+    steps: [
+      { label: "Понял задачу: " + title, status: "done" },
+      { label: "Предложил выделить время", status: "proposed" },
+      { label: "Предложил напоминание", status: "proposed" }
+    ],
+    scopes: ["read-task", "create-proposals"],
+    proposedActions: ["plan-proposal", "reminder-proposal"],
+    proposalIds,
+    stepResults: [],
+    health: "alive",
+    createdAt,
+    updatedAt: createdAt
+  };
+  addAudit(state, "agent.delegate", "Задача делегирована агенту: " + title, task.noteId || "");
+  return id;
+}
+
 function approveAgentRun(state, runId) {
   const run = state.agentRuns[runId];
   if (!run) return { ok: false, errors: ["Agent run не найден"] };
@@ -10316,6 +10356,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     flowRuns: Object.values(state.flowRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
     flows: Object.values(state.flows || {}),
     agentRuns: Object.values(state.agentRuns || {}).sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")),
+    delegatableTasks: Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done").sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 8).map((task) => ({ id: task.id, title: task.title })),
     feedEvents: lifeFeedEvents(state),
     timelineDays: timelineDays(state),
     timelineDay: state.timelineDay || "",
@@ -16307,6 +16348,11 @@ async function handleAction(action, id) {
       const source = Object.values(state.sources || {}).filter((item) => !item.deleted && item.noteId === state.activeNoteId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
       runLocalAgent(state, source ? source.id : "", state.activeNoteId);
     });
+    return;
+  }
+  if (action === "delegate-task-to-agent") {
+    // Срез 13: поручить задачу агенту (черновой прогон предложений, применяется по «Одобрить»).
+    await store.commit("Задача делегирована агенту", (state) => { delegateTaskToAgent(state, id); });
     return;
   }
   if (action === "apply-proposal") {
