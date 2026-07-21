@@ -38,6 +38,8 @@ export function plural(value, one, few, many) {
 export function taskUrgency(task, todayKey) {
   if (!task || task.status === "done" || task.deleted) return 0;
   let score = 0;
+  // T1.7: «лягушка» (главная задача дня) всегда всплывает наверх.
+  if (task.frog) score += 100;
   if (task.day) {
     const gap = Math.round((Date.parse(task.day) - Date.parse(todayKey)) / 86400000);
     if (gap < 0) score += 12 + Math.min(12, -gap);

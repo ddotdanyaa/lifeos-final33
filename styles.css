@@ -8090,6 +8090,26 @@ audio {
   color: var(--text-muted);
 }
 
+/* T1.3/T1.7: бейджи повтора и «лягушки» в строке задачи. */
+.repeat-badge {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.frog-badge {
+  font-size: var(--text-sm);
+}
+
+/* T1.8: мягкое зачёркивание при выполнении (SP done-list, prefers-reduced-motion уважён). */
+@media (prefers-reduced-motion: no-preference) {
+  .today-task-row {
+    transition: opacity 0.25s ease, background 0.25s ease;
+  }
+  .today-task-row.is-done {
+    opacity: 0.55;
+  }
+}
+
 /* T1.2: тихая полоска срочности на строке задачи (idea: obsidian-tasks urgency). */
 .today-task-row.urgency-med {
   border-left: 3px solid var(--accent);

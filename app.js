@@ -2928,6 +2928,10 @@ function normalizeState(input) {
     task.endTime = normalizeTime(task.endTime || "");
     task.dateHint = cleanLine(task.dateHint || "");
     task.status = task.status === "done" ? "done" : "open";
+    // T1.3/T1.7: повторяемость и «лягушка» переживают перезагрузку (normalizeState-gotcha).
+    task.repeat = ["daily", "weekly", "monthly"].includes(task.repeat) ? task.repeat : "";
+    task.frog = Boolean(task.frog);
+    task.repeatChildCreated = Boolean(task.repeatChildCreated);
     task.deleted = Boolean(task.deleted);
     task.createdAt = task.createdAt || now();
     task.updatedAt = task.updatedAt || task.createdAt;
@@ -7904,6 +7908,7 @@ function addTask(state, title, scheduleOptions) {
     startTime: schedule.startTime,
     endTime: schedule.endTime,
     dateHint: schedule.dateHint,
+    repeat: detectTaskRepeat(cleanTitle),
     status: "open",
     deleted: false,
     createdAt,
@@ -7931,12 +7936,55 @@ function addTaskOnce(state, title, noteId, scheduleOptions) {
   return id;
 }
 
+// T1.3: распознавание повторяемости из текста задачи (донор-идея obsidian-tasks Recurrence /
+// SP repeatCfg). Возвращает "daily"/"weekly"/"monthly"/"" - без RRule-движка, честный минимум.
+function detectTaskRepeat(title) {
+  const t = normalizeTitle(title || "");
+  if (/(кажд\w*\s+(ден|дня|дни)|ежеднев|каждый день)/.test(t)) return "daily";
+  if (/(кажд\w*\s+недел|еженедель|раз в недел)/.test(t)) return "weekly";
+  if (/(кажд\w*\s+месяц|ежемесяч|раз в месяц)/.test(t)) return "monthly";
+  return "";
+}
+
+function nextRepeatDay(dayKey, repeat) {
+  const base = new Date((dayKey || todayKey()) + "T00:00:00Z");
+  if (repeat === "weekly") base.setUTCDate(base.getUTCDate() + 7);
+  else if (repeat === "monthly") base.setUTCMonth(base.getUTCMonth() + 1);
+  else base.setUTCDate(base.getUTCDate() + 1);
+  return base.toISOString().slice(0, 10);
+}
+
 function toggleTask(state, taskId) {
   const task = state.tasks[taskId];
   if (!task) return;
   task.status = task.status === "done" ? "open" : "done";
   task.updatedAt = now();
   addAudit(state, "task.toggle", "Task " + task.status + ": " + task.title, task.noteId);
+  // T1.3: при выполнении повторяемой задачи создаётся следующее вхождение с новой датой
+  // (obsidian-tasks/SP паттерн). Только один раз: у нового вхождения repeatSpawned=false.
+  if (task.status === "done" && task.repeat && !task.repeatChildCreated) {
+    task.repeatChildCreated = true;
+    const nextDay = nextRepeatDay(task.day, task.repeat);
+    const id = makeId("task");
+    const createdAt = now();
+    state.tasks[id] = {
+      id,
+      title: task.title,
+      noteId: task.noteId,
+      sourceId: task.sourceId || "",
+      goalId: task.goalId || "",
+      day: nextDay,
+      startTime: task.startTime || "",
+      endTime: task.endTime || "",
+      dateHint: "",
+      repeat: task.repeat,
+      status: "open",
+      deleted: false,
+      createdAt,
+      updatedAt: createdAt
+    };
+    addAudit(state, "task.repeat", "Повтор задачи создан на " + nextDay + ": " + task.title, task.noteId);
+  }
 }
 
 function updateTask(state, taskId, updates) {
@@ -16982,6 +17030,24 @@ async function handleAction(action, id) {
       const match = detected.find((row) => row.category === id);
       if (!match) return;
       addSubscription(state, match.category, match.amount, { category: match.category });
+    });
+    return;
+  }
+  if (action === "toggle-frog") {
+    // T1.7: пометить/снять «главную задачу дня» (SP frog/today-tag). Одна лягушка на день -
+    // назначение снимает её с других задач того же дня.
+    await store.commit("Task frog toggled", (state) => {
+      const task = state.tasks[id];
+      if (!task || task.deleted) return;
+      const next = !task.frog;
+      if (next) {
+        for (const other of Object.values(state.tasks || {})) {
+          if (other && other.day === task.day && other.id !== id) other.frog = false;
+        }
+      }
+      task.frog = next;
+      task.updatedAt = now();
+      addAudit(state, "task.frog", (next ? "Главная задача дня: " : "Снята главная задача: ") + shorten(task.title || id, 50), state.activeNoteId);
     });
     return;
   }

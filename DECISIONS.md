@@ -2525,3 +2525,16 @@ finance-deep.spec.mjs зелёный (BarList ≥2 строки с ₽; heatmap 
 H03/H10 зелёные; аудиты зелёные (env-bound owner-rescue-final); build-public; скриншот
 docs/qc/screens/FIN/finance-deep.png - Разное 3900/Еда 1500/Транспорт 750 полосками +
 календарь-тепловая карта с подсвеченным сегодня.
+
+## Tasks-power pack: повторяемые задачи + «лягушка» + done-анимация (2026-07-21)
+
+**Decision:** T1.3 повторяемость (donor obsidian-tasks Recurrence/SP repeatCfg, честный
+минимум без RRule): detectTaskRepeat распознаёт «каждый день/неделю/месяц» → task.repeat;
+toggleTask при done с repeat создаёт следующее вхождение (nextRepeatDay: +1д/+7д/+1мес),
+флаг repeatChildCreated защищает от повторного порождения. T1.7 «лягушка»: toggle-frog
+помечает главную задачу дня (снимает у других того же дня), taskUrgency +100 - всплывает в
+«сейчас»; бейдж 🐸. T1.8: CSS-затухание is-done (prefers-reduced-motion). Все три поля
+(repeat/frog/repeatChildCreated) добавлены в normalizeState (gotcha - переживают
+перезагрузку). **Verified:** tasks-power.spec.mjs 2/2 зелёные (daily-задача при выполнении
+порождает вхождение на завтра, счётчик +1; лягушка всплывает в now-слот с бейджем);
+H01/H10 зелёные; verify/аудиты зелёные; build-public.

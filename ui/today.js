@@ -6,8 +6,8 @@ export function taskRow(ctx, task, testId = "task-row") {
   return [
     `<article class="today-task-row ${done ? "is-done" : ""} ${urgencyClass(task, ctx.todayKey)}" data-testid="${testId}">`,
     `<button class="round-check" data-action="toggle-task" data-id="${escapeHtml(task.id)}" data-testid="task-toggle">${done ? "✓" : ""}</button>`,
-    `<div><strong>${escapeHtml(task.title || "Задача")}</strong><span data-testid="task-time">${escapeHtml(scheduleLine(task, ctx.todayKey, ctx.tomorrowKey))}</span>${done ? `<em>Готово</em>` : ""}</div>`,
-    `<div class="row-actions">${done ? "" : button("snooze-task-tomorrow", "→Завтра", { id: task.id, kind: "ghost", testId: "snooze-tomorrow" })}${button("edit-task", "Изменить", { id: task.id, kind: "ghost" })}${button("task-reminder", "Напомнить", { id: task.id, kind: "ghost" })}</div>`,
+    `<div><strong>${task.frog ? `<span class="frog-badge" data-testid="frog-badge" title="Главная задача дня">🐸</span> ` : ""}${escapeHtml(task.title || "Задача")}${task.repeat ? ` <span class="repeat-badge" data-testid="repeat-badge" title="Повторяется">↻</span>` : ""}</strong><span data-testid="task-time">${escapeHtml(scheduleLine(task, ctx.todayKey, ctx.tomorrowKey))}</span>${done ? `<em>Готово</em>` : ""}</div>`,
+    `<div class="row-actions">${done ? "" : button("toggle-frog", task.frog ? "Снять 🐸" : "🐸 Главная", { id: task.id, kind: "ghost", testId: "toggle-frog" })}${done ? "" : button("snooze-task-tomorrow", "→Завтра", { id: task.id, kind: "ghost", testId: "snooze-tomorrow" })}${button("edit-task", "Изменить", { id: task.id, kind: "ghost" })}</div>`,
     `</article>`
   ].join("");
 }
