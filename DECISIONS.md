@@ -2743,3 +2743,48 @@ S1.2/S1.3 (3/3 зелёные); новый home-reading-polish.spec.mjs - D1.4 (
 зелёный (4.1 мин, фоновый прогон на границе пакета); `build-public.mjs` прогнан; скриншоты
 `docs/qc/screens/D1/quiet-hours.png`, `docs/qc/screens/R1/reading-progress-bar.png`,
 `docs/qc/screens/R1/continue-reading-card.png`.
+
+## G2.5+G2.6+G2.7: force sliders, local-graph depth, in/out edge tone (2026-07-21)
+
+**Decision:** G2.5 - `graphView.forceRepulsion/forceLinkDistance/forceGravity` (defaults
+match the previously hardcoded 8600/158/0.004 exactly, so behavior is unchanged until an
+owner touches a slider) feed `applyForceTick`/`runForceLayout` through a new
+`graphForceSettings(state)` reader; three `<input type="range">` sliders in
+`ui/components/GraphCanvas.js` write directly via the same lightweight `handleInput`
+path already used by `#graph-search` (no full commit per drag tick - persisted through
+`store.scheduleSave`, physics re-armed via `graphEngine.ensureAnimating()`). G2.6 -
+`computeGraphProjection`'s local-mode neighbor-expansion (previously a single hardcoded
+hop) now does a real BFS for `graphView.localDepth` (1-3) hops, each hop expanding from the
+newly-added frontier, not just the originally selected node - matches Obsidian's local graph
+depth control. G2.7 - `readGraphTheme()` gained `edgeOutgoing`/`edgeIncoming` tones (outgoing
+keeps the exact prior `edgeActive` color, so this is additive, not a repaint); the canvas
+edge-draw loop in `GraphCanvas.draw()` colors an incident edge by direction relative to the
+focused (hover-or-selected) node - warm amber for edges pointing IN, the existing blue for
+edges pointing OUT (donor idea: juggl/Obsidian incoming/outgoing distinction).
+
+**Bug found and fixed mid-package:** the first version of the new "Настройки раскладки"
+settings panel used a native `<details>` element. It collapsed on every re-render - and
+clicking any slider or depth button IS a re-render - so the panel would visually snap shut
+right after the very interaction meant to use it (confirmed via screenshot: depth button
+"3" was active in state, but the panel showed collapsed). This is the exact same bug class
+already fixed once in this codebase for the chat toolbar's "Ещё" panel (see the Срез-7 fix
+comment in app.js/ui/chat.js). Fixed the same way: a real state field
+(`state.graphSettingsOpen`, default false, normalized/hydrated like `chatToolbarMoreOpen`)
+toggled through a new `store.toggleGraphSettings()` lightweight method (mutate + emit +
+scheduleSave, no undo entry - matches `toggleChatToolbarMore()`) instead of native
+`<details>` state. Re-screenshotted to confirm the panel now stays open with the "3" depth
+button visibly active after the click that set it.
+
+**Verified:** new `output/playwright/graph-tuning.spec.mjs` - G2.5 (three sliders write real
+numbers into `graphView`, verified via `getStateSnapshot`, not just DOM value) and G2.6
+(a real 3-note wikilink chain A←B←C; local mode centered on A shows more nodes at depth 3
+than at the default depth 1 - `graph-counts` compared before/after, not a mocked count) -
+2/2 green. Existing `graph-alive.spec.mjs` (G1/G2.1/G2.3) rerun clean - no regression from
+touching the shared `draw()`/settings-panel code. `npm run verify` ✅; all `tools/audit-*.mjs`
+green except env-bound `audit-owner-rescue-final`; full `final-human-product.spec.mjs`
+H01-H10 10/10 green (H07 graph test included); `build-public.mjs` run; screenshot
+`docs/qc/screens/G2/force-sliders-depth-edge-tone.png` shows the open panel, depth "3"
+active, and the incoming-edge amber tone on canvas. Full P19 (24 owner journeys) run at the
+package boundary, after the settings-panel fix (an earlier P19 run was discarded and
+re-run because it started before that fix landed, so its result would have reflected a
+mixed pre/post-fix code state mid-run - re-ran clean instead of trusting a stale pass).

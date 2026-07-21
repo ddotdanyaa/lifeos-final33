@@ -1045,6 +1045,9 @@ function createInitialState() {
     searchQuery: "",
     chatSearchQuery: "",
     chatToolbarMoreOpen: false,
+    // G2.5/G2.6: та же управляемая (не нативный <details>) панель, что chatToolbarMoreOpen -
+    // нативный <details> схлопывается на каждом ре-рендере после клика по слайдеру/глубине.
+    graphSettingsOpen: false,
     timelineDay: "",
     dashboardLayout: { order: [], hidden: [] },
     ownerInstructions: [],
@@ -2462,6 +2465,7 @@ function normalizeState(input) {
     searchQuery: base.searchQuery || "",
     chatSearchQuery: base.chatSearchQuery || "",
     chatToolbarMoreOpen: Boolean(base.chatToolbarMoreOpen),
+    graphSettingsOpen: Boolean(base.graphSettingsOpen),
     timelineDay: cleanLine(base.timelineDay || ""),
     dashboardLayout: {
       order: Array.isArray(base.dashboardLayout && base.dashboardLayout.order) ? base.dashboardLayout.order.filter((key) => typeof key === "string") : [],
@@ -2566,7 +2570,13 @@ function normalizeState(input) {
     }, base.ollama || {}),
     backlinks: {},
     ghosts: {},
-    graphView: Object.assign({ panX: 0, panY: 0, zoom: 1, selectedNodeId: "", mode: "global", searchQuery: "" }, base.graphView || {}),
+    graphView: Object.assign({
+      panX: 0, panY: 0, zoom: 1, selectedNodeId: "", mode: "global", searchQuery: "",
+      // G2.5/G2.6: сила отталкивания/длина связи/гравитация центра (Obsidian graph settings)
+      // и глубина локального графа в хопах (Obsidian local graph depth) - владелец крутит,
+      // раскладка/фильтр пересчитываются с реальными значениями, не косметика.
+      forceRepulsion: 8600, forceLinkDistance: 158, forceGravity: 0.004, localDepth: 1
+    }, base.graphView || {}),
     control: Object.assign({
       lastExportSummary: "",
       lastImportSummary: "",
@@ -9640,12 +9650,19 @@ function computeGraphProjection(state) {
   const graphView = state.graphView || {};
   const selectedNodeId = cleanLine(graphView.selectedNodeId || state.activeNoteId || "");
   if (graphView.mode === "local" && selectedNodeId) {
+    // G2.6: глубина локального графа 1/2/3 хопа (Obsidian local graph depth) - каждый хоп
+    // расширяет набор узлов на соседей уже включённых, а не только прямых соседей выбранного.
+    const depth = Math.max(1, Math.min(3, Math.round(Number(graphView.localDepth) || 1)));
     const localIds = new Set([selectedNodeId]);
-    for (const link of baseVisibleLinks) {
-      if (link.source === selectedNodeId || link.target === selectedNodeId) {
-        localIds.add(link.source);
-        localIds.add(link.target);
+    let frontier = new Set([selectedNodeId]);
+    for (let hop = 0; hop < depth && frontier.size; hop += 1) {
+      const nextFrontier = new Set();
+      for (const link of baseVisibleLinks) {
+        if (frontier.has(link.source) && !localIds.has(link.target)) nextFrontier.add(link.target);
+        if (frontier.has(link.target) && !localIds.has(link.source)) nextFrontier.add(link.source);
       }
+      for (const id of nextFrontier) localIds.add(id);
+      frontier = nextFrontier;
     }
     scopedNodes = scopedNodes.filter((node) => localIds.has(node.id));
   }
@@ -9780,25 +9797,39 @@ function preparePhysicsNodes(graph, width, height) {
   return { nodes, links };
 }
 
-function runForceLayout(graph, width, height, iterations) {
+// G2.5: читает слайдеры отталкивания/длины связи/гравитации владельца из graphView, с теми
+// же значениями по умолчанию, что были захардкожены раньше (backward-compatible).
+function graphForceSettings(state) {
+  const view = (state && state.graphView) || {};
+  return {
+    repulsion: Number(view.forceRepulsion) || 8600,
+    linkDistance: Number(view.forceLinkDistance) || 158,
+    gravity: Number(view.forceGravity) >= 0 ? Number(view.forceGravity) : 0.004
+  };
+}
+
+function runForceLayout(graph, width, height, iterations, forces) {
   const canvasGraph = graph.limited || graph.nodes.length <= GRAPH_CANVAS_NODE_LIMIT
     ? graph
     : graphForCanvas(graph, null);
   const prepared = preparePhysicsNodes(canvasGraph, width, height);
   const tickLimit = canvasGraph.limited ? Math.min(iterations, 10) : iterations;
   for (let tick = 0; tick < tickLimit; tick += 1) {
-    applyForceTick(prepared.nodes, prepared.links, width, height);
+    applyForceTick(prepared.nodes, prepared.links, width, height, forces);
   }
   return prepared;
 }
 
-function applyForceTick(nodes, links, width, height) {
+// G2.5: сила отталкивания/длина связи/гравитация центра выведены слайдерами владельца
+// (Obsidian graph settings идея) - значения по умолчанию совпадают с прежними хардкодом,
+// так что без слайдеров поведение не меняется (backward-compatible default 5-й параметр).
+function applyForceTick(nodes, links, width, height, forces) {
   // Срез 7 фикс: сильнее расталкивание и длиннее связи - узлы дышат, а не липнут в ком
   // (владелец видел «клубок»). Центрирование слабее, чтобы хабы не стягивали всё в точку.
-  const repulsion = 8600;
+  const repulsion = Number(forces && forces.repulsion) || 8600;
   const spring = 0.016;
-  const desired = 158;
-  const centerStrength = 0.004;
+  const desired = Number(forces && forces.linkDistance) || 158;
+  const centerStrength = Number(forces && forces.gravity) >= 0 ? Number(forces && forces.gravity) : 0.004;
   for (let i = 0; i < nodes.length; i += 1) {
     for (let j = i + 1; j < nodes.length; j += 1) {
       const a = nodes[i];
@@ -9869,10 +9900,13 @@ function readGraphTheme() {
   } catch {
     theme = "light";
   }
+  // G2.7: входящие/исходящие связи фокусного узла - разным тоном (juggl/Obsidian donor-идея).
+  // outgoing остаётся прежним edgeActive (без визуальной регрессии по умолчанию), incoming -
+  // новый тёплый тон, чтобы направление было видно с одного взгляда, не только по тексту.
   if (theme === "dark") {
-    return { dark: true, bg: "#0b0d11", grid: "rgba(148, 163, 184, 0.06)", edge: "rgba(148, 175, 200, 0.22)", edgeActive: "rgba(96, 165, 250, 0.85)", label: "#c7d2de", labelDim: "rgba(199, 210, 222, 0.35)", ring: "rgba(11, 13, 17, 0.9)" };
+    return { dark: true, bg: "#0b0d11", grid: "rgba(148, 163, 184, 0.06)", edge: "rgba(148, 175, 200, 0.22)", edgeActive: "rgba(96, 165, 250, 0.85)", edgeOutgoing: "rgba(96, 165, 250, 0.85)", edgeIncoming: "rgba(244, 178, 102, 0.9)", label: "#c7d2de", labelDim: "rgba(199, 210, 222, 0.35)", ring: "rgba(11, 13, 17, 0.9)" };
   }
-  return { dark: false, bg: "#f7f9fc", grid: "rgba(15, 23, 42, 0.05)", edge: "rgba(71, 85, 105, 0.28)", edgeActive: "rgba(37, 99, 235, 0.7)", label: "#334155", labelDim: "rgba(51, 65, 85, 0.34)", ring: "rgba(247, 249, 252, 0.95)" };
+  return { dark: false, bg: "#f7f9fc", grid: "rgba(15, 23, 42, 0.05)", edge: "rgba(71, 85, 105, 0.28)", edgeActive: "rgba(37, 99, 235, 0.7)", edgeOutgoing: "rgba(37, 99, 235, 0.75)", edgeIncoming: "rgba(217, 119, 6, 0.8)", label: "#334155", labelDim: "rgba(51, 65, 85, 0.34)", ring: "rgba(247, 249, 252, 0.95)" };
 }
 
 function graphNodeFill(type) {
@@ -9929,7 +9963,7 @@ class GraphCanvas {
     }).catch(() => {});
     this.layoutTickLimit = this.graph.limited ? 18 : 260;
     this.animationFrameLimit = this.graph.limited ? 42 : 260;
-    this.prepared = runForceLayout(this.graph, this.width, this.height, this.graph.limited ? 8 : 80);
+    this.prepared = runForceLayout(this.graph, this.width, this.height, this.graph.limited ? 8 : 80, graphForceSettings(state));
     // Срез 7 (v1.4): степень узла (число связей) и карта соседей - для размера-по-хабам и
     // фокус-эффекта Obsidian (клик по узлу подсвечивает его окрестность, остальное гаснет).
     this.degree = new Map();
@@ -10173,7 +10207,7 @@ class GraphCanvas {
   animate() {
     if (!this.running) return;
     this.frame += 1;
-    if (this.frame < this.layoutTickLimit) applyForceTick(this.prepared.nodes, this.prepared.links, this.width, this.height);
+    if (this.frame < this.layoutTickLimit) applyForceTick(this.prepared.nodes, this.prepared.links, this.width, this.height, graphForceSettings(this.state));
     this.draw();
     if (this.frame < this.animationFrameLimit) requestAnimationFrame(this.animate);
     else this.rafActive = false;
@@ -10225,8 +10259,11 @@ class GraphCanvas {
       let active = !hasFocus || activeSet.has(link.source) || activeSet.has(link.target);
       if (searchSet) active = active && (searchSet.has(link.source) || searchSet.has(link.target));
       // Тоньше и бледнее по умолчанию (как в Obsidian - линии почти не отвлекают), ярко
-      // только у окрестности выбранного/наведённого узла.
-      ctx.strokeStyle = incident ? theme.edgeActive : active ? theme.edge : dimEdge;
+      // только у окрестности выбранного/наведённого узла. G2.7: у incident-рёбер тон ещё
+      // говорит про направление - исходящее (focusId источник) vs входящее (focusId цель).
+      const outgoing = incident && link.source === focusId;
+      const incoming = incident && link.target === focusId && link.source !== focusId;
+      ctx.strokeStyle = incoming ? theme.edgeIncoming : outgoing ? theme.edgeOutgoing : incident ? theme.edgeActive : active ? theme.edge : dimEdge;
       ctx.lineWidth = incident ? 1.8 : 0.9;
       if (this.edgePaths) {
         // Донорская математика xyflow getBezierPath: горизонтальным парам - Right/Left,
@@ -10465,6 +10502,7 @@ const VIEW_ONLY_COMMIT_SUMMARIES = new Set([
   "Командная палитра открыта",
   "Командная палитра закрыта",
   "Graph mode selected",
+  "Graph depth selected",
   "Graph node focused",
   "Graph node opened",
   "Graph filter changed",
@@ -10685,6 +10723,15 @@ class ReactiveStore {
     this.stateRevision += 1;
     this.emit();
     this.scheduleSave("Chat toolbar more toggled");
+  }
+
+  // G2.5/G2.6: тот же управляемый паттерн, что toggleChatToolbarMore - переживает ре-рендер
+  // после клика по слайдеру/кнопке глубины, в отличие от нативного <details>.
+  toggleGraphSettings() {
+    this.state.graphSettingsOpen = !this.state.graphSettingsOpen;
+    this.stateRevision += 1;
+    this.emit();
+    this.scheduleSave("Graph settings toggled");
   }
 
   updateCommandPaletteQuery(query) {
@@ -11007,6 +11054,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     chatSearchQuery: state.chatSearchQuery || "",
     chatDraft: state.chatDraft || "",
     chatToolbarMoreOpen: Boolean(state.chatToolbarMoreOpen),
+    graphSettingsOpen: Boolean(state.graphSettingsOpen),
     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
     theme: state.theme === "dark" || state.theme === "light" ? state.theme : "system",
     commandMessage: state.commandMessage || "",
@@ -11034,6 +11082,9 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     graphFilters: Object.assign({}, state.graphFilters || {}),
     graphMode: state.graphView.mode || "global",
     graphSearch: state.graphView.searchQuery || "",
+    // G2.5/G2.6: слайдеры сил и глубина локального графа - реальные значения владельца.
+    graphForces: graphForceSettings(state),
+    graphLocalDepth: Math.max(1, Math.min(3, Math.round(Number(state.graphView.localDepth) || 1))),
     habits,
     highlights: Object.values(state.highlights || {}).filter((item) => !item.deleted),
     latestSource: humanVisibleSource(state) || latestSource(state),
@@ -16810,6 +16861,10 @@ async function handleAction(action, id) {
     store.toggleChatToolbarMore();
     return;
   }
+  if (action === "toggle-graph-settings") {
+    store.toggleGraphSettings();
+    return;
+  }
   if (action === "add-instruction") {
     // Срез 14: владелец добавляет правило поведения (артефакт).
     const input = document.getElementById("instruction-input");
@@ -17156,6 +17211,14 @@ async function handleAction(action, id) {
       state.graphView.mode = id === "local" ? "local" : "global";
       if (state.graphView.mode === "local" && !state.graphView.selectedNodeId) state.graphView.selectedNodeId = state.activeNoteId;
       addAudit(state, "graph.mode", "Graph mode set to " + state.graphView.mode, state.activeNoteId);
+    });
+    return;
+  }
+  // G2.6: глубина локального графа 1/2/3 хопа (Obsidian local graph depth).
+  if (action === "set-graph-depth") {
+    await store.commit("Graph depth selected", (state) => {
+      state.graphView.localDepth = Math.max(1, Math.min(3, Math.round(Number(id) || 1)));
+      addAudit(state, "graph.depth", "Graph local depth set to " + state.graphView.localDepth, state.activeNoteId);
     });
     return;
   }
@@ -18828,6 +18891,15 @@ function handleInput(event) {
     if (cleanLine(target.value)) store.state.graphView.mode = "global";
     store.scheduleSave("Graph search saved");
     render();
+    return;
+  }
+  // G2.5: слайдеры сил живого перетаскивания (Obsidian graph settings) - как graph-search,
+  // лёгкая правка представления при каждом движении ползунка, не отдельный undo-шаг на тик.
+  if (target.id === "graph-force-repulsion" || target.id === "graph-force-link-distance" || target.id === "graph-force-gravity") {
+    const key = target.id === "graph-force-repulsion" ? "forceRepulsion" : target.id === "graph-force-link-distance" ? "forceLinkDistance" : "forceGravity";
+    store.state.graphView[key] = Number(target.value);
+    store.scheduleSave("Graph force setting saved");
+    if (graphEngine) { graphEngine.frame = 0; graphEngine.ensureAnimating(); }
     return;
   }
   if (target.id === "note-body") {
