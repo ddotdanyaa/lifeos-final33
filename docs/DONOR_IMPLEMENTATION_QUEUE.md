@@ -55,7 +55,7 @@
 - [ ] C1.5 Селектор модели прямо в чате (список из /api/tags; LibreChat model-select).
 - [ ] C1.6 Вложение артефакта в сообщение (выбор из базы; LibreChat attachments-паттерн, локально).
 - [ ] C1.7 Markdown-рендер ответов с подсветкой кода (marked+dompurify уже есть — включить в чат-пузыри).
-- [ ] C1.8 Черновик сообщения переживает переключение поверхности (LibreChat draft persistence).
+- [x] C1.8 (2026-07-21) Черновик чата переживает переключение поверхности и перезагрузку (state.chatDraft).
 
 ## ДОМ/DASHBOARD (доноры: tremor Apache, magicui MIT CSS-идеи, SP)
 
@@ -63,7 +63,7 @@
 - [ ] D1.2 Прогресс-кольцо дня (задачи done/total) в шапке Дома (tremor donut-мини).
 - [ ] D1.3 Streak-счётчики привычек с огоньком за серию (SP simple-counter streak).
 - [ ] D1.4 Тихие часы: после 22:00 Дом приглушает яркость акцентов (SP evening-theme идея).
-- [ ] D1.5 Hover-glow карточек (magicui glow — перевести в наш CSS, деликатно).
+- [x] D1.5 (2026-07-21) Деликатный hover-glow мини-карт и виджетов (magicui-идея, наш CSS).
 
 ## ПОИСК/ПАЛИТРА (доноры: AFFiNE MIT fuzzy-match, ninja-keys MIT)
 
@@ -88,8 +88,8 @@
 ## ПЛАТФОРМА (доноры: Excalidraw MIT history, AFFiNE MIT)
 
 - [ ] P1.1 Undo/redo последней мутации (Ctrl+Z, Excalidraw history.ts diff-паттерн; с receipt).
-- [ ] P1.2 Мягкие анимации появления карточек (AFFiNE transitions, CSS-only, уважая prefers-reduced-motion).
-- [ ] P1.3 Быстрый переключатель поверхностей Ctrl+1..9 (SP keyboard-form).
+- [x] P1.2 (2026-07-21) Мягкое появление виджетов Дома (CSS-only, prefers-reduced-motion уважён).
+- [x] P1.3 (2026-07-21) Ctrl/Cmd+1..9 - мгновенный переход по 9 primary-поверхностям.
 
 ## БУДУЩИЕ КРУПНЫЕ (отдельные планы, не терять)
 

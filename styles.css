@@ -7943,6 +7943,44 @@ audio {
   font-size: var(--text-sm);
 }
 
+/* D1.5: деликатный hover-glow интерактивных карточек (идея magicui glow, наш CSS). */
+.mini-summary-card,
+.dash-widget,
+.insight-card,
+.trait-card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.mini-summary-card:hover {
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.insight-card:hover,
+.trait-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* P1.2: мягкое появление виджетов Дома (AFFiNE transitions, только CSS). */
+@media (prefers-reduced-motion: no-preference) {
+  .dash-widget,
+  .evening-reflection,
+  .morning-summary {
+    animation: widget-rise 0.28s ease both;
+  }
+
+  @keyframes widget-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
 /* T1.2: тихая полоска срочности на строке задачи (idea: obsidian-tasks urgency). */
 .today-task-row.urgency-med {
   border-left: 3px solid var(--accent);

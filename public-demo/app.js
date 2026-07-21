@@ -1023,6 +1023,7 @@ function createInitialState() {
     commandPaletteQuery: "",
     savedSearches: {},
     captureDraft: "",
+    chatDraft: "",
     commandMessage: "Локальное хранилище готово",
     lastSavedAt: "",
     folders: {},
@@ -2468,6 +2469,7 @@ function normalizeState(input) {
     planBlocks: base.planBlocks || {},
     proposals: base.proposals || {},
     chatMessages: base.chatMessages || {},
+    chatDraft: typeof base.chatDraft === "string" ? base.chatDraft : "",
     agentRuns: base.agentRuns || {},
     providerRuns: base.providerRuns || {},
     flowRuns: base.flowRuns || {},
@@ -10587,6 +10589,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     captureDraft: state.captureDraft || "",
     chatMessages: visibleChatMessages(state),
     chatSearchQuery: state.chatSearchQuery || "",
+    chatDraft: state.chatDraft || "",
     chatToolbarMoreOpen: Boolean(state.chatToolbarMoreOpen),
     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
     theme: state.theme === "dark" || state.theme === "light" ? state.theme : "system",
@@ -16913,6 +16916,7 @@ async function handleAction(action, id) {
     }
     await store.commit("Chat message sent", (state) => {
       if (!cleanText) return;
+      state.chatDraft = "";
       const productBrainAnswer = wantsDevAnswer ? answerProductBrainQuestion(state, cleanText.replace(/^\/dev\s*/i, "")) : "";
       if (productBrainAnswer) {
         state.activeNoteId = PRODUCT_BRAIN_ROOT_ID;
@@ -18086,6 +18090,13 @@ function handleInput(event) {
     store.updateCommandPaletteQuery(target.value);
     return;
   }
+  if (target.id === "chat-input") {
+    // C1.8: черновик чата переживает переключение поверхности и перезапуск (LibreChat
+    // draft-паттерн). Без render() - иначе теряется фокус на каждом символе.
+    store.state.chatDraft = String(target.value || "");
+    store.scheduleSave("Chat draft saved");
+    return;
+  }
   if (target.id === "capture-input") {
     store.state.captureDraft = target.value;
     store.scheduleSave("Capture draft saved");
@@ -18243,6 +18254,19 @@ function bindGlobalEvents() {
       return;
     }
     const key = String(event.key || "").toLowerCase();
+    // P1.3: Ctrl/Cmd+1..9 - мгновенный переход по 9 primary-поверхностям (SP keyboard-паттерн).
+    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && /^[1-9]$/.test(event.key)) {
+      const primary = ["inbox", "today", "calendar", "finance", "feed", "systems", "library", "graph", "control"];
+      const target = primary[Number(event.key) - 1];
+      if (target) {
+        event.preventDefault();
+        handleAction("set-surface", target).catch((error) => {
+          bootError = error;
+          renderError(error);
+        });
+      }
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && key === "k") {
       event.preventDefault();
       store.commit("Командная палитра открыта", (state) => {
