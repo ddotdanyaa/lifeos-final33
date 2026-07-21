@@ -8090,6 +8090,37 @@ audio {
   color: var(--text-muted);
 }
 
+/* R1.1: кнопки скорости аудио (Audiobookshelf-идея). */
+.audio-speed-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.audio-speed-row > span {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-right: var(--space-1);
+}
+
+.audio-speed-row button {
+  padding: 2px 8px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.audio-speed-row button.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 /* T1.3/T1.7: бейджи повтора и «лягушки» в строке задачи. */
 .repeat-badge {
   color: var(--text-muted);

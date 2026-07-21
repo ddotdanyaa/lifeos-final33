@@ -2538,3 +2538,13 @@ toggleTask при done с repeat создаёт следующее вхожде�
 перезагрузку). **Verified:** tasks-power.spec.mjs 2/2 зелёные (daily-задача при выполнении
 порождает вхождение на завтра, счётчик +1; лягушка всплывает в now-слот с бейджем);
 H01/H10 зелёные; verify/аудиты зелёные; build-public.
+
+## R1.1 audio speed (2026-07-21)
+
+**Decision:** кнопки скорости 0.75/1/1.25/1.5/2× в плеере (ui/components/PlayerSurface.js);
+set-audio-rate применяет playbackRate к живому <audio> мгновенно и сохраняет source.playbackRate
+(id закодирован "sourceId::rate", т.к. handleAction принимает только action+id); mountAudioPlayer
+восстанавливает скорость при монтировании (не через render - иначе пересоздаётся <audio>);
+normalizeState клампит 0.5-3×. Идея — Audiobookshelf, код свой. **Verified:** audio-speed.spec.mjs
+зелёный с РЕАЛЬНОЙ записью (fake-device Голос → плеер → 1.5× → живой playbackRate=1.5 и
+персист в артефакте); H09/H10 зелёные; verify/аудиты зелёные; build-public.

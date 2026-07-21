@@ -2733,6 +2733,8 @@ function normalizeState(input) {
     source.pageTexts = Array.isArray(source.pageTexts) ? source.pageTexts.map((page) => String(page || "")) : [];
     source.chapterTexts = Array.isArray(source.chapterTexts) ? source.chapterTexts.map((chapter) => String(chapter || "")) : [];
     source.positionSeconds = Number.isFinite(Number(source.positionSeconds)) ? Math.max(0, Number(source.positionSeconds)) : 0;
+    // R1.1: сохранённая скорость аудио (0.5-3×) переживает перезагрузку.
+    source.playbackRate = Number.isFinite(Number(source.playbackRate)) && Number(source.playbackRate) > 0 ? Math.min(3, Math.max(0.5, Number(source.playbackRate))) : 1;
     source.deleted = Boolean(source.deleted);
     source.createdAt = source.createdAt || now();
     source.updatedAt = source.updatedAt || source.createdAt;
@@ -16027,6 +16029,9 @@ function mountAudioPlayer() {
   };
   if (player.readyState >= 1) restore();
   else player.addEventListener("loadedmetadata", restore, { once: true });
+  // R1.1: применяем сохранённую скорость (не через render, чтобы не пересоздавать <audio>).
+  const rate = Number(source.playbackRate || 1);
+  if (rate > 0 && rate !== player.playbackRate) player.playbackRate = rate;
   player.addEventListener("pause", () => {
     store.commit("Audio position saved", (state) => {
       const current = state.sources[sourceId];
@@ -17020,6 +17025,19 @@ async function handleAction(action, id) {
     await store.commit("Quick note template", (state) => {
       state.captureDraft = "";
       addAudit(state, "capture.template", "Quick note template opened", state.activeNoteId);
+    });
+    return;
+  }
+  if (action === "set-audio-rate") {
+    // R1.1: скорость аудио применяется мгновенно к живому <audio> и запоминается в артефакте.
+    // id закодирован как "sourceId::rate" (handleAction принимает только action+id).
+    const [sourceId, rateStr] = String(id).split("::");
+    const rate = Number(rateStr) || 1;
+    const player = document.querySelector('[data-testid="audio-player"]');
+    if (player) player.playbackRate = rate;
+    await store.commit("Audio rate set", (state) => {
+      const source = state.sources[sourceId];
+      if (source) source.playbackRate = rate;
     });
     return;
   }
