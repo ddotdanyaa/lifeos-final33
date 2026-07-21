@@ -2706,3 +2706,40 @@ finance-deep.spec.mjs F1.2 (3 расхода "Такси" раз в 10 дней 
 `final-human-product.spec.mjs` H01-H10 10/10 зелёный; `build-public.mjs` прогнан; скриншоты
 `docs/qc/screens/T1/estimate-and-subtasks.png` и `docs/qc/screens/FIN/recurring-forecast.png`.
 Полный P19 (24 owner journeys) - фоновый прогон на границе пакета в процессе.
+
+## D1.4+S1.4+R1.2+R1.3: тихие часы, типизированный поиск, прогресс чтения (2026-07-21)
+
+**Decision:** D1.4 - `isQuietHours(nowTime)` (ui/home.js, чистая функция от уже
+существующего `ctx.nowTime`, добавленного в K1.3) помечает `.assistant-home-v2` классом
+`quiet-hours` + `data-quiet-hours` атрибутом после 22:00 и до 6:00; CSS-блок локально
+переопределяет `--accent*` переменные через `color-mix(... 62%, var(--bg-surface-2))` -
+только визуальное затемнение, никакой скрытой логики (донор-идея super-productivity
+evening-theme). S1.4 - `parseTypedQuery(query)` распознаёт префиксы `task:`/`задача:` и
+`money:`/`деньги:` в командной палитре; при совпадении `typedPaletteMatches` ищет живые
+`state.tasks`/`state.financeTransactions` вместо списка команд и рендерит их как обычные
+palette-строки с переходом на Today/Finance при клике (`task-jump:`/`money-jump:` id,
+обработаны в `runCommandPaletteCommand` тем же путём, что и `surface:` навигация) - честный
+минимум (obsidian-tasks query-mini идея), без DSL-операторов вроде `not done`. R1.2 - в
+очереди чтения (ReaderSurface.js) добавлен реальный `.reading-progress-bar` элемент рядом
+с уже существующим текстом `%` (донор-идея AFFiNE list-progress - раньше был только текст).
+R1.3 - новый виджет дашборда Дома `reading` (`DASHBOARD_WIDGETS`/`DASHBOARD_WIDGET_RENDERERS`,
+тот же управляемый владельцем порядок/скрытие, что и остальные виджеты Среза 14) показывает
+последнюю читаемую книгу (`status === "reading" && progress > 0`, самая свежая по
+`updatedAt`) с прогресс-баром и кнопкой «Продолжить» → `set-surface: reader` (донор-идея
+super-productivity continue-where-left). Пусто, если ничего не читается - без заглушек,
+тем же паттерном, что `renderInsightsPanel`/`renderEveningReflection`.
+
+**Verified:** новые тесты - palette-search-polish.spec.mjs S1.4 (task:/money: префикс находит
+реальную задачу/транзакцию, клик переходит на нужную поверхность, до этого проверяется явный
+переход С другой поверхности, чтобы assertion был содержательным) добавлен к существующим
+S1.2/S1.3 (3/3 зелёные); новый home-reading-polish.spec.mjs - D1.4 (через `page.clock.install`/
+`setFixedTime`, честная симуляция времени вместо системного часа) проверяет
+`data-quiet-hours` true ночью/false днём на одном и том же сценарии; R1.2/R1.3 - реальный
+импорт book-sample.md, `reading-progress`+`update-reading-progress` ставят 40%, бар
+получает `style.width === "40%"`, карточка на Дому показывает то же название/процент и
+кнопка «Продолжить» реально переключает на Reader (2/2 зелёные). `npm run verify` ✅; все
+`tools/audit-*.mjs` зелёные кроме env-bound `audit-owner-rescue-final`; полный
+`final-human-product.spec.mjs` H01-H10 10/10 зелёный; полный P19 (24 owner journeys) 24/24
+зелёный (4.1 мин, фоновый прогон на границе пакета); `build-public.mjs` прогнан; скриншоты
+`docs/qc/screens/D1/quiet-hours.png`, `docs/qc/screens/R1/reading-progress-bar.png`,
+`docs/qc/screens/R1/continue-reading-card.png`.

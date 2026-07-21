@@ -18,6 +18,14 @@ async function reset(page) {
   await expect(page.locator(".lifeos-shell-v2")).toBeVisible({ timeout: 30000 });
 }
 
+async function openSurface(page, id) {
+  const direct = page.getByTestId(`surface-${id}`).first();
+  if (!(await direct.isVisible().catch(() => false))) {
+    await page.locator('[data-testid="app-ribbon"] summary').first().click();
+  }
+  await page.getByTestId(`surface-${id}`).first().click();
+}
+
 test("S1.2 command palette highlights matched letters", async ({ page }) => {
   await reset(page);
   await page.keyboard.press("Control+k");
@@ -44,4 +52,37 @@ test("S1.3 recent commands surface first on an empty palette query", async ({ pa
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
     return (state.commandPaletteRecents || []).length;
   }).toBeGreaterThan(0);
+});
+
+test("S1.4 typed search: task:/money: prefixes scope the palette to a live collection", async ({ page }) => {
+  await reset(page);
+  await openSurface(page, "today");
+  await page.getByTestId("task-input").fill("Забрать посылку");
+  await page.getByTestId("add-task").click();
+  await expect.poll(async () => {
+    const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+    return Object.values(state.tasks).some((t) => /посылку/i.test(t.title));
+  }).toBe(true);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.seedRecurringExpensesForTest("Такси", 700, 2, 5));
+  // Leave "today" first so the jump-to-today assertion below is meaningful (proves the click
+  // actually navigated, not that the surface was already there).
+  await openSurface(page, "library");
+
+  await page.keyboard.press("Control+k");
+  await expect(page.getByTestId("command-palette")).toBeVisible();
+  await page.getByTestId("command-palette-query").fill("task: посылку");
+  const taskRow = page.getByTestId("command-palette-row").first();
+  await expect(taskRow).toContainText("Забрать посылку");
+  await expect(taskRow).toHaveAttribute("data-raw-type", "task");
+  await taskRow.click();
+  await expect.poll(async () => (await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot())).activeSurface).toBe("today");
+
+  await page.keyboard.press("Control+k");
+  await expect(page.getByTestId("command-palette")).toBeVisible();
+  await page.getByTestId("command-palette-query").fill("money: такси");
+  const moneyRow = page.getByTestId("command-palette-row").first();
+  await expect(moneyRow).toContainText("Такси");
+  await expect(moneyRow).toHaveAttribute("data-raw-type", "money");
+  await moneyRow.click();
+  await expect.poll(async () => (await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot())).activeSurface).toBe("finance");
 });

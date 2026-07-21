@@ -3579,6 +3579,52 @@ function commandPaletteItems(state) {
   return items;
 }
 
+// S1.4: типизированный поиск в палитре - префиксы task:/задача: и money:/деньги: сужают
+// результат до конкретной живой коллекции вместо списка команд (донор-идея obsidian-tasks
+// query-mini, честный минимум: два типа, без DSL-операторов "not done"/"due today").
+const TYPED_SEARCH_PREFIXES = [
+  ["задача:", "task"], ["task:", "task"],
+  ["деньги:", "money"], ["money:", "money"]
+];
+function parseTypedQuery(query) {
+  const clean = String(query || "");
+  const lower = clean.toLocaleLowerCase();
+  for (const [prefix, type] of TYPED_SEARCH_PREFIXES) {
+    if (lower.startsWith(prefix)) return { type, rest: clean.slice(prefix.length).trim() };
+  }
+  return { type: "", rest: clean };
+}
+
+function typedPaletteMatches(state, type, rest) {
+  const term = normalizeTitle(rest);
+  if (!term) return [];
+  if (type === "task") {
+    return Object.values(state.tasks || {})
+      .filter((task) => !task.deleted && normalizeTitle(task.title).includes(term))
+      .slice(0, 6)
+      .map((task) => ({
+        id: "task-jump:" + task.id,
+        group: "Задачи",
+        title: task.title,
+        hint: (task.status === "done" ? "Готово" : "Открыта") + (task.day ? " · " + task.day : ""),
+        shortcut: "↵"
+      }));
+  }
+  if (type === "money") {
+    return Object.values(state.financeTransactions || {})
+      .filter((tx) => !tx.deleted && (normalizeTitle(tx.title).includes(term) || normalizeTitle(tx.category).includes(term)))
+      .slice(0, 6)
+      .map((tx) => ({
+        id: "money-jump:" + tx.id,
+        group: "Деньги",
+        title: tx.title + " · " + Math.round(tx.amount) + " ₽",
+        hint: (tx.category || "Разное") + (tx.day ? " · " + tx.day : ""),
+        shortcut: "↵"
+      }));
+  }
+  return [];
+}
+
 function saveCurrentSearch(state) {
   const query = cleanLine(state.searchQuery || state.commandPaletteQuery || "");
   if (!query) {
@@ -3647,6 +3693,25 @@ function runCommandPaletteCommand(state, id) {
     state.activeSurface = id.slice("surface:".length) || "inbox";
     state.commandPaletteOpen = false;
     addAudit(state, "command.run", "Команда открыла рабочее место: " + state.activeSurface, state.activeNoteId);
+    return;
+  }
+  // S1.4: типизированный результат (task:/money: префикс) - переход к рабочему месту с
+  // артефактом в фокусе, тем же путём, что и обычная навигация палитры.
+  if (id.startsWith("task-jump:")) {
+    const taskId = id.slice("task-jump:".length);
+    const task = state.tasks[taskId];
+    state.activeSurface = "today";
+    if (task && task.noteId && state.notes[task.noteId] && !state.notes[task.noteId].deleted) state.activeNoteId = task.noteId;
+    state.commandPaletteOpen = false;
+    addAudit(state, "command.run", "Типизированный поиск открыл задачу: " + (task ? task.title : taskId), state.activeNoteId);
+    return;
+  }
+  if (id.startsWith("money-jump:")) {
+    const txId = id.slice("money-jump:".length);
+    const tx = state.financeTransactions[txId];
+    state.activeSurface = "finance";
+    state.commandPaletteOpen = false;
+    addAudit(state, "command.run", "Типизированный поиск открыл транзакцию: " + (tx ? tx.title : txId), state.activeNoteId);
     return;
   }
   if (id === "quick:task") {
@@ -11096,19 +11161,23 @@ function renderTopbar(state, activeNote) {
 function renderCommandPalette(state) {
   if (!state.commandPaletteOpen) return "";
   const query = cleanLine(state.commandPaletteQuery || state.searchQuery || "");
-  const normalizedQuery = normalizeTitle(query);
+  // S1.4: task:/money: префикс сужает результат до живой коллекции вместо списка команд.
+  const typed = parseTypedQuery(query);
+  const normalizedQuery = normalizeTitle(typed.type ? typed.rest : query);
   const allItems = commandPaletteItems(state);
-  const matched = normalizedQuery
-    ? allItems.filter((item) => {
-        const haystack = normalizeTitle([item.title, item.hint, item.group, item.shortcut].join(" "));
-        // S1.1: сначала точное вхождение, затем fuzzy (донорский код AFFiNE fuzzy-match.ts,
-        // vendored в ui/vendor/affine-fuzzy-match.js) - «нз» находит «Новая заметка».
-        return haystack.includes(normalizedQuery) || (fuzzyMatchFn && fuzzyMatchFn(haystack, normalizedQuery));
-      })
-    : allItems;
+  const matched = typed.type
+    ? typedPaletteMatches(state, typed.type, typed.rest)
+    : normalizedQuery
+      ? allItems.filter((item) => {
+          const haystack = normalizeTitle([item.title, item.hint, item.group, item.shortcut].join(" "));
+          // S1.1: сначала точное вхождение, затем fuzzy (донорский код AFFiNE fuzzy-match.ts,
+          // vendored в ui/vendor/affine-fuzzy-match.js) - «нз» находит «Новая заметка».
+          return haystack.includes(normalizedQuery) || (fuzzyMatchFn && fuzzyMatchFn(haystack, normalizedQuery));
+        })
+      : allItems;
   // S1.3: без запроса - недавние команды первыми (донор-идея ninja-keys recents).
   let items = matched;
-  if (!normalizedQuery && (state.commandPaletteRecents || []).length) {
+  if (!typed.type && !normalizedQuery && (state.commandPaletteRecents || []).length) {
     const byId = new Map(allItems.map((item) => [item.id, item]));
     const recentItems = (state.commandPaletteRecents || []).map((rid) => byId.get(rid)).filter(Boolean).map((item) => Object.assign({}, item, { isRecent: true }));
     const recentIds = new Set(recentItems.map((item) => item.id));
@@ -11123,13 +11192,13 @@ function renderCommandPalette(state) {
     "<div><span>Artifact OS</span><h2>Команды</h2><p>Один быстрый вход: рабочие места, текущий поиск, связи и безопасные действия.</p></div>",
     "<button data-action=\"close-command-palette\" data-testid=\"close-command-palette\" aria-label=\"Закрыть командную палитру\">Закрыть</button>",
     "</div>",
-    "<label class=\"command-palette-search\"><span>Найти команду или поиск: финансы, граф, задача, чтение</span><input id=\"command-palette-query\" data-testid=\"command-palette-query\" autocomplete=\"off\" value=\"" + escapeHtml(query) + "\"></label>",
+    "<label class=\"command-palette-search\"><span>Найти команду или поиск: финансы, граф, задача, чтение · task:/money: сузит по типу</span><input id=\"command-palette-query\" data-testid=\"command-palette-query\" autocomplete=\"off\" value=\"" + escapeHtml(query) + "\"></label>",
     "<div class=\"command-palette-body\">",
     "<section>",
-    "<div class=\"command-palette-section-title\">Команды</div>",
+    "<div class=\"command-palette-section-title\">" + (typed.type ? "Типизированный поиск" : "Команды") + "</div>",
     items.length ? items.map((item) => [
-      "<button class=\"command-palette-row" + (item.isRecent ? " is-recent" : "") + "\" data-action=\"run-command\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"command-palette-row\">",
-      "<span><strong>" + (normalizedQuery ? highlightMatch(item.title, query) : escapeHtml(item.title)) + (item.isRecent ? " <em class=\"recent-tag\" data-testid=\"recent-command-tag\">недавнее</em>" : "") + "</strong><em>" + escapeHtml(item.group + " · " + item.hint) + "</em></span>",
+      "<button class=\"command-palette-row" + (item.isRecent ? " is-recent" : "") + "\" data-action=\"run-command\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"command-palette-row\"" + (typed.type ? " data-raw-type=\"" + escapeHtml(typed.type) + "\"" : "") + ">",
+      "<span><strong>" + (normalizedQuery ? highlightMatch(item.title, typed.type ? typed.rest : query) : escapeHtml(item.title)) + (item.isRecent ? " <em class=\"recent-tag\" data-testid=\"recent-command-tag\">недавнее</em>" : "") + "</strong><em>" + escapeHtml(item.group + " · " + item.hint) + "</em></span>",
       "<kbd>" + escapeHtml(item.shortcut || "Enter") + "</kbd>",
       "</button>"
     ].join("")).join("") : "<div class=\"empty compact\">Нет команды под этот запрос. Поиск всё равно можно сохранить как рабочий фильтр.</div>",
@@ -11959,7 +12028,8 @@ const DASHBOARD_WIDGETS = [
   { key: "insights", label: "Инсайты" },
   { key: "usermodel", label: "О тебе" },
   { key: "reflection", label: "Подвести день" },
-  { key: "myday", label: "Мой день" }
+  { key: "myday", label: "Мой день" },
+  { key: "reading", label: "Продолжить чтение" }
 ];
 function resolveDashboardLayout(state) {
   const layout = state.dashboardLayout || { order: [], hidden: [] };

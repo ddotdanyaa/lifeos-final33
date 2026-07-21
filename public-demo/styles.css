@@ -5936,6 +5936,19 @@ audio {
   min-height: calc(100vh - 122px);
 }
 
+/* D1.4: тихие часы после 22:00 - приглушённые акценты на Доме (донор-идея SP evening-theme),
+   только визуальное затемнение через локальный override переменных, ничего не скрывается. */
+.assistant-home-v2.quiet-hours {
+  --accent: color-mix(in srgb, var(--accent) 62%, var(--bg-surface-2));
+  --accent-capture: color-mix(in srgb, var(--accent-capture) 62%, var(--bg-surface-2));
+  --accent-task: color-mix(in srgb, var(--accent-task) 62%, var(--bg-surface-2));
+  --accent-calendar: color-mix(in srgb, var(--accent-calendar) 62%, var(--bg-surface-2));
+  --accent-finance: color-mix(in srgb, var(--accent-finance) 62%, var(--bg-surface-2));
+  --accent-habit: color-mix(in srgb, var(--accent-habit) 62%, var(--bg-surface-2));
+  --accent-goal: color-mix(in srgb, var(--accent-goal) 62%, var(--bg-surface-2));
+  --accent-knowledge: color-mix(in srgb, var(--accent-knowledge) 62%, var(--bg-surface-2));
+}
+
 .home-hero-copy {
   display: grid;
   gap: var(--space-2);
@@ -8176,6 +8189,53 @@ audio {
   margin-top: var(--space-1);
   font-size: var(--text-sm);
   color: var(--text-muted);
+}
+
+/* R1.2: прогресс-полоска чтения в очереди (донор-идея AFFiNE list-progress). */
+.reading-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-surface-2);
+  overflow: hidden;
+}
+
+.reading-progress-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent-reader, var(--accent));
+  border-radius: 2px;
+}
+
+/* R1.3: карточка «Продолжить чтение» на Дому (донор-идея SP continue-where-left). */
+.continue-reading {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.continue-reading-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.continue-reading-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-surface-2);
+  overflow: hidden;
+}
+
+.continue-reading-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent-reader, var(--accent));
+  border-radius: 3px;
 }
 
 /* R1.1: кнопки скорости аудио (Audiobookshelf-идея). */

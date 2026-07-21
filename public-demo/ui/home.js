@@ -134,6 +134,28 @@ function renderUserModelPanel(ctx) {
   ].join("");
 }
 
+// R1.3: «Продолжить чтение» - последняя книга/материал в процессе + позиция (донор-идея
+// super-productivity continue-where-left). Пусто, если ничего не читается сейчас - без
+// заглушек (renderInsightsPanel/renderEveningReflection делают так же).
+function renderContinueReadingCard(ctx) {
+  const inProgress = (ctx.readingItems || [])
+    .filter((item) => item.status === "reading" && (item.progress || 0) > 0)
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+  const reading = inProgress[0];
+  if (!reading) return "";
+  const source = (ctx.bookSources || []).find((book) => book.id === reading.sourceId);
+  const title = source ? source.name : (reading.title || "Материал");
+  const progress = Math.max(0, Math.min(100, Math.round(reading.progress || 0)));
+  return [
+    `<section class="continue-reading" data-testid="continue-reading-card">`,
+    `<div class="continue-reading-head"><span>Продолжить чтение</span><em>${progress}%</em></div>`,
+    `<strong>${escapeHtml(title)}</strong>`,
+    `<div class="continue-reading-bar"><span style="width:${progress}%"></span></div>`,
+    button("set-surface", "Продолжить", { id: "reader", kind: "primary", testId: "continue-reading-open" }),
+    `</section>`
+  ].join("");
+}
+
 // Срез 14: адаптивный дашборд - виджеты Дома в порядке владельца, каждый можно скрыть/переставить.
 // Раскладка приходит из app.js (dashboardLayout). Пустые виджеты не рисуются; скрытые - в отдельной
 // полоске с «показать». Капча-первый принцип сохранён: ввод выше настраиваемых панелей.
@@ -142,7 +164,8 @@ const DASHBOARD_WIDGET_RENDERERS = {
   insights: renderInsightsPanel,
   usermodel: renderUserModelPanel,
   reflection: renderEveningReflection,
-  myday: renderMyDay
+  myday: renderMyDay,
+  reading: renderContinueReadingCard
 };
 function renderDashboardWidgets(ctx) {
   const layout = ctx.dashboardLayout || { order: [], hiddenKeys: [] };
@@ -191,13 +214,21 @@ function progressRing(done, total, testId) {
   return `<svg class="mini-ring" viewBox="0 0 24 24" role="img" aria-label="Выполнено ${done} из ${total}" data-testid="${testId}"><circle cx="12" cy="12" r="${radius}" fill="none" stroke="currentColor" opacity="0.18" stroke-width="3"/><circle cx="12" cy="12" r="${radius}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="${(share * circumference).toFixed(1)} ${circumference.toFixed(1)}" transform="rotate(-90 12 12)"/></svg>`;
 }
 
+// D1.4: тихие часы после 22:00 - приглушённая яркость акцентов на Доме (донор-идея SP
+// evening-theme). Только визуальный класс на CSS-уровне, никакой скрытой логики/мутации.
+function isQuietHours(nowTime) {
+  const hour = Number(String(nowTime || "").slice(0, 2));
+  return Number.isFinite(hour) && (hour >= 22 || hour < 6);
+}
+
 export function renderAssistantHome(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
   const habitsDone = `${today.habitDone || 0}/${today.habitTotal || 0}`;
   const streak = today.habitStreak || 0;
+  const quietHours = isQuietHours(ctx.nowTime);
   return [
-    `<section class="assistant-home-v2" data-testid="command-center">`,
+    `<section class="assistant-home-v2${quietHours ? " quiet-hours" : ""}" data-testid="command-center" data-quiet-hours="${quietHours ? "true" : "false"}">`,
     `<div class="home-hero-copy">`,
     `<span>LifeOS</span>`,
     `<h1>Локальная ОС для дня, знаний и контроля</h1>`,
