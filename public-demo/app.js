@@ -734,6 +734,35 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+// S1.2: подсветка совпавших букв в результатах командной палитры (донор-идея AFFiNE
+// quicksearch highlight, своя реализация под наш локальный exact/fuzzy матчинг - их
+// компонент рассчитан на пред-токенизированный текст с сервера). Exact substring
+// подсвечивается целиком; иначе - посимвольно по порядку fuzzy-совпадения.
+function highlightMatch(text, query) {
+  const raw = String(text || "");
+  const q = String(query || "").trim();
+  if (!q) return escapeHtml(raw);
+  const lowerRaw = raw.toLowerCase();
+  const lowerQuery = q.toLowerCase();
+  const exactIndex = lowerRaw.indexOf(lowerQuery);
+  if (exactIndex >= 0) {
+    return escapeHtml(raw.slice(0, exactIndex))
+      + "<mark>" + escapeHtml(raw.slice(exactIndex, exactIndex + q.length)) + "</mark>"
+      + escapeHtml(raw.slice(exactIndex + q.length));
+  }
+  let qi = 0;
+  let html = "";
+  for (const char of raw) {
+    if (qi < lowerQuery.length && char.toLowerCase() === lowerQuery[qi]) {
+      html += "<mark>" + escapeHtml(char) + "</mark>";
+      qi += 1;
+    } else {
+      html += escapeHtml(char);
+    }
+  }
+  return html;
+}
+
 function cleanLine(value) {
   return String(value == null ? "" : value).replace(/\s+/g, " ").trim();
 }
@@ -1021,6 +1050,7 @@ function createInitialState() {
     financeWeeklyGoal: 0,
     commandPaletteOpen: false,
     commandPaletteQuery: "",
+    commandPaletteRecents: [],
     savedSearches: {},
     captureDraft: "",
     chatDraft: "",
@@ -2440,6 +2470,7 @@ function normalizeState(input) {
     financeWeeklyGoal: Number.isFinite(Number(base.financeWeeklyGoal)) ? Math.max(0, Number(base.financeWeeklyGoal)) : 0,
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
     commandPaletteQuery: cleanLine(base.commandPaletteQuery || ""),
+    commandPaletteRecents: Array.isArray(base.commandPaletteRecents) ? base.commandPaletteRecents.filter((id) => typeof id === "string").slice(0, 6) : [],
     savedSearches: base.savedSearches && typeof base.savedSearches === "object" ? base.savedSearches : {},
     captureDraft: String(base.captureDraft || ""),
     commandMessage: base.commandMessage || "Локальное хранилище готово",
@@ -3594,6 +3625,8 @@ function deleteSavedSearch(state, id) {
 
 function runCommandPaletteCommand(state, id) {
   if (!id) return;
+  // S1.3: недавние команды сверху палитры при пустом запросе (донор-идея ninja-keys recents).
+  state.commandPaletteRecents = [id, ...(state.commandPaletteRecents || []).filter((recentId) => recentId !== id)].slice(0, 6);
   if (id.startsWith("surface:")) {
     state.activeSurface = id.slice("surface:".length) || "inbox";
     state.commandPaletteOpen = false;
@@ -10947,15 +10980,24 @@ function renderCommandPalette(state) {
   if (!state.commandPaletteOpen) return "";
   const query = cleanLine(state.commandPaletteQuery || state.searchQuery || "");
   const normalizedQuery = normalizeTitle(query);
-  const items = commandPaletteItems(state)
-    .filter((item) => {
-      if (!normalizedQuery) return true;
-      const haystack = normalizeTitle([item.title, item.hint, item.group, item.shortcut].join(" "));
-      // S1.1: сначала точное вхождение, затем fuzzy (донорский код AFFiNE fuzzy-match.ts,
-      // vendored в ui/vendor/affine-fuzzy-match.js) - «нз» находит «Новая заметка».
-      return haystack.includes(normalizedQuery) || (fuzzyMatchFn && fuzzyMatchFn(haystack, normalizedQuery));
-    })
-    .slice(0, 12);
+  const allItems = commandPaletteItems(state);
+  const matched = normalizedQuery
+    ? allItems.filter((item) => {
+        const haystack = normalizeTitle([item.title, item.hint, item.group, item.shortcut].join(" "));
+        // S1.1: сначала точное вхождение, затем fuzzy (донорский код AFFiNE fuzzy-match.ts,
+        // vendored в ui/vendor/affine-fuzzy-match.js) - «нз» находит «Новая заметка».
+        return haystack.includes(normalizedQuery) || (fuzzyMatchFn && fuzzyMatchFn(haystack, normalizedQuery));
+      })
+    : allItems;
+  // S1.3: без запроса - недавние команды первыми (донор-идея ninja-keys recents).
+  let items = matched;
+  if (!normalizedQuery && (state.commandPaletteRecents || []).length) {
+    const byId = new Map(allItems.map((item) => [item.id, item]));
+    const recentItems = (state.commandPaletteRecents || []).map((rid) => byId.get(rid)).filter(Boolean).map((item) => Object.assign({}, item, { isRecent: true }));
+    const recentIds = new Set(recentItems.map((item) => item.id));
+    items = recentItems.concat(matched.filter((item) => !recentIds.has(item.id)));
+  }
+  items = items.slice(0, 12);
   const saved = savedSearchList(state).slice(0, 8);
   return [
     "<div class=\"command-palette-overlay\" data-testid=\"command-palette\">",
@@ -10969,8 +11011,8 @@ function renderCommandPalette(state) {
     "<section>",
     "<div class=\"command-palette-section-title\">Команды</div>",
     items.length ? items.map((item) => [
-      "<button class=\"command-palette-row\" data-action=\"run-command\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"command-palette-row\">",
-      "<span><strong>" + escapeHtml(item.title) + "</strong><em>" + escapeHtml(item.group + " · " + item.hint) + "</em></span>",
+      "<button class=\"command-palette-row" + (item.isRecent ? " is-recent" : "") + "\" data-action=\"run-command\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"command-palette-row\">",
+      "<span><strong>" + (normalizedQuery ? highlightMatch(item.title, query) : escapeHtml(item.title)) + (item.isRecent ? " <em class=\"recent-tag\" data-testid=\"recent-command-tag\">недавнее</em>" : "") + "</strong><em>" + escapeHtml(item.group + " · " + item.hint) + "</em></span>",
       "<kbd>" + escapeHtml(item.shortcut || "Enter") + "</kbd>",
       "</button>"
     ].join("")).join("") : "<div class=\"empty compact\">Нет команды под этот запрос. Поиск всё равно можно сохранить как рабочий фильтр.</div>",

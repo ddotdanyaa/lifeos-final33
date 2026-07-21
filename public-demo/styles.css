@@ -745,6 +745,24 @@ label {
   font-style: normal;
 }
 
+/* S1.2: подсветка совпавших букв в результатах поиска (палитра + граф). */
+mark {
+  background: color-mix(in srgb, var(--accent, #0369a1) 30%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* S1.3: бейдж «недавнее» у команд без активного запроса (донор-идея ninja-keys recents). */
+.recent-tag {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-left: 6px;
+  letter-spacing: 0.02em;
+}
+
 .command-palette-row kbd,
 .command-palette-foot span {
   border: 1px solid rgba(100, 116, 139, 0.25);

@@ -1,4 +1,4 @@
-import { button, escapeHtml, safeList } from "./shared.js";
+import { button, escapeHtml, highlightMatch, safeList } from "./shared.js";
 import { fuzzyMatch } from "../vendor/affine-fuzzy-match.js";
 
 export function renderGraphCanvas(ctx) {
@@ -35,7 +35,8 @@ export function renderGraphCanvas(ctx) {
     `<div class="segmented-control" data-testid="graph-mode"><button class="${mode === "global" ? "active" : ""}" data-action="set-graph-mode" data-id="global" data-testid="graph-mode-global">Все</button><button class="${mode === "local" ? "active" : ""}" data-action="set-graph-mode" data-id="local" data-testid="graph-mode-local">Локально</button></div>`,
     `</div>`,
     `<div class="graph-filter-row">${filterRows.map(([key, label]) => `<label><input type="checkbox" data-testid="graph-filter-${escapeHtml(key)}" data-graph-filter="${escapeHtml(key)}"${filters[key] ? " checked" : ""}>${escapeHtml(label)}</label>`).join("")}</div>`,
-    query ? `<div class="graph-results" data-testid="graph-results">${safeList(results, (node) => `<button class="graph-result-row" data-testid="graph-result-row" data-action="focus-graph-node" data-id="${escapeHtml(node.id)}"><strong>${escapeHtml(node.title || node.label || node.id)}</strong><span>${escapeHtml(node.type || "узел")}</span></button>`, `<p class="empty-inline">Совпадений нет.</p>`)}</div>` : "",
+    // S1.2: подсветка совпавших букв (донор-идея AFFiNE quicksearch highlight).
+    query ? `<div class="graph-results" data-testid="graph-results">${safeList(results, (node) => `<button class="graph-result-row" data-testid="graph-result-row" data-action="focus-graph-node" data-id="${escapeHtml(node.id)}"><strong>${highlightMatch(node.title || node.label || node.id, query)}</strong><span>${escapeHtml(node.type || "узел")}</span></button>`, `<p class="empty-inline">Совпадений нет.</p>`)}</div>` : "",
     `</div>`,
     `<div class="graph-canvas-shell">`,
     `<canvas id="graph-canvas" class="graph-canvas" data-testid="graph-canvas"></canvas>`,

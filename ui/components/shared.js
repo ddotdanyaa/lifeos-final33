@@ -6,6 +6,35 @@ export function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+// S1.2: подсветка совпавших букв в результатах поиска (донор-идея AFFiNE quicksearch
+// highlight, своя реализация - их компонент рассчитан на пред-токенизированный текст с
+// сервера, у нас честный локальный матчинг). Exact substring - подсвечивается целиком;
+// иначе - посимвольно по порядку fuzzy-совпадения (та же логика, что vendored fuzzyMatch).
+export function highlightMatch(text, query) {
+  const raw = String(text || "");
+  const q = String(query || "").trim();
+  if (!q) return escapeHtml(raw);
+  const lowerRaw = raw.toLowerCase();
+  const lowerQuery = q.toLowerCase();
+  const exactIndex = lowerRaw.indexOf(lowerQuery);
+  if (exactIndex >= 0) {
+    return escapeHtml(raw.slice(0, exactIndex))
+      + "<mark>" + escapeHtml(raw.slice(exactIndex, exactIndex + q.length)) + "</mark>"
+      + escapeHtml(raw.slice(exactIndex + q.length));
+  }
+  let qi = 0;
+  let html = "";
+  for (const char of raw) {
+    if (qi < lowerQuery.length && char.toLowerCase() === lowerQuery[qi]) {
+      html += "<mark>" + escapeHtml(char) + "</mark>";
+      qi += 1;
+    } else {
+      html += escapeHtml(char);
+    }
+  }
+  return html;
+}
+
 export function publicText(value) {
   return String(value ?? "")
     .replace(/\bLifeOS Product Brain\b/g, "активный контекст")

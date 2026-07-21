@@ -2589,3 +2589,19 @@ keydown, с тем же isTypingTarget-гардом, что и другие хо
 ввода не перехватываются - родной undo браузера работает). Полный H01-H10 10/10 зелёный.
 **Полный P19 (24 owner journeys) прогнан на границе пакета** (структурное изменение ядра
 store) - зелёный, 4.1 мин. Аудиты зелёные (env-bound owner-rescue-final); build-public.
+
+## S1.2+S1.3: подсветка совпадений + недавние команды (2026-07-21)
+
+**Decision:** highlightMatch (локально в app.js - модульная граница с ui/*.js сохранена,
+плюс копия в ui/components/shared.js для графа) - exact substring подсвечивается целиком
+`<mark>`, иначе посимвольно по порядку fuzzy-совпадения; применена в командной палитре
+(app.js renderCommandPalette) и результатах поиска графа (GraphCanvas.js, донор-идея AFFiNE
+quicksearch highlight - их React-компонент рассчитан на пред-токенизированный текст с
+сервера, не подходит напрямую, реализация своя под наш локальный матчинг). S1.3:
+state.commandPaletteRecents (до 6 id, MRU) обновляется в runCommandPaletteCommand при любой
+выполненной команде; при пустом запросе недавние показываются первыми с бейджем «недавнее»
+(донор-идея ninja-keys). **Verified:** новый palette-search-polish.spec.mjs 2/2 зелёные
+(mark-тег реально в DOM при подстрочном совпадении; недавняя команда получает тег и
+всплывает первой после повторного открытия с очищенным запросом); H01-H10 10/10 зелёные;
+аудиты зелёные (env-bound owner-rescue-final); build-public; скриншот
+docs/qc/screens/S1/palette-highlight.png.

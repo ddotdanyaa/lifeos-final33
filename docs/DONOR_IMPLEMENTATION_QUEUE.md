@@ -69,8 +69,8 @@
 ## ПОИСК/ПАЛИТРА (доноры: AFFiNE MIT fuzzy-match, ninja-keys MIT)
 
 - [x] S1.1 (2026-07-21) Fuzzy-поиск ВЕНДОРНЫМ кодом AFFiNE (ui/vendor/affine-fuzzy-match.js) в графе (computeGraphProjection) и командной палитре - «пвт» находит «Проверить отчёт».
-- [ ] S1.2 Подсветка совпавших букв в результатах (AFFiNE highlight).
-- [ ] S1.3 Недавние/частые команды сверху палитры (ninja-keys recents).
+- [x] S1.2 (2026-07-21) Подсветка совпавших букв (палитра + граф-поиск): exact substring целиком, fuzzy - посимвольно (донор-идея AFFiNE quicksearch highlight).
+- [x] S1.3 (2026-07-21) Недавние команды сверху палитры при пустом запросе, бейдж «недавнее» (донор-идея ninja-keys recents).
 - [ ] S1.4 Поиск по типу: «task: письмо», «money: бензин» префиксы (obsidian-tasks query-мини).
 
 ## КАЛЕНДАРЬ (донор: tui.calendar MIT — паттерны/разметка, Schedule-X MIT)
