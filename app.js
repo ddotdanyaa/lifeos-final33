@@ -1030,6 +1030,8 @@ function createInitialState() {
     goals: {},
     reminders: {},
     habits: {},
+    entityAliases: {},
+    dismissedPersonMerges: [],
     financeAccounts: {},
     financeTransactions: {},
     budgets: {},
@@ -2441,6 +2443,8 @@ function normalizeState(input) {
     goals: base.goals || {},
     reminders: base.reminders || {},
     habits: base.habits || {},
+    entityAliases: base.entityAliases && typeof base.entityAliases === "object" ? base.entityAliases : {},
+    dismissedPersonMerges: Array.isArray(base.dismissedPersonMerges) ? base.dismissedPersonMerges : [],
     financeAccounts: base.financeAccounts || {},
     financeTransactions: base.financeTransactions || {},
     budgets: base.budgets || {},
@@ -4301,6 +4305,99 @@ function extractPeopleNames(text) {
     }
   }
   return uniqueCleanItems(names, 6);
+}
+
+// Срез 10: разрешение сущностей-людей. Одно лицо в разных формах («Данил»/«Даня») - одна
+// каноническая сущность. Известные уменьшительные резолвятся авто (высокая уверенность);
+// неоднозначные пары НЕ сливаются молча, а показываются владельцу как предложение (owner-gated,
+// как proposal-механизм). Подтверждённые слияния живут в state.entityAliases (ключ в нижнем
+// регистре -> каноническое имя). Repository First: работаем над уже извлечёнными
+// entities.people источников, ничего нового не парсим.
+const KNOWN_PERSON_ALIASES = {
+  "даня": "Данил", "данила": "Данил", "данилка": "Данил", "даниил": "Данил",
+  "женя": "Евгений", "саша": "Александр", "шура": "Александр", "миша": "Михаил",
+  "дима": "Дмитрий", "лёша": "Алексей", "леша": "Алексей", "катя": "Екатерина",
+  "маша": "Мария", "таня": "Татьяна", "коля": "Николай", "вова": "Владимир",
+  "паша": "Павел", "серёжа": "Сергей", "сережа": "Сергей", "оля": "Ольга"
+};
+function personKey(name) {
+  return String(name || "").trim().toLocaleLowerCase().replace(/ё/g, "е");
+}
+function canonicalPersonName(name, aliases) {
+  const key = personKey(name);
+  if (!key) return "";
+  if (aliases && aliases[key]) return aliases[key];
+  if (KNOWN_PERSON_ALIASES[key]) return KNOWN_PERSON_ALIASES[key];
+  return String(name).trim();
+}
+function collectPersonMentions(state) {
+  const mentions = new Map();
+  for (const source of Object.values(state.sources || {}).filter((item) => !item.deleted)) {
+    const people = source.analysis && source.analysis.entities && Array.isArray(source.analysis.entities.people) ? source.analysis.entities.people : [];
+    for (const raw of people) {
+      const key = personKey(raw);
+      if (key.length < 2) continue;
+      if (!mentions.has(key)) mentions.set(key, { key, display: String(raw).trim(), count: 0, sourceIds: new Set() });
+      const entry = mentions.get(key);
+      entry.count += 1;
+      if (source.id) entry.sourceIds.add(source.id);
+    }
+  }
+  return [...mentions.values()];
+}
+function resolvePeople(state) {
+  const aliases = state.entityAliases || {};
+  const canon = new Map();
+  for (const mention of collectPersonMentions(state)) {
+    const canonical = canonicalPersonName(mention.display, aliases);
+    const ck = personKey(canonical);
+    if (!canon.has(ck)) canon.set(ck, { name: canonical, aliases: new Set(), count: 0, sourceIds: new Set() });
+    const entry = canon.get(ck);
+    entry.count += mention.count;
+    for (const sid of mention.sourceIds) entry.sourceIds.add(sid);
+    if (personKey(mention.display) !== ck) entry.aliases.add(mention.display);
+  }
+  return [...canon.values()]
+    .map((entry) => ({ name: entry.name, aliases: [...entry.aliases], mentions: entry.count, sourceIds: [...entry.sourceIds] }))
+    .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
+}
+function personEditDistance(a, b) {
+  const m = a.length;
+  const n = b.length;
+  const row = Array.from({ length: n + 1 }, (_, index) => index);
+  for (let i = 1; i <= m; i += 1) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= n; j += 1) {
+      const temp = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = temp;
+    }
+  }
+  return row[n];
+}
+function personMergeSuggestions(state) {
+  const people = resolvePeople(state);
+  const dismissed = new Set((state.dismissedPersonMerges || []).map(String));
+  const out = [];
+  for (let i = 0; i < people.length; i += 1) {
+    for (let j = i + 1; j < people.length; j += 1) {
+      const aName = personKey(people[i].name);
+      const bName = personKey(people[j].name);
+      if (aName === bName) continue;
+      const shorter = aName.length <= bName.length ? aName : bName;
+      const longer = aName.length <= bName.length ? bName : aName;
+      const prefix = shorter.length >= 3 && longer.startsWith(shorter);
+      const close = Math.abs(aName.length - bName.length) <= 2 && personEditDistance(aName, bName) <= Math.max(1, Math.floor(Math.min(aName.length, bName.length) * 0.34));
+      if (!prefix && !close) continue;
+      const target = people[i].mentions >= people[j].mentions ? people[i] : people[j];
+      const alias = people[i].mentions >= people[j].mentions ? people[j] : people[i];
+      const pairId = alias.name + "=>" + target.name;
+      if (dismissed.has(pairId)) continue;
+      out.push({ pairId, alias: alias.name, target: target.name, confidence: prefix ? "средняя" : "низкая" });
+    }
+  }
+  return out.slice(0, 6);
 }
 
 // Срез 3 (v1.4): смена одной фразой - "отработал 12 часов, заработал 8700, бензин 1900".
@@ -10235,6 +10332,8 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     deletedNotes: Object.values(state.notes || {}).filter((note) => note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     backlinks: state.backlinks || {},
     memoryLayers: memoryLayers(state),
+    resolvedPeople: resolvePeople(state),
+    personMergeSuggestions: personMergeSuggestions(state),
     trashItems: allTrashRows(state).slice(0, 30).map((row) => Object.assign({}, row, { daysLeft: Math.max(0, Math.ceil(TRASH_GRACE_DAYS - daysSinceTimestamp(row.updatedAt))) })),
     trashGraceDays: TRASH_GRACE_DAYS,
     ollama: state.ollama || {},
@@ -15613,6 +15712,25 @@ async function handleAction(action, id) {
     store.state.timelineDay = cleanLine(id || "");
     store.scheduleSave("Timeline day set");
     render();
+    return;
+  }
+  if (action === "merge-person") {
+    // Срез 10: владелец подтвердил, что alias и target - один человек (id = "alias=>target").
+    const [alias, target] = String(id || "").split("=>");
+    if (alias && target) {
+      await store.commit("Люди объединены", (state) => {
+        state.entityAliases = Object.assign({}, state.entityAliases, { [personKey(alias)]: cleanLine(target) });
+        addAudit(state, "entity.merge", "Объединил людей: «" + cleanLine(alias) + "» → «" + cleanLine(target) + "»", state.activeNoteId);
+      });
+    }
+    return;
+  }
+  if (action === "dismiss-person-merge") {
+    await store.commit("Слияние людей отклонено", (state) => {
+      const list = Array.isArray(state.dismissedPersonMerges) ? state.dismissedPersonMerges.slice() : [];
+      if (id && !list.includes(id)) list.push(id);
+      state.dismissedPersonMerges = list;
+    });
     return;
   }
   if (action === "toggle-system-record-state") {
