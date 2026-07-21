@@ -7193,6 +7193,34 @@ audio {
   color: #cbd5e1;
 }
 
+/* C1.1/C1.2/C1.3: живой стрим (донор-идея LibreChat) - мигающий курсор печати, кнопки
+   «Стоп»/«Перегенерировать» под сообщением. */
+.chat-typing-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  animation: chat-cursor-blink 1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing-cursor {
+    animation: none;
+  }
+}
+
+@keyframes chat-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.chat-stream-actions {
+  margin-top: 8px;
+}
+
+.chat-stream-actions button {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
 .chat-proposal-preview {
   display: grid;
   gap: var(--space-1);

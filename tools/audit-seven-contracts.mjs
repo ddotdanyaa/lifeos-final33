@@ -113,15 +113,22 @@ const chatMessageToProposalBody = extractFunctionBody(app, "chatMessageToProposa
 if (!chatMessageToProposalBody) problems.push("app.js does not define chatMessageToProposal");
 if (chatMessageToProposalBody.includes("applyProposal(")) problems.push("chatMessageToProposal must not auto-apply - AI/chat content should only ever create an open proposal");
 
-const generateOllamaChatAnswerBody = extractFunctionBody(app, "generateOllamaChatAnswer");
+// C1.1: чат перешёл на потоковый streamOllamaChatAnswer (донор-идея LibreChat) -
+// generateOllamaChatAnswer больше не существует (был чистым non-streaming wrapper для
+// того же вызова, удалён как мёртвый код после замены). Тот же контракт (pure model-call
+// wrapper, никаких прямых записей в memory/graph) теперь проверяется на функции, которая
+// реально делает эту работу.
+const streamOllamaChatAnswerBody = extractFunctionBody(app, "streamOllamaChatAnswer");
 const callModelRouteBody = extractFunctionBody(app, "callModelRoute");
-for (const [name, body] of [["generateOllamaChatAnswer", generateOllamaChatAnswerBody], ["callModelRoute", callModelRouteBody]]) {
+for (const [name, body] of [["streamOllamaChatAnswer", streamOllamaChatAnswerBody], ["callModelRoute", callModelRouteBody]]) {
   if (!body) { problems.push(`app.js does not define ${name}`); continue; }
   for (const forbidden of ["state.notes[", "state.claims[", "state.insights[", "addGraphEdge(", "applyProposal("]) {
     if (body.includes(forbidden)) problems.push(`${name} must be a pure model-call wrapper - found "${forbidden}" (AI output must flow through a proposal, not write memory/graph directly)`);
   }
 }
-if (!app.includes("addChatMessage(state, \"assistant\", liveAnswer.text")) problems.push("live Ollama answers must be written via addChatMessage, not directly into notes/claims/insights");
+// Живой (стриминговый) ответ Ollama обязан материализоваться ТОЛЬКО как chat-message,
+// созданное каноническим addChatMessage, а не напрямую в notes/claims/insights.
+if (!app.includes('assistantMessageId = addChatMessage(state, "assistant"')) problems.push("live Ollama streaming answer must be created via addChatMessage, not directly into notes/claims/insights");
 
 // --- Package Contract (P8.1): manifest declares types/views/workflows/permissions/
 // data-effects/uninstall/rollback/trust/compat, and is validated before every install ---
@@ -152,7 +159,7 @@ console.log(JSON.stringify({
   coveredCollections: ARTIFACT_COLLECTIONS.length - OBJECT_CONTRACT_EXEMPT_COLLECTIONS.length,
   strongMutationKinds: STRONG_MUTATION_KINDS.length,
   capabilityGrantFields: CAPABILITY_GRANT_FIELDS.length,
-  aiMemoryGate: "generateOllamaChatAnswer/callModelRoute are pure model-call wrappers; AI content only reaches memory/graph via an open proposal",
+  aiMemoryGate: "streamOllamaChatAnswer/callModelRoute are pure model-call wrappers; AI content only reaches memory/graph via an open proposal",
   packManifestFields: PACK_MANIFEST_FIELDS.length,
   note: "Object (P1.1) + Receipt (P1.2) + Capability/Locality (P1.3) + Package (P8.1) contracts all covered"
 }, null, 2));

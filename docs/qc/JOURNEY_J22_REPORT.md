@@ -45,7 +45,7 @@ Mobile uses capture-first navigation, keeps Today/Money reachable, has no horizo
 After: 23 edges, 23 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: vault.export: Vault export generated: notes=64, sources=29, tasks=4, finance=4, habits=2, goals=2, systems=1, projects=0, databases=0, chatMessages=59, savedSearches=0, audit=300 | control.export.selected: Selected artifact export generated: selected note / note_9055f4d411ec | control.rollback.snapshot: Rollback snapshot created: Snapshot before Data Control change | capability.grant: Capability granted: pwa/owner-check (local) | provider.run: pwa owner-check: PWA shell checked: service-worker-ready | capability.grant: Capability granted: mail/prepare (local) | provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials
+After: 300 audit events. Tail: vault.export: Vault export generated: notes=64, sources=29, tasks=4, finance=4, habits=2, goals=2, systems=1, projects=0, databases=0, chatMessages=59, savedSearches=0, audit=300 | control.export.selected: Selected artifact export generated: selected note / note_58973cf2ff47 | control.rollback.snapshot: Rollback snapshot created: Snapshot before Data Control change | capability.grant: Capability granted: pwa/owner-check (local) | provider.run: pwa owner-check: PWA shell checked: service-worker-ready | capability.grant: Capability granted: mail/prepare (local) | provider.run: mail prepare: Provider waits for owner-approved credentials | provider.prepare: mail provider waiting for owner-approved credentials
 
 ## Remaining Gated
 Notifications and native install prompt remain browser permission/policy boundaries.

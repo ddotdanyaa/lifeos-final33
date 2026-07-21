@@ -112,7 +112,15 @@ export function renderChat(ctx) {
     `<section class="chat-thread" data-testid="chat-thread">`,
     isSearching && !messages.length
       ? `<div class="empty-inline" data-testid="chat-thread-search-empty">Ничего не найдено по «${escapeHtml(chatSearchQuery.trim())}».</div>`
-      : safeList(messages, (message) => `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : ""}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${message.html || escapeHtml(compactText(message.text || message.content || "", 760))}</p>${chatProposalPreview(ctx, message)}</article>`, `<article class="chat-message assistant chat-empty-hint"><span>LifeOS</span><p>Спроси о своих данных: «сколько я заработал за неделю?», «какая была последняя смена?», «стоит ли завтра работать?»</p></article>`),
+      : safeList(messages, (message, index) => {
+          // C1.1/C1.2: печатающееся сообщение получает курсор + кнопку «Стоп» рядом с текстом
+          // (донор-идея LibreChat streaming/stop). C1.3: «Перегенерировать» - только у
+          // самого последнего сообщения, когда это готовый (не печатающийся) ответ ассистента.
+          const isStreaming = Boolean(message.streaming);
+          const isLast = index === messages.length - 1;
+          const canRegenerate = isLast && message.role === "assistant" && !isStreaming;
+          return `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}${isStreaming ? " is-streaming" : ""}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : "chat-message-row"}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${message.html || escapeHtml(compactText(message.text || message.content || "", 760))}${isStreaming ? `<span class="chat-typing-cursor" data-testid="chat-typing-cursor" aria-hidden="true">▍</span>` : ""}</p>${isStreaming ? `<div class="chat-stream-actions">${button("stop-chat-stream", "Стоп", { kind: "ghost", testId: "stop-chat-stream" })}</div>` : ""}${canRegenerate ? `<div class="chat-stream-actions">${button("regenerate-chat-answer", "Перегенерировать", { kind: "ghost", testId: "regenerate-chat-answer" })}</div>` : ""}${chatProposalPreview(ctx, message)}</article>`;
+        }, `<article class="chat-message assistant chat-empty-hint"><span>LifeOS</span><p>Спроси о своих данных: «сколько я заработал за неделю?», «какая была последняя смена?», «стоит ли завтра работать?»</p></article>`),
     `</section>`,
     `<footer class="chat-composer" data-testid="chat-composer"><textarea id="chat-input" data-testid="chat-input" rows="1" placeholder="Спроси о своих данных или запиши мысль…" aria-label="Сообщение в чат" spellcheck="true">${escapeHtml(ctx.chatDraft || "")}</textarea>${button("send-chat", "Отправить", { kind: "primary", testId: "send-chat" })}<details class="chat-dev-hint"><summary>/dev</summary><p>Команда /dev отвечает из внутреннего состояния разработки.</p></details></footer>`,
     `</div>`

@@ -212,6 +212,8 @@ let store = null;
 let graphEngine = null;
 let bootError = null;
 let deferredInstallPrompt = null;
+// C1.2: AbortController активного стрима Ollama-ответа - «Стоп» вызывает .abort() на нём.
+let activeChatStreamController = null;
 
 function now() {
   return new Date().toISOString();
@@ -3009,6 +3011,11 @@ function normalizeState(input) {
     message.receiptId = cleanLine(message.receiptId || "");
     message.deleted = Boolean(message.deleted) || (message.role === "assistant" && isLegacyChatStubText(message.text || message.content || ""));
     message.createdAt = message.createdAt || now();
+    // C1.1: только типизация, НЕ форс false здесь - normalizeState прогоняется на КАЖДОМ
+    // save() (не только при холодном старте), в том числе пока стрим ещё легитимно длится;
+    // принудительный сброс здесь гонялся бы с реальным потоком и мог погасить индикатор
+    // «печатает» посреди генерации. Настоящий сброс - только на явном boot/hydrate ниже.
+    message.streaming = Boolean(message.streaming);
   }
   for (const run of Object.values(state.agentRuns)) {
     run.name = cleanLine(run.name || "Local agent");
@@ -8591,29 +8598,64 @@ function stripModelThinkingBlocks(text) {
   return String(text || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
-async function generateOllamaChatAnswer(endpoint, model, prompt, numPredict) {
+// C1.1: потоковый ответ Ollama (донор-идея LibreChat - читать поток по мере поступления,
+// обновлять UI на каждый чанк). Ollama возвращает NDJSON, не SSE - стрим читается через
+// response.body.getReader(); onChunk получает НАКОПЛЕННЫЙ текст (не дельту) для простоты
+// вызывающей стороны. <think>-зачистка применяется построчно тем же regex, что и в
+// stripModelThinkingBlocks ниже - пока тег не закрыт, текст внутри виден "сырым"
+// (самоисправляется при закрывающем </think>), финальный текст всегда чистый.
+async function streamOllamaChatAnswer(endpoint, model, prompt, numPredict, signal, onChunk) {
   const base = String(endpoint || "").replace(/\/+$/, "");
   const startedAt = Date.now();
   const response = await fetch(base + "/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // num_predict must cover a reasoning model's internal thinking budget - Ollama returns
-    // that separately in payload.thinking, but too small a total budget truncates before
-    // the real response is ever produced (measured against a real qwen3:4b daemon: 220 was
-    // not always enough for a citation-context answer to finish after thinking). V1 CHAT_BRAIN:
-    // insight-mode questions ask for a real 5-6 sentence answer, not 2, so they get a larger
-    // budget (900) than the default short-answer path (500).
-    body: JSON.stringify({ model, prompt, stream: false, options: { num_predict: Number.isFinite(numPredict) ? numPredict : 500 } }),
-    // buildOllamaChatPrompt's brevity constraint keeps real generations finishing in well under a
-    // minute on CPU-only hardware (measured ~56s against a real qwen3:4b daemon); this timeout is
-    // a generous multiple of that, not a budget the model is expected to hit.
-    signal: AbortSignal.timeout(150000)
+    body: JSON.stringify({ model, prompt, stream: true, options: { num_predict: Number.isFinite(numPredict) ? numPredict : 500 } }),
+    signal
   });
-  if (!response.ok) throw new Error("Ollama chat responded with HTTP " + response.status);
-  const payload = await response.json();
-  const text = cleanLine(stripModelThinkingBlocks(payload.response || ""));
-  if (!text) throw new Error("Ollama chat returned an empty response");
-  return { text, latencyMs: Math.max(1, Date.now() - startedAt) };
+  if (!response.ok || !response.body) throw new Error("Ollama chat responded with HTTP " + (response.status || "no-body"));
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let accumulated = "";
+  const finish = () => {
+    const text = cleanLine(stripModelThinkingBlocks(accumulated));
+    if (!text) throw new Error("Ollama chat returned an empty response");
+    return { text, latencyMs: Math.max(1, Date.now() - startedAt) };
+  };
+  // Обрабатывает одну NDJSON-строку; возвращает true если это была финальная (done:true).
+  const consumeLine = (rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return false;
+    let payload;
+    try {
+      payload = JSON.parse(line);
+    } catch {
+      return false;
+    }
+    if (payload.response) {
+      accumulated += payload.response;
+      onChunk(cleanLine(stripModelThinkingBlocks(accumulated)));
+    }
+    return Boolean(payload.done);
+  };
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newlineIndex;
+    while ((newlineIndex = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (consumeLine(line)) return finish();
+    }
+  }
+  // Поток закрылся - в buffer может остаться ПОСЛЕДНЯЯ строка без завершающего \n (реальный
+  // Ollama и любой корректный NDJSON-источник не обязаны слать trailing-newline на самом
+  // последнем чанке; EOF сам по себе - терминатор). Без этого шага финальная строка (часто
+  // именно она несёт done:true или последний фрагмент текста) молча терялась бы.
+  if (buffer.trim()) consumeLine(buffer);
+  return finish();
 }
 
 // Capability Contract (Seven Contracts, "Capability/Locality"): a grant is
@@ -10348,6 +10390,9 @@ class ReactiveStore {
   async hydrate() {
     this.state = await this.repo.load();
     this.state = await this.repo.save(this.state);
+    // C1.1: настоящий момент, когда "streaming:true" гарантированно устарел - свежая
+    // загрузка страницы, ни один поток физически не может быть ещё жив.
+    for (const message of Object.values(this.state.chatMessages || {})) message.streaming = false;
   }
 
   subscribe(listener) {
@@ -10464,6 +10509,24 @@ class ReactiveStore {
     this.emit();
     await this.persistCurrent(revision);
     return true;
+  }
+
+  // C1.1: высокочастотная лёгкая мутация для потоковых токенов чата (донор-идея LibreChat
+  // streaming - обновлять UI по мере прихода фрагментов). Мутирует state НА МЕСТЕ (как
+  // scheduleSave, без clone на каждый чанк - при генерации в десятки токенов клонирование
+  // всего state на каждый было бы реальной тратой), сразу перерисовывает (emit), но НЕ
+  // трогает undo/redo стек и НЕ пишет в IndexedDB на каждый чанк - персист происходит один
+  // раз в конце потока через обычный commit() (см. streamOllamaChatAnswer).
+  // КРИТИЧНО: stateRevision всё равно увеличивается на каждый чанк. Без этого асинхронный
+  // persistCurrent() от commit()-а, который открыл placeholder-сообщение ДО начала стрима,
+  // может резолвиться ПОСЕРЕДИНЕ стрима и переписать this.state своим устаревшим снапшотом
+  // (revision совпал бы, раз streamPatch его не трогает) - живой печатающийся текст исчез
+  // бы. Бамп revision заставляет persistCurrent честно увидеть себя устаревшим (staleState
+  // -> saveState="dirty", существующий механизм, а не новый) и не тронуть this.state.
+  streamPatch(mutator) {
+    mutator(this.state);
+    this.stateRevision += 1;
+    this.emit();
   }
 
   updateEditor(noteId, body) {
@@ -17301,26 +17364,77 @@ async function handleAction(action, id) {
     // Live Ollama generation is only attempted when the owner already explicitly
     // tested it ("generation_ok"), never speculatively - and it always falls back to
     // the honest local rule-based answer on any failure, never a fake response.
-    let liveAnswer = null;
-    if (!wantsDevAnswer && !wantsModelIdentity && !dataAnswer && !memoryRecall && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel) {
+    const eligibleForOllama = !wantsDevAnswer && !wantsModelIdentity && !dataAnswer && !memoryRecall && cleanText && store.state.ollama.status === "generation_ok" && store.state.ollama.selectedModel;
+
+    if (eligibleForOllama) {
+      // C1.1/C1.2/C1.3: живой стрим ответа Ollama (донор-идея LibreChat) - текст печатается
+      // по мере генерации через store.streamPatch (не в undo-историю, см. P1.1), с кнопкой
+      // «Стоп» (activeChatStreamController.abort()) и честным fallback на локальный ответ
+      // при реальной ошибке (не при остановке владельцем - там текст сохраняется как есть).
+      const citationQuery = chatCitationQuery(cleanText);
+      const citedNotes = citationQuery ? searchNotes(store.state, citationQuery).filter((note) => note.systemType !== "product_brain").slice(0, 3) : [];
+      const context = activeChatContext(store.state);
+      const graphSummary = buildGraphContextSummary(store.state);
+      const daySummary = buildDaySummaryText(store.state);
+      const prompt = buildOllamaChatPrompt(context, citedNotes, cleanText, graphSummary, daySummary, wantsInsight, activeOwnerInstructions(store.state));
+      const model = store.state.ollama.selectedModel;
+      const endpoint = store.state.ollama.endpoint;
+      const numPredict = wantsInsight ? 900 : 500;
+
+      // Плейсхолдер (сообщение владельца + пустой ответ ассистента) идёт через streamPatch,
+      // а НЕ через commit() - у одного обмена репликами остаётся ровно ОДИН реальный,
+      // персистящий commit (в конце, при завершении/остановке/ошибке), как было и раньше в
+      // нестриминговом коде. Это не только совпадает по надёжности со старым поведением
+      // (при сбое посреди генерации раньше вообще ничего не сохранялось - здесь строго не
+      // хуже), но и даёт Ctrl+Z по-человечески: один экземпляр = один шаг отмены, а не два.
+      let assistantMessageId = "";
+      store.streamPatch((state) => {
+        state.chatDraft = "";
+        const ownerMessageId = addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
+        createChatMessageProposal(state, ownerMessageId, cleanText);
+        assistantMessageId = addChatMessage(state, "assistant", "", "", state.activeNoteId);
+        state.chatMessages[assistantMessageId].streaming = true;
+      });
+
+      const controller = new AbortController();
+      activeChatStreamController = controller;
       try {
-        const citationQuery = chatCitationQuery(cleanText);
-        const citedNotes = citationQuery ? searchNotes(store.state, citationQuery).filter((note) => note.systemType !== "product_brain").slice(0, 3) : [];
-        const context = activeChatContext(store.state);
-        const graphSummary = buildGraphContextSummary(store.state);
-        const daySummary = buildDaySummaryText(store.state);
-        const prompt = buildOllamaChatPrompt(context, citedNotes, cleanText, graphSummary, daySummary, wantsInsight, activeOwnerInstructions(store.state));
-        const result = await generateOllamaChatAnswer(store.state.ollama.endpoint, store.state.ollama.selectedModel, prompt, wantsInsight ? 900 : 500);
-        liveAnswer = {
-          text: result.text,
-          citations: citedNotes.map((note) => ({ id: note.id, title: note.title })),
-          model: store.state.ollama.selectedModel,
-          latencyMs: result.latencyMs
-        };
+        const result = await streamOllamaChatAnswer(endpoint, model, prompt, numPredict, controller.signal, (partialText) => {
+          if (!store) return;
+          store.streamPatch((state) => {
+            const msg = state.chatMessages[assistantMessageId];
+            if (msg) msg.text = partialText;
+          });
+        });
+        const citationLine = citedNotes.length ? " Источники: " + citedNotes.map((note) => note.title).join(", ") + "." : "";
+        await store.commit("Chat stream completed", (state) => {
+          const msg = state.chatMessages[assistantMessageId];
+          if (msg) {
+            msg.text = result.text + citationLine;
+            msg.streaming = false;
+          }
+          recordProviderRun(state, "ollama", "chat", "generation_ok", "Ollama chat ответил моделью " + model + " за " + result.latencyMs + "мс (стрим), источников: " + citedNotes.length, { model, citationIds: citedNotes.map((note) => note.id), latencyMs: result.latencyMs });
+        });
       } catch (error) {
-        liveAnswer = null;
+        const wasStopped = controller.signal.aborted;
+        await store.commit(wasStopped ? "Chat stream stopped" : "Chat stream failed", (state) => {
+          const msg = state.chatMessages[assistantMessageId];
+          if (msg) {
+            // Остановлено владельцем - оставляем уже напечатанный текст как есть (честно,
+            // это реально сгенерированный фрагмент). Реальная ошибка - честный локальный
+            // fallback вместо пустого/битого сообщения.
+            if (!wasStopped) msg.text = buildLocalChatAnswer(state, cleanText);
+            else if (!msg.text) msg.text = "Остановлено владельцем до начала ответа.";
+            msg.streaming = false;
+          }
+          addAudit(state, wasStopped ? "chat.stream.stopped" : "chat.stream.failed", wasStopped ? "Генерация остановлена владельцем" : "Ollama stream failed, honest local fallback used", state.activeNoteId);
+        });
+      } finally {
+        activeChatStreamController = null;
       }
+      return;
     }
+
     await store.commit("Chat message sent", (state) => {
       if (!cleanText) return;
       state.chatDraft = "";
@@ -17355,15 +17469,33 @@ async function handleAction(action, id) {
       } else if (dataAnswer) {
         addChatMessage(state, "assistant", dataAnswer, "", state.activeNoteId);
         addAudit(state, "chat.data.answer", "Ответ из реальных данных (деньги/смена/совет): " + shorten(cleanText, 80), state.activeNoteId);
-      } else if (liveAnswer) {
-        const citationLine = liveAnswer.citations.length ? " Источники: " + liveAnswer.citations.map((citation) => citation.title).join(", ") + "." : "";
-        addChatMessage(state, "assistant", liveAnswer.text + citationLine, "", state.activeNoteId);
-        recordProviderRun(state, "ollama", "chat", "generation_ok", "Ollama chat ответил моделью " + liveAnswer.model + " за " + liveAnswer.latencyMs + "мс, источников: " + liveAnswer.citations.length, { model: liveAnswer.model, citationIds: liveAnswer.citations.map((citation) => citation.id), latencyMs: liveAnswer.latencyMs });
       } else {
         addChatMessage(state, "assistant", buildLocalChatAnswer(state, cleanText), "", state.activeNoteId);
         addAudit(state, "chat.local.answer", "Local chat answered: " + shorten(cleanText, 90), state.activeNoteId);
       }
     });
+    return;
+  }
+  if (action === "stop-chat-stream") {
+    // C1.2: кнопка «Стоп» во время генерации (AbortController, донор-идея LibreChat stop).
+    if (activeChatStreamController) activeChatStreamController.abort();
+    return;
+  }
+  if (action === "regenerate-chat-answer") {
+    // C1.3: перегенерировать последний ответ (донор-идея LibreChat regenerate) - берём
+    // последнее сообщение владельца, удаляем последний ответ ассистента, шлём заново тем
+    // же путём (send-chat), включая стриминг.
+    const lastOwner = latestOwnerChatMessage(store.state);
+    if (!lastOwner) return;
+    await store.commit("Chat answer removed for regenerate", (state) => {
+      const lastAssistant = Object.values(state.chatMessages || {})
+        .filter((message) => message.role === "assistant" && !message.deleted && message.createdAt > lastOwner.createdAt)
+        .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""))[0];
+      if (lastAssistant) lastAssistant.deleted = true;
+    });
+    const input = document.querySelector("#chat-input");
+    if (input) input.value = lastOwner.text || "";
+    await handleAction("send-chat", "");
     return;
   }
   if (action === "chat-to-proposal" || action === "chat-to-plan") {

@@ -2605,3 +2605,63 @@ state.commandPaletteRecents (до 6 id, MRU) обновляется в runComman
 всплывает первой после повторного открытия с очищенным запросом); H01-H10 10/10 зелёные;
 аудиты зелёные (env-bound owner-rescue-final); build-public; скриншот
 docs/qc/screens/S1/palette-highlight.png.
+
+## C1.1+C1.2+C1.3: живой стрим Ollama, Стоп, Перегенерировать (2026-07-21)
+
+**Decision:** streamOllamaChatAnswer (app.js) читает `/api/generate` с `stream:true` через
+`response.body.getReader()` - Ollama отдаёт NDJSON (не SSE), донор-идея LibreChat - «читать
+поток по мере поступления, обновлять UI на каждый чанк». `store.streamPatch(mutator)` -
+новый лёгкий путь мутации ReactiveStore: правит `this.state` НА МЕСТЕ (без clone), не трогает
+undo/redo-стек, не персистит на каждый чанк - только `this.emit()` для живого рендера.
+Плейсхолдер (сообщение владельца + пустой ответ ассистента) создаётся через streamPatch, А
+ЕДИНСТВЕННЫЙ реальный `commit()` (с персистом) - только в конце (успех/стоп/ошибка): один
+обмен репликами = один шаг Ctrl+Z, и ровно один цикл сжатия+IndexedDB на весь обмен (как было
+и в нестриминговом коде раньше). C1.2 «Стоп»: `activeChatStreamController.abort()`; C1.3
+«Перегенерировать»: помечает последний ответ ассистента deleted, повторно шлёт тот же текст
+через send-chat.
+
+**Три реальных бага найдены и исправлены В ПРОЦЕССЕ верификации, не после):**
+1. **Race в persistCurrent**: streamPatch изначально не бампал `stateRevision` - асинхронный
+   `persistCurrent` от commit()-а, открывшего плейсхолдер ДО начала стрима, мог резолвиться
+   ПОСЕРЕДИНЕ стрима и переписать `this.state` устаревшим снапшотом (revision совпадал бы).
+   Исправлено: streamPatch теперь тоже инкрементирует stateRevision, честно используя уже
+   существующий в ReactiveStore механизм обнаружения устаревших сохранений (`saveState:
+   "dirty"`), а не изобретая новый.
+2. **normalizeState на каждом save()**: первая попытка принудительно сбрасывать
+   `message.streaming = false` внутри normalizeState гонялась бы с ЛЕГИТИМНО идущим стримом
+   (normalizeState вызывается на КАЖДОМ save, не только при холодном старте) - сброс
+   перенесён в единственное место, где `streaming:true` гарантированно устарел: `hydrate()`
+   (свежая загрузка страницы).
+3. **Потеря последней строки NDJSON без trailing newline**: построчный парсер требовал `\n`
+   после каждой строки; последний (или единственный) чанк потока НЕ обязан иметь trailing
+   newline - EOF сам терминатор. Без фикса `accumulated` оставался пустым →
+   `streamOllamaChatAnswer` кидал «empty response» → честный локальный fallback вместо
+   реального ответа модели. Поймано на СУЩЕСТВУЮЩЕМ (не новом) тесте ai-memory-gate.spec.mjs,
+   который я временно сломал этим багом - обработка остатка буфера при закрытии потока чинит
+   и мой новый, и старый тест одновременно.
+
+**Verified:** новый chat-streaming.spec.mjs 3/3 (NDJSON собирается в текст; Стоп прерывает
+и честно финализирует; Перегенерировать заменяет последний ответ) - все через `page.route`
+mock `/api/generate` (тот же паттерн, что уже используют ai-memory-gate.spec.mjs/
+byok-vault-routing.spec.mjs - реального Ollama-демона в контейнере нет). Полный
+final-human-product.spec.mjs 10/10 зелёный; ai-memory-gate.spec.mjs зелёный (был сломан
+багом №3, теперь чинится тем же фиксом); chat-actions.spec.mjs - 7/8 по многократным
+прогонам (единственный отказ - Playwright "element not stable" при переходе на Ввод, ДО
+открытия чата; Ollama в этом тесте не подключается вовсе, streaming-путь физически не
+исполняется - редкая, невоспроизводимая с высокой частотой флакийность, не логическая
+ошибка). chat-brain-graph-context.spec.mjs красный и на чистой базе (требует реальный
+Ollama-демон, недоступный в контейнере - не регрессия). Полный P19 (24 owner journeys)
+прогнан отдельно на границе пакета (ядро ReactiveStore/commit тронуто).
+
+**Дополнение (пост-P19):** audit-seven-contracts.mjs ловил своей статической строковой
+проверкой удалённую функцию `generateOllamaChatAnswer` (мёртвый код после замены на
+streamOllamaChatAnswer - единственный вызов убран рефакторингом, функция удалена целиком)
+и старый литерал `addChatMessage(state, "assistant", liveAnswer.text`, которого больше нет
+в новой форме кода. Аудит НЕ ослаблен - обе проверки честно перенацелены на реальный новый
+код (streamOllamaChatAnswer как pure model-call wrapper; `assistantMessageId =
+addChatMessage(state, "assistant"` как маркер канонического создания chat-message),
+контракт (AI-текст только через addChatMessage, никогда напрямую в notes/claims/insights)
+не изменился, только его текстовое воплощение в исходнике. Полный P19 (24 owner journeys)
+подтверждён зелёным (4.2 мин, фоновый прогон на границе пакета). Финальная сводка гейтов:
+verify ✅, все 27 аудитов кроме env-bound owner-rescue-final ✅, chat-streaming.spec.mjs 3/3,
+ai-memory-gate.spec.mjs ✅, полный H01-H10 10/10, P19 24/24, build-public ✅.
