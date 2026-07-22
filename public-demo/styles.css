@@ -7914,6 +7914,89 @@ audio {
   font-size: var(--text-sm);
 }
 
+/* Срез 15 (Этап B): виджет фонового смыслового разбора. */
+.semantic-queue {
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.semantic-status {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.semantic-actions {
+  margin-bottom: 8px;
+}
+
+.semantic-pass-note {
+  margin: 4px 0 10px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.semantic-pass-note[data-status="provider_unavailable"] {
+  color: var(--danger);
+}
+
+.semantic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.semantic-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+}
+
+.semantic-item-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 2px;
+}
+
+.semantic-item-body strong {
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.semantic-item-summary {
+  color: var(--accent-finance);
+  font-size: var(--text-xs);
+}
+
+.semantic-item-pending {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.semantic-item-error {
+  color: var(--danger);
+  font-size: var(--text-xs);
+}
+
+.semantic-item[data-status="parsed"] {
+  border-color: var(--accent-finance);
+}
+
 /* Срез 10: разрешение людей - канонические сущности + предложения слить. */
 .people-panel .person-merges {
   display: flex;

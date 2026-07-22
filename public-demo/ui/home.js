@@ -120,6 +120,39 @@ function renderUserModelPanel(ctx) {
   ].join("");
 }
 
+// Срез 15 (Этап B): виджет фонового смыслового разбора. Показывает очередь записей, ждущих «умного»
+// прохода локальной моделью, честный статус модели и результаты (что стало предложениями). Пустая
+// очередь - виджет не рисуется. Ничего не запускается само: разбор - по кнопке, результат - предложения.
+function renderSemanticQueue(ctx) {
+  const q = ctx.semanticQueue || {};
+  if (!q.total) return "";
+  const statusLine = q.hasOllamaGeneration
+    ? `<span data-testid="semantic-model-live">Локальная модель готова: <strong>${escapeHtml(q.model)}</strong></span>`
+    : `<span data-testid="semantic-model-wait">Локальная модель не проверена — разбор пойдёт после проверки.</span> ${button("set-surface", "Открыть Подключения", { id: "providers", kind: "ghost", testId: "semantic-open-providers" })}`;
+  const passNote = q.lastPass && q.lastPass.note
+    ? `<p class="semantic-pass-note" data-testid="semantic-pass-note" data-status="${escapeHtml(q.lastPass.status || "")}">${escapeHtml(q.lastPass.note)}</p>`
+    : "";
+  const list = safeList(q.items, (item) => [
+    `<div class="semantic-item" data-testid="semantic-queue-item" data-status="${escapeHtml(item.status)}">`,
+    `<div class="semantic-item-body"><strong>${escapeHtml(item.text)}</strong>`,
+    item.status === "parsed" ? `<span class="semantic-item-summary" data-testid="semantic-item-summary">→ ${escapeHtml(item.summary || "разобрано")}</span>` : "",
+    item.status === "failed" ? `<span class="semantic-item-error">${escapeHtml(item.error || "не удалось разобрать")}</span>` : "",
+    item.status === "pending" ? `<span class="semantic-item-pending">ждёт разбора</span>` : "",
+    `</div>`,
+    button("dismiss-semantic-item", "Убрать", { id: item.id, kind: "ghost", testId: "dismiss-semantic-item" }),
+    `</div>`
+  ].join(""), `<div class="empty-inline">Записей в очереди нет.</div>`);
+  return [
+    `<section class="semantic-queue" data-testid="semantic-queue-panel">`,
+    `<div class="insights-head"><span>Фоновый разбор</span><em>${q.pendingCount} ждут · ${q.parsedCount} разобрано</em></div>`,
+    `<p class="semantic-status" data-testid="semantic-status">${statusLine}</p>`,
+    `<div class="semantic-actions">${button("run-semantic-queue", "Разобрать смыслом", { kind: "primary", testId: "run-semantic-queue", disabled: !q.pendingCount })}</div>`,
+    passNote,
+    `<div class="semantic-list">${list}</div>`,
+    `</section>`
+  ].join("");
+}
+
 // Срез 14: адаптивный дашборд - виджеты Дома в порядке владельца, каждый можно скрыть/переставить.
 // Раскладка приходит из app.js (dashboardLayout). Пустые виджеты не рисуются; скрытые - в отдельной
 // полоске с «показать». Капча-первый принцип сохранён: ввод выше настраиваемых панелей.
@@ -128,6 +161,7 @@ const DASHBOARD_WIDGET_RENDERERS = {
   insights: renderInsightsPanel,
   usermodel: renderUserModelPanel,
   reflection: renderEveningReflection,
+  semantic: renderSemanticQueue,
   myday: renderMyDay
 };
 function renderDashboardWidgets(ctx) {

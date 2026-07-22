@@ -1017,6 +1017,7 @@ function createInitialState() {
     timelineDay: "",
     dashboardLayout: { order: [], hidden: [] },
     ownerInstructions: [],
+    semanticQueue: [],
     theme: "system",
     financeWeeklyGoal: 0,
     commandPaletteOpen: false,
@@ -2435,6 +2436,7 @@ function normalizeState(input) {
       hidden: Array.isArray(base.dashboardLayout && base.dashboardLayout.hidden) ? base.dashboardLayout.hidden.filter((key) => typeof key === "string") : []
     },
     ownerInstructions: Array.isArray(base.ownerInstructions) ? base.ownerInstructions : [],
+    semanticQueue: Array.isArray(base.semanticQueue) ? base.semanticQueue : [],
     theme: base.theme === "dark" || base.theme === "light" ? base.theme : "system",
     financeWeeklyGoal: Number.isFinite(Number(base.financeWeeklyGoal)) ? Math.max(0, Number(base.financeWeeklyGoal)) : 0,
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
@@ -4147,6 +4149,20 @@ function extractFirstAmount(text) {
   return money.length ? money[0].amount : 0;
 }
 
+// A money word in a phrase must not turn a clock time (16:00), a duration (16 минут / 8 часов)
+// or a percentage into a rouble amount: "смена в 16:00, заработал 4200" is 4200 ₽, never also
+// 16 ₽. Guard is applied only to a bare number with no currency marker of its own - an explicit
+// "16 ₽" always stays money. numberStart/numberLength point at the digits inside `source`.
+function moneyNumberIsTimeOrDuration(source, numberStart, numberLength) {
+  const before = numberStart > 0 ? source[numberStart - 1] : "";
+  const after = source.slice(numberStart + numberLength);
+  if (/^\s*:\s*\d{2}/.test(after)) return true;   // 16:00 - часы времени, не рубли
+  if (before === ":") return true;                  // :30 - минуты/секунды времени
+  if (/^\s*%/.test(after)) return true;             // 20% - процент, не деньги
+  if (/^\s*(?:мин(?:ут[а-яё]*)?|час[а-яё]*|сек(?:унд[а-яё]*)?|ч)(?![а-яёa-z0-9])/iu.test(after)) return true; // длительность
+  return false;
+}
+
 function extractMoneyEntitiesHuman(text) {
   const source = repairMojibake(String(text || ""));
   const lower = normalizeRuText(source);
@@ -4158,7 +4174,10 @@ function extractMoneyEntitiesHuman(text) {
   let match = pattern.exec(source);
   while (match) {
     const amount = Number(match[2]);
-    if (Number.isFinite(amount) && amount > 0 && !seen.has(match.index + ":" + amount)) {
+    const hasCurrency = Boolean(match[3]);
+    const numberStart = match.index + match[1].length;
+    const isMoney = hasCurrency || !moneyNumberIsTimeOrDuration(source, numberStart, match[2].length);
+    if (Number.isFinite(amount) && amount > 0 && isMoney && !seen.has(match.index + ":" + amount)) {
       seen.add(match.index + ":" + amount);
       matches.push({ amount, currency: "RUB", raw: cleanLine(match[0]) || String(amount) });
     }
@@ -5183,6 +5202,11 @@ function captureTextArtifact(state, text) {
     status: "text-ready"
   });
   createActionProposalsForSource(state, sourceId);
+  // Срез 15 (Этап B): содержательные записи дополнительно встают в очередь фонового смыслового
+  // разбора локальной моделью (короткие «задача X» правила уже покрывают — их не грузим).
+  if (cleanText.length >= 24 && cleanText.split(/\s+/).filter(Boolean).length >= 4) {
+    enqueueSemanticParse(state, sourceId, cleanText);
+  }
   state.captureDraft = "";
   addChatMessage(state, "owner", cleanText, sourceId, state.sources[sourceId] ? state.sources[sourceId].noteId : "");
   addChatMessage(state, "assistant", "Артефакт связан с Библиотекой, Графом и предложениями на Сегодня.", sourceId, state.sources[sourceId] ? state.sources[sourceId].noteId : "");
@@ -10393,6 +10417,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     dashboardLayout: resolveDashboardLayout(state),
     ownerInstructions: (state.ownerInstructions || []).map((rule) => ({ id: rule.id, text: rule.text, active: rule.active, kind: rule.kind })),
     instructionPresets: OWNER_INSTRUCTION_PRESETS.filter((preset) => !(state.ownerInstructions || []).some((rule) => cleanLine(rule.text) === cleanLine(preset.text))),
+    semanticQueue: buildSemanticQueueView(state),
     trashItems: allTrashRows(state).slice(0, 30).map((row) => Object.assign({}, row, { daysLeft: Math.max(0, Math.ceil(TRASH_GRACE_DAYS - daysSinceTimestamp(row.updatedAt))) })),
     trashGraceDays: TRASH_GRACE_DAYS,
     ollama: state.ollama || {},
@@ -11226,6 +11251,7 @@ const DASHBOARD_WIDGETS = [
   { key: "insights", label: "Инсайты" },
   { key: "usermodel", label: "О тебе" },
   { key: "reflection", label: "Подвести день" },
+  { key: "semantic", label: "Фоновый разбор" },
   { key: "myday", label: "Мой день" }
 ];
 function resolveDashboardLayout(state) {
@@ -11281,6 +11307,194 @@ function removeOwnerInstruction(state, id) {
 function applyInstructionPreset(state, presetId) {
   const preset = OWNER_INSTRUCTION_PRESETS.find((item) => item.id === presetId);
   if (preset) addOwnerInstruction(state, preset.text, "preset");
+}
+
+// Срез 15 (Этап B) — ФОНОВЫЙ СМЫСЛОВОЙ РАЗБОР.
+// Владелец накидывает записи (голос/текст) в течение дня; помимо мгновенного разбора правилами
+// они встают в отложенную очередь на «умный» проход локальной моделью (Ollama). Проход даёт
+// ПРЕДЛОЖЕНИЯ (задача/событие/трата/доход/привычка/проект/мысль) — как всё в LifeOS, только после
+// подтверждения владельца, с receipt. Модель НЕ проверена → честно «недоступно», ничего не выдумываем.
+const SEMANTIC_KIND_MAP = {
+  task: { type: "task", label: "задача" },
+  event: { type: "calendar", label: "событие" },
+  expense: { type: "finance_expense", label: "трата" },
+  income: { type: "finance_income", label: "доход" },
+  habit: { type: "habit", label: "привычка" },
+  project: { type: "plan", label: "проект" },
+  note: { type: "note", label: "мысль" }
+};
+
+// Строгий промпт: локальная модель обязана вернуть ТОЛЬКО JSON-массив, без пояснений и без выдумок.
+function buildSemanticParsePrompt(text, dateLabel) {
+  const kinds = Object.keys(SEMANTIC_KIND_MAP).join(", ");
+  return "Ты — локальный смысловой разборщик заметок LifeOS. Прочитай запись владельца и разбери её ПО СМЫСЛУ на отдельные элементы. " +
+    "Верни ТОЛЬКО валидный JSON-массив, без пояснений и текста вокруг. " +
+    "Каждый элемент строго вида: {\"kind\":\"...\",\"title\":\"...\",\"when\":\"\",\"amount\":0,\"note\":\"\"}. " +
+    "Допустимые kind: " + kinds + " (task=задача, event=встреча/событие со временем, expense=трата, income=доход, habit=привычка, project=большая цель/проект, note=мысль/факт). " +
+    "Правила: ничего не выдумывай — бери только то, что реально сказано; сумму (amount) ставь только если она явно названа, иначе 0; when только если есть время/дата, иначе пустая строка; максимум 8 элементов; отвечай на русском. " +
+    "Дата записи: " + cleanLine(dateLabel || "") + ". " +
+    "Запись: \"" + cleanLine(String(text || "")).slice(0, 1200) + "\". " +
+    "JSON:";
+}
+
+// Модели любят обернуть JSON в прозу или ```json-забор и добавить «размышления». Достаём массив
+// честно: срезаем thinking, берём первую сбалансированную [...]-структуру, валидируем каждый элемент.
+function parseSemanticModelResponse(rawText) {
+  const stripped = stripModelThinkingBlocks(String(rawText || "")).replace(/```(?:json)?/gi, "");
+  const start = stripped.indexOf("[");
+  const endBracket = stripped.lastIndexOf("]");
+  let items = [];
+  let ok = false;
+  if (start >= 0 && endBracket > start) {
+    const slice = stripped.slice(start, endBracket + 1);
+    try {
+      const parsed = JSON.parse(slice);
+      if (Array.isArray(parsed)) { items = parsed; ok = true; }
+    } catch (error) {
+      ok = false;
+    }
+  }
+  if (!ok) {
+    // Одиночный объект вместо массива — тоже принимаем.
+    const objStart = stripped.indexOf("{");
+    const objEnd = stripped.lastIndexOf("}");
+    if (objStart >= 0 && objEnd > objStart) {
+      try {
+        const one = JSON.parse(stripped.slice(objStart, objEnd + 1));
+        if (one && typeof one === "object") { items = [one]; ok = true; }
+      } catch (error) {
+        ok = false;
+      }
+    }
+  }
+  const normalized = [];
+  for (const raw of Array.isArray(items) ? items : []) {
+    if (!raw || typeof raw !== "object") continue;
+    const kind = SEMANTIC_KIND_MAP[cleanLine(raw.kind).toLowerCase()] ? cleanLine(raw.kind).toLowerCase() : "note";
+    const title = cleanLine(raw.title || raw.text || raw.note || "");
+    if (!title) continue;
+    const amount = Number(raw.amount);
+    normalized.push({
+      kind,
+      title: shorten(title, 120),
+      when: cleanLine(raw.when || ""),
+      amount: Number.isFinite(amount) && amount > 0 ? amount : 0,
+      note: shorten(cleanLine(raw.note || ""), 160)
+    });
+    if (normalized.length >= 8) break;
+  }
+  return { ok: ok && normalized.length > 0, items: normalized };
+}
+
+// Ставим запись в очередь на смысловой разбор. Дедуп по источнику; храним последние 50.
+function enqueueSemanticParse(state, sourceId, text) {
+  const clean = cleanLine(String(text || ""));
+  if (!clean) return "";
+  state.semanticQueue = Array.isArray(state.semanticQueue) ? state.semanticQueue : [];
+  const already = state.semanticQueue.find((item) => item.sourceId === sourceId && (item.status === "pending" || item.status === "parsed"));
+  if (already) return already.id;
+  const source = sourceId ? state.sources[sourceId] : null;
+  const id = makeId("semq");
+  const createdAt = now();
+  state.semanticQueue = state.semanticQueue.concat([{
+    id,
+    sourceId: sourceId || "",
+    noteId: source ? source.noteId : (state.activeNoteId || ""),
+    text: shorten(clean, 600),
+    status: "pending",
+    createdAt,
+    parsedAt: "",
+    model: "",
+    summary: "",
+    itemCount: 0,
+    proposalIds: [],
+    error: ""
+  }]).slice(-50);
+  addAudit(state, "semantic.enqueue", "В очередь фонового разбора: " + shorten(clean, 60), source ? source.noteId : state.activeNoteId);
+  return id;
+}
+
+// Разобранные элементы → ПРЕДЛОЖЕНИЯ (не тихие действия). Владелец подтверждает их как обычно.
+function applySemanticParseResult(state, itemId, drafts, model) {
+  const item = (state.semanticQueue || []).find((entry) => entry.id === itemId);
+  if (!item) return [];
+  const proposalIds = [];
+  const counts = {};
+  for (const draft of Array.isArray(drafts) ? drafts : []) {
+    const mapped = SEMANTIC_KIND_MAP[draft.kind] || SEMANTIC_KIND_MAP.note;
+    const amountLabel = draft.amount > 0 ? " · " + draft.amount + " ₽" : "";
+    const whenLabel = draft.when ? " · " + draft.when : "";
+    const title = (mapped.type === "plan" ? "Проект: " : "") + draft.title + (mapped.type.startsWith("finance") ? amountLabel : whenLabel);
+    const proposalId = addProposal(state, mapped.type, title, item.sourceId, item.noteId, {
+      reason: "Фоновый смысловой разбор локальной моделью" + (model ? " (" + model + ")" : ""),
+      quote: shorten(item.text, 140),
+      confidence: 0.6,
+      fields: { amount: draft.amount || 0, when: draft.when || "", note: draft.note || "", semanticKind: draft.kind }
+    });
+    if (proposalId) {
+      proposalIds.push(proposalId);
+      counts[mapped.label] = (counts[mapped.label] || 0) + 1;
+    }
+  }
+  item.status = "parsed";
+  item.parsedAt = now();
+  item.model = cleanLine(model || "");
+  item.itemCount = proposalIds.length;
+  item.proposalIds = proposalIds;
+  item.error = "";
+  item.summary = proposalIds.length
+    ? Object.entries(counts).map(([label, count]) => count + " " + label).join(", ")
+    : "модель не нашла элементов";
+  addControlReceipt(state, "semantic.parse", item.id, "Фоновый разбор: " + item.summary + " из «" + shorten(item.text, 60) + "»", { noteId: item.noteId, sourceId: item.sourceId, surface: "home" });
+  addAudit(state, "semantic.parse", "Фоновый разбор дал предложений: " + proposalIds.length + " (" + item.summary + ")", item.noteId);
+  return proposalIds;
+}
+
+function markSemanticItemFailed(state, itemId, reason) {
+  const item = (state.semanticQueue || []).find((entry) => entry.id === itemId);
+  if (!item) return;
+  item.status = "failed";
+  item.error = cleanLine(reason || "модель не вернула структуру");
+  item.parsedAt = now();
+  addAudit(state, "semantic.parse.failed", "Фоновый разбор не удался: " + item.error, item.noteId);
+}
+
+// Честная граница: модель не проверена/недоступна — записи остаются pending, ничего не имитируем.
+function markSemanticParseUnavailable(state, reason) {
+  state.control = state.control && typeof state.control === "object" ? state.control : {};
+  const note = cleanLine(reason || "Локальная модель не проверена. Подключения → Ollama → «Тест генерации».");
+  state.control.semanticParse = { status: "provider_unavailable", note, checkedAt: now(), model: (state.ollama || {}).selectedModel || "" };
+  recordProviderRun(state, "ollama", "semantic-parse", "provider_unavailable", "Фоновый разбор недоступен: " + note, { locality: "local" });
+  addAudit(state, "semantic.parse.unavailable", "Фоновый разбор недоступен (честно): " + note, state.activeNoteId);
+}
+
+function dismissSemanticItem(state, itemId) {
+  state.semanticQueue = (state.semanticQueue || []).filter((item) => item.id !== itemId);
+  addAudit(state, "semantic.dismiss", "Запись убрана из очереди разбора", state.activeNoteId);
+}
+
+// Проекция для виджета Дома: счётчики + честный статус модели + последние записи.
+function buildSemanticQueueView(state) {
+  const items = Array.isArray(state.semanticQueue) ? state.semanticQueue : [];
+  const pending = items.filter((item) => item.status === "pending");
+  const parsed = items.filter((item) => item.status === "parsed");
+  const ollama = state.ollama || {};
+  return {
+    total: items.length,
+    pendingCount: pending.length,
+    parsedCount: parsed.length,
+    hasOllamaGeneration: ollama.status === "generation_ok" && Boolean(ollama.selectedModel),
+    model: cleanLine(ollama.selectedModel || ""),
+    lastPass: (state.control && state.control.semanticParse) || null,
+    items: items.slice(-6).reverse().map((item) => ({
+      id: item.id,
+      status: item.status,
+      text: shorten(item.text, 90),
+      summary: item.summary,
+      itemCount: item.itemCount,
+      error: item.error
+    }))
+  };
 }
 
 // Срез 12: модель пользователя - ВЫЧИСЛЯЕМЫЕ характеристики (дисциплина/ритм/энергия) из
@@ -16008,6 +16222,67 @@ async function handleAction(action, id) {
     });
     return;
   }
+  if (action === "dismiss-semantic-item") {
+    // Срез 15: убрать запись из очереди фонового разбора.
+    await store.commit("Запись убрана из очереди разбора", (state) => dismissSemanticItem(state, id));
+    return;
+  }
+  if (action === "run-semantic-queue") {
+    // Срез 15 (Этап B): фоновый смысловой проход по очереди. Ровно как чат: реальная генерация
+    // Ollama пробуется ТОЛЬКО когда владелец уже проверил её («generation_ok»), сеть — вне commit,
+    // а при недоступности — честное «provider_unavailable», без имитации разбора.
+    const snapshot = store.state;
+    const pending = (snapshot.semanticQueue || []).filter((item) => item.status === "pending");
+    if (!pending.length) {
+      store.state.commandMessage = "Очередь фонового разбора пуста.";
+      render();
+      return;
+    }
+    const canGenerate = snapshot.ollama && snapshot.ollama.status === "generation_ok" && snapshot.ollama.selectedModel;
+    if (!canGenerate) {
+      await store.commit("Фоновый разбор: локальная модель не проверена", (state) => {
+        markSemanticParseUnavailable(state);
+      });
+      return;
+    }
+    const model = snapshot.ollama.selectedModel;
+    const endpoint = snapshot.ollama.endpoint;
+    const dateLabel = todayKey();
+    const results = [];
+    for (const item of pending.slice(0, 8)) {
+      try {
+        const prompt = buildSemanticParsePrompt(item.text, dateLabel);
+        const generated = await generateOllamaChatAnswer(endpoint, model, prompt, 700);
+        const parsed = parseSemanticModelResponse(generated.text);
+        results.push({ id: item.id, ok: parsed.ok, items: parsed.items, error: "" });
+      } catch (error) {
+        results.push({ id: item.id, ok: false, items: [], error: error && error.message ? error.message : String(error) });
+      }
+    }
+    await store.commit("Фоновый смысловой разбор выполнен", (state) => {
+      let parsedRecords = 0;
+      let proposalTotal = 0;
+      for (const result of results) {
+        if (result.ok && result.items.length) {
+          const ids = applySemanticParseResult(state, result.id, result.items, model);
+          parsedRecords += 1;
+          proposalTotal += ids.length;
+        } else {
+          markSemanticItemFailed(state, result.id, result.error || "модель не вернула структуру");
+        }
+      }
+      state.control = state.control && typeof state.control === "object" ? state.control : {};
+      state.control.semanticParse = {
+        status: "parsed",
+        note: "Разобрано записей: " + parsedRecords + ", предложений: " + proposalTotal + " — проверь их на Сегодня.",
+        checkedAt: now(),
+        model
+      };
+      state.commandMessage = "Фоновый разбор готов: предложений " + proposalTotal + " (проверь на Сегодня).";
+      addAudit(state, "semantic.parse.pass", "Фоновый проход: записей " + parsedRecords + ", предложений " + proposalTotal + ", модель " + model, state.activeNoteId);
+    });
+    return;
+  }
   if (action === "set-timeline-day") {
     // Срез 9: клик по дню/событию оси фиксирует день реконструкции (id = YYYY-MM-DD, "" сбрасывает).
     store.state.timelineDay = cleanLine(id || "");
@@ -18257,6 +18532,9 @@ window.__lifeosKnowledgeBase = {
   setArtifactDayForTest,
   activeOwnerInstructions,
   buildOllamaChatPrompt,
+  buildSemanticParsePrompt,
+  parseSemanticModelResponse,
+  buildSemanticQueueView,
   injectStorageFailureForTest,
   injectProviderFailureForTest,
   isolateCorruptRecord,
