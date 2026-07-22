@@ -39,10 +39,16 @@
      elevation rather than one big blurry one) - additive, existing tokens above unchanged. */
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --radius-xl: 20px;
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
-  --shadow-float: 0 2px 4px rgba(16, 24, 40, 0.04), 0 12px 24px rgba(16, 24, 40, 0.08);
-  --shadow-modal: 0 8px 16px rgba(16, 24, 40, 0.08), 0 24px 48px rgba(16, 24, 40, 0.14);
+  /* U-VISUAL (2026-07-22): the previous shadow-card/float alpha (0.04-0.08) was too faint to
+     register on screen - every card using these tokens looked flat despite "having" a shadow.
+     Bumped to values that actually read as depth at normal screen brightness, still restrained
+     (no heavy drop-shadows) - cascades to every existing card/button that already references
+     these tokens, no per-component changes needed. */
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px rgba(16, 24, 40, 0.08);
+  --shadow-float: 0 4px 8px rgba(16, 24, 40, 0.08), 0 16px 32px rgba(16, 24, 40, 0.14);
+  --shadow-modal: 0 8px 16px rgba(16, 24, 40, 0.1), 0 24px 48px rgba(16, 24, 40, 0.18);
   --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.32);
+  --text-3xl: 34px;
   color-scheme: light;
   --paper: #eef2f5;
   --surface: #ffffff;
@@ -131,9 +137,9 @@
 .surface-more summary {
   min-height: 34px;
   border: 1px solid var(--line);
-  border-radius: 7px;
-  background: #ffffff;
-  color: #334155;
+  border-radius: var(--radius-sm, 7px);
+  background: var(--surface);
+  color: var(--ink);
   padding: 7px 11px;
   cursor: pointer;
   font-size: 13px;
@@ -145,6 +151,7 @@
   display: none;
 }
 
+/* U-VISUAL: was hardcoded #ffffff/#d7e0e7 - stayed a pale-white popover even in dark theme. */
 .surface-more div {
   position: absolute;
   right: 0;
@@ -154,10 +161,10 @@
   display: grid;
   gap: 6px;
   padding: 8px;
-  border: 1px solid #d7e0e7;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface);
+  box-shadow: var(--shadow-modal);
 }
 
 .human-nav-rail {
@@ -438,8 +445,50 @@ body {
   min-height: 100%;
   background: var(--paper);
   color: var(--ink);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
   letter-spacing: 0;
+  /* U-VISUAL: no bundled Inter file exists (system-ui was the real render all along), so lean on
+     what the OS font actually supports instead of a fake first choice - optical sizing + the
+     handful of stylistic-set/contextual features most system UI fonts expose read as "designed"
+     without adding a network font fetch (local-first, no new dependency). */
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* U-VISUAL: headings had zero deliberate styling anywhere in the app (bare browser defaults) -
+   this is the single highest-leverage, lowest-risk change in the whole pass: every page title,
+   card heading and section label gets real weight/tracking/rhythm at once, additive only (no
+   existing rule set any of these properties, so nothing here can conflict). */
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 700;
+  /* No negative letter-spacing (audit-visual-hierarchy guards this): tight tracking is a
+     Latin-headline convention that visibly cramps Cyrillic letterforms (Ж/Ш/Щ/М), and the
+     product is RU-first (§6) - weight/size/line-height carry the hierarchy instead. */
+  line-height: var(--line-height-tight);
+  color: var(--ink);
+}
+
+h1 {
+  font-size: var(--text-3xl);
+  font-weight: 750;
+}
+
+h2 {
+  font-size: var(--text-2xl);
+}
+
+h3 {
+  font-size: var(--text-xl);
+}
+
+h4 {
+  font-size: var(--text-lg);
+  font-weight: 650;
 }
 
 button,
@@ -451,37 +500,65 @@ select {
 }
 
 button {
-  min-height: 34px;
+  min-height: 36px;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--radius-sm, 7px);
   background: var(--surface);
   color: var(--ink);
-  padding: 7px 10px;
+  padding: 8px 12px;
   cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: transform 120ms var(--ease, ease), box-shadow 120ms var(--ease, ease), border-color 120ms var(--ease, ease), background 120ms var(--ease, ease);
 }
 
 button:hover {
-  border-color: #9caea7;
-  background: #fbfcfa;
+  border-color: var(--accent, #0e7490);
+  background: var(--surface-soft, var(--surface));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-float);
+}
+
+button:active {
+  transform: translateY(0);
 }
 
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 3px solid rgba(194, 75, 53, 0.24);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 button.primary {
   background: var(--deep);
   border-color: var(--deep);
   color: white;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 52, 67, 0.2), 0 4px 12px rgba(15, 52, 67, 0.24);
+}
+
+button.primary:hover {
+  background: var(--deep-2, var(--deep));
+  box-shadow: 0 2px 4px rgba(15, 52, 67, 0.24), 0 10px 20px rgba(15, 52, 67, 0.28);
 }
 
 button.danger {
   color: var(--danger);
   border-color: rgba(155, 48, 36, 0.4);
+  background: rgba(190, 18, 60, 0.06);
+}
+
+button.danger:hover {
+  border-color: var(--danger);
+  background: rgba(190, 18, 60, 0.12);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
 }
 
 input,
@@ -489,10 +566,17 @@ textarea,
 select {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--radius-sm, 7px);
   background: var(--surface);
   color: var(--ink);
   padding: 9px 10px;
+  transition: border-color 120ms var(--ease, ease), box-shadow 120ms var(--ease, ease);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--accent, #0e7490);
 }
 
 label {
@@ -2845,9 +2929,23 @@ audio {
 .stt-gate > div,
 .audio-card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px 10px;
+}
+
+/* U-VISUAL fix: in the narrow player list column the title + delete button didn't fit on one
+   row and the button overflowed the card edge. flex-wrap above lets the button drop to its own
+   row instead of spilling out; these two rules make that wrapped row behave (title can shrink,
+   button never does and stays pinned right). */
+.audio-card-head > div {
+  flex: 1 1 140px;
+}
+
+.audio-card-head .danger {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .stt-gate p,
@@ -2869,9 +2967,10 @@ audio {
   gap: 10px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid rgba(203, 215, 209, 0.86);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 7px);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
 }
 
 .audio-card audio {
@@ -5346,8 +5445,10 @@ audio {
 }
 
 .topbar {
-  background: rgba(248, 250, 252, 0.96);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  /* U-VISUAL: was a hardcoded light-mode-only rgba, so the topbar stayed pale in dark theme too -
+     color-mix against the real --surface token keeps the translucent/blur look in both themes. */
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow-sm);
 }
 
 .brand h1 {
@@ -6015,7 +6116,10 @@ audio {
 
 .home-hero-copy h1 {
   margin: 0;
-  font-size: clamp(24px, 2.4vw, var(--text-2xl));
+  /* U-VISUAL: was capped at 28px max - flat for the app's own headline. Bumped for real
+     presence on the first screen while staying responsive (still calm - no color/weight
+     shouting, just size the hero copy earns). */
+  font-size: clamp(26px, 3vw, 38px);
   line-height: var(--line-height-tight);
 }
 
@@ -6163,6 +6267,12 @@ audio {
 .mini-summary-card strong {
   min-height: 38px;
   font-size: 15px;
+}
+
+/* U-VISUAL: "Сегодня" had no tint (plain gray) while money/habits did - added for rhythm/
+   parity across the three stat cards, using the app's own --color-task accent family. */
+.mini-summary-card.today {
+  background: rgba(217, 119, 6, 0.08);
 }
 
 .mini-summary-card.money {

@@ -253,7 +253,7 @@ export function renderAssistantHome(ctx) {
     renderAssistantInput(ctx),
     renderHumanAnswerCard(ctx),
     `<aside class="home-mini-summary">`,
-    `<button class="mini-summary-card" data-action="set-surface" data-id="today" data-testid="owner-next-zone"><span>Сегодня ${progressRing(today.doneToday || 0, (today.doneToday || 0) + (today.todayCount || 0), "today-ring")}</span><strong>${escapeHtml(today.next?.title || "Нет следующего действия")}</strong><em>${today.todayCount || 0} сегодня · ${today.unscheduled || 0} без времени</em></button>`,
+    `<button class="mini-summary-card today" data-action="set-surface" data-id="today" data-testid="owner-next-zone"><span>Сегодня ${progressRing(today.doneToday || 0, (today.doneToday || 0) + (today.todayCount || 0), "today-ring")}</span><strong>${escapeHtml(today.next?.title || "Нет следующего действия")}</strong><em>${today.todayCount || 0} сегодня · ${today.unscheduled || 0} без времени</em></button>`,
     `<button class="mini-summary-card money" data-action="set-surface" data-id="finance" data-testid="owner-money-zone"><span>Деньги ${sparklineSvg(finance.sparkline, "money-sparkline")}</span><strong>${money(finance.balance)}</strong><em>${money(finance.todaySpend)} сегодня</em></button>`,
     `<button class="mini-summary-card habits" data-action="set-surface" data-id="habits" data-testid="owner-habit-zone"><span>Привычки ${streak >= 2 ? `<em class="streak-flame" data-testid="habit-streak">🔥${streak}</em>` : ""}</span><strong>${escapeHtml(habitsDone)}</strong><em>${ctx.goals?.length || 0} целей</em></button>`,
     `</aside>`,
