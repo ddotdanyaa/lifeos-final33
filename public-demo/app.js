@@ -12299,6 +12299,54 @@ function detectConceptConnections(state) {
   });
 }
 
+// I4 (донор-принцип: Neo4j degree/centrality): узел с самой высокой степенью связей - «хаб»,
+// вокруг которого крутится многое. Степень = исходящие вики-связи + входящие (backlinks).
+// Только артефакты владельца (не внутренний скаффолдинг). Read-only сигнал.
+function detectGraphHubs(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
+  if (notes.length < 4) return [];
+  const backlinks = state.backlinks || {};
+  const ranked = notes.map((note) => {
+    const outgoing = (Array.isArray(note.links) ? note.links : []).filter((link) => link.targetId).length;
+    const incoming = Array.isArray(backlinks[note.id]) ? backlinks[note.id].length : 0;
+    return { note, degree: outgoing + incoming };
+  }).filter((entry) => entry.degree >= 4).sort((a, b) => b.degree - a.degree);
+  if (!ranked.length) return [];
+  const top = ranked[0];
+  return [{
+    id: "hub-" + top.note.id,
+    type: "hub",
+    icon: "🌟",
+    title: "Важный хаб: «" + (top.note.title || "заметка") + "»",
+    detail: "Связан с " + top.degree + " " + pluralRu(top.degree, "артефактом", "артефактами", "артефактами") + " — вокруг этого крутится многое",
+    confidence: top.degree >= 8 ? "высокая" : "средняя",
+    refs: [top.note.id]
+  }];
+}
+
+// I6 (обратная сторона I1): термин, встречающийся во МНОГИХ артефактах владельца (df ≥4) -
+// доминирующая тема, к которой владелец постоянно возвращается. Read-only сигнал.
+function detectDominantThemes(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
+  if (notes.length < 4) return [];
+  const termCount = new Map();
+  for (const note of notes) {
+    for (const term of artifactDistinctiveTerms(note)) termCount.set(term, (termCount.get(term) || 0) + 1);
+  }
+  const themes = Array.from(termCount.entries()).filter(([, df]) => df >= 4).sort((a, b) => b[1] - a[1]);
+  if (!themes.length) return [];
+  const [term, df] = themes[0];
+  return [{
+    id: "theme-" + term,
+    type: "theme",
+    icon: "📌",
+    title: "Частая тема: «" + term + "»",
+    detail: "Встречается в " + df + " " + pluralRu(df, "заметке", "заметках", "заметках") + " — к этому ты возвращаешься чаще всего",
+    confidence: df >= 8 ? "высокая" : "средняя",
+    refs: []
+  }];
+}
+
 // Срез 11: Insight Engine - ВЫЧИСЛЯЕМЫЕ закономерности из реальных артефактов (повторяющиеся
 // траты, тренды, забытые цели, просроченные задачи). Проекция (как memoryLayers/timelineDays),
 // пересчитывается на каждом рендере => всегда свежая при первом открытии за день. Каждый инсайт
@@ -12350,6 +12398,9 @@ function computeInsights(state) {
   }
   // 5. I1: неожиданные связи между артефактами (Graphiti/Logseq unlinked-references идея).
   for (const connection of detectConceptConnections(state)) insights.push(connection);
+  // 6. I4: важные хабы (Neo4j centrality идея). 7. I6: доминирующие темы.
+  for (const hub of detectGraphHubs(state)) insights.push(hub);
+  for (const theme of detectDominantThemes(state)) insights.push(theme);
   return insights.slice(0, 8);
 }
 
@@ -19840,6 +19891,10 @@ window.__lifeosKnowledgeBase = {
   // I1: read-only проекция детектора связей для e2e - как computeInsights, без мутаций.
   detectConceptConnectionsForTest() {
     return store ? detectConceptConnections(store.state) : [];
+  },
+  // I4/I6: read-only проекция всех инсайтов для e2e (хабы/темы поверх базовых категорий).
+  computeInsightsForTest() {
+    return store ? computeInsights(store.state) : [];
   },
   getArchitectureSnapshot() {
     return buildArchitectureSnapshot(store ? store.state : {});

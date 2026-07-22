@@ -3044,3 +3044,17 @@ Capacities, Heptabase, Dataview, Neo4j…), не переносить код и 
 Армения НЕ связываются); H01-H10 10/10 (H01 «спокойный Дом» держится); insight-engine зелёный;
 verify; аудиты (кроме env-bound owner-rescue-final); build-public. Скриншот
 docs/qc/screens/AUDIT/connection-insight.png.
+
+## I4+I6: инсайты «важный хаб» (Neo4j centrality) и «частая тема» (2026-07-22)
+
+Ещё два read-only типа инсайтов поверх computeInsights, только сигнал, без мутаций:
+- **I4 (донор-принцип Neo4j degree/centrality):** `detectGraphHubs` считает степень каждой
+  заметки владельца (исходящие вики-связи + входящие backlinks); узел со степенью ≥4 →
+  «🌟 Важный хаб: «X» — связан с N артефактами, вокруг этого крутится многое».
+- **I6 (обратная сторона I1):** `detectDominantThemes` берёт различающие термины (тот же
+  artifactDistinctiveTerms + стоп-лист), и термин с df≥4 → «📌 Частая тема: «X» — встречается
+  в N заметках». I1 использует РЕДКИЕ общие термины (неожиданные связи), I6 — ЧАСТЫЕ (главная
+  тема). Оба исключают внутренний скаффолдинг (v34_platform/product_brain).
+**Проверено:** connection-insights.spec.mjs теперь 4/4 (+I4 хаб через настоящие [[вики-ссылки]]
+→ степень 4; +I6 тема «маркетинг» в 4 заметках; через read-only хук computeInsightsForTest);
+H01-H10 10/10; insight-engine зелёный; verify; аудиты (кроме env-bound); build-public.

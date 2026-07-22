@@ -70,3 +70,33 @@ test("I1 does not invent a connection between unrelated artifacts", async ({ pag
   const spurious = connections.find((c) => /борщ|свёкл|капуст/i.test(c.title) && /Армен|Ереван|Севан/i.test(c.title));
   expect(spurious, "unrelated artifacts must not be connected").toBeFalsy();
 });
+
+test("I4 surfaces a hub - the artifact many others link to (Neo4j centrality idea)", async ({ page }) => {
+  await reset(page, "hub-" + Date.now());
+  await capture(page, "Проект Альфа");
+  await capture(page, "Канал один связан с [[Проект Альфа]]");
+  await capture(page, "Эксперимент два для [[Проект Альфа]]");
+  await capture(page, "Бюджет три по [[Проект Альфа]]");
+  await capture(page, "Команда четыре на [[Проект Альфа]]");
+
+  const insights = await page.evaluate(() => window.__lifeosKnowledgeBase.computeInsightsForTest());
+  const hub = insights.find((i) => i.type === "hub");
+  expect(hub, "a hub insight must be detected for the heavily-linked note").toBeTruthy();
+  expect(hub.title).toContain("Проект Альфа");
+  expect(hub.detail).toMatch(/Связан с \d+/);
+});
+
+test("I6 surfaces a dominant recurring theme across the owner's notes", async ({ page }) => {
+  await reset(page, "theme-" + Date.now());
+  for (const t of [
+    "Маркетинг канал первый",
+    "Маркетинг эксперимент второй",
+    "Маркетинг бюджет третий",
+    "Маркетинг команда четвёртая"
+  ]) await capture(page, t);
+
+  const insights = await page.evaluate(() => window.__lifeosKnowledgeBase.computeInsightsForTest());
+  const theme = insights.find((i) => i.type === "theme" && /маркетинг/i.test(i.title));
+  expect(theme, "a dominant-theme insight must be detected").toBeTruthy();
+  expect(theme.detail).toMatch(/Встречается в \d+/);
+});
