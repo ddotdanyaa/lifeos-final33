@@ -55,7 +55,10 @@ Receipt Engine, Memory Graph, Personal OS). Остальное — интегр�
 | **Open WebUI** | ⚠️ «Open WebUI License» (branding clause с 2025) | Custom-ограничения | UX локального AI: model selector, RAG/citations, tools UI |
 | **originui** | ⚠️ **AGPL-3.0** (сюрприз — не «просто формы») | AGPL | Внешний вид форм/календаря событий |
 | react-bits | ⚠️ MIT + Commons Clause | Commons Clause ≠ чистый MIT | Идеи анимаций/onboarding |
-| Vikunja, Plane, Logseq, Firefly III | AGPL | AGPL | Идеи фич |
+| **Haystack** (deepset) | Apache-2.0 ✅ лицензия — но **Python** (524 .py) | Python не запускается в vanilla-браузере, движок неперенос | Компонентный RAG-конвейер: retrievers/rankers/joiners/routers/builders/generators как ИНСПЕКТИРУЕМЫЙ pipeline «запрос→поиск→реранк→контекст→ответ» с цитатами назад на артефакт (R/Q-пачки; движки уже есть — minisearch + semantic search) |
+| **Graphiti** (getzep) | Apache-2.0 ✅ лицензия — но **Python + Neo4j** (255 .py) | Python + внешняя БД Neo4j, не встаёт в локальный vanilla | Темпоральный граф: рёбра с валидностью во времени, инвалидация (не удаление) при противоречии, трассировка факта до эпизода-источника, гибридный поиск (семантика+ключи+обход) — донор F7 и I-пачки; реализуем как проекцию над нашим graph/memory |
+| **Logseq** | ⚠️ **AGPL-3.0** + ClojureScript (856 .cljs) | AGPL запрещает код + не JS-стек | Outliner блоками, block-refs `((id))`, daily journal, page properties, query-страницы — идеи для «База» |
+| Vikunja, Plane, Firefly III | AGPL | AGPL | Идеи фич |
 
 ## Карта: подсистема LifeOS → доноры (в порядке приоритета)
 
@@ -80,6 +83,16 @@ Receipt Engine, Memory Graph, Personal OS). Остальное — интегр�
 - **Повтор задач/приоритизация:** obsidian-tasks Recurrence/Urgency (MIT, код).
 - **Финансы глубже:** actual schedules/rules/budget (MIT, код).
 - **Ежедневные петли:** super-productivity (использован U6), expensica heatmap.
+- **RAG-конвейер над артефактами (R/Q-пачки):** концепция Haystack — инспектируемый
+  pipeline «запрос → retrieve (minisearch/embeddings) → rerank → build-context → локальный
+  LLM-ответ с цитатами назад на артефакт». Каждая стадия видима (граница §7 — прозрачность).
+  Движки уже установлены; собираем vanilla-конвейер, не тащим Python.
+- **Темпоральный граф знаний (I-пачка, F7):** концепция Graphiti — рёбра несут время-валидность
+  («факт верен с даты X») и трассировку до эпизода-источника; противоречащий факт
+  ИНВАЛИДИРУЕТ старое ребро, а не перезаписывает (полная история сохраняется — совпадает с
+  нашей философией чеков/«почему»). Реализуем как проекцию над существующим graph/memory, НЕ Neo4j.
+- **База / знания глубже:** outliner-блоки, block-references, daily journal, page-properties —
+  идеи Logseq (AGPL, только идеи) поверх установленного @toast-ui/editor и концепций BlockSuite/AFFiNE.
 
 ## Леджер аудита (не повторять)
 
@@ -89,6 +102,13 @@ Receipt Engine, Memory Graph, Personal OS). Остальное — интегр�
   feature-grep по 12 доменам (`run-oss-audit-v2.mjs` в scratchpad). Сюрпризы
   зафиксированы: tldraw НЕ MIT; originui — AGPL; react-bits — Commons Clause; Open WebUI —
   branding clause; AFFiNE-фронтенд — MIT (можно код); xyflow/system — framework-agnostic.
+- [x] 2026-07-22 — v2.2: занесены **Haystack** (Apache-2.0, но Python 524 .py → паттерны
+  RAG-конвейера, R/Q-пачки) и **Graphiti** (Apache-2.0, но Python 255 .py + Neo4j → концепция
+  темпоральных рёбер с инвалидацией и трассировкой к эпизоду, донор F7/I); **Logseq** выделен
+  из AGPL-связки (идеи «База»: outliner/block-refs). Владелец скачал их локально для внедрения —
+  лицензии/стек проверены из raw LICENSE, вывод: все три — доноры-ИДЕИ, не код (Python/ClojureScript
+  физически не встают в vanilla; Logseq вдобавок AGPL). **skills + graphify — инструменты агента,
+  НЕ продуктовые доноры** (см. `.agents/skills/`).
 - [ ] Построчный разбор Excalidraw selection/binding — при пакете Whiteboard/Graph-гибрида.
 - [ ] Построчный разбор LibreChat streaming/tool-calling — при следующем AI-пакете.
 - [ ] Построчный разбор xyflow/system edge-math — при Graph-гибриде или Builder.
