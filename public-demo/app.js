@@ -7676,6 +7676,24 @@ function ensureWhisperWorker() {
   return whisperWorker;
 }
 
+async function decodeViaLocalFfmpegFallback(decodeCtx, arrayBuffer, originalError) {
+  let transcodeResponse;
+  try {
+    transcodeResponse = await fetch("/local-audio-transcode", { method: "POST", body: arrayBuffer });
+  } catch {
+    transcodeResponse = null;
+  }
+  if (!transcodeResponse || !transcodeResponse.ok) {
+    throw new Error("Браузер не смог декодировать этот аудиофайл (частый случай — OPUS, ALAC/Apple Lossless или редкий кодек из мессенджера). Пересохрани его как WAV/MP3 или впиши текст в «Ручную расшифровку». Деталь: " + ((originalError && originalError.message) || originalError));
+  }
+  const wavBuffer = await transcodeResponse.arrayBuffer();
+  try {
+    return await decodeCtx.decodeAudioData(wavBuffer);
+  } catch (secondError) {
+    throw new Error("Локальный ffmpeg переконвертировал файл, но браузер всё равно не смог его декодировать. Впиши текст в «Ручную расшифровку». Деталь: " + ((secondError && secondError.message) || secondError));
+  }
+}
+
 // File -> AudioContext.decodeAudioData (the browser decodes m4a/webm/wav natively) ->
 // OfflineAudioContext resampled to 16kHz mono, the exact input shape Whisper's pipeline expects.
 async function decodeAudioTo16kMono(dataUrl) {
@@ -7688,9 +7706,13 @@ async function decodeAudioTo16kMono(dataUrl) {
     decoded = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
   } catch (error) {
     // decodeAudioData is the browser's own decoder and rejects some real-world containers/codecs
-    // (notably OPUS-in-m4a/ogg that Telegram exports) with a bare "Unable to decode audio data".
-    // Turn that into an actionable, honest message instead of leaking the raw string (§7).
-    throw new Error("Браузер не смог декодировать этот аудиофайл (частый случай — OPUS или редкий кодек из мессенджера). Пересохрани его как WAV/MP3 или впиши текст в «Ручную расшифровку». Деталь: " + ((error && error.message) || error));
+    // (notably OPUS-in-m4a/ogg that Telegram exports, and ALAC/Apple Lossless from iPhone Voice
+    // Memos - no browser ships an ALAC decoder at all) with a bare "Unable to decode audio data".
+    // The local dev server (server.mjs) can remux through the ffmpeg already on this machine's
+    // PATH via POST /local-audio-transcode; the static public-demo build has no such server, so
+    // that fetch 404s there and we fall through to the same honest manual-transcription message
+    // as before (§7 - never leak a raw browser string, never fake success).
+    decoded = await decodeViaLocalFfmpegFallback(decodeCtx, arrayBuffer, error);
   } finally {
     decodeCtx.close();
   }
@@ -20205,6 +20227,7 @@ boot().catch((error) => {
 });
 
 window.__lifeosKnowledgeBase = {
+  decodeAudioTo16kMono,
   extractWikiLinks,
   replaceWikiLinksForRename,
   mapGraph,

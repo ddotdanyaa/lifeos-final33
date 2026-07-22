@@ -1,5 +1,8 @@
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { readFile, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { extname, join, normalize } from "node:path";
 
 const root = process.cwd();
@@ -51,8 +54,62 @@ async function proxyVoskModel(res) {
   res.end();
 }
 
+// U-ALAC: Web Audio API's decodeAudioData has no ALAC (Apple Lossless) decoder in any browser -
+// real m4a recordings from iPhone Voice Memos etc. use it and get a bare "Unable to decode audio
+// data" with no way to tell codec-unsupported apart from file-corrupt. ffmpeg (already on this
+// machine's PATH for the owner's other tooling) demuxes/decodes virtually every codec, so this
+// dev-only endpoint remuxes the upload to WAV and hands the bytes back - decodeAudioData reads
+// WAV natively everywhere. Static public-demo hosting has no server, so app.js treats a
+// missing/failed response here as "local transcode unavailable" and falls back to the honest
+// manual-transcription message, never faking success (same honesty contract as the STT providers).
+const AUDIO_TRANSCODE_PATH = "/local-audio-transcode";
+
+function collectRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
+async function transcodeAudioWithFfmpeg(inputBuffer) {
+  const id = randomUUID();
+  const inputPath = join(tmpdir(), `lifeos-audio-${id}.input`);
+  const outputPath = join(tmpdir(), `lifeos-audio-${id}.wav`);
+  await writeFile(inputPath, inputBuffer);
+  try {
+    await new Promise((resolve, reject) => {
+      const proc = spawn("ffmpeg", ["-y", "-i", inputPath, "-c:a", "pcm_s16le", outputPath]);
+      let stderr = "";
+      proc.stderr.on("data", (chunk) => { stderr += chunk; });
+      proc.on("error", reject);
+      proc.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-500)}`));
+      });
+    });
+    return await readFile(outputPath);
+  } finally {
+    await unlink(inputPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
+}
+
 createServer(async (req, res) => {
   try {
+    if (req.method === "POST" && new URL(req.url || "/", `http://localhost:${port}`).pathname === AUDIO_TRANSCODE_PATH) {
+      try {
+        const body = await collectRequestBody(req);
+        const wav = await transcodeAudioWithFfmpeg(body);
+        res.writeHead(200, { "Content-Type": "audio/wav", "Cache-Control": "no-store" });
+        res.end(wav);
+      } catch (error) {
+        res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("ffmpeg transcode unavailable: " + ((error && error.message) || error));
+      }
+      return;
+    }
     if (new URL(req.url || "/", `http://localhost:${port}`).pathname === VOSK_MODEL_PROXY_PATH) {
       await proxyVoskModel(res);
       return;
