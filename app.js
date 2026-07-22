@@ -7509,6 +7509,11 @@ async function decodeAudioTo16kMono(dataUrl) {
   let decoded;
   try {
     decoded = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
+  } catch (error) {
+    // decodeAudioData is the browser's own decoder and rejects some real-world containers/codecs
+    // (notably OPUS-in-m4a/ogg that Telegram exports) with a bare "Unable to decode audio data".
+    // Turn that into an actionable, honest message instead of leaking the raw string (§7).
+    throw new Error("Браузер не смог декодировать этот аудиофайл (частый случай — OPUS или редкий кодек из мессенджера). Пересохрани его как WAV/MP3 или впиши текст в «Ручную расшифровку». Деталь: " + ((error && error.message) || error));
   } finally {
     decodeCtx.close();
   }
@@ -7584,9 +7589,23 @@ async function pollWhisperTranscribeProgress(requestId, sourceId) {
   }
 }
 
+// A source whose file was too large to inline (>8MB, dataUrl === "") has no audio bytes to
+// decode. Clicking transcribe used to silently do nothing; instead set an honest failed status
+// (§7 - never a silent no-op) so the owner knows why and that manual transcript still works.
+async function markAudioMissingData(sourceId, prefix, engineLabel) {
+  await store.commit(engineLabel + " transcription unavailable", (state) => {
+    const src = state.sources[sourceId];
+    if (!src) return;
+    src.transcriptStatus = prefix + "-failed: файл не сохранён локально (больше 8 МБ) — авто-расшифровка недоступна, ручная работает";
+    src.updatedAt = now();
+    addAudit(state, "transcript." + prefix + ".unavailable", "Авто-расшифровка недоступна: " + src.name + " не сохранён локально (>8 МБ)", src.noteId);
+  });
+}
+
 async function runWhisperTranscribe(sourceId) {
   const source = store.state.sources[sourceId];
-  if (!source || !source.dataUrl) return;
+  if (!source) return;
+  if (!source.dataUrl) { await markAudioMissingData(sourceId, "whisper", "Whisper"); return; }
   const requestId = makeId("whisperjob");
   whisperTranscribeRuntime[requestId] = { status: "running", text: "", error: "" };
   await store.commit("Whisper transcription started", (state) => {
@@ -7868,7 +7887,8 @@ async function pollVoskTranscribeProgress(requestId, sourceId) {
 
 async function runVoskTranscribe(sourceId) {
   const source = store.state.sources[sourceId];
-  if (!source || !source.dataUrl) return;
+  if (!source) return;
+  if (!source.dataUrl) { await markAudioMissingData(sourceId, "vosk", "Vosk"); return; }
   const requestId = makeId("voskjob");
   voskTranscribeRuntime[requestId] = { status: "running", text: "", error: "" };
   await store.commit("Vosk transcription started", (state) => {
@@ -7949,7 +7969,8 @@ async function probeWhisperCpp(endpoint) {
 
 async function runWhisperCppTranscribe(sourceId) {
   const source = store.state.sources[sourceId];
-  if (!source || !source.dataUrl) return;
+  if (!source) return;
+  if (!source.dataUrl) { await markAudioMissingData(sourceId, "whispercpp", "whisper.cpp"); return; }
   const endpoint = ((store.state.providers || {}).whispercpp || {}).endpoint || "http://127.0.0.1:8090";
   await store.commit("whisper.cpp transcription started", (state) => {
     const src = state.sources[sourceId];
@@ -18493,7 +18514,12 @@ async function handleAction(action, id) {
     return;
   }
   if (action === "archive-source") {
-    await store.commit("Source archived", (state) => archiveSource(state, id));
+    const source = store.state.sources[id];
+    if (source && !window.confirm("Убрать «" + source.name + "» из списка? Файл уходит в архив, восстановить можно в Контроле.")) return;
+    await store.commit("Source archived", (state) => {
+      archiveSource(state, id);
+      state.commandMessage = source ? "Убрано из списка: " + source.name : "Источник убран";
+    });
     return;
   }
   if (action === "archive-task") {

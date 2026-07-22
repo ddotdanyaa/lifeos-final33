@@ -6804,6 +6804,75 @@ audio {
   display: grid;
   align-content: start;
   gap: 8px;
+  /* U-DUMP: bound the list so 20-30 dumped files scroll inside their own column instead of
+     pushing the whole page down ("всё поле вниз выходит"). */
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.audio-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  z-index: 1;
+}
+
+.audio-count {
+  display: inline-flex;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--bg-inset, rgba(79, 70, 229, 0.12));
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* U-DUMP: the per-file delete button - compact, danger-tinted, sits in the card head. */
+.audio-card-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.audio-card-more {
+  border-top: 1px solid var(--line-hairline);
+  padding-top: 8px;
+}
+
+.audio-card-more > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  list-style: none;
+  padding: 2px 0;
+}
+
+.audio-card-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.audio-card-more > summary::before {
+  content: "▸ ";
+}
+
+.audio-card-more[open] > summary::before {
+  content: "▾ ";
+}
+
+.audio-card-more[open] {
+  display: grid;
+  gap: 10px;
+}
+
+.audio-list .audio-card-head .danger {
+  padding: 6px 10px;
+  align-self: start;
+  white-space: nowrap;
 }
 
 .knowledge-note-row,
