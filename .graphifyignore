@@ -1,0 +1,8 @@
+# graphify knowledge-graph excludes (same syntax as .gitignore, merged with it).
+# Keep the graph a clean map of the ACTUAL product source, not duplicates/noise.
+public-demo/          # generated 1:1 copy of the source — would double every node
+output/               # playwright fixtures (100+ wav), screenshots, test-results
+context/              # 7MB canon prose, not code
+test-results/
+graphify-out/         # graphify's own output
+.agents/              # agent skills, not product code

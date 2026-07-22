@@ -33,3 +33,8 @@ output/playwright/fixtures/meeting-*.wav
 output/playwright/fixtures/parser-boundary-*.pdf
 output/playwright/*.png
 output/playwright/**/*.png
+
+# graphify knowledge-graph output — regenerable via `graphify .`, large, and
+# every write would otherwise invalidate the agent's prompt cache (see its README §cache).
+graphify-out/
+graph.json
