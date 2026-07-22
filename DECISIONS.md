@@ -3058,3 +3058,16 @@ docs/qc/screens/AUDIT/connection-insight.png.
 **Проверено:** connection-insights.spec.mjs теперь 4/4 (+I4 хаб через настоящие [[вики-ссылки]]
 → степень 4; +I6 тема «маркетинг» в 4 заметках; через read-only хук computeInsightsForTest);
 H01-H10 10/10; insight-engine зелёный; verify; аудиты (кроме env-bound); build-public.
+
+## I2: «Связать» — инсайт-связь превращается в реальное ребро графа (2026-07-22)
+
+Донор-принцип Graphiti relationship-extraction + Tana «proposals before write». На инсайте-
+связи (type connection) появляется кнопка «Связать» → window.confirm владельца («Связать «A» и
+«B»?») → store.commit добавляет в тело заметки A строку «Связано: [[B]]», вызывает
+rebuildIndexes (вики-ссылка резолвится → реальное ребро графа + backlink), пишет audit
+insight.link. После связывания пара исключается из detectConceptConnections (уже связана) —
+инсайт честно исчезает. Никакой скрытой мутации (§7): значимое изменение только через явное
+подтверждение + аудит-след. Граф реально растёт из инсайтов — это «строить knowledge graph».
+**Проверено:** connection-insights.spec.mjs 5/5 (+I2: клик «Связать» → тело A получает [[…]],
+связь уходит из инсайтов, есть audit insight.link); H01-H10 10/10; insight-engine зелёный;
+verify; аудиты (кроме env-bound); build-public.

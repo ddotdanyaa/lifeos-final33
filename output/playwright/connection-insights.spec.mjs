@@ -71,6 +71,35 @@ test("I1 does not invent a connection between unrelated artifacts", async ({ pag
   expect(spurious, "unrelated artifacts must not be connected").toBeFalsy();
 });
 
+test("I2 'Связать' turns a detected connection into a real graph edge, with confirm + receipt", async ({ page }) => {
+  await reset(page, "link-" + Date.now());
+  await capture(page, "Идея: путешествие в Армению, Ереван и озеро Севан");
+  await capture(page, "Заметка: маршрут по Армении через Ереван и Севан");
+
+  await openSurface(page, "inbox");
+  const card = page.getByTestId("insight-card").filter({ hasText: "об одном" }).first();
+  await expect(card).toBeVisible();
+  // Confirm dialog auto-accepted by reset()'s handler.
+  await card.getByTestId("link-connection").click();
+
+  // A real wiki-link now exists: note A's body carries a [[...]] link and the pair is linked.
+  await expect.poll(async () => page.evaluate(() => {
+    const state = window.__lifeosKnowledgeBase.getStateSnapshot();
+    const notes = Object.values(state.notes).filter((n) => !n.deleted && /Армен/i.test(n.title));
+    return notes.some((n) => /\[\[.+\]\]/.test(n.body || "") && /Связано/.test(n.body || ""));
+  })).toBe(true);
+
+  // The connection is no longer surfaced as an insight (the pair is now linked, not "unexpected").
+  await expect.poll(async () => {
+    const conns = await page.evaluate(() => window.__lifeosKnowledgeBase.detectConceptConnectionsForTest());
+    return conns.some((c) => /Ереван|Севан|Армен/i.test(c.title));
+  }).toBe(false);
+
+  // An honest audit trail for the link mutation.
+  const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+  expect((state.auditLog || []).some((e) => e.type === "insight.link")).toBe(true);
+});
+
 test("I4 surfaces a hub - the artifact many others link to (Neo4j centrality idea)", async ({ page }) => {
   await reset(page, "hub-" + Date.now());
   await capture(page, "Проект Альфа");

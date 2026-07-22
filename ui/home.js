@@ -73,6 +73,11 @@ function renderInsightsPanel(ctx) {
       `<div class="insight-card" data-testid="insight-card" data-insight="${escapeHtml(insight.id)}">`,
       `<span class="insight-icon" aria-hidden="true">${insight.icon}</span>`,
       `<div class="insight-body"><strong>${escapeHtml(insight.title)}</strong><span>${escapeHtml(insight.detail)} · уверенность: ${escapeHtml(insight.confidence)}</span></div>`,
+      // I2: у инсайта-связи ещё «Связать» - подтверждённо создаёт реальное ребро графа (Tana
+      // proposals-before-write; §7 confirm+receipt). У остальных инсайтов - только «Закрепить».
+      insight.type === "connection"
+        ? button("link-connection", "Связать", { id: insight.id, kind: "ghost", testId: "link-connection" })
+        : "",
       button("pin-insight", "Закрепить", { id: insight.id, kind: "ghost", testId: "pin-insight" }),
       `</div>`
     ].join(""), ""),

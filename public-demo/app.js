@@ -17325,6 +17325,30 @@ async function handleAction(action, id) {
     }
     return;
   }
+  // I2 (донор: Graphiti relationship-extraction → Tana «proposals before write»): превратить
+  // найденную связь-инсайт в РЕАЛЬНОЕ ребро графа - явным подтверждением владельца (§7: preview
+  // + confirm + receipt), а не скрытой мутацией. Ставит вики-ссылку [[B]] в тело заметки A.
+  if (action === "link-connection") {
+    const rest = String(id || "").slice("connection-".length);
+    const [idA, idB] = rest.split("-");
+    const a = store.state.notes[idA];
+    const b = store.state.notes[idB];
+    if (!a || !b || a.deleted || b.deleted) return;
+    const linkMarkup = "[[" + (b.title || "") + "]]";
+    if (String(a.body || "").includes(linkMarkup)) return;
+    const confirmed = window.confirm("Связать «" + (a.title || "заметка") + "» и «" + (b.title || "заметка") + "»? Добавлю ссылку " + linkMarkup + " в первую заметку.");
+    if (!confirmed) return;
+    await store.commit("Связь между артефактами создана", (state) => {
+      const noteA = state.notes[idA];
+      const noteB = state.notes[idB];
+      if (!noteA || !noteB) return;
+      noteA.body = String(noteA.body || "").replace(/\s*$/, "") + "\n\nСвязано: [[" + (noteB.title || "") + "]]";
+      noteA.updatedAt = now();
+      rebuildIndexes(state);
+      addAudit(state, "insight.link", "Связаны артефакты по инсайту: «" + (noteA.title || idA) + "» → «" + (noteB.title || idB) + "»", idA);
+    });
+    return;
+  }
   if (action === "dismiss-person-merge") {
     await store.commit("Слияние людей отклонено", (state) => {
       const list = Array.isArray(state.dismissedPersonMerges) ? state.dismissedPersonMerges.slice() : [];
