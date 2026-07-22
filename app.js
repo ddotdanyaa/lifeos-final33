@@ -12562,9 +12562,9 @@ function artifactDistinctiveTerms(note) {
 // Инсайты-связи - про артефакты владельца, не про внутренний скаффолдинг LifeOS
 // (product_brain dev-canon + v34_platform демо-системы/маркетплейс).
 const INSIGHT_INTERNAL_SYSTEM_TYPES = new Set(["product_brain", "v34_platform"]);
-function detectConceptConnections(state) {
-  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
-  if (notes.length < 2) return [];
+// Общий индекс «различающий термин → заметки». Переиспользуется detectConceptConnections
+// (парные связи) и detectProjectClusters (проекты из кластеров), чтобы не считать термины дважды.
+function buildConceptTermIndex(notes) {
   const termToNotes = new Map();
   const termsByNote = new Map();
   for (const note of notes) {
@@ -12575,6 +12575,13 @@ function detectConceptConnections(state) {
       termToNotes.get(term).push(note.id);
     }
   }
+  return { termToNotes, termsByNote };
+}
+
+function detectConceptConnections(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
+  if (notes.length < 2) return [];
+  const { termToNotes } = buildConceptTermIndex(notes);
   const linked = new Set();
   for (const note of notes) {
     for (const link of Array.isArray(note.links) ? note.links : []) {
@@ -12614,7 +12621,11 @@ function detectConceptConnections(state) {
     }
   }
   candidates.sort((x, y) => y.score - x.score);
-  return candidates.slice(0, 3).map((c) => {
+  // Масштаб под объём: при дампе 20+ заметок фиксированные 3 связи мало (запрос владельца —
+  // «система должна строить ВСЕ эти связи»). Растём с числом заметок, но с потолком, чтобы
+  // панель инсайтов оставалась спокойной.
+  const connectionCap = Math.max(3, Math.min(8, Math.round(notes.length / 4)));
+  return candidates.slice(0, connectionCap).map((c) => {
     const pairKey = [c.a.id, c.b.id].sort().join("-");
     return {
       id: "connection-" + pairKey,
@@ -12626,6 +12637,56 @@ function detectConceptConnections(state) {
       refs: [c.a.id, c.b.id]
     };
   });
+}
+
+// Проекты из кластеров (запрос владельца: «накидал мыслей → система создаёт проекты/идеи»).
+// Донор-идея: Cognee/Mem0 (связанные факты → сущность-контейнер), Graphiti community. Механизм —
+// union-find поверх того же индекса различающих терминов: заметки, связанные общими редкими
+// терминами (df 2..5), сливаются в одну группу; группа ≥3 = кандидат в проект. Только предложение
+// (§7): реальный проект создаёт владелец кнопкой «Создать проект».
+function detectProjectClusters(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
+  if (notes.length < 3) return [];
+  const { termToNotes } = buildConceptTermIndex(notes);
+  const parent = new Map(notes.map((note) => [note.id, note.id]));
+  function find(x) { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; }
+  function union(a, b) { const ra = find(a); const rb = find(b); if (ra !== rb) parent.set(ra, rb); }
+  for (const ids of termToNotes.values()) {
+    if (ids.length < 2 || ids.length > 5) continue;
+    for (let i = 1; i < ids.length; i += 1) union(ids[0], ids[i]);
+  }
+  const groups = new Map();
+  for (const note of notes) {
+    const rep = find(note.id);
+    if (!groups.has(rep)) groups.set(rep, []);
+    groups.get(rep).push(note);
+  }
+  const results = [];
+  for (const members of groups.values()) {
+    if (members.length < 3) continue;
+    const memberIds = new Set(members.map((note) => note.id));
+    const termScore = new Map();
+    for (const [term, ids] of termToNotes) {
+      if (ids.length > 5) continue;
+      const inside = ids.filter((id) => memberIds.has(id)).length;
+      if (inside >= 2) termScore.set(term, inside);
+    }
+    const topTerms = [...termScore.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map((entry) => entry[0]);
+    if (!topTerms.length) continue;
+    results.push({
+      id: "project-cluster-" + hashString(members.map((note) => note.id).sort().join("|")),
+      type: "project-suggestion",
+      icon: "📁",
+      title: members.length + " " + pluralRu(members.length, "заметка об одной теме", "заметки об одной теме", "заметок об одной теме") + " — создать проект?",
+      detail: "Общее: " + topTerms.join(", ") + " · " + members.slice(0, 3).map((note) => "«" + (note.title || "заметка") + "»").join(", ") + (members.length > 3 ? " …" : ""),
+      confidence: members.length >= 4 ? "средняя" : "низкая",
+      refs: members.map((note) => note.id),
+      theme: topTerms[0],
+      members: members.map((note) => note.id)
+    });
+  }
+  results.sort((a, b) => b.members.length - a.members.length);
+  return results.slice(0, 3);
 }
 
 // I4 (донор-принцип: Neo4j degree/centrality): узел с самой высокой степенью связей - «хаб»,
@@ -12725,12 +12786,14 @@ function computeInsights(state) {
   if (overdue.length) {
     insights.push({ id: "overdue-tasks", type: "overdue", icon: "⏰", title: overdue.length + " " + pluralRu(overdue.length, "задача просрочена", "задачи просрочены", "задач просрочено"), detail: overdue.slice(0, 3).map((task) => task.title).join("; "), confidence: "высокая", refs: overdue.map((task) => task.noteId).filter(Boolean).slice(0, 5) });
   }
-  // 5. I1: неожиданные связи между артефактами (Graphiti/Logseq unlinked-references идея).
+  // 5a. Проекты из кластеров связанных заметок — приоритетно (целая тема дня важнее одной связи).
+  for (const cluster of detectProjectClusters(state)) insights.push(cluster);
+  // 5b. I1: неожиданные связи между артефактами (Graphiti/Logseq unlinked-references идея).
   for (const connection of detectConceptConnections(state)) insights.push(connection);
   // 6. I4: важные хабы (Neo4j centrality идея). 7. I6: доминирующие темы.
   for (const hub of detectGraphHubs(state)) insights.push(hub);
   for (const theme of detectDominantThemes(state)) insights.push(theme);
-  return insights.slice(0, 8);
+  return insights.slice(0, 10);
 }
 
 function eveningReflection(state) {
@@ -17692,6 +17755,23 @@ async function handleAction(action, id) {
     });
     return;
   }
+  if (action === "create-project-cluster") {
+    // Кластер id — хеш от участников; пересчитываем детерминированно и находим совпадение.
+    const cluster = detectProjectClusters(store.state).find((item) => item.id === id);
+    if (!cluster) return;
+    const confirmed = window.confirm("Создать проект из " + cluster.members.length + " связанных заметок по теме «" + cluster.theme + "»? Заметки станут пунктами проекта.");
+    if (!confirmed) return;
+    await store.commit("Проект создан из кластера заметок", (state) => {
+      const projectId = createProject(state, cluster.theme);
+      if (!projectId) return;
+      for (const noteId of cluster.members) {
+        const note = state.notes[noteId];
+        if (note && !note.deleted) addProjectItem(state, projectId, note.title || "Заметка", "note");
+      }
+      addAudit(state, "insight.project", "Проект «" + cluster.theme + "» создан из кластера (" + cluster.members.length + " заметок)", projectId);
+    });
+    return;
+  }
   if (action === "dismiss-person-merge") {
     await store.commit("Слияние людей отклонено", (state) => {
       const list = Array.isArray(state.dismissedPersonMerges) ? state.dismissedPersonMerges.slice() : [];
@@ -20295,6 +20375,9 @@ window.__lifeosKnowledgeBase = {
   // I1: read-only проекция детектора связей для e2e - как computeInsights, без мутаций.
   detectConceptConnectionsForTest() {
     return store ? detectConceptConnections(store.state) : [];
+  },
+  detectProjectClustersForTest() {
+    return store ? detectProjectClusters(store.state) : [];
   },
   // I4/I6: read-only проекция всех инсайтов для e2e (хабы/темы поверх базовых категорий).
   computeInsightsForTest() {

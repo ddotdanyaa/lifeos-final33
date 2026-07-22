@@ -9524,12 +9524,15 @@ function computeGraphProjection(state) {
     incoming[ghost.id] = incoming[ghost.id] || 0;
   }
   const seenEdges = new Set();
-  function addGraphEdge(source, target, label) {
+  // I-пачка (донор-идея Graphiti): ребро несёт не только «почему» (label), но и «с какого
+  // момента» (since) — время-валидности связи, взятое из даты породившего артефакта. Опциональный
+  // параметр: старые вызовы без даты работают как раньше (since пустой → инспектор не меняется).
+  function addGraphEdge(source, target, label, since) {
     if (!source || !target) return;
     const edgeId = source + "->" + target + ":" + hashString(label || target);
     if (seenEdges.has(edgeId)) return;
     seenEdges.add(edgeId);
-    links.push({ source, target, id: edgeId, label: cleanLine(label || "linked") });
+    links.push({ source, target, id: edgeId, label: cleanLine(label || "linked"), since: since || "" });
     incoming[target] = (incoming[target] || 0) + 1;
     outgoing[source] = (outgoing[source] || 0) + 1;
   }
@@ -9537,7 +9540,7 @@ function computeGraphProjection(state) {
     for (const link of note.links) {
       const target = link.targetId || link.ghostId;
       if (!target) continue;
-      addGraphEdge(note.id, target, link.targetTitle);
+      addGraphEdge(note.id, target, link.targetTitle, note.createdAt || note.updatedAt);
     }
   }
   for (const row of PRODUCT_BRAIN_LINK_SPECS) {
@@ -9565,7 +9568,7 @@ function computeGraphProjection(state) {
     incoming[source.id] = incoming[source.id] || 0;
     outgoing[source.id] = outgoing[source.id] || 0;
     if (source.noteId && state.notes[source.noteId] && !state.notes[source.noteId].deleted) {
-      addGraphEdge(source.id, source.noteId, "source-note");
+      addGraphEdge(source.id, source.noteId, "source-note", source.createdAt || source.updatedAt);
     }
   }
   for (const search of savedSearchList(state)) {
@@ -11490,7 +11493,13 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
   const selectedEdgeReasons = selectedId
     ? graph.links
       .filter((link) => link.source === selectedId || link.target === selectedId)
-      .map((link) => graphEdgeReasonLabel(link.label))
+      .map((link) => {
+        const reason = graphEdgeReasonLabel(link.label);
+        if (!reason) return "";
+        // I-пачка (донор-идея Graphiti): к «почему» добавляем «с какого момента» связь верна.
+        const since = link.since ? formatGraphEdgeSince(link.since) : "";
+        return since ? reason + " · с " + since : reason;
+      })
       .filter(Boolean)
     : [];
   const selectedGraph = selected ? {
@@ -12553,9 +12562,9 @@ function artifactDistinctiveTerms(note) {
 // Инсайты-связи - про артефакты владельца, не про внутренний скаффолдинг LifeOS
 // (product_brain dev-canon + v34_platform демо-системы/маркетплейс).
 const INSIGHT_INTERNAL_SYSTEM_TYPES = new Set(["product_brain", "v34_platform"]);
-function detectConceptConnections(state) {
-  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
-  if (notes.length < 2) return [];
+// Общий индекс «различающий термин → заметки». Переиспользуется detectConceptConnections
+// (парные связи) и detectProjectClusters (проекты из кластеров), чтобы не считать термины дважды.
+function buildConceptTermIndex(notes) {
   const termToNotes = new Map();
   const termsByNote = new Map();
   for (const note of notes) {
@@ -12566,6 +12575,13 @@ function detectConceptConnections(state) {
       termToNotes.get(term).push(note.id);
     }
   }
+  return { termToNotes, termsByNote };
+}
+
+function detectConceptConnections(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
+  if (notes.length < 2) return [];
+  const { termToNotes } = buildConceptTermIndex(notes);
   const linked = new Set();
   for (const note of notes) {
     for (const link of Array.isArray(note.links) ? note.links : []) {
@@ -12605,7 +12621,11 @@ function detectConceptConnections(state) {
     }
   }
   candidates.sort((x, y) => y.score - x.score);
-  return candidates.slice(0, 3).map((c) => {
+  // Масштаб под объём: при дампе 20+ заметок фиксированные 3 связи мало (запрос владельца —
+  // «система должна строить ВСЕ эти связи»). Растём с числом заметок, но с потолком, чтобы
+  // панель инсайтов оставалась спокойной.
+  const connectionCap = Math.max(3, Math.min(8, Math.round(notes.length / 4)));
+  return candidates.slice(0, connectionCap).map((c) => {
     const pairKey = [c.a.id, c.b.id].sort().join("-");
     return {
       id: "connection-" + pairKey,
@@ -12617,6 +12637,56 @@ function detectConceptConnections(state) {
       refs: [c.a.id, c.b.id]
     };
   });
+}
+
+// Проекты из кластеров (запрос владельца: «накидал мыслей → система создаёт проекты/идеи»).
+// Донор-идея: Cognee/Mem0 (связанные факты → сущность-контейнер), Graphiti community. Механизм —
+// union-find поверх того же индекса различающих терминов: заметки, связанные общими редкими
+// терминами (df 2..5), сливаются в одну группу; группа ≥3 = кандидат в проект. Только предложение
+// (§7): реальный проект создаёт владелец кнопкой «Создать проект».
+function detectProjectClusters(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
+  if (notes.length < 3) return [];
+  const { termToNotes } = buildConceptTermIndex(notes);
+  const parent = new Map(notes.map((note) => [note.id, note.id]));
+  function find(x) { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; }
+  function union(a, b) { const ra = find(a); const rb = find(b); if (ra !== rb) parent.set(ra, rb); }
+  for (const ids of termToNotes.values()) {
+    if (ids.length < 2 || ids.length > 5) continue;
+    for (let i = 1; i < ids.length; i += 1) union(ids[0], ids[i]);
+  }
+  const groups = new Map();
+  for (const note of notes) {
+    const rep = find(note.id);
+    if (!groups.has(rep)) groups.set(rep, []);
+    groups.get(rep).push(note);
+  }
+  const results = [];
+  for (const members of groups.values()) {
+    if (members.length < 3) continue;
+    const memberIds = new Set(members.map((note) => note.id));
+    const termScore = new Map();
+    for (const [term, ids] of termToNotes) {
+      if (ids.length > 5) continue;
+      const inside = ids.filter((id) => memberIds.has(id)).length;
+      if (inside >= 2) termScore.set(term, inside);
+    }
+    const topTerms = [...termScore.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map((entry) => entry[0]);
+    if (!topTerms.length) continue;
+    results.push({
+      id: "project-cluster-" + hashString(members.map((note) => note.id).sort().join("|")),
+      type: "project-suggestion",
+      icon: "📁",
+      title: members.length + " " + pluralRu(members.length, "заметка об одной теме", "заметки об одной теме", "заметок об одной теме") + " — создать проект?",
+      detail: "Общее: " + topTerms.join(", ") + " · " + members.slice(0, 3).map((note) => "«" + (note.title || "заметка") + "»").join(", ") + (members.length > 3 ? " …" : ""),
+      confidence: members.length >= 4 ? "средняя" : "низкая",
+      refs: members.map((note) => note.id),
+      theme: topTerms[0],
+      members: members.map((note) => note.id)
+    });
+  }
+  results.sort((a, b) => b.members.length - a.members.length);
+  return results.slice(0, 3);
 }
 
 // I4 (донор-принцип: Neo4j degree/centrality): узел с самой высокой степенью связей - «хаб»,
@@ -12716,12 +12786,14 @@ function computeInsights(state) {
   if (overdue.length) {
     insights.push({ id: "overdue-tasks", type: "overdue", icon: "⏰", title: overdue.length + " " + pluralRu(overdue.length, "задача просрочена", "задачи просрочены", "задач просрочено"), detail: overdue.slice(0, 3).map((task) => task.title).join("; "), confidence: "высокая", refs: overdue.map((task) => task.noteId).filter(Boolean).slice(0, 5) });
   }
-  // 5. I1: неожиданные связи между артефактами (Graphiti/Logseq unlinked-references идея).
+  // 5a. Проекты из кластеров связанных заметок — приоритетно (целая тема дня важнее одной связи).
+  for (const cluster of detectProjectClusters(state)) insights.push(cluster);
+  // 5b. I1: неожиданные связи между артефактами (Graphiti/Logseq unlinked-references идея).
   for (const connection of detectConceptConnections(state)) insights.push(connection);
   // 6. I4: важные хабы (Neo4j centrality идея). 7. I6: доминирующие темы.
   for (const hub of detectGraphHubs(state)) insights.push(hub);
   for (const theme of detectDominantThemes(state)) insights.push(theme);
-  return insights.slice(0, 8);
+  return insights.slice(0, 10);
 }
 
 function eveningReflection(state) {
@@ -14015,6 +14087,14 @@ function graphNodeMeta(kind, object) {
   if (kind === "screen-session") return [object.status || "permission-required", object.scope || "screen"].filter(Boolean).join(" / ");
   if (kind === "twin-snapshot") return [object.status || "local-snapshot", object.summary || ""].filter(Boolean).join(" / ");
   return [object.status || "", object.updatedAt || object.createdAt || ""].filter(Boolean).join(" / ") || kind;
+}
+
+// I-пачка (донор-идея Graphiti): ISO-дата валидности ребра → человекочитаемое «с DD.MM.YYYY».
+function formatGraphEdgeSince(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
 }
 
 function graphEdgeReasonLabel(label) {
@@ -17675,6 +17755,23 @@ async function handleAction(action, id) {
     });
     return;
   }
+  if (action === "create-project-cluster") {
+    // Кластер id — хеш от участников; пересчитываем детерминированно и находим совпадение.
+    const cluster = detectProjectClusters(store.state).find((item) => item.id === id);
+    if (!cluster) return;
+    const confirmed = window.confirm("Создать проект из " + cluster.members.length + " связанных заметок по теме «" + cluster.theme + "»? Заметки станут пунктами проекта.");
+    if (!confirmed) return;
+    await store.commit("Проект создан из кластера заметок", (state) => {
+      const projectId = createProject(state, cluster.theme);
+      if (!projectId) return;
+      for (const noteId of cluster.members) {
+        const note = state.notes[noteId];
+        if (note && !note.deleted) addProjectItem(state, projectId, note.title || "Заметка", "note");
+      }
+      addAudit(state, "insight.project", "Проект «" + cluster.theme + "» создан из кластера (" + cluster.members.length + " заметок)", projectId);
+    });
+    return;
+  }
   if (action === "dismiss-person-merge") {
     await store.commit("Слияние людей отклонено", (state) => {
       const list = Array.isArray(state.dismissedPersonMerges) ? state.dismissedPersonMerges.slice() : [];
@@ -20278,6 +20375,9 @@ window.__lifeosKnowledgeBase = {
   // I1: read-only проекция детектора связей для e2e - как computeInsights, без мутаций.
   detectConceptConnectionsForTest() {
     return store ? detectConceptConnections(store.state) : [];
+  },
+  detectProjectClustersForTest() {
+    return store ? detectProjectClusters(store.state) : [];
   },
   // I4/I6: read-only проекция всех инсайтов для e2e (хабы/темы поверх базовых категорий).
   computeInsightsForTest() {

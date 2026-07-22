@@ -77,7 +77,9 @@ function renderInsightsPanel(ctx) {
       // proposals-before-write; §7 confirm+receipt). У остальных инсайтов - только «Закрепить».
       insight.type === "connection"
         ? button("link-connection", "Связать", { id: insight.id, kind: "ghost", testId: "link-connection" })
-        : "",
+        : insight.type === "project-suggestion"
+          ? button("create-project-cluster", "Создать проект", { id: insight.id, kind: "primary", testId: "create-project-cluster" })
+          : "",
       button("pin-insight", "Закрепить", { id: insight.id, kind: "ghost", testId: "pin-insight" }),
       `</div>`
     ].join(""), ""),
