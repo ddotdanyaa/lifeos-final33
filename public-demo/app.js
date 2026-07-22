@@ -4338,7 +4338,11 @@ function extractMoneyEntitiesHuman(text) {
   let match = pattern.exec(source);
   while (match) {
     const amount = Number(match[2]);
-    if (Number.isFinite(amount) && amount > 0 && !seen.has(match.index + ":" + amount)) {
+    const numEnd = match.index + match[1].length + match[2].length;
+    const after = source.slice(numEnd, numEnd + 6);
+    // Число из времени/длительности — не деньги: "16:00", "16 часов", "16ч" (без валюты рядом).
+    const isTimeLike = !match[3] && (/^\s*[:.]\d/u.test(after) || /^\s*ч(ас|\.|\b)/iu.test(after));
+    if (Number.isFinite(amount) && amount > 0 && !isTimeLike && !seen.has(match.index + ":" + amount)) {
       seen.add(match.index + ":" + amount);
       matches.push({ amount, currency: "RUB", raw: cleanLine(match[0]) || String(amount) });
     }
@@ -4644,7 +4648,7 @@ function analyzeArtifactInput(input, fileMeta) {
   } : {};
   const hasDateOrTime = Boolean(day || time.startTime || timeNeedsChoice || /\b(сегодня|завтра|послезавтра|вечером|утром|днем|понедельник|пятниц|до\s+\d{1,2})\b/i.test(lower));
   const isRecurring = hasAnyText(lower, ["каждый день", "ежедневно", "еженедельно", "по будням", "каждый понедельник", "каждую неделю", "daily", "weekly"]);
-  const isTask = hasAnyText(lower, ["нужно", "надо", "сделать", "купить", "позвонить", "написать", "проверить", "подготовить", "отправить", "записаться", "выбрать", "починить", "оплатить"]) || /\b(task|t[o]do)\b/i.test(lower);
+  const isTask = hasAnyText(lower, ["нужно", "надо", "сделать", "купить", "позвонить", "написать", "проверить", "подготовить", "отправить", "записаться", "выбрать", "починить", "оплатить", "задач", "дело", "запланируй", "добавь задач", "поставь задач"]) || /\b(task|t[o]do)\b/i.test(lower);
   const isIncome = amount > 0 && (hasAnyText(lower, ["зарплата", "доход", "пришла", "получил", "заработал"]) || /\b(income|salary)\b/i.test(lower));
   const isBalance = amount > 0 && (hasAnyText(lower, ["баланс", "остаток", "карта", "счет"]) || /\baccount\b/i.test(lower));
   const isSubscription = amount > 0 && (hasAnyText(lower, ["подписка", "ежемесячно", "каждый месяц", "счет"]) || /\b(subscription|bill)\b/i.test(lower));
@@ -4667,6 +4671,11 @@ function analyzeArtifactInput(input, fileMeta) {
   const isHome = hasAnyText(lower, ["дом", "полка", "лампочки", "уборка", "ремонт"]) || /\b(home|household)\b/i.test(lower);
   const isTravel = hasAnyText(lower, ["поездка", "билет", "отель", "самолет", "поезд"]) || /\b(travel|trip)\b/i.test(lower);
   const isFood = hasAnyText(lower, ["еда", "продукты", "ужин", "обед", "завтрак"]) || /\b(grocery|meal)\b/i.test(lower);
+  // Разговорная смена/подработка без строгого формата parseShiftEntry ("буду работать с 16",
+  // "подработка в такси", "отработаю") — очень частый вид голосового захвата.
+  const isWorkPlan = hasAnyText(lower, ["выхожу на работу", "буду работать", "работать с", "подработ", "в такси", "отработаю", "на смену", "смена с"]);
+  // Намерение записать доход ПОЗЖЕ, суммы ещё нет ("потом скажу сколько заработал").
+  const isIncomeIntent = !(amount > 0) && hasAnyText(lower, ["сколько заработал", "сколько денег", "сколько заработаю", "скажу сколько", "запишу доход", "отпишу доход"]);
 
   function mark(value) {
     if (!detectedClasses.includes(value)) detectedClasses.push(value);
@@ -4714,6 +4723,28 @@ function analyzeArtifactInput(input, fileMeta) {
     }, 0.9));
   }
 
+  // Разговорная смена → календарный блок «Смена/работа» (строгий shift выше уже покрывает формат
+  // «отработал N часов»; здесь — «буду работать с 16 / такси / отработаю»).
+  if (!shift && isWorkPlan) {
+    mark("work shift");
+    const workTitle = "Смена / работа" + (time.startTime ? " с " + time.startTime : "") + (time.endTime ? " до " + time.endTime : "");
+    addDraftOnce(drafts, draft("workplan-main", "calendar", workTitle, "calendar", "Разговорная смена/подработка (буду работать / такси / отработаю)", sourceQuote(text, /(выхожу на работу|буду работать|работать с|подработ|в такси|отработаю|смен)[^,.!?]*/i), {
+      title: workTitle,
+      day: day || todayKey(),
+      startTime: time.startTime || "",
+      endTime: time.endTime || "",
+      ...timeChoiceFields
+    }, 0.72));
+  }
+  // Намерение записать доход позже (суммы ещё нет) → напоминание, а не пустой доход.
+  if (isIncomeIntent) {
+    addDraftOnce(drafts, draft("income-intent", "reminder", "Записать доход после смены", "calendar", "Намерение записать заработок позже (суммы ещё нет)", sourceQuote(text, /(сколько заработал|сколько денег|скажу сколько|запишу доход)[^,.!?]*/i), {
+      title: "Записать доход после смены",
+      day: day || todayKey(),
+      time: time.endTime || ""
+    }, 0.7));
+  }
+
   const actionTitle = stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text) || stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг";
   // isExpense deliberately excluded here (U2 MONEY_FAST fix): a pure expense/income entry
   // with no task-language and no date/time shouldn't also spawn a redundant task-main draft
@@ -4734,7 +4765,7 @@ function analyzeArtifactInput(input, fileMeta) {
       ...timeChoiceFields
     }, 0.82));
   }
-  if (hasDateOrTime) {
+  if (hasDateOrTime && !isWorkPlan) {
     addDraftOnce(drafts, draft("calendar-main", "calendar", actionTitle, "calendar", "Найдена дата или время", sourceQuote(text, /\b(сегодня|завтра|послезавтра|вечером|утром|днем|\d{1,2}[:.]\d{2}|в\s+\d{1,2})[^,.!?]*/i), {
       title: actionTitle,
       day: day || todayKey(),
