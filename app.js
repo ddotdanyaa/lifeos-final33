@@ -9524,12 +9524,15 @@ function computeGraphProjection(state) {
     incoming[ghost.id] = incoming[ghost.id] || 0;
   }
   const seenEdges = new Set();
-  function addGraphEdge(source, target, label) {
+  // I-пачка (донор-идея Graphiti): ребро несёт не только «почему» (label), но и «с какого
+  // момента» (since) — время-валидности связи, взятое из даты породившего артефакта. Опциональный
+  // параметр: старые вызовы без даты работают как раньше (since пустой → инспектор не меняется).
+  function addGraphEdge(source, target, label, since) {
     if (!source || !target) return;
     const edgeId = source + "->" + target + ":" + hashString(label || target);
     if (seenEdges.has(edgeId)) return;
     seenEdges.add(edgeId);
-    links.push({ source, target, id: edgeId, label: cleanLine(label || "linked") });
+    links.push({ source, target, id: edgeId, label: cleanLine(label || "linked"), since: since || "" });
     incoming[target] = (incoming[target] || 0) + 1;
     outgoing[source] = (outgoing[source] || 0) + 1;
   }
@@ -9537,7 +9540,7 @@ function computeGraphProjection(state) {
     for (const link of note.links) {
       const target = link.targetId || link.ghostId;
       if (!target) continue;
-      addGraphEdge(note.id, target, link.targetTitle);
+      addGraphEdge(note.id, target, link.targetTitle, note.createdAt || note.updatedAt);
     }
   }
   for (const row of PRODUCT_BRAIN_LINK_SPECS) {
@@ -9565,7 +9568,7 @@ function computeGraphProjection(state) {
     incoming[source.id] = incoming[source.id] || 0;
     outgoing[source.id] = outgoing[source.id] || 0;
     if (source.noteId && state.notes[source.noteId] && !state.notes[source.noteId].deleted) {
-      addGraphEdge(source.id, source.noteId, "source-note");
+      addGraphEdge(source.id, source.noteId, "source-note", source.createdAt || source.updatedAt);
     }
   }
   for (const search of savedSearchList(state)) {
@@ -11490,7 +11493,13 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
   const selectedEdgeReasons = selectedId
     ? graph.links
       .filter((link) => link.source === selectedId || link.target === selectedId)
-      .map((link) => graphEdgeReasonLabel(link.label))
+      .map((link) => {
+        const reason = graphEdgeReasonLabel(link.label);
+        if (!reason) return "";
+        // I-пачка (донор-идея Graphiti): к «почему» добавляем «с какого момента» связь верна.
+        const since = link.since ? formatGraphEdgeSince(link.since) : "";
+        return since ? reason + " · с " + since : reason;
+      })
       .filter(Boolean)
     : [];
   const selectedGraph = selected ? {
@@ -14015,6 +14024,14 @@ function graphNodeMeta(kind, object) {
   if (kind === "screen-session") return [object.status || "permission-required", object.scope || "screen"].filter(Boolean).join(" / ");
   if (kind === "twin-snapshot") return [object.status || "local-snapshot", object.summary || ""].filter(Boolean).join(" / ");
   return [object.status || "", object.updatedAt || object.createdAt || ""].filter(Boolean).join(" / ") || kind;
+}
+
+// I-пачка (донор-идея Graphiti): ISO-дата валидности ребра → человекочитаемое «с DD.MM.YYYY».
+function formatGraphEdgeSince(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
 }
 
 function graphEdgeReasonLabel(label) {
