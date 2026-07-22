@@ -9262,6 +9262,7 @@ async function refreshPwaStatus(source) {
   if (supported) {
     try {
       const registration = await navigator.serviceWorker.register("./service-worker.js");
+      registration.update().catch(() => {});
       await navigator.serviceWorker.ready;
       serviceWorkerStatus = "service-worker-ready";
       serviceWorkerScope = registration.scope || "";
@@ -20168,8 +20169,21 @@ function seedExactLargeVault(state) {
   };
 }
 
+let swReloadArmed = false;
+function armServiceWorkerAutoReload() {
+  if (swReloadArmed || !navigator.serviceWorker) return;
+  swReloadArmed = true;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloaded) return;
+    reloaded = true;
+    window.location.reload();
+  });
+}
+
 async function boot() {
   app.innerHTML = "<div class=\"loading-shell\">Открываю локальный LifeOS</div>";
+  armServiceWorkerAutoReload();
   bindGlobalEvents();
   repository = new KnowledgeRepository();
   await repository.init();
