@@ -1134,7 +1134,8 @@ function createInitialState() {
       models: { status: "local-only", label: "Model Hub", lastCheckedAt: "", scopes: ["model-routes", "proposal-mode"], requiredAction: "Model Hub хранит маршруты и границы данных локально; внешний запуск требует явного действия владельца." },
       screen: { status: "permission-required", label: "Screen Companion", lastCheckedAt: "", scopes: ["screen-capture", "active-window-context"], requiredAction: "Чтение экрана включается только явным разрешением владельца; до этого работает ручной импорт скрина/текста." },
       smartHome: { status: "not-connected", label: "Умный дом", lastCheckedAt: "", scopes: ["home-events", "device-control"], requiredAction: "Home Assistant или другой локальный hub подключается адаптером; локальная карта устройств и события работают вручную." },
-      marketplace: { status: "local-only", label: "Marketplace систем", lastCheckedAt: "", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." }
+      marketplace: { status: "local-only", label: "Marketplace систем", lastCheckedAt: "", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." },
+      bank: { status: "not-connected", label: "Банк", lastCheckedAt: "", scopes: ["transaction-read"], requiredAction: "Прямое подключение банка требует OAuth-доступа владельца - пока не подключено. Импорт CSV/OFX выписки уже работает в Финансах." }
     },
     ollama: {
       endpoint: "http://127.0.0.1:11434",
@@ -1784,7 +1785,8 @@ function ensureV34Platform(state) {
     models: { status: "local-only", label: "Model Hub", scopes: ["model-routes", "proposal-mode"], requiredAction: "Model Hub хранит маршруты и границы данных локально; внешний запуск требует явного действия владельца." },
     screen: { status: "permission-required", label: "Screen Companion", scopes: ["screen-capture", "active-window-context"], requiredAction: "Чтение экрана включается только явным разрешением владельца; до этого работает ручной импорт скрина/текста." },
     smartHome: { status: "not-connected", label: "Умный дом", scopes: ["home-events", "device-control"], requiredAction: "Home Assistant или другой локальный hub подключается адаптером; локальная карта устройств и события работают вручную." },
-    marketplace: { status: "local-only", label: "Marketplace систем", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." }
+    marketplace: { status: "local-only", label: "Marketplace систем", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." },
+    bank: { status: "not-connected", label: "Банк", scopes: ["transaction-read"], requiredAction: "Прямое подключение банка требует OAuth-доступа владельца - пока не подключено. Импорт CSV/OFX выписки уже работает в Финансах." }
   };
   for (const [key, provider] of Object.entries(providerDefaults)) {
     state.providers[key] = Object.assign({}, provider, state.providers[key] || {});
@@ -2566,7 +2568,8 @@ function normalizeState(input) {
       models: { status: "local-only", label: "Model Hub", lastCheckedAt: "", scopes: ["model-routes", "proposal-mode"], requiredAction: "Model Hub хранит маршруты и границы данных локально; внешний запуск требует явного действия владельца." },
       screen: { status: "permission-required", label: "Screen Companion", lastCheckedAt: "", scopes: ["screen-capture", "active-window-context"], requiredAction: "Чтение экрана включается только явным разрешением владельца; до этого работает ручной импорт скрина/текста." },
       smartHome: { status: "not-connected", label: "Умный дом", lastCheckedAt: "", scopes: ["home-events", "device-control"], requiredAction: "Home Assistant или другой локальный hub подключается адаптером; локальная карта устройств и события работают вручную." },
-      marketplace: { status: "local-only", label: "Marketplace систем", lastCheckedAt: "", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." }
+      marketplace: { status: "local-only", label: "Marketplace систем", lastCheckedAt: "", scopes: ["local-pack-install"], requiredAction: "Паки устанавливаются как локальные system definitions без запуска чужого кода." },
+      bank: { status: "not-connected", label: "Банк", lastCheckedAt: "", scopes: ["transaction-read"], requiredAction: "Прямое подключение банка требует OAuth-доступа владельца - пока не подключено. Импорт CSV/OFX выписки уже работает в Финансах." }
     }, base.providers || {}),
     ollama: Object.assign({
       endpoint: "http://127.0.0.1:11434",
@@ -4156,6 +4159,15 @@ function readFileAsDataUrl(file) {
     reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(reader.error || new Error("File read failed"));
     reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("File read failed"));
+    reader.readAsText(file);
   });
 }
 
@@ -6258,6 +6270,171 @@ function restoreHabit(state, habitId) {
   habit.deleted = false;
   habit.updatedAt = now();
   addAudit(state, "habit.restore", "Habit restored: " + habit.title, habit.noteId);
+}
+
+// F1/F2 (donor: honest-gate bank passport + rules-first parsing, same pattern as U2 money
+// parser): a bank OAuth connection is owner-gated and genuinely not implemented here (§7 -
+// never fake success), so the real, always-working path is a local file the owner already has -
+// a CSV or OFX/QFX statement export from their bank's own website. Parsing is regex/rules first
+// (no network, no LLM dependency for the base case) - detects a RU/EN header row when present,
+// falls back to the common minimal column order (date, amount, description) otherwise.
+function splitCsvLine(line, delimiter) {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === "\"") {
+      if (inQuotes && line[i + 1] === "\"") { current += "\""; i += 1; } else { inQuotes = !inQuotes; }
+    } else if (char === delimiter && !inQuotes) {
+      cells.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current);
+  return cells.map((cell) => cell.trim().replace(/^"|"$/g, ""));
+}
+
+function parseStatementAmount(raw) {
+  const cleaned = String(raw || "").replace(/[₽$€]|руб\.?|rub|usd|eur/gi, "").replace(/\s/g, "").trim();
+  if (!cleaned) return NaN;
+  // RU exports use comma as decimal separator ("1234,56"); EN exports use dot with optional
+  // thousands commas ("1,234.56") - a bare comma with 1-2 trailing digits is RU decimal, anything
+  // else treats comma as a thousands separator to strip.
+  const normalized = /,\d{1,2}$/.test(cleaned) ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned.replace(/,/g, "");
+  return Number(normalized);
+}
+
+function parseStatementDate(raw) {
+  const text = String(raw || "").trim();
+  let match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return match[1] + "-" + match[2] + "-" + match[3];
+  match = text.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
+  if (match) return match[3] + "-" + match[2].padStart(2, "0") + "-" + match[1].padStart(2, "0");
+  match = text.match(/^(\d{4})(\d{2})(\d{2})/);
+  if (match) return match[1] + "-" + match[2] + "-" + match[3];
+  return "";
+}
+
+const STATEMENT_HEADER_FIELDS = {
+  date: ["дата", "date", "dt", "время операции", "время"],
+  amount: ["сумма", "amount", "sum", "value"],
+  debit: ["дебет", "debit", "расход"],
+  credit: ["кредит", "credit", "приход", "доход"],
+  description: ["описание", "назначение платежа", "назначение", "description", "purpose", "комментарий", "merchant", "детали операции"]
+};
+
+function matchStatementColumn(headerCell) {
+  const clean = normalizeTitle(headerCell || "");
+  for (const [field, keywords] of Object.entries(STATEMENT_HEADER_FIELDS)) {
+    if (keywords.some((keyword) => clean.includes(normalizeTitle(keyword)))) return field;
+  }
+  return "";
+}
+
+function parseCsvStatement(text) {
+  const lines = text.split(/\r?\n/).map((line) => line).filter((line) => line.trim());
+  if (!lines.length) return [];
+  const delimiter = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ";" : ",";
+  const headerCells = splitCsvLine(lines[0], delimiter);
+  const columnMap = headerCells.map(matchStatementColumn);
+  const hasHeader = columnMap.some(Boolean);
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+  const rows = [];
+  for (const line of dataLines) {
+    const cells = splitCsvLine(line, delimiter);
+    let day = "";
+    let amount = NaN;
+    let debit = NaN;
+    let credit = NaN;
+    let description = "";
+    if (hasHeader) {
+      cells.forEach((cell, index) => {
+        const field = columnMap[index];
+        if (field === "date" && !day) day = parseStatementDate(cell);
+        else if (field === "amount") amount = parseStatementAmount(cell);
+        else if (field === "debit") debit = parseStatementAmount(cell);
+        else if (field === "credit") credit = parseStatementAmount(cell);
+        else if (field === "description") description = description ? description + " " + cell : cell;
+      });
+    } else {
+      day = parseStatementDate(cells[0]);
+      amount = parseStatementAmount(cells[1]);
+      description = cells[2] || cells.slice(2).join(" ");
+    }
+    let kind = "expense";
+    let value = amount;
+    if (Number.isFinite(debit) && debit > 0) { kind = "expense"; value = debit; }
+    else if (Number.isFinite(credit) && credit > 0) { kind = "income"; value = credit; }
+    else if (Number.isFinite(amount)) { kind = amount < 0 ? "expense" : "income"; value = amount; }
+    if (!day || !Number.isFinite(value) || !value) continue;
+    rows.push({ day, amount: Math.abs(value), kind, title: cleanLine(description) || "Операция по выписке" });
+  }
+  return rows;
+}
+
+function parseOfxStatement(text) {
+  const rows = [];
+  const blocks = text.match(/<STMTTRN>[\s\S]*?(?:<\/STMTTRN>|(?=<STMTTRN>)|$)/gi) || [];
+  for (const block of blocks) {
+    const amountMatch = block.match(/<TRNAMT>([^\s<]+)/i);
+    const dateMatch = block.match(/<DTPOSTED>([^\s<]+)/i);
+    const nameMatch = block.match(/<NAME>([^\r\n<]+)/i) || block.match(/<MEMO>([^\r\n<]+)/i);
+    if (!amountMatch || !dateMatch) continue;
+    const amount = parseStatementAmount(amountMatch[1]);
+    const day = parseStatementDate(dateMatch[1]);
+    if (!day || !Number.isFinite(amount) || !amount) continue;
+    rows.push({
+      day,
+      amount: Math.abs(amount),
+      kind: amount < 0 ? "expense" : "income",
+      title: cleanLine((nameMatch && nameMatch[1]) || "Операция по выписке")
+    });
+  }
+  return rows;
+}
+
+function parseBankStatementText(text, filename) {
+  const isOfx = /\.ofx$|\.qfx$/i.test(filename || "") || /<OFX>|OFXHEADER/i.test(text || "");
+  const rows = isOfx ? parseOfxStatement(text) : parseCsvStatement(text);
+  return { format: isOfx ? "ofx" : "csv", rows };
+}
+
+// F2: rows become PROPOSALS, never a direct write - the owner reviews/accepts before anything
+// lands in Finance (§7 preview+confirm+receipt), same proposal machinery money-fast-capture
+// already uses (applyProposal already knows finance_expense/finance_income - no new branch).
+// Dedup guards against re-importing an overlapping statement twice: an existing transaction OR
+// an already-open proposal with the same day+amount+normalized description is skipped, not
+// re-proposed (donor: Mem0/Graphiti deduplication idea).
+function importBankStatement(state, text, filename) {
+  const { format, rows } = parseBankStatementText(text, filename);
+  const existingKeys = new Set(
+    Object.values(state.financeTransactions || {})
+      .filter((tx) => !tx.deleted)
+      .map((tx) => tx.day + "|" + Math.round(tx.amount) + "|" + normalizeTitle(tx.title))
+  );
+  const openProposalKeys = new Set(
+    Object.values(state.proposals || {})
+      .filter((p) => p.status === "open" && (p.type === "finance_expense" || p.type === "finance_income"))
+      .map((p) => (p.fields && p.fields.day || "") + "|" + Math.round(Number(p.fields && p.fields.amount) || 0) + "|" + normalizeTitle(p.title))
+  );
+  let created = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    const key = row.day + "|" + Math.round(row.amount) + "|" + normalizeTitle(row.title);
+    if (existingKeys.has(key) || openProposalKeys.has(key)) { skipped += 1; continue; }
+    openProposalKeys.add(key);
+    const type = row.kind === "income" ? "finance_income" : "finance_expense";
+    addProposal(state, type, row.title, "", state.activeNoteId, {
+      reason: "Из выписки " + (filename || "bank statement"),
+      fields: { amount: row.amount, day: row.day, category: row.kind === "income" ? "Доход" : "" }
+    });
+    created += 1;
+  }
+  addAudit(state, "bank.statement.import", "Выписка " + (filename || "") + " (" + format.toUpperCase() + "): " + created + " предложено, " + skipped + " пропущено (уже есть)", state.activeNoteId);
+  return { created, skipped, total: rows.length, format };
 }
 
 function ensureFinanceAccount(state, name, balance) {
@@ -15616,6 +15793,12 @@ function providerPassportCopy(key, provider) {
       local: "Reminders видны в Today/Calendar без permission.",
       sends: "Ничего наружу; permission контролирует браузер.",
       fallback: "Внутренние reminders и Control."
+    },
+    bank: {
+      setup: "Прямое OAuth-подключение банка пока не реализовано.",
+      local: "CSV/OFX выписка разбирается локально; строки становятся предложениями.",
+      sends: "Файл выписки никуда не отправляется; разбор идёт в браузере.",
+      fallback: "Импорт CSV/OFX выписки в Финансах."
     }
   };
   return map[key] || {
@@ -18324,6 +18507,11 @@ async function handleAction(action, id) {
     if (input) input.click();
     return;
   }
+  if (action === "import-bank-statement") {
+    const input = document.querySelector("#bank-statement-import");
+    if (input) input.click();
+    return;
+  }
   if (action === "start-audio-recording") {
     await startAudioRecording();
     return;
@@ -19546,6 +19734,19 @@ async function handleChange(event) {
     target.value = "";
     return;
   }
+  if (target.id === "bank-statement-import") {
+    const file = target.files && target.files[0];
+    target.value = "";
+    if (!file) return;
+    const text = await readFileAsText(file);
+    await store.commit("Bank statement imported", (state) => {
+      const result = importBankStatement(state, text, file.name);
+      state.commandMessage = result.total
+        ? "Выписка разобрана: " + result.created + " предложено" + (result.skipped ? ", " + result.skipped + " уже есть" : "")
+        : "В файле не нашлось распознаваемых строк - проверь формат CSV/OFX.";
+    });
+    return;
+  }
   if (target.id === "backup-import") {
     await importBackupFromInput(target.files);
     target.value = "";
@@ -20097,6 +20298,10 @@ window.__lifeosKnowledgeBase = {
   // I3: test hook для проверки извлечения сущностей в e2e (люди/проекты/места/даты).
   extractEntitiesForTest(text) {
     return extractEntitiesFromText(text || "");
+  },
+  // F1/F2: test hook для проверки CSV/OFX парсера выписки в e2e.
+  parseBankStatementForTest(text, filename) {
+    return parseBankStatementText(text || "", filename || "");
   },
   // I3: применить предложение по id - тот же путь, что UI-действие "apply-proposal"
   // (store.commit → applyProposal). Стоит за кнопкой владельца; в e2e заменяет клик.

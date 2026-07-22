@@ -3460,6 +3460,13 @@ audio {
   grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
 }
 
+.finance-bank-import-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: var(--line-height-normal);
+}
+
 .compact-finance-form {
   grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
 }
@@ -5193,7 +5200,9 @@ audio {
 }
 
 .finance-workbench-v2 .finance-action-grid {
-  grid-template-columns: minmax(280px, 1.15fr) repeat(3, minmax(190px, 0.85fr));
+  /* F1: auto-fit instead of a hardcoded 4-column split - the bank-import tool made it 5 tools,
+     and a fixed repeat(3, ...) would have squeezed a 5th card into an uneven row. */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   align-items: stretch;
 }
 

@@ -231,3 +231,14 @@ PROGRESS.md перезаписан как леджер v1.4: статус, да�
 ### Порядок F-срезов
 F1 → F2 (автосбор работает end-to-end) → F5 (видно) → F3 → F4 (цели видны) → F6 → F7.
 Каждый: заголовок → код → гейты §4 → продуктовая линза §C → commit+push → PROGRESS.md.
+
+**F1+F2 закрыты (2026-07-22):** `providers.bank` честный gate (not-connected, требует OAuth,
+которого нет - никогда не имитирует успех). Реальный работающий путь: импорт CSV/OFX выписки
+в Финансах (`ui/finance.js` bankImportSection + `app.js` parseBankStatementText/
+importBankStatement) - RU/EN заголовки колонок, дебет/кредит или единая сумма, OFX
+`<STMTTRN>`-блоки, честный дедуп по (день+сумма+название) против существующих транзакций и
+открытых предложений. Каждая строка = proposal (finance_expense/finance_income, тот же
+apply-путь, что money-fast-capture), не тихая запись. Тесты: finance-bank-import.spec.mjs (4/4).
+Урок сессии: `app.js` содержит МЁРТВЫЕ render-функции (renderFinancePanel/V2 и подобные) -
+живой UI строится в `ui/*.js` (shell.js роутит на ui/finance.js, ui/home.js и т.д.); проверять
+живой рендер сразу через playwright-скриншот/diagnostic, не полагаться на чтение app.js.

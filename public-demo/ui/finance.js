@@ -143,10 +143,30 @@ function paydayForecastSection(ctx) {
   ].join("");
 }
 
+// F1/F2 (owner directive 2026-07-22, docs/LIFEOS_V1_4_FULL_BUILD_PLAN.md §4A): bank OAuth
+// aggregation is honestly not-connected - never a faked "connected" state (§7). The real,
+// always-working path is a CSV/OFX statement the owner exports from their own bank site;
+// each row becomes a PROPOSAL (never a silent write) via app.js's importBankStatement, reusing
+// the existing finance_expense/finance_income proposal machinery - same accept flow as any
+// other money proposal, with dedup so re-importing an overlapping statement doesn't double it.
+function bankImportSection(ctx) {
+  const bank = (ctx.providers || []).find((row) => row.key === "bank");
+  const status = bank && bank.provider ? bank.provider.status : "not-connected";
+  return [
+    `<section class="finance-tool finance-bank-import" data-testid="finance-bank-import-form">`,
+    `<h3>Импорт выписки</h3>`,
+    `<p class="finance-bank-import-hint" data-testid="bank-provider-status" data-raw-status="${escapeHtml(status)}">Банк напрямую не подключён (OAuth не настроен). Экспортируй выписку CSV/OFX на сайте банка и импортируй файл — каждая строка появится как предложение в разборе.</p>`,
+    button("import-bank-statement", "Импорт CSV/OFX", { kind: "primary", testId: "import-bank-statement" }),
+    `<input id="bank-statement-import" data-testid="bank-statement-import-input" type="file" accept=".csv,.ofx,.qfx,text/csv" hidden>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderFinance(ctx) {
   const body = [
     `<div data-testid="finance-panel">`,
     renderMoneyDashboard(ctx),
+    bankImportSection(ctx),
     weeklyChartSection(ctx),
     topCategoriesSection(ctx),
     spendHeatmapSection(ctx),
