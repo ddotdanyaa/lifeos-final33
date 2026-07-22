@@ -5298,6 +5298,19 @@ function createActionProposalsForSource(state, sourceId) {
   source.analysis = normalizeArtifactAnalysis(source.analysis, source);
   const analysis = source.analysis;
   const proposals = [];
+  const entities = extractEntitiesFromText(source.text || "");
+  if (entities.people.length) {
+    proposals.push(addProposal(state, "entity-extract", "👤 Люди: " + entities.people.join(", "), source.id, source.noteId, { fields: { entityType: "person", names: entities.people } }));
+  }
+  if (entities.projects.length) {
+    proposals.push(addProposal(state, "entity-extract", "📋 Проекты: " + entities.projects.join(", "), source.id, source.noteId, { fields: { entityType: "project", names: entities.projects } }));
+  }
+  if (entities.places.length) {
+    proposals.push(addProposal(state, "entity-extract", "🗺️ Места: " + entities.places.join(", "), source.id, source.noteId, { fields: { entityType: "place", names: entities.places } }));
+  }
+  if (entities.dates.length) {
+    proposals.push(addProposal(state, "entity-extract", "📅 Даты: " + entities.dates.join(", "), source.id, source.noteId, { fields: { entityType: "date", names: entities.dates } }));
+  }
   for (const item of analysis.drafts || []) {
     proposals.push(addProposal(state, item.type, item.title, source.id, source.noteId, item));
   }
@@ -5356,6 +5369,71 @@ function captureTextArtifact(state, text) {
   addChatMessage(state, "assistant", "Артефакт связан с Библиотекой, Графом и предложениями на Сегодня.", sourceId, state.sources[sourceId] ? state.sources[sourceId].noteId : "");
   addAudit(state, "inbox.capture", "Inbox text captured as artifact", state.sources[sourceId] ? state.sources[sourceId].noteId : "");
   return sourceId;
+}
+
+// I3 (Tana typed nodes + Graphiti entity-extraction): honest lexical entity extractor - regex +
+// morphological stems + cue words, NOT ML/cloud (Canon stack-filter). Precision over recall: it
+// only surfaces names it has a real signal for, so a proposal is worth the owner's confirm (§7),
+// never a wall of two-word junk. People are captured from person-cues ("с Анной", "встретил
+// Ивана"), places from a canonical stem dictionary (any case form -> canonical name), projects
+// from a project-keyword followed by consecutive Capitalized words, dates from months/ISO/relative.
+function extractEntitiesFromText(text) {
+  const empty = { people: [], projects: [], places: [], dates: [] };
+  if (!text) return empty;
+  const entities = { people: [], projects: [], places: [], dates: [] };
+
+  // Places: stem dictionary tolerant to Russian case endings, normalized to a canonical label.
+  const placeDict = [
+    [/Москв[а-яё]*/gi, "Москва"], [/Питер[а-яё]*|Санкт-Петербург[а-яё]*|СПб/gi, "Санкт-Петербург"],
+    [/Армен[а-яё]*/gi, "Армения"], [/Ереван[а-яё]*/gi, "Ереван"], [/Севан[а-яё]*/gi, "Севан"],
+    [/Росси[а-яё]*/gi, "Россия"], [/Франци[а-яё]*/gi, "Франция"], [/Англи[а-яё]*/gi, "Англия"],
+    [/Испани[а-яё]*/gi, "Испания"], [/Итали[а-яё]*/gi, "Италия"], [/Греци[а-яё]*/gi, "Греция"],
+    [/Япони[а-яё]*/gi, "Япония"], [/Кита[йея-яё]*/gi, "Китай"], [/Инди[йея-яё]*/gi, "Индия"], [/США/g, "США"]
+  ];
+  for (const [re, canonical] of placeDict) {
+    if (re.test(text)) entities.places.push(canonical);
+  }
+  // Place-keyword + a Capitalized following word ("озеро Севан", "город Тбилиси").
+  const placeKeywordRe = /(?:озер[оа]|рек[аи]|город[еа]?|деревн[еяю]|остров[еа]?|гор[аеы]|мор[еяю]|залив[еа]?)\s+([А-ЯЁ][а-яё]+)/gi;
+  for (let m; (m = placeKeywordRe.exec(text)) !== null; ) entities.places.push(m[1].trim());
+
+  // Dates: month names, ISO dates, relative references.
+  // NB: JS \b is ASCII-only, so it never fires around Cyrillic letters - all word boundaries below
+  // use explicit Cyrillic lookarounds (?<![А-Яа-яЁё]) / (?![А-Яа-яЁё]) instead.
+  const months = ["январ", "феврал", "март", "апрел", "ма[йя]", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
+  const monthCanon = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
+  months.forEach((stem, i) => {
+    if (new RegExp("(?<![А-Яа-яЁё])" + stem + "[а-яё]*", "i").test(text)) entities.dates.push(monthCanon[i]);
+  });
+  entities.dates.push(...(text.match(/\d{4}-\d{2}-\d{2}/g) || []));
+  entities.dates.push(...(text.match(/сегодня|завтра|послезавтра|вчера|на следующей неделе|на следующем месяце/gi) || []));
+
+  // Projects: a project keyword (any case form) followed by consecutive Capitalized words.
+  const projectRe = /(?:проект|идея|систем|инициатив|платформ|сервис|приложени)[а-яё]*\s+([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)*)/gi;
+  for (let m; (m = projectRe.exec(text)) !== null; ) {
+    const name = m[1].trim();
+    if (name) entities.projects.push(name);
+  }
+
+  // People: names captured from person-cues (the cue must be a whole word - lookbehind guards the
+  // front, the required \s+ guards the back, so "система" is never read as the cue "с"). A run
+  // joined by "и"/"," yields multiple names ("с Иваном и Сергеем" -> Иван, Сергей).
+  const personRe = /(?<![А-Яа-яЁё])(?:с|со|у|от|встретил[аи]?|звонил[аи]?|говорил[аи]?|писал[аи]?)\s+([А-ЯЁ][а-яё]+(?:\s*(?:,|(?<![А-Яа-яЁё])и(?![А-Яа-яЁё]))\s*[А-ЯЁ][а-яё]+)*)/gi;
+  const placeSet = new Set(entities.places);
+  const projectSet = new Set(entities.projects);
+  for (let m; (m = personRe.exec(text)) !== null; ) {
+    for (const raw of m[1].split(/\s*(?:,|\sи\s)\s*/)) {
+      const name = raw.trim();
+      if (name && !placeSet.has(name) && !projectSet.has(name)) entities.people.push(name);
+    }
+  }
+
+  return {
+    people: [...new Set(entities.people)],
+    projects: [...new Set(entities.projects)],
+    places: [...new Set(entities.places)],
+    dates: [...new Set(entities.dates)]
+  };
 }
 
 function applySourceProposals(state, sourceId, acceptedTypes) {
@@ -6886,6 +6964,27 @@ function applyProposal(state, proposalId) {
   } else if (proposal.type === "agent" || proposal.type === "chat" || proposal.type === "flow") {
     runLocalAgent(state, proposal.sourceId, proposal.noteId);
     objectId = Object.values(state.agentRuns || {}).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id || "";
+  } else if (proposal.type === "entity-extract") {
+    // I3 (Tana typed nodes): accepting an entity proposal materializes each extracted name as a
+    // typed knowledge node (person/project/place/date), linked to the source - a real graph node
+    // with its own audit, never a silent write. Fields carry entityType + names from extraction.
+    const entityType = cleanLine(fields.entityType || "entity");
+    const names = Array.isArray(fields.names) ? fields.names : [];
+    const typeLabel = { person: "Человек", project: "Проект", place: "Место", date: "Дата" }[entityType] || "Сущность";
+    const typeIcon = { person: "👤", project: "📋", place: "🗺️", date: "📅" }[entityType] || "🏷️";
+    for (const name of names) {
+      const cleanName = cleanLine(name);
+      if (!cleanName) continue;
+      const nodeId = addInsight(state, typeIcon + " " + cleanName, typeLabel + " (извлечено из источника)", {
+        sourceId: proposal.sourceId,
+        noteId: proposal.noteId
+      });
+      if (nodeId) {
+        state.insights[nodeId].entityKind = entityType;
+        objectId = nodeId;
+      }
+    }
+    addAudit(state, "entity.extract", "Типизированные узлы (" + typeLabel + "): " + names.join(", "), proposal.noteId);
   } else {
     objectId = addInsight(state, proposal.title, proposal.reason, {
       sourceId: proposal.sourceId,
@@ -19968,6 +20067,16 @@ window.__lifeosKnowledgeBase = {
     store.emit();
     updateSaveStatus();
     return Promise.resolve(summary);
+  },
+  // I3: test hook для проверки извлечения сущностей в e2e (люди/проекты/места/даты).
+  extractEntitiesForTest(text) {
+    return extractEntitiesFromText(text || "");
+  },
+  // I3: применить предложение по id - тот же путь, что UI-действие "apply-proposal"
+  // (store.commit → applyProposal). Стоит за кнопкой владельца; в e2e заменяет клик.
+  applyProposalForTest(proposalId) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Proposal applied", (state) => applyProposal(state, proposalId)).then(() => true);
   },
   injectCorruptRecordForTest() {
     if (!store) return Promise.resolve("");
