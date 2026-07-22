@@ -12187,6 +12187,118 @@ function morningSummary(state) {
   };
 }
 
+// I1 (донор-принципы: Graphiti relationship-extraction/edge-ranking + Logseq unlinked-
+// references): общие частые слова-шум не связывают ничего осмысленного. Отсекаем их, чтобы
+// «общая тема» была реально различающей (rare shared term), а не «и там и там есть слово это».
+const INSIGHT_TERM_STOPWORDS = new Set([
+  "этот", "эта", "это", "эти", "того", "тоже", "также", "чтобы", "когда", "потом", "после",
+  "перед", "около", "между", "через", "нужно", "надо", "буду", "была", "были", "было", "быть",
+  "есть", "меня", "тебя", "себя", "свои", "свой", "своя", "весь", "вся", "все", "всё", "очень",
+  "может", "можно", "нельзя", "здесь", "там", "тут", "как", "что", "чем", "кто", "где", "куда",
+  "если", "или", "либо", "ещё", "уже", "лишь", "только", "даже", "так", "вот", "теперь",
+  "сегодня", "завтра", "вчера", "утром", "днём", "вечером", "ночью", "каждый", "каждая",
+  "сделать", "делать", "работа", "работать", "новый", "новая", "новое", "хочу", "хочет",
+  "note", "task", "with", "that", "this", "from", "have", "will", "your", "about", "into",
+  "then", "there", "here", "what", "which", "when", "were", "been", "some", "more", "than",
+  // Служебный boilerplate шаблона заметки-источника (в каждой захваченной заметке) - не тема.
+  "source", "artifact", "repository", "kind", "detected", "summary", "status", "ready",
+  "text", "linked", "links", "заметка", "заметки", "источник", "источника", "запись",
+  "текст", "книга", "аудио", "файл", "изображение", "документ", "мысль"
+]);
+
+// I1: различающие термины артефакта - слова длиной ≥5 (кириллица/латиница) из названия+тела,
+// не в стоп-листе, плюс теги и цели вики-связей. Set нормализованных форм.
+function artifactDistinctiveTerms(note) {
+  const terms = new Set();
+  const raw = String((note.title || "") + " " + (note.body || ""));
+  for (const word of raw.split(/[^0-9a-zA-Zа-яёА-ЯЁ]+/)) {
+    const norm = normalizeTitle(word);
+    if (norm.length >= 5 && !INSIGHT_TERM_STOPWORDS.has(norm)) terms.add(norm);
+  }
+  for (const tag of Array.isArray(note.tags) ? note.tags : []) {
+    const norm = normalizeTitle(tag);
+    if (norm.length >= 3) terms.add(norm);
+  }
+  for (const link of Array.isArray(note.links) ? note.links : []) {
+    const norm = normalizeTitle(link.targetTitle || "");
+    if (norm.length >= 4) terms.add(norm);
+  }
+  return terms;
+}
+
+// I1: авто-детект связей (Graphiti edge-ranking / Logseq unlinked references, честная
+// vanilla-эвристика, не ML): пары живых заметок, делящих РЕДКИЕ общие термины (df 2..5) и ещё
+// НЕ связанных вики-ссылкой, ранжируем по силе пересечения. Это «находит неожиданные связи»,
+// оставаясь только СИГНАЛОМ (инсайт) - граф молча не мутируется (§7); связать предложит I2.
+// Инсайты-связи - про артефакты владельца, не про внутренний скаффолдинг LifeOS
+// (product_brain dev-canon + v34_platform демо-системы/маркетплейс).
+const INSIGHT_INTERNAL_SYSTEM_TYPES = new Set(["product_brain", "v34_platform"]);
+function detectConceptConnections(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
+  if (notes.length < 2) return [];
+  const termToNotes = new Map();
+  const termsByNote = new Map();
+  for (const note of notes) {
+    const terms = artifactDistinctiveTerms(note);
+    termsByNote.set(note.id, terms);
+    for (const term of terms) {
+      if (!termToNotes.has(term)) termToNotes.set(term, []);
+      termToNotes.get(term).push(note.id);
+    }
+  }
+  const linked = new Set();
+  for (const note of notes) {
+    for (const link of Array.isArray(note.links) ? note.links : []) {
+      if (link.targetId) {
+        linked.add(note.id + "|" + link.targetId);
+        linked.add(link.targetId + "|" + note.id);
+      }
+    }
+  }
+  const pairShared = new Map();
+  for (const [term, ids] of termToNotes) {
+    // df 2..5 = термин различающий: связывает мало артефактов, не «вода».
+    if (ids.length < 2 || ids.length > 5) continue;
+    for (let i = 0; i < ids.length; i += 1) {
+      for (let j = i + 1; j < ids.length; j += 1) {
+        const a = ids[i];
+        const b = ids[j];
+        if (a === b || linked.has(a + "|" + b)) continue;
+        const key = a < b ? a + "|" + b : b + "|" + a;
+        if (!pairShared.has(key)) pairShared.set(key, { a: key.split("|")[0], b: key.split("|")[1], terms: [], minDf: Infinity });
+        const entry = pairShared.get(key);
+        entry.terms.push(term);
+        entry.minDf = Math.min(entry.minDf, ids.length);
+      }
+    }
+  }
+  const noteById = new Map(notes.map((note) => [note.id, note]));
+  const candidates = [];
+  for (const entry of pairShared.values()) {
+    // Связь достойна показа, если общих различающих тем ≥2, ЛИБО есть один очень редкий
+    // общий термин (df==2, встречается ровно в этих двух артефактах).
+    if (entry.terms.length >= 2 || entry.minDf === 2) {
+      const a = noteById.get(entry.a);
+      const b = noteById.get(entry.b);
+      if (!a || !b) continue;
+      candidates.push({ a, b, terms: Array.from(new Set(entry.terms)).slice(0, 4), score: entry.terms.length * 10 - entry.minDf });
+    }
+  }
+  candidates.sort((x, y) => y.score - x.score);
+  return candidates.slice(0, 3).map((c) => {
+    const pairKey = [c.a.id, c.b.id].sort().join("-");
+    return {
+      id: "connection-" + pairKey,
+      type: "connection",
+      icon: "🔗",
+      title: "Похоже, «" + (c.a.title || "заметка") + "» и «" + (c.b.title || "заметка") + "» об одном",
+      detail: "Общие темы: " + c.terms.join(", "),
+      confidence: c.terms.length >= 2 ? "средняя" : "низкая",
+      refs: [c.a.id, c.b.id]
+    };
+  });
+}
+
 // Срез 11: Insight Engine - ВЫЧИСЛЯЕМЫЕ закономерности из реальных артефактов (повторяющиеся
 // траты, тренды, забытые цели, просроченные задачи). Проекция (как memoryLayers/timelineDays),
 // пересчитывается на каждом рендере => всегда свежая при первом открытии за день. Каждый инсайт
@@ -12236,6 +12348,8 @@ function computeInsights(state) {
   if (overdue.length) {
     insights.push({ id: "overdue-tasks", type: "overdue", icon: "⏰", title: overdue.length + " " + pluralRu(overdue.length, "задача просрочена", "задачи просрочены", "задач просрочено"), detail: overdue.slice(0, 3).map((task) => task.title).join("; "), confidence: "высокая", refs: overdue.map((task) => task.noteId).filter(Boolean).slice(0, 5) });
   }
+  // 5. I1: неожиданные связи между артефактами (Graphiti/Logseq unlinked-references идея).
+  for (const connection of detectConceptConnections(state)) insights.push(connection);
   return insights.slice(0, 8);
 }
 
@@ -19722,6 +19836,10 @@ window.__lifeosKnowledgeBase = {
   resetForTest: resetRepositoryForTest,
   getStateSnapshot() {
     return store ? clone(store.state) : null;
+  },
+  // I1: read-only проекция детектора связей для e2e - как computeInsights, без мутаций.
+  detectConceptConnectionsForTest() {
+    return store ? detectConceptConnections(store.state) : [];
   },
   getArchitectureSnapshot() {
     return buildArchitectureSnapshot(store ? store.state : {});

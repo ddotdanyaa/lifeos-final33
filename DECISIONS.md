@@ -3019,3 +3019,28 @@ BLOCKED.md) - но у владельца на реале работает; эт�
 **Проверено:** H01-H10 10/10 (H01 держится), insight-engine + evening-summary зелёные,
 audio-any-format 2/2, verify, аудиты (кроме env-bound owner-rescue-final), build-public.
 Скриншот пустого состояния docs/qc/screens/AUDIT/home-fresh-empty-state.png.
+
+## Канон знаний/графа + I1: авто-детект неожиданных связей между артефактами (2026-07-22)
+
+**Директива владельца:** собрать канон лидеров рынка по инсайтам/knowledge-graph/памяти
+(Tana, NotebookLM, Logseq, Smart Connections, Mem0, Graphiti, Zep, LangGraph, LlamaIndex,
+Capacities, Heptabase, Dataview, Neo4j…), не переносить код и не копировать архитектуру —
+только принципы/функции в артефактную модель LifeOS; вести рабочий файл; сразу менять продукт.
+**Сделано:**
+- `docs/INSIGHT_ENGINE_CANON.md` - канон-инструкция в запрошенном формате (модульная
+  таксономия; для каждого донора блок «Почему выбран / Что изучить / Какие проблемы решает /
+  Польза для LifeOS»; раздел «Что должен сделать Claude Code» из 10 шагов; язык
+  «рекомендуется адаптировать», не «украсть»; железные правила: не код/не архитектура, только
+  принципы, стек-фильтр, всё через proposal/receipt).
+- `docs/INSIGHT_IMPLEMENTATION_QUEUE.md` - рабочая очередь (I1..S1, V1..V2) с донор-источниками.
+- **I1 (первый пакет, донор-принципы Graphiti edge-ranking + Logseq unlinked-references):**
+  `detectConceptConnections` находит пары заметок владельца, делящих РЕДКИЕ различающие термины
+  (df 2..5, стоп-лист служебных/шаблонных слов) и ещё НЕ связанных вики-ссылкой; ранжирует по
+  силе пересечения; выводит инсайтом «🔗 Похоже, «A» и «B» об одном: общие темы …». Только
+  сигнал - граф молча не мутируется (§7); связать предложит I2. Внутренний скаффолдинг LifeOS
+  (systemType v34_platform / product_brain) исключён, чтобы инсайты были про артефакты владельца.
+**Проверено:** новый connection-insights.spec.mjs 2/2 (детект+рендер реальной связи
+Армения/Ереван/Севан через read-only хук detectConceptConnectionsForTest; негатив: борщ и
+Армения НЕ связываются); H01-H10 10/10 (H01 «спокойный Дом» держится); insight-engine зелёный;
+verify; аудиты (кроме env-bound owner-rescue-final); build-public. Скриншот
+docs/qc/screens/AUDIT/connection-insight.png.
