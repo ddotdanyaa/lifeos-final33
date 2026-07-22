@@ -82,8 +82,12 @@ const nodes = [
     desc: "Рёбра несут время-валидности + трассировку к эпизоду-источнику; противоречащий факт ИНВАЛИДИРУЕТ ребро, не стирает историю (совпадает с нашей философией чеков). Донор — Graphiti (Apache-2.0, но Python+Neo4j → только идея; реализуем как проекцию над нашим графом, не БД)." },
   { id: "base_logseq", phase: "donor", label: "База · outliner / block-refs (идея Logseq)", status: "todo", deps: ["s8"],
     desc: "Блоки-outliner, block-references ((id)), daily journal, page-properties. Донор — Logseq (AGPL-3.0 → ТОЛЬКО идеи, ни строки кода), поверх установленного @toast-ui/editor." },
-  { id: "donor_more", phase: "donor", label: "Пачки M / Q / V (каталог 160+)", status: "todo", deps: ["r_hay", "i_graphiti"],
-    desc: "Память (M), запросы (Q), визуал (V) — потоком из DONOR_FUNCTION_CATALOG (160+ функций), каждая пачка = вертикальный артефактный слой." },
+  { id: "m_mem", phase: "donor", label: "M · Память фактов (идея Mem0/Cognee)", status: "todo", deps: ["s8"],
+    desc: "Персональная память: факт хранится с источником и историей (add/search/update/invalidate), пересекается с философией чеков LifeOS. Доноры — Mem0/Cognee (Apache, но Python/TS → только идея)." },
+  { id: "flows_lg", phase: "donor", label: "Агенты как граф состояний (идея LangGraph)", status: "todo", deps: ["s13"],
+    desc: "Сценарии/агенты как граф состояний с чекпоинтами и human-in-the-loop. Донор — LangGraph (MIT, но Python → только идея), поверх готового Agent Center (срез 13)." },
+  { id: "donor_more", phase: "donor", label: "Пачки Q / V (каталог 160+)", status: "todo", deps: ["r_hay", "i_graphiti", "m_mem"],
+    desc: "Запросы (Q), визуал (V) — потоком из DONOR_FUNCTION_CATALOG (160+ функций), каждая пачка = вертикальный артефактный слой." },
 
   // Инфраструктура этой сессии (закрыта 22.07) — отдельный кластер устойчивости
   { id: "x_alac", phase: "now", label: "ALAC-аудио фикс", status: "done", deps: ["s6"],

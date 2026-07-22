@@ -58,6 +58,12 @@ Receipt Engine, Memory Graph, Personal OS). Остальное — интегр�
 | **Haystack** (deepset) | Apache-2.0 ✅ лицензия — но **Python** (524 .py) | Python не запускается в vanilla-браузере, движок неперенос | Компонентный RAG-конвейер: retrievers/rankers/joiners/routers/builders/generators как ИНСПЕКТИРУЕМЫЙ pipeline «запрос→поиск→реранк→контекст→ответ» с цитатами назад на артефакт (R/Q-пачки; движки уже есть — minisearch + semantic search) |
 | **Graphiti** (getzep) | Apache-2.0 ✅ лицензия — но **Python + Neo4j** (255 .py) | Python + внешняя БД Neo4j, не встаёт в локальный vanilla | Темпоральный граф: рёбра с валидностью во времени, инвалидация (не удаление) при противоречии, трассировка факта до эпизода-источника, гибридный поиск (семантика+ключи+обход) — донор F7 и I-пачки; реализуем как проекцию над нашим graph/memory |
 | **Logseq** | ⚠️ **AGPL-3.0** + ClojureScript (856 .cljs) | AGPL запрещает код + не JS-стек | Outliner блоками, block-refs `((id))`, daily journal, page properties, query-страницы — идеи для «База» |
+| **LlamaIndex** | MIT ✅ лицензия — но **Python** (3832 .py) | Python не запускается в браузере | RAG-конструкции: индексы/ретриверы/query-engine/response-synthesizer, node-postprocessors — паттерны R/Q-пачек |
+| **LangGraph** | MIT ✅ — но **Python** (447 .py) | Python | Оркестрация агентов как граф состояний (узлы/рёбра/checkpointer/human-in-the-loop) — паттерн для «Сценариев»/Agent Center |
+| **Cognee** | Apache-2.0 ✅ — но **Python** (1893 .py) | Python | Память как граф: ingest→cognify→search, версии датасетов — M/I-пачки |
+| **Mem0** | Apache-2.0 ✅ — но TS+Python (серверный) | серверный слой памяти | Персональная память: add/search/update/history фактов С ИСТОЧНИКОМ — M-пачка (совпадает с нашей философией чеков) |
+| **AnythingLLM** | MIT ✅ — но Node/React (1100+ jsx/js) | build/React, не vanilla | UX локального AI-воркспейса: workspaces, документ→эмбеддинги, цитаты — паттерны разметки (не код) |
+| **Neo4j** | ⚠️ **GPL** + Java-СУБД (8829 .java) | GPL + сервер БД, не встаёт локально | Модель графа/обхода как ИДЕЯ; у нас проекция над памятью, НЕ БД (план F7 это уже фиксирует) |
 | Vikunja, Plane, Firefly III | AGPL | AGPL | Идеи фич |
 
 ## Карта: подсистема LifeOS → доноры (в порядке приоритета)
@@ -109,6 +115,13 @@ Receipt Engine, Memory Graph, Personal OS). Остальное — интегр�
   лицензии/стек проверены из raw LICENSE, вывод: все три — доноры-ИДЕИ, не код (Python/ClojureScript
   физически не встают в vanilla; Logseq вдобавок AGPL). **skills + graphify — инструменты агента,
   НЕ продуктовые доноры** (см. `.agents/skills/`).
+- [x] 2026-07-22 — v2.3: занесены ещё 7 (владелец скачал локально): LlamaIndex/LangGraph (MIT,
+  Python), Cognee/Mem0 (Apache, Python/TS), AnythingLLM (MIT, Node/React), Open WebUI (кастомная,
+  уже был), Neo4j (**GPL**, Java-СУБД). Вывод честный: все — серверные AI-фреймворки
+  (Python/Java/React), НИ ОДИН не встаёт кодом в локальный vanilla-браузер; берём конструкции
+  (RAG, память фактов с источником, граф состояний агентов, темпоральный граф). Локальность
+  LifeOS — это преимущество, которого у них нет. Дальнейшее скачивание той же категории —
+  низкая отдача; двигает продукт сборка слоёв, не клонирование.
 - [ ] Построчный разбор Excalidraw selection/binding — при пакете Whiteboard/Graph-гибрида.
 - [ ] Построчный разбор LibreChat streaming/tool-calling — при следующем AI-пакете.
 - [ ] Построчный разбор xyflow/system edge-math — при Graph-гибриде или Builder.
