@@ -40,13 +40,15 @@ export function renderInspectorDrawer(ctx) {
   const mode = RENDERER_MODES.includes(ctx.control?.inspectorRenderer) ? ctx.control.inspectorRenderer : "card";
   const item = presentArtifact(record, record.type);
   const preview = mode === "table-row" ? `<table><tbody>${renderArtifactByMode(item, mode)}</tbody></table>` : mode === "timeline" ? `<ul>${renderArtifactByMode(item, mode)}</ul>` : renderArtifactByMode(item, mode);
+  // MVP: инспектор ведёт человеческим (превью + связи), а сырой контракт объекта — под
+  // сворачиваемым «Технические поля», чтобы не нагромождать. Поля остаются в DOM (тесты целы).
   return [
     `<aside class="inspector-drawer" data-testid="inspector-drawer">`,
     `<header><strong>${escapeHtml(selected.title || record.title)}</strong><span>${escapeHtml(selected.meta || record.type)}</span></header>`,
-    `<section class="inspector-section" data-testid="inspector-contract-fields"><h4>Контракт объекта</h4>${contractFieldRows(record)}</section>`,
-    `<section class="inspector-section" data-testid="inspector-renderer-section"><h4>Рендер</h4>${rendererSwitch(mode)}<div class="inspector-preview" data-testid="inspector-preview">${preview}</div></section>`,
+    `<section class="inspector-section" data-testid="inspector-renderer-section"><h4>Как выглядит</h4>${rendererSwitch(mode)}<div class="inspector-preview" data-testid="inspector-preview">${preview}</div></section>`,
     `<section class="inspector-section" data-testid="inspector-relations-section"><h4>Связи</h4>${relationRows(record, selected.edgeReasons || [])}</section>`,
     `<section class="inspector-section" data-testid="inspector-receipts-section"><h4>Квитанции</h4>${receiptRows(selected.receipts || [])}</section>`,
+    `<details class="inspector-section inspector-contract-details" data-testid="inspector-contract-fields"><summary>Технические поля</summary>${contractFieldRows(record)}</details>`,
     `<section class="inspector-actions" data-testid="inspector-actions">`,
     button("export-selected-artifact", "Экспорт", { kind: "ghost", testId: "inspector-export" }),
     button("create-rollback-snapshot", "Снимок отката", { kind: "ghost", testId: "inspector-rollback" }),

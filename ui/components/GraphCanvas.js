@@ -11,6 +11,8 @@ export function renderGraphCanvas(ctx) {
       .filter((node) => [node.title, node.label, node.type, node.id].some((value) => String(value || "").toLowerCase().includes(query)))
       .slice(0, 8)
     : [];
+  // MVP: только фильтры по реальным пользовательским данным + честный тумблер «Разработка».
+  // Скаффолд-типы (каналы/системы/модели/дом) убраны из панели — не нагромождают.
   const filterRows = [
     ["notes", "Заметки"],
     ["sources", "Источники"],
@@ -19,10 +21,6 @@ export function renderGraphCanvas(ctx) {
     ["habits", "Привычки"],
     ["goals", "Цели"],
     ["knowledge", "Знания"],
-    ["channels", "Каналы"],
-    ["systems", "Системы"],
-    ["models", "Модели"],
-    ["home", "Дом"],
     ["productBrain", "Разработка"]
   ];
   return [

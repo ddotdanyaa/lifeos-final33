@@ -8138,6 +8138,29 @@ audio {
   flex: 0 0 auto;
 }
 
+/* MVP: сырой контракт объекта — под спокойным сворачиваемым тумблером, не нагромождает инспектор. */
+.inspector-contract-details > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 0;
+  user-select: none;
+}
+
+.inspector-contract-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.inspector-contract-details > summary::before {
+  content: "▸ ";
+}
+
+.inspector-contract-details[open] > summary::before {
+  content: "▾ ";
+}
+
 .evening-reflection p {
   margin: 0;
   color: var(--text-main);
