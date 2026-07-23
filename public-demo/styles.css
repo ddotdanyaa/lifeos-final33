@@ -2957,7 +2957,8 @@ audio {
 
 .flow-builder {
   display: grid;
-  grid-template-columns: minmax(130px, 1fr) minmax(150px, 1fr) minmax(120px, auto) auto;
+  /* Canon v2 §21: перенос вместо переполнения. */
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 8px;
   align-items: end;
   padding: 9px;
@@ -6300,8 +6301,44 @@ audio {
 
 .today-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.1fr) minmax(260px, 0.8fr) 260px;
+  /* Canon v2 §21: без горизонтального скролла — колонки переносятся, а не переполняют. */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
+}
+
+.today-layout > * {
+  min-width: 0;
+}
+
+/* Canon v2 §21: рабочие места не расширяются шире вьюпорта; грид/флекс-дети могут сжиматься,
+   длинные неразрывные строки (id/таймстампы/JSON) переносятся, а не толкают страницу вбок. */
+.lifeos-main-v2,
+.workspace-v2,
+.market-workspace,
+.flow-canvas {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.workspace-v2 > *,
+.market-workspace > *,
+.flow-canvas > *,
+.today-side,
+.agent-run,
+.flow-run-card,
+.approval-row {
+  min-width: 0;
+}
+
+.control-event {
+  grid-template-columns: minmax(0, 180px) minmax(0, 1fr) auto;
+}
+
+.control-event > *,
+.control-event time,
+.control-event strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .now-column,
@@ -7291,7 +7328,8 @@ audio {
 }
 
 .agents-flow-layout {
-  grid-template-columns: 260px minmax(520px, 1fr) 280px;
+  /* Canon v2 §21: сумма минимумов должна влезать в рабочую область (было 260+520+280=1088px → overflow). */
+  grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.5fr) minmax(220px, 0.9fr);
 }
 
 .flow-canvas {
