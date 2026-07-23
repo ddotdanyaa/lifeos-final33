@@ -38,7 +38,6 @@ export function renderToday(ctx) {
     `<section class="now-column">`,
     `<span>Что делать сейчас</span>`,
     todayTasks[0] ? taskRow(ctx, todayTasks[0], "today-next-action") : emptyState("День спокойный", "Добавь задачу через главный ввод.", button("focus-capture", "Добавить", { kind: "primary" })),
-    `<div class="weak-day-box"><strong>Слабый день</strong><span>Оставь только одно важное действие и привычки без давления.</span></div>`,
     `<div class="today-goal-form"><h3>Цели</h3>${safeList(goals.slice(0, 4), (goal) => `<div class="goal-mini-row" data-testid="goal-row"><strong>${escapeHtml(goal.title || "Цель")}</strong>${button("toggle-goal", goal.status === "done" ? "Вернуть" : "Готово", { id: goal.id, kind: "ghost" })}</div>`, `<div class="empty-inline">Целей пока нет.</div>`)}<div class="today-form-row"><input id="goal-input" data-testid="goal-input" placeholder="Новая цель" aria-label="Новая цель">${button("add-goal", "Добавить", { kind: "primary", testId: "add-goal" })}</div></div>`,
     `</section>`,
     `<section class="timed-column"><h3>Сегодня по времени</h3>${safeList(timed, (task) => taskRow(ctx, task), emptyState("Нет задач по времени", "Поставь время в календаре или через ввод."))}<div class="today-form-row"><input id="task-input" data-testid="task-input" placeholder="Новая задача" aria-label="Новая задача"><input id="task-time" data-testid="task-time-input" placeholder="ЧЧ:ММ" aria-label="Время задачи">${button("add-task", "Добавить", { kind: "primary", testId: "add-task" })}</div></section>`,

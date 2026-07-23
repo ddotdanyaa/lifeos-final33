@@ -11539,7 +11539,10 @@ function computeUserModel(state) {
     confidence: shiftHours > 0 ? "средняя" : "низкая",
     why: shiftHours > 0 ? Math.round(shiftHours) + " ч смен за неделю." : "Смен за неделю не записано.", sample: Math.round(shiftHours)
   });
-  return traits;
+  // Честное пустое состояние (§7): пока у владельца нет НИКАКИХ данных (ни задач, ни активности,
+  // ни смен), не выносим приговор «дисциплина низкая» на чистом экране - панель просто не рисуется.
+  const hasEvidence = totalTasks > 0 || activeDays.size > 0 || shiftHours > 0;
+  return hasEvidence ? traits : [];
 }
 
 // Срез 12: поддержка решения «стоит ли завтра работать?» на реальных цифрах смен - с уверенностью,
@@ -11552,6 +11555,11 @@ function workDecisionSupport(state) {
   const txs = Object.values(state.financeTransactions || {}).filter((item) => !item.deleted);
   const weekIncome = txs.filter((tx) => tx.kind === "income" && week.includes(tx.day)).reduce((sum, tx) => sum + tx.amount, 0);
   const workDays = new Set(txs.filter((tx) => tx.kind === "income" && Number(tx.shiftHours) > 0 && week.includes(tx.day)).map((tx) => tx.day)).size;
+  // Честное пустое состояние (§7): без цели и без единой финзаписи решать «стоит ли работать» не из
+  // чего - не показываем карточку решения на чистом экране (появится, как только есть цель или доход).
+  if (goal <= 0 && txs.length === 0) {
+    return null;
+  }
   if (goal <= 0) {
     return { question, recommendation: "Нужна цель недели", confidence: "низкая", why: "Недельная цель не задана — не от чего считать остаток и темп.", alternatives: ["Поставь цель недели в Деньгах"] };
   }
