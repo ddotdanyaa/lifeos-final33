@@ -18179,6 +18179,17 @@ function bindGlobalEvents() {
       renderError(error);
     });
   });
+  // Canon §3 / IMP-2.1: шапка плоская сверху, матовая (blur+тень) на скролле — отделяет
+  // её от подъезжающего контента, не тяжелит первый экран.
+  let headerScrollRaf = 0;
+  const applyHeaderScroll = () => {
+    headerScrollRaf = 0;
+    const header = document.querySelector(".lifeos-public-header");
+    if (header) header.toggleAttribute("data-scrolled", (window.scrollY || document.documentElement.scrollTop || 0) > 8);
+  };
+  window.addEventListener("scroll", () => {
+    if (!headerScrollRaf) headerScrollRaf = requestAnimationFrame(applyHeaderScroll);
+  }, { passive: true });
   app.addEventListener("dragover", (event) => {
     event.preventDefault();
     document.body.classList.add("drag-active");
