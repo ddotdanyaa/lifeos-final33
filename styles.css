@@ -6678,19 +6678,31 @@ audio {
 }
 
 .money-hero {
+  position: relative;
   display: grid;
   gap: 8px;
   padding: 22px;
+  padding-left: 26px;
   border-radius: var(--radius-lg);
-  color: #14532d;
-  background: linear-gradient(135deg, rgba(22, 163, 74, 0.14), rgba(22, 163, 74, 0.06));
-  border: 1px solid rgba(22, 163, 74, 0.16);
+  color: var(--text-main);
+  background: var(--bg-surface);
+  border: 1px solid var(--line-hairline);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
-:root[data-theme="dark"] .money-hero {
-  color: #86efac;
-  background: linear-gradient(135deg, rgba(22, 163, 74, 0.2), rgba(22, 163, 74, 0.08));
-  border-color: rgba(74, 222, 128, 0.22);
+.money-hero::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-finance);
+}
+
+.money-hero strong {
+  color: var(--accent-finance);
 }
 
 .money-hero strong {
