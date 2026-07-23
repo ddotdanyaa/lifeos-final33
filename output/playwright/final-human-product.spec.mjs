@@ -67,7 +67,8 @@ test("H01 Home is chat-first, quiet, and not a proof cockpit", async ({ page }) 
   await mkdir(shotDir, { recursive: true });
   await reset(page);
   await expect(page.getByTestId("mega-dropzone")).toContainText("Что добавить в LifeOS?");
-  await expect(page.getByTestId("assistant-quick-actions").getByRole("button")).toHaveCount(5);
+  // 4 частых типа ввода (Голос/Расход/Задача/Мысль); файл/аудио/книга/импорт — в раскрытии «Прикрепить» (§6).
+  await expect(page.getByTestId("assistant-quick-actions").getByRole("button")).toHaveCount(4);
   await expect(page.getByTestId("home-workspace-rail").getByRole("button")).toHaveCount(9);
   await expect(page.getByTestId("command-center")).not.toContainText("Product Brain");
   await expect(page.getByTestId("command-center")).not.toContainText("ledger");

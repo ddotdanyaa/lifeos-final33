@@ -60,7 +60,8 @@ test("first ten minutes: guided capture, one action flows through, no dead-end s
 
   // 1. Home is quiet and capture-first, not a wall of proof/labels.
   await expect(page.getByTestId("mega-dropzone")).toContainText("Что добавить в LifeOS?");
-  await expect(page.getByTestId("assistant-quick-actions").getByRole("button")).toHaveCount(5);
+  // 4 частых типа ввода (Голос/Расход/Задача/Мысль); файл/аудио/книга/импорт — в раскрытии «Прикрепить» (§6).
+  await expect(page.getByTestId("assistant-quick-actions").getByRole("button")).toHaveCount(4);
   await expect(page.getByTestId("command-center")).not.toContainText("Product Brain");
 
   // 2. Before any data exists, every primary surface is reachable and shows something -

@@ -6069,6 +6069,45 @@ audio {
   display: none;
 }
 
+.assistant-attach {
+  margin-top: 2px;
+}
+
+.assistant-attach > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 6px 2px;
+  user-select: none;
+  transition: color 140ms var(--ease);
+}
+
+.assistant-attach > summary::-webkit-details-marker {
+  display: none;
+}
+
+.assistant-attach > summary::before {
+  content: "+ ";
+  font-weight: 700;
+}
+
+.assistant-attach[open] > summary::before {
+  content: "− ";
+}
+
+.assistant-attach > summary:hover {
+  color: var(--text-main);
+}
+
+.assistant-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 8px;
+}
+
 .human-answer-card {
   grid-area: answer;
   display: grid;
