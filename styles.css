@@ -6018,6 +6018,22 @@ audio {
   line-height: var(--line-height-tight);
 }
 
+/* Компактное приветствие: заголовок скромнее, блок плотнее — фокус на вводе ниже. */
+.home-hero-compact {
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.home-hero-compact h1 {
+  font-size: var(--text-xl);
+  font-weight: 650;
+}
+
+.home-hero-compact p {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 .home-hero-copy p {
   max-width: 700px;
   margin: 0;

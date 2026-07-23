@@ -197,10 +197,10 @@ export function renderAssistantHome(ctx) {
   const habitsDone = `${today.habitDone || 0}/${today.habitTotal || 0}`;
   return [
     `<section class="assistant-home-v2" data-testid="command-center">`,
-    `<div class="home-hero-copy">`,
-    `<span>LifeOS</span>`,
-    `<h1>Локальная ОС для дня, знаний и контроля</h1>`,
-    `<p>Один вход превращает хаос в артефакты: задачи, деньги, знания, календарь, привычки и связи.</p>`,
+    // Первый экран — действие, а не маркетинг: спокойное приветствие ведёт к вводу ниже.
+    `<div class="home-hero-copy home-hero-compact">`,
+    `<h1>С чего начнём?</h1>`,
+    `<p>Напиши, скажи или скинь — LifeOS разберёт это в задачу, расход, заметку или событие.</p>`,
     `</div>`,
     `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
