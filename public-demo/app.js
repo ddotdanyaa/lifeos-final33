@@ -11220,6 +11220,52 @@ function computeInsights(state) {
   if (overdue.length) {
     insights.push({ id: "overdue-tasks", type: "overdue", icon: "⏰", title: overdue.length + " " + pluralRu(overdue.length, "задача просрочена", "задачи просрочены", "задач просрочено"), detail: overdue.slice(0, 3).map((task) => task.title).join("; "), confidence: "высокая", refs: overdue.map((task) => task.noteId).filter(Boolean).slice(0, 5) });
   }
+  // 5. ЗНАНИЯ из захваченных МЫСЛЕЙ ВЛАДЕЛЬЦА (не деньги, не сид/дев-данные) — ядро сценария
+  // «собрал мысль → инсайт → граф». Системные/сид-заметки (product-brain/v34/product-map) исключены,
+  // чтобы инсайты были про жизнь владельца, а не про внутренние артефакты.
+  const SYSTEM_TAGS = ["v34", "product-brain", "product-map"];
+  const isSystemNote = (n) => (n.tags || []).some((t) => SYSTEM_TAGS.includes(String(t).toLocaleLowerCase()));
+  const userNotes = Object.values(state.notes || {}).filter((n) => !n.deleted && !isSystemNote(n));
+  // 5a. Часто упоминаемый человек — со склейкой русских склонений (Женя/Женей/Жене → один).
+  const stemPerson = (name) => String(name).toLocaleLowerCase().trim().replace(/(ей|ем|ым|ом|ой|ев|ва|ю|я|е|и|а|у)$/u, "");
+  const personStems = new Map();
+  for (const person of resolvePeople(state)) {
+    const stem = stemPerson(person.name);
+    if (stem.length < 3) continue;
+    if (!personStems.has(stem)) personStems.set(stem, { name: person.name, mentions: 0, sourceIds: new Set() });
+    const g = personStems.get(stem);
+    g.mentions += person.mentions;
+    (person.sourceIds || []).forEach((id) => g.sourceIds.add(id));
+    if (person.name.length < g.name.length) g.name = person.name;
+  }
+  for (const g of [...personStems.values()].sort((a, b) => b.mentions - a.mentions).slice(0, 2)) {
+    if (g.mentions >= 2) {
+      insights.push({ id: "person-" + stemPerson(g.name), type: "person", icon: "🧑", title: "Часто в мыслях: " + g.name, detail: g.mentions + " " + pluralRu(g.mentions, "упоминание", "упоминания", "упоминаний"), confidence: g.mentions >= 4 ? "высокая" : "средняя", refs: [...g.sourceIds].slice(0, 5) });
+    }
+  }
+  // 5b. Повторяющаяся тема — тег в нескольких заметках владельца (сид/системные теги исключены).
+  const tagGroups = new Map();
+  for (const note of userNotes) {
+    for (const rawTag of (note.tags || [])) {
+      const t = String(rawTag).toLocaleLowerCase().trim();
+      if (!t || SYSTEM_TAGS.includes(t)) continue;
+      if (!tagGroups.has(t)) tagGroups.set(t, { tag: rawTag, notes: [] });
+      tagGroups.get(t).notes.push(note.id);
+    }
+  }
+  for (const [, group] of [...tagGroups.entries()].sort((a, b) => b[1].notes.length - a[1].notes.length).slice(0, 2)) {
+    if (group.notes.length >= 2) {
+      insights.push({ id: "topic-" + String(group.tag).toLocaleLowerCase(), type: "topic", icon: "🧵", title: "Тема набирает вес: «" + group.tag + "»", detail: group.notes.length + " " + pluralRu(group.notes.length, "заметка", "заметки", "заметок"), confidence: "средняя", refs: group.notes.slice(0, 5) });
+    }
+  }
+  // 5c. Растущий центр знаний — заметка владельца с наибольшей связностью (ссылки + бэклинки).
+  const hubs = userNotes
+    .filter((n) => n.title)
+    .map((n) => ({ note: n, links: (Array.isArray(n.links) ? n.links.length : 0) + ((state.backlinks || {})[n.id] || []).length }))
+    .sort((a, b) => b.links - a.links);
+  if (hubs[0] && hubs[0].links >= 2) {
+    insights.push({ id: "hub-" + hubs[0].note.id, type: "hub", icon: "🕸️", title: "Центр знаний: «" + (hubs[0].note.title || "заметка") + "»", detail: hubs[0].links + " " + pluralRu(hubs[0].links, "связь", "связи", "связей") + " — открой в графе", confidence: "средняя", refs: [hubs[0].note.id] });
+  }
   return insights.slice(0, 8);
 }
 
