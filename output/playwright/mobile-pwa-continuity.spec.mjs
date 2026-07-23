@@ -27,7 +27,7 @@ const appUrl = "http://127.0.0.1:4173";
 const ALL_NAV_SURFACES = [
   "inbox", "today", "calendar", "finance", "feed", "systems", "library", "graph", "control",
   "capture", "projects", "chat", "agents", "models", "smart-home", "marketplace", "builder",
-  "design", "databases", "screen", "twin", "goals", "habits", "reader", "player", "providers"
+  "design", "databases", "screen", "twin", "goals", "reader", "player", "providers"
 ];
 
 test("mobile navigation reaches every v34 surface, not just the bottom-bar five", async ({ page }) => {

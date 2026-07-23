@@ -208,7 +208,9 @@ test.skip("legacy cockpit owner artifact OS capture creates proposals and applie
   await page.screenshot({ path: "output/playwright/owner-finance.png", fullPage: true });
 
   await page.getByTestId("surface-inbox").click();
-  await page.getByTestId("surface-habits").click();
+  // «Цели и привычки» объединены в один пункт (surface goals) в группе «Ещё».
+  await page.locator('[data-testid="app-ribbon"] summary').first().click().catch(() => {});
+  await page.getByTestId("surface-goals").click();
   await expect(page.getByTestId("habits-goals-panel")).toBeVisible();
   await expect(page.getByTestId("balance-wheel")).toBeVisible();
   await expect(page.getByTestId("domain-row")).toHaveCount(6);

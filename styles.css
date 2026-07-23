@@ -6478,6 +6478,20 @@ audio {
   margin-top: 6px;
 }
 
+/* Canon §21/§22: ряды стат-чипов переносятся, а не толкают экран вбок на мобиле. */
+.control-trail-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.control-trail-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
 .calendar-planner {
   display: grid;
   gap: 14px;

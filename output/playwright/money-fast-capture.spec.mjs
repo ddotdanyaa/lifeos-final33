@@ -72,7 +72,7 @@ test("U2 MONEY_FAST: bare-text expense/income auto-parse, goal pace, real weekly
   await expect(page.getByTestId("owner-money-zone")).toContainText("350");
 
   // 3) Goal "Выкуп машины" with a debt target and date - progress bar + honest pace label.
-  await openSurface(page, "habits");
+  await openSurface(page, "goals");
   await page.locator("#goal-title-entry").fill("Выкуп машины");
   await page.locator("#goal-target-amount").fill("300000");
   const future = new Date();
