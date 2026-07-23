@@ -15,10 +15,12 @@
 | Navigation (sidebar+palette) | ✅ | D (config-driven) + S (механика) + P (frosted) |
 | Overlays (dialog/sheet/drawer) | ✅ | P (адаптив) + S (анатомия) |
 | Command Palette | ✅ | S (cmdk) ← из nav-config (D) |
-| Data list / table / toolbar | 🔬 | T (очевидно) — читаю toolbar/faceted |
-| Motion library | ⧗ | M — не читан |
+| Collection View (list/table/grid/kanban/timeline/graph/calendar) | ✅ | T (toolbar/выбор→action-bar) + D (kanban) + наш RENDERER_REGISTRY |
+| Interaction (hover/drag/select/undo/optimistic…) | ⧗ | M + все |
 | Forms / Fields (deep) | ⧗ | S (Field-система) |
 | Toasts / feedback | ⧗ | S (sonner) |
+| **Responsive Canon** (5 брейкпоинтов × трансформации) | ⧗ | P (адаптив) + правила |
+| **Information Architecture Canon** (кол-во экранов) | ⧗ | из D−1 |
 
 ---
 
@@ -86,12 +88,48 @@ sr-only title. P — **один оверлей, тело по устройств
 
 ---
 
-## Очередь функций (следующие заходы, по одной, best-of-5)
-- **Data list/table (T):** toolbar (поиск+фильтры), faceted-filter, выбор строк → плавающая панель действий, pagination, column-header sort, skeleton, URL-состояние. → под D−1 (База 31 кнопка, Паки 32, Лента 31 секция).
-- **Motion (M):** сдержанные появления/переходы (fade/blur/slide), число-каунтеры — точечно.
-- **Forms/Fields (S):** Field-система (orientation vertical/horizontal/responsive, container-queries), авто-a11y (aria-describedby/invalid), FieldError-дедуп. → под Конструктор (17 полей → multi-step).
-- **Toasts (S sonner):** единый feedback вместо инлайн-сообщений.
+## 6. Collection View ✅ (T таблица + D kanban + наш RENDERER_REGISTRY)
+
+**Ключ:** в LifeOS почти всё — представление ОДНОЙ коллекции артефактов. У нас уже есть
+`RENDERER_MODES = [feed-bubble, card, table-row, timeline]` + `RENDERER_REGISTRY` (+ graph/cytoscape,
+calendar). Не хватает: grid/gallery, kanban, tree и **слоя управления списком** у табличного вида.
+
+**Сравнение видов по репо:**
+- **Table (T):** контейнер `rounded-md border overflow-hidden`; строка `data-state="selected"`; **toolbar** с фильтрами, авто-выведенными из полей (`getCanFilter`), «Reset» (border-dashed) только когда есть фильтр; view-options (видимость колонок); **actionBar** — плавающая панель при выборе строк; faceted/date/range-фильтры; pagination; сортировка в column-header; skeleton. **Это лечит D−1:** База 31/Паки 32 кнопки — убрать по-строчные кнопки, выбор строк → одна панель действий.
+- **Kanban (D):** доски-колонки + DnD-перенос (sortablejs у нас уже одобрен).
+- **Наши:** feed-bubble (Лента), card, timeline, table-row, graph, calendar — есть, но без единого переключателя вида и без toolbar.
+
+**Канон LifeOS Collection View:**
+- Любой список артефактов = `<CollectionView collection renderer>` — рендер по `RENDERER_REGISTRY`, НИКОГДА не копия (SSoT).
+- Единый **сегмент-переключатель вида** (List/Card/Table/Gallery/Kanban/Timeline/Calendar/Graph) на surface, из `state.viewPreset[surface].renderer` (уже есть — поднять из design-studio в сам список).
+- Единый **toolbar**: поиск + фильтры-по-полям (декларативно из схемы коллекции) + reset-когда-фильтр + view-options.
+- **Выбор → плавающая панель действий** (не по-строчные кнопки). Пусто → §2 Empty. Грузится → §2 Skeleton.
+
+**🧬 Артефакт-маппинг (обязателен):** view = проекция `RENDERER_REGISTRY[collection]`; выбор строк = выбор
+артефактов (`state.selection[]`); действие из action-bar = **Proposal → preview → confirm → Receipt** (наш
+пайплайн `addProposal`), не тихая мутация; фильтр = запрос по полям артефакта. Ноль новых источников правды.
+**Матрица:** Внедрять — да, высокий эффект (лечит 3 самых перегруженных экрана). НЕ внедрять — TanStack/DnD-код (берём паттерн; DnD — на sortablejs). Риск — средний. Стоимость — средняя. Что получим — один список-движок вместо N разнородных экранов.
+
+---
+
+## 🧬 Артефакт-маппинг сделанных функций (правило владельца: каждый паттерн — через модель LifeOS)
+- **Navigation** → пункт = surface-проекция; палитра и меню из одного nav-config; черновик = `ready:false` артефакт-гейт.
+- **Overlays** → модалка = предпросмотр действия над артефактом (preview перед Proposal), не отдельное «окно».
+- **Command Palette** → Artifact Search → Command → Create → **Action → Proposal → Receipt** (не «просто ⌘K», а вход в артефакт-пайплайн).
+- **Collection View** → см. выше (проекция + selection + Proposal).
+
+## Очередь канонов и функций (по одной, best-of-5, с артефакт-маппингом)
+**Функции:** Interaction (M+все: hover/active/pressed/selected/drag/reorder/keyboard/focus/loading/optimistic/undo/transition) · Forms/Fields (S, → Конструктор multi-step) · Toasts (S sonner) · Grid/Gallery/Tree (добор Collection View).
+**Отдельные каноны (по твоим правкам):**
+- **Responsive Canon:** Desktop/Laptop/Tablet/Mobile/UltraWide × правила: когда Sidebar→Drawer, панели→вкладки, таблица→карточки, появляется FAB/Bottom-Sheet. → под 3 overflow-экрана из D−1.
+- **Information Architecture Canon:** сколько экранов нужно, что объединить (Цели≡Привычки), скрыть (10 черновиков), показывать только при данных, убрать из меню. Эффект больше, чем ещё 100 кнопок.
+
+## Воронка к фундаменту (жёстко, по твоему)
+500 решений → 260 уникальных (anti-dup) → 140 полезных → 70 обязательных → **30 фундаментальных = правила, которые нельзя нарушать нигде**.
+
+## Этапы до редизайна (по твоему)
+Canon v2 → **LifeOS Mapping → Artifact Runtime → Screen Map → UI Runtime** → редизайн экранов строго из канона.
 
 ## Anti-Duplicate log
-Button/Card/Sidebar встречаются во всех репо, но в канон внесены ОДИН раз (источник — S как канонический).
-D/T/M используют S как базу — из них берём НЕ примитивы, а паттерны сборки (nav-config, data-table, motion).
+Button/Card/Sidebar/Command/Table есть во всех репо → в канон внесены ОДИН раз (источник — S как канонический;
+D/T/M дают НЕ примитивы, а паттерны сборки: nav-config, data-table-toolbar, kanban, motion).
