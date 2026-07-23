@@ -6108,6 +6108,39 @@ audio {
   padding-top: 8px;
 }
 
+.workspace-draft-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--amber) 8%, var(--bg-surface));
+}
+
+.workspace-draft-note .draft-badge {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+  border-radius: 999px;
+}
+
+.workspace-draft-note p {
+  flex: 1 1 260px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
 .human-answer-card {
   grid-area: answer;
   display: grid;
