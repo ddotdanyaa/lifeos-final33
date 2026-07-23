@@ -6311,6 +6311,128 @@ audio {
   color: var(--accent-finance);
 }
 
+/* ============ Дом v3 — с нуля: центрированная колонка, композитор-герой, воздух ============ */
+.home-v3 {
+  max-width: 840px;
+  margin: 0 auto;
+  display: grid;
+  gap: 26px;
+  align-content: start;
+}
+
+.home-v3-lead {
+  text-align: center;
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.home-v3-lead h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 650;
+  color: var(--text-main);
+}
+
+.home-v3-lead p {
+  margin: 0 auto;
+  max-width: 540px;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Композитор — герой экрана: шире, крупнее, спокойнее */
+.home-v3 .assistant-composer {
+  grid-area: auto;
+  padding: 24px;
+}
+
+.home-v3 .assistant-composer label {
+  font-size: 19px;
+}
+
+.home-v3 .assistant-composer textarea {
+  min-height: 116px;
+  font-size: 16px;
+}
+
+.home-v3 .human-answer-card {
+  grid-area: auto;
+}
+
+/* Обзор дня — тонкая строка чистых плиток с акцент-полоской, не панели-коробки */
+.home-v3-glance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.glance-tile {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  padding: 14px 14px 14px 18px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 120ms var(--ease), border-color 120ms var(--ease);
+}
+
+.glance-tile::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--card-accent, var(--accent-chat));
+}
+
+.glance-tile.money {
+  --card-accent: var(--accent-finance);
+}
+
+.glance-tile.habits {
+  --card-accent: var(--accent-habit);
+}
+
+.glance-tile:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--line-soft);
+}
+
+.glance-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.glance-tile strong {
+  font-size: 15px;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glance-tile em {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-style: normal;
+}
+
+.home-v3 .dash-widgets {
+  display: grid;
+  gap: 16px;
+}
+
 .home-my-day {
   display: grid;
   gap: var(--space-3);

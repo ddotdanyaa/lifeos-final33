@@ -198,21 +198,20 @@ export function renderAssistantHome(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
   const habitsDone = `${today.habitDone || 0}/${today.habitTotal || 0}`;
+  // Дом v3 (кардинально с нуля): единая центрированная колонка, композитор — герой экрана,
+  // максимум воздуха, без коробок-нагромождения. Обзор дня — тонкой строкой-инлайн, не панелями.
   return [
-    `<section class="assistant-home-v2" data-testid="command-center">`,
-    // Первый экран — действие, а не маркетинг: спокойное приветствие ведёт к вводу ниже.
-    `<div class="home-hero-copy home-hero-compact">`,
+    `<section class="assistant-home-v2 home-v3" data-testid="command-center">`,
+    `<div class="home-v3-lead">`,
     `<h1>С чего начнём?</h1>`,
-    `<p>Напиши, скажи или скинь — LifeOS разберёт это в задачу, расход, заметку или событие.</p>`,
+    `<p>Напиши, скажи или скинь — а LifeOS сам разберёт: задача, расход, мысль, событие или связь.</p>`,
     `</div>`,
-    `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
     renderHumanAnswerCard(ctx),
-    `<aside class="home-mini-summary">`,
-    `<button class="mini-summary-card" data-action="set-surface" data-id="today" data-testid="owner-next-zone"><span>Сегодня</span><strong>${escapeHtml(today.next?.title || "Нет следующего действия")}</strong><em>${today.todayCount || 0} сегодня · ${today.unscheduled || 0} без времени</em></button>`,
-    `<button class="mini-summary-card money" data-action="set-surface" data-id="finance" data-testid="owner-money-zone"><span>Деньги</span><strong>${money(finance.balance)}</strong><em>${money(finance.todaySpend)} сегодня</em></button>`,
-    `<button class="mini-summary-card habits" data-action="set-surface" data-id="habits" data-testid="owner-habit-zone"><span>Привычки</span><strong>${escapeHtml(habitsDone)}</strong><em>${ctx.goals?.length || 0} целей</em></button>`,
-    `</aside>`,
+    `<div class="home-v3-glance" data-testid="home-glance">`,
+    `<button class="glance-tile" data-action="set-surface" data-id="today" data-testid="owner-next-zone"><span class="glance-label">Сегодня</span><strong>${escapeHtml(today.next?.title || "Нет действия")}</strong><em>${today.todayCount || 0} задач · ${today.unscheduled || 0} без времени</em></button>`,
+    `<button class="glance-tile money" data-action="set-surface" data-id="finance" data-testid="owner-money-zone"><span class="glance-label">Деньги</span><strong>${money(finance.balance)}</strong><em>${money(finance.todaySpend)} сегодня</em></button>`,
+    `<button class="glance-tile habits" data-action="set-surface" data-id="habits" data-testid="owner-habit-zone"><span class="glance-label">Привычки</span><strong>${escapeHtml(habitsDone)}</strong><em>${ctx.goals?.length || 0} целей</em></button>`,
     `</div>`,
     renderDashboardWidgets(ctx),
     ctx.commandMessage ? `<div class="human-toast" data-testid="home-command-message">${escapeHtml(ctx.commandMessage)}</div>` : "",
