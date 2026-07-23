@@ -16647,6 +16647,16 @@ async function handleAction(action, id) {
     });
     return;
   }
+  if (action === "insight-to-graph") {
+    // Замыкает сценарий: инсайт → граф. Открывает граф в локальном режиме, сфокусировав узел инсайта.
+    await store.commit("Инсайт открыт в графе", (state) => {
+      state.activeSurface = "graph";
+      state.graphView.mode = "local";
+      if (id) selectGraphNodeInState(state, id);
+      addAudit(state, "graph.from-insight", "Инсайт открыт в графе: " + id, state.activeNoteId);
+    });
+    return;
+  }
   if (action === "clear-graph-search") {
     await store.commit("Graph search cleared", (state) => {
       state.graphView.searchQuery = "";

@@ -61,7 +61,10 @@ function renderInsightsPanel(ctx) {
       `<div class="insight-card" data-testid="insight-card" data-insight="${escapeHtml(insight.id)}">`,
       `<span class="insight-icon" aria-hidden="true">${insight.icon}</span>`,
       `<div class="insight-body"><strong>${escapeHtml(insight.title)}</strong><span>${escapeHtml(insight.detail)} · уверенность: ${escapeHtml(insight.confidence)}</span></div>`,
+      `<div class="insight-actions">`,
+      insight.refs && insight.refs.length ? button("insight-to-graph", "В граф", { id: insight.refs[0], kind: "ghost", testId: "insight-to-graph" }) : "",
       button("pin-insight", "Закрепить", { id: insight.id, kind: "ghost", testId: "pin-insight" }),
+      `</div>`,
       `</div>`
     ].join(""), ""),
     `</div>`,
