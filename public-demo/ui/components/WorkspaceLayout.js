@@ -12,7 +12,7 @@ function draftNote(name) {
   if (!DRAFT_SURFACES.has(name)) return "";
   return [
     `<div class="workspace-draft-note" data-testid="workspace-draft-note">`,
-    `<span class="draft-badge">В разработке</span>`,
+    `<span class="draft-badge">🚧 В разработке</span>`,
     `<p>Этот раздел ещё собирается: часть действий пока не проходит сценарий от начала до конца. Готовые ежедневные разделы — Дом, Сегодня, Деньги, Календарь, Граф, Чат.</p>`,
     button("set-surface", "На Дом", { id: "inbox", kind: "ghost", testId: "draft-note-home" }),
     `</div>`

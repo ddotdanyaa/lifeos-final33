@@ -37,25 +37,15 @@ const primaryNav = [
   ["control", "Контроль"]
 ];
 
-const secondaryNav = [
-  ["capture", "Входящие"],
-  ["projects", "Проекты"],
-  ["chat", "Чат"],
-  ["agents", "Сценарии"],
-  ["models", "Модели"],
-  ["smart-home", "Умный дом"],
-  ["marketplace", "Паки"],
-  ["builder", "Конструктор"],
-  ["design", "Дизайн"],
-  ["databases", "Таблицы"],
-  ["screen", "Экран"],
-  ["twin", "Двойник"],
-  ["goals", "Цели"],
-  ["habits", "Привычки"],
-  ["reader", "Чтение"],
-  ["player", "Аудио"],
-  ["providers", "Подключения"]
+// Левое меню сгруппировано (Linear/dashboard-паттерн): ежедневное и знания сверху, настройки ниже,
+// незавершённые разделы-каркасы — внизу под явной группой «🚧 В разработке», а не вперемешку с рабочим.
+const secondaryGroups = [
+  ["Входящие и AI", [["capture", "Входящие"], ["chat", "Чат"], ["agents", "Сценарии"]]],
+  ["Жизнь", [["goals", "Цели"], ["habits", "Привычки"], ["reader", "Чтение"], ["player", "Аудио"]]],
+  ["Настройки", [["providers", "Подключения"]]],
+  ["🚧 В разработке", [["projects", "Проекты"], ["models", "Модели"], ["smart-home", "Умный дом"], ["marketplace", "Паки"], ["builder", "Конструктор"], ["design", "Дизайн"], ["databases", "Таблицы"], ["screen", "Экран"], ["twin", "Двойник"]]]
 ];
+const secondaryNav = secondaryGroups.flatMap(([, items]) => items);
 
 function navButton(ctx, row, testPrefix = "surface") {
   const [id, label] = row;
@@ -68,7 +58,7 @@ function renderNav(ctx) {
     `<aside class="lifeos-nav-v2">`,
     `<div class="nav-brand"><strong>LifeOS</strong><span>локально</span></div>`,
     `<nav data-testid="home-workspace-rail">${primaryNav.map((row) => navButton(ctx, row)).join("")}</nav>`,
-    `<details class="nav-more" data-testid="app-ribbon"><summary>Ещё</summary><div>${secondaryNav.map((row) => navButton(ctx, row)).join("")}</div></details>`,
+    `<details class="nav-more" data-testid="app-ribbon"><summary>Ещё</summary><div>${secondaryGroups.map(([label, items]) => `<div class="nav-group"><span class="nav-group-label">${escapeHtml(label)}</span>${items.map((row) => navButton(ctx, row)).join("")}</div>`).join("")}</div></details>`,
     button("open-command-palette", "Команды", { kind: "ghost", testId: "open-command-palette" }),
     `</aside>`
   ].join("");
