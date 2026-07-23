@@ -5830,6 +5830,24 @@ audio {
   box-shadow: inset 2.5px 0 0 #60a5fa;
 }
 
+/* MVP: черновики в меню приглушены и помечены 🚧 — видно с первого взгляда, что ещё в разработке. */
+.nav-item {
+  display: flex;
+  align-items: center;
+}
+
+.nav-item-draft:not(.active) {
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.nav-draft-mark {
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .mini-summary-card span,
 .mini-summary-card strong,
 .mini-summary-card em,

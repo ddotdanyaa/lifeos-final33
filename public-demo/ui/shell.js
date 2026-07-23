@@ -25,13 +25,15 @@ import {
 } from "./v34-platform.js";
 import { button, escapeHtml } from "./components/shared.js";
 
+// MVP: главное меню — только РАБОЧИЕ сценарии (9, как требует контракт). Черновик «Системы»
+// вынесен в группу «🚧 В разработке»; его место занял рабочий «Чат» (AI поверх твоих данных).
 const primaryNav = [
   ["inbox", "Дом"],
   ["today", "Сегодня"],
   ["calendar", "Календарь"],
   ["finance", "Деньги"],
   ["feed", "Лента"],
-  ["systems", "Системы"],
+  ["chat", "Чат"],
   ["library", "База"],
   ["graph", "Граф"],
   ["control", "Контроль"]
@@ -40,17 +42,27 @@ const primaryNav = [
 // Левое меню сгруппировано (Linear/dashboard-паттерн): ежедневное и знания сверху, настройки ниже,
 // незавершённые разделы-каркасы — внизу под явной группой «🚧 В разработке», а не вперемешку с рабочим.
 const secondaryGroups = [
-  ["Входящие и AI", [["capture", "Входящие"], ["chat", "Чат"], ["agents", "Сценарии"]]],
+  ["Входящие и AI", [["capture", "Входящие"], ["agents", "Сценарии"]]],
   ["Жизнь", [["goals", "Цели и привычки"], ["reader", "Чтение"], ["player", "Аудио"]]],
   ["Настройки", [["providers", "Подключения"]]],
-  ["🚧 В разработке", [["projects", "Проекты"], ["models", "Модели"], ["smart-home", "Умный дом"], ["marketplace", "Паки"], ["builder", "Конструктор"], ["design", "Дизайн"], ["databases", "Таблицы"], ["screen", "Экран"], ["twin", "Двойник"]]]
+  ["🚧 В разработке", [["systems", "Системы"], ["builder", "Конструктор"], ["projects", "Проекты"], ["models", "Модели"], ["smart-home", "Умный дом"], ["marketplace", "Паки"], ["design", "Дизайн"], ["databases", "Таблицы"], ["screen", "Экран"], ["twin", "Двойник"]]]
 ];
 const secondaryNav = secondaryGroups.flatMap(([, items]) => items);
+
+// Черновые разделы-каркасы: помечаются 🚧 прямо в меню, чтобы с первого взгляда было видно,
+// что работает (чистая кнопка), а что ещё в разработке.
+const DRAFT_SURFACES = new Set([
+  "systems", "builder", "projects", "models", "smart-home",
+  "marketplace", "design", "databases", "screen", "twin"
+]);
 
 function navButton(ctx, row, testPrefix = "surface") {
   const [id, label] = row;
   const active = ctx.activeSurface === id || (id === "inbox" && ctx.activeSurface === "capture") ? " active" : "";
-  return `<button class="nav-item${active}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix)}-${escapeHtml(id)}">${escapeHtml(label)}</button>`;
+  const isDraft = DRAFT_SURFACES.has(id);
+  const draftClass = isDraft ? " nav-item-draft" : "";
+  const draftMark = isDraft ? `<span class="nav-draft-mark" title="В разработке" aria-label="в разработке">🚧</span>` : "";
+  return `<button class="nav-item${active}${draftClass}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix)}-${escapeHtml(id)}">${escapeHtml(label)}${draftMark}</button>`;
 }
 
 function renderNav(ctx) {
