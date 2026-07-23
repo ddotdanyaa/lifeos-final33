@@ -5979,17 +5979,26 @@ audio {
 
 /* Срез 4 (v1.4): карточка утренней сводки - первый блок на Доме. */
 .morning-summary {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.03));
+  position: relative;
+  background: var(--bg-surface);
   border: 1px solid var(--line-hairline);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   padding: var(--space-5);
+  padding-left: calc(var(--space-5) + 4px);
   display: grid;
   gap: var(--space-3);
+  overflow: hidden;
 }
 
-:root[data-theme="dark"] .morning-summary {
-  background: linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(96, 165, 250, 0.04));
+.morning-summary::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-chat);
 }
 
 .morning-summary-head {
@@ -6210,7 +6219,7 @@ audio {
   display: grid;
   gap: 16px;
   padding: 22px;
-  border-left: 5px solid var(--accent-chat);
+  border-left: 2px solid color-mix(in srgb, var(--accent-chat) 55%, transparent);
 }
 
 .human-answer-copy ul {
@@ -6248,21 +6257,37 @@ audio {
   box-shadow: none;
 }
 
+/* shadcn/Linear-стиль: чистая карточка (surface + hairline + тонкая тень) с узкой цветной
+   полоской-акцентом слева вместо заливки цветом. Плоский hover, без прыжка. */
 .mini-summary-card {
-  border: 1px solid transparent;
+  position: relative;
+  border: 1px solid var(--line-hairline);
   border-radius: var(--radius-md);
-  background: var(--bg-surface-2);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
   display: grid;
   gap: 5px;
   text-align: left;
-  padding: 14px;
+  padding: 14px 14px 14px 18px;
   cursor: pointer;
-  transition: transform 120ms var(--ease), background 120ms var(--ease), border-color 120ms var(--ease);
+  overflow: hidden;
+  transition: background 120ms var(--ease), border-color 120ms var(--ease), box-shadow 120ms var(--ease);
+}
+
+.mini-summary-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--card-accent, var(--accent-chat));
 }
 
 .mini-summary-card:hover {
-  transform: translateY(-1px);
   background: var(--bg-surface-hover);
+  border-color: var(--line-soft);
 }
 
 .mini-summary-card strong {
@@ -6271,18 +6296,19 @@ audio {
 }
 
 .mini-summary-card.money {
-  background: rgba(22, 163, 74, 0.08);
+  --card-accent: var(--accent-finance);
 }
 
 .mini-summary-card.habits {
-  background: rgba(124, 58, 237, 0.08);
+  --card-accent: var(--accent-habit);
 }
 
 .human-toast {
   padding: 12px 14px;
-  border-radius: 14px;
-  background: #ecfdf3;
-  color: #166534;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--accent-finance) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-finance) 10%, var(--bg-surface));
+  color: var(--accent-finance);
 }
 
 .home-my-day {
