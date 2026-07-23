@@ -84,12 +84,15 @@ export function button(action, label, options = {}) {
   return `<button class="${classes.join(" ")}" data-action="${escapeHtml(action)}"${id}${test}${disabled}${title}>${escapeHtml(label)}</button>`;
 }
 
-export function emptyState(title, detail, action = "") {
+// Canon §12 (shadcn Empty): пустое состояние — намеренный блок (иконка-медальон + заголовок +
+// описание + действие), а не голый текст. icon необязателен (обратная совместимость сохранена).
+export function emptyState(title, detail, action = "", icon = "") {
   return [
     `<div class="empty-state" data-testid="empty-state">`,
+    icon ? `<span class="empty-state-icon" aria-hidden="true">${icon}</span>` : "",
     `<strong>${escapeHtml(title)}</strong>`,
     detail ? `<span>${escapeHtml(detail)}</span>` : "",
-    action,
+    action ? `<div class="empty-state-action">${action}</div>` : "",
     `</div>`
   ].join("");
 }
