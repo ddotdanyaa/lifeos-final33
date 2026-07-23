@@ -5807,9 +5807,8 @@ audio {
 }
 
 .ui-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-float);
-  border-color: rgba(37, 99, 235, 0.2);
+  background: var(--bg-surface-hover);
+  border-color: var(--line-soft);
 }
 
 .nav-item:focus-visible,
