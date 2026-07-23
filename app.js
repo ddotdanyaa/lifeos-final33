@@ -4320,14 +4320,23 @@ function hasAnyText(lower, words) {
 // пропускает начала предложений; entity resolution (Женя=Жека) - отдельный срез 10.
 const PEOPLE_STOPWORDS = new Set(["LifeOS", "Задача", "Расход", "Доход", "Мысль", "Смена", "Заметка", "Напомни", "Сегодня", "Завтра", "Вчера", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь", "Москва", "Ollama", "Whisper", "Vosk"]);
 
+// Глагол-действие человека — по нему безопасно распознаём имя в НАЧАЛЕ фразы («Женя советует»),
+// не путая имя с императивом («Купить молоко»).
+const PERSON_VERB = /^(сказал|говорил|просил|советует|советовал|звонил|звонит|написал|пишет|встретил|встрет|договор|ответил|предложил|обещал|спросил|помог|помогл|придёт|пришёл|пришл|прислал|хочет|просит|зайдёт|скинул|напомнил|перезвон)/;
 function extractPeopleNames(text) {
   const names = [];
   const sentences = String(text || "").split(/[.!?\n]+/);
   for (const sentence of sentences) {
     const words = sentence.trim().split(/\s+/);
-    for (let index = 1; index < words.length; index += 1) {
+    for (let index = 0; index < words.length; index += 1) {
       const word = words[index].replace(/[^А-ЯЁа-яёA-Za-z-]/g, "");
-      if (/^[А-ЯЁ][а-яё]{2,}$/.test(word) && !PEOPLE_STOPWORDS.has(word)) names.push(word);
+      if (!/^[А-ЯЁ][а-яё]{2,}$/.test(word) || PEOPLE_STOPWORDS.has(word)) continue;
+      // Первое слово фразы — имя только если за ним глагол-действие человека.
+      if (index === 0) {
+        const next = (words[1] || "").toLowerCase().replace(/[^а-яё]/g, "");
+        if (!PERSON_VERB.test(next)) continue;
+      }
+      names.push(word);
     }
   }
   return uniqueCleanItems(names, 6);
