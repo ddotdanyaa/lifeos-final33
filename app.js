@@ -7059,7 +7059,17 @@ function applyProposal(state, proposalId) {
   };
   let objectId = "";
   if (proposal.type === "task" || proposal.type === "project" || proposal.type === "mail") {
-    objectId = addTask(state, fields.title || proposal.title, schedule);
+    // P0-1 (закон №4): та же задача, упомянутая повторно, усиливается, а не дублируется.
+    const existingTask = findExistingByTitle(state.tasks, fields.title || proposal.title);
+    if (existingTask && existingTask.status !== "done") {
+      objectId = existingTask.id;
+      if (schedule && schedule.day && !existingTask.day) existingTask.day = schedule.day;
+      if (schedule && schedule.startTime && !existingTask.startTime) existingTask.startTime = schedule.startTime;
+      existingTask.updatedAt = now();
+      addAudit(state, "task.reinforce", "Такая задача уже есть — усилена, не создана вторая: «" + (existingTask.title || "") + "»", existingTask.noteId || "");
+    } else {
+      objectId = addTask(state, fields.title || proposal.title, schedule);
+    }
   } else if (proposal.type === "calendar" || proposal.type === "plan" || proposal.type === "book") {
     objectId = addPlanBlock(state, fields.title || proposal.title, schedule);
   } else if (proposal.type === "reminder") {
@@ -7138,12 +7148,25 @@ function applyProposal(state, proposalId) {
       noteId: proposal.noteId
     });
   } else if (proposal.type === "goal" || proposal.type === "money_goal") {
-    objectId = addGoal(state, fields.title || proposal.title, {
-      targetAmount: fields.targetAmount || fields.amount || 0,
-      targetDate: fields.targetDate || fields.day || "",
-      sourceId: proposal.sourceId,
-      noteId: proposal.noteId
-    });
+    // P0-1 (закон №4): если такая цель уже есть — усиливаем её, а не создаём вторую.
+    const existingGoal = findExistingByTitle(state.goals, fields.title || proposal.title);
+    if (existingGoal) {
+      objectId = existingGoal.id;
+      const newAmount = Number(fields.targetAmount || fields.amount || 0);
+      const newDate = cleanLine(fields.targetDate || fields.day || "");
+      if (newAmount > 0 && !existingGoal.targetAmount) existingGoal.targetAmount = newAmount;
+      if (newDate && !existingGoal.targetDate) existingGoal.targetDate = newDate;
+      if (proposal.sourceId && !existingGoal.sourceId) existingGoal.sourceId = proposal.sourceId;
+      existingGoal.updatedAt = now();
+      addAudit(state, "goal.reinforce", "Цель уже существует — усилена, не создана вторая: «" + (existingGoal.title || "") + "»", existingGoal.noteId || "");
+    } else {
+      objectId = addGoal(state, fields.title || proposal.title, {
+        targetAmount: fields.targetAmount || fields.amount || 0,
+        targetDate: fields.targetDate || fields.day || "",
+        sourceId: proposal.sourceId,
+        noteId: proposal.noteId
+      });
+    }
   } else if (proposal.type === "claim") {
     objectId = addClaim(state, fields.title || proposal.title, fields.body || proposal.reason, {
       sourceId: proposal.sourceId,
@@ -8335,6 +8358,46 @@ async function stopAudioRecording() {
   const file = new File([finishedBlob], "recording-" + Date.now() + ".webm", { type: finishedBlob.type || "audio/webm" });
   await importFilesFromInput([file], "audio");
   await pendingCommit;
+}
+
+// P0-1 (закон №4 канона design-system/HANDOFF.md; донор-идея Mem0 dedup + Graphiti
+// entity-resolution): повторное упоминание УСИЛИВАЕТ существующий объект, а не плодит второй.
+// Сверка идёт ДО создания: нормализованное совпадение заголовка, затем нечёткое (vendored
+// AFFiNE fuzzy), затем пересечение различающих слов. Возвращает существующий объект или null.
+function findExistingByTitle(collection, title) {
+  const wanted = normalizeTitle(String(title || ""));
+  if (!wanted || wanted.length < 3) return null;
+  const items = Object.values(collection || {}).filter((item) => item && !item.deleted);
+  const exact = items.find((item) => normalizeTitle(item.title || "") === wanted);
+  if (exact) return exact;
+  const wantedWords = contentWordsForMatch(wanted);
+  if (!wantedWords.size) return null;
+  for (const item of items) {
+    const other = normalizeTitle(item.title || "");
+    if (!other) continue;
+    const otherWords = contentWordsForMatch(other);
+    if (!otherWords.size) continue;
+    let shared = 0;
+    for (const word of wantedWords) if (otherWords.has(word)) shared += 1;
+    // Сравниваем ПРЕДМЕТНЫЕ слова (общие «цель/накопить/надо» отброшены), иначе «накопить на
+    // машину» и «накопить на квартиру» склеились бы в один объект. Нужно совпадение предмета и
+    // заметная доля меньшего набора: «накопить на машину до декабря» ↔ «на машину, надо ускориться».
+    if (shared >= 1 && shared / Math.min(wantedWords.size, otherWords.size) >= 0.5) return item;
+  }
+  return null;
+}
+
+// Общие слова намерения не различают объекты — при сверке смотрим только на предмет.
+const MATCH_STOPWORDS = new Set([
+  "цель", "цели", "задача", "задачу", "проект", "план", "надо", "нужно", "хочу", "хочется",
+  "купить", "накопить", "сделать", "закрыть", "начать", "продолжить", "потом", "быстрее",
+  "ускориться", "сегодня", "завтра", "вечером", "утром", "чтобы", "около", "примерно"
+]);
+
+function contentWordsForMatch(normalizedTitle) {
+  return new Set(String(normalizedTitle || "")
+    .split(/\s+/)
+    .filter((word) => word.length >= 4 && !MATCH_STOPWORDS.has(word)));
 }
 
 function addGoal(state, title, options) {
@@ -20500,6 +20563,9 @@ window.__lifeosKnowledgeBase = {
   // I1: read-only проекция детектора связей для e2e - как computeInsights, без мутаций.
   detectConceptConnectionsForTest() {
     return store ? detectConceptConnections(store.state) : [];
+  },
+  findExistingByTitleForTest(collectionName, title) {
+    return store ? findExistingByTitle(store.state[collectionName], title) : null;
   },
   detectProjectClustersForTest() {
     return store ? detectProjectClusters(store.state) : [];
