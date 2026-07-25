@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#08080A;height:100%}
+  body{font-family:ui-sans-serif,-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#ECECEE}
+  input,button{font:inherit;color:inherit;background:none;border:none;outline:none}
+  a{color:#7C8CF8;text-decoration:none}
+  a:hover{color:#9EA9FB}
+  ::selection{background:rgba(124,140,248,.32)}
+  ::-webkit-scrollbar{width:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes breathe{0%,100%{opacity:.35}50%{opacity:.95}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:grid;grid-template-columns:216px 1fr;grid-template-rows:minmax(0,1fr);background:#08080A;overflow:hidden">
+
+  <div style="border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;padding:14px 10px 10px;gap:2px;background:#0A0A0C;overflow:hidden;min-width:0">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 18px">
+      <img src="assets/lifeos-icon.svg" alt="LifeOS" style="width:22px;height:22px;border-radius:7px;display:block;flex:0 0 22px" />
+      <div style="font-size:13.5px;font-weight:560;letter-spacing:-.014em;color:#E9E9ED">LifeOS</div>
+    </div>
+    <div onClick="{{ sOpenFn }}" style="display:flex;align-items:center;gap:10px;padding:8px 11px;margin-bottom:8px;border-radius:10px;background:#0E0E12;border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:13px;color:#6B6B74" style-hover="border-color:rgba(124,140,248,.4);color:#A0A0A8">
+      Поиск<span style="margin-left:auto;font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B">⌘K</span>
+    </div>
+    <sc-for list="{{ lenses }}" as="l" hint-placeholder-count="7">
+      <div onClick="{{ l.go }}" style="{{ l.st }}" style-hover="background:#121218;color:#D6D6DC">
+        <span style="{{ l.dot }}"></span>{{ l.name }}<span style="{{ l.badge }}">{{ l.n }}</span>
+      </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 8px 4px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="width:24px;height:24px;border-radius:50%;background:#1A1A20;border:1px solid rgba(255,255,255,.09);flex:0 0 24px"></div>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;color:#A0A0A8">Данил</div>
+        <div style="font-size:11px;color:#5A5A63;margin-top:3px">всё локально</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden">
+
+    <div style="height:52px;flex:0 0 52px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 22px;gap:14px;background:rgba(8,8,10,.7);backdrop-filter:blur(12px)">
+      <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#7C8CF8;text-transform:uppercase">Агенты</div>
+      <div style="width:1px;height:14px;background:rgba(255,255,255,.1)"></div>
+      <div style="font-size:13px;color:#8B8B93">{{ headState }}</div>
+      <div style="flex:1"></div>
+      <div style="font-size:12.5px;color:#5A5A63;white-space:nowrap">каждое действие оставляет чек</div>
+    </div>
+
+    <div style="flex:1;overflow:hidden auto;min-height:0;min-width:0">
+      <div style="max-width:880px;margin:0 auto;padding:48px 34px 110px">
+
+        <div style="animation:rise .5s ease both;max-width:640px">
+          <div style="font-size:27px;line-height:1.28;letter-spacing:-.027em;font-weight:500;text-wrap:pretty">Агент — это не чат. Это роль, в которой система работает за тебя, пока ты разрешил.</div>
+          <div style="margin-top:14px;font-size:13.5px;color:#7A7A83;line-height:1.65">У каждого агента жёсткие права, видимый триггер и журнал. Действия, которые нельзя отменить, всегда идут через твоё подтверждение.</div>
+        </div>
+
+        <div style="margin-top:38px;padding:22px 24px;border-radius:15px;background:{{ cyc.bg }};border:1px solid {{ cyc.bc }}">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="{{ cyc.dot }}"></span>
+            <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.13em;color:{{ cyc.tc }};text-transform:uppercase;white-space:nowrap">{{ cyc.stage }}</div>
+            <div style="flex:1"></div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <sc-for list="{{ cyc.rail }}" as="p" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="{{ p.dot }}"></span>
+                  <div style="font-size:11.5px;color:{{ p.c }};white-space:nowrap">{{ p.l }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="margin-top:14px;font-size:19px;line-height:1.4;letter-spacing:-.02em;color:#EDEDF0">{{ cyc.title }}</div>
+          <div style="margin-top:10px;font-size:13.5px;color:#8B8B93;line-height:1.6;max-width:620px;text-wrap:pretty">{{ cyc.sub }}</div>
+
+          <div style="margin-top:18px;display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ cyc.steps }}" as="st" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:13px;align-items:start">
+                <div style="{{ st.mark }}">{{ st.icon }}</div>
+                <div>
+                  <div style="font-size:13.5px;color:{{ st.c }};line-height:1.5">{{ st.t }}</div>
+                  <sc-if value="{{ st.out }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:5px;font:400 11.5px/1.5 ui-monospace,Menlo,monospace;color:#5E5E67">{{ st.out }}</div>
+                  </sc-if>
+                </div>
+                <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#4E4E57;white-space:nowrap;padding-top:3px">{{ st.tag }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ cyc.receipt }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:20px;padding:15px 17px;border-radius:12px;background:rgba(99,211,151,.06);border:1px solid rgba(99,211,151,.22)">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.13em;color:#8FE0B4;text-transform:uppercase">артефакт-квитанция</div>
+              <div style="margin-top:10px;font-size:14px;color:#D6D6DC;line-height:1.55">{{ cyc.receipt }}</div>
+              <div style="margin-top:10px;font-size:12.5px;color:#6B6B74;line-height:1.55">{{ cyc.receiptSub }}</div>
+            </div>
+          </sc-if>
+
+          <div style="margin-top:18px;display:flex;gap:9px;flex-wrap:wrap">
+            <sc-for list="{{ cyc.acts }}" as="a" hint-placeholder-count="3">
+              <div onClick="{{ a.go }}" style="{{ a.st }}">{{ a.l }}</div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:44px">
+          <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Работают сейчас</div>
+            <div style="font-size:12.5px;color:#5A5A63;flex:1">нажми, чтобы увидеть права и журнал</div>
+          </div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ agents }}" as="a" hint-placeholder-count="4">
+              <div style="{{ a.card }}">
+                <div onClick="{{ a.toggle }}" style="display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start;cursor:pointer">
+                  <div>
+                    <div style="display:flex;align-items:baseline;gap:11px;flex-wrap:wrap">
+                      <div style="font-size:15.5px;font-weight:500;letter-spacing:-.015em;color:#EDEDF0">{{ a.name }}</div>
+                      <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:{{ a.sc }}">{{ a.status }}</div>
+                    </div>
+                    <div style="margin-top:8px;font-size:13.5px;color:#8B8B93;line-height:1.55;max-width:560px">{{ a.did }}</div>
+                  </div>
+                  <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#4E4E57;white-space:nowrap;padding-top:4px">{{ a.when }}</div>
+                </div>
+                <sc-if value="{{ a.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,.07);animation:fade .25s ease both">
+                    <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">когда просыпается</div>
+                    <div style="margin-top:9px;font-size:13.5px;color:#C9C9D0">{{ a.trigger }}</div>
+
+                    <div style="margin-top:20px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">что делает по шагам</div>
+                    <div style="margin-top:11px;display:flex;flex-direction:column;gap:8px">
+                      <sc-for list="{{ a.steps }}" as="s" hint-placeholder-count="3">
+                        <div style="display:grid;grid-template-columns:18px 1fr;gap:12px;align-items:baseline">
+                          <div style="font:400 11px/1.5 ui-monospace,Menlo,monospace;color:#43434B">{{ s.i }}</div>
+                          <div style="font-size:13.5px;color:#C9C9D0;line-height:1.5">{{ s.t }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+
+                    <div style="margin-top:20px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">права</div>
+                    <div style="margin-top:11px;display:flex;flex-wrap:wrap;gap:7px">
+                      <sc-for list="{{ a.caps }}" as="c" hint-placeholder-count="4">
+                        <div style="{{ c.st }}">{{ c.l }}</div>
+                      </sc-for>
+                    </div>
+
+                    <div style="margin-top:20px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">последние чеки</div>
+                    <div style="margin-top:11px;display:flex;flex-direction:column;gap:2px">
+                      <sc-for list="{{ a.logs }}" as="g" hint-placeholder-count="3">
+                        <div style="display:grid;grid-template-columns:74px 1fr auto;gap:14px;padding:10px 0;border-top:1px solid rgba(255,255,255,.05);align-items:baseline">
+                          <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#4E4E57">{{ g.t }}</div>
+                          <div style="font-size:13px;color:#B9B9C2;line-height:1.5">{{ g.l }}</div>
+                          <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#4E4E57">{{ g.r }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+
+                    <div style="margin-top:18px;display:flex;gap:9px;flex-wrap:wrap">
+                      <div onClick="{{ a.run }}" style="padding:9px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.12);font-size:13px;color:#C9C9D0;cursor:pointer;white-space:nowrap">Запустить сейчас</div>
+                      <div onClick="{{ a.pause }}" style="padding:9px 14px;border-radius:9px;font-size:13px;color:#5A5A63;cursor:pointer">{{ a.pauseLabel }}</div>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:46px">
+          <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Собрать своего</div>
+            <div style="font-size:12.5px;color:#5A5A63;flex:1">агент — это правило поверх твоих же артефактов</div>
+            <a href="Builder.dc.html" style="font-size:12.5px">в конструкторе →</a>
+          </div>
+          <div style="margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+            <sc-for list="{{ templates }}" as="t" hint-placeholder-count="3">
+              <div onClick="{{ t.go }}" style="padding:17px 18px;border-radius:13px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07);cursor:pointer" style-hover="border-color:rgba(124,140,248,.4)">
+                <div style="font-size:14.5px;color:#EDEDF0;letter-spacing:-.012em;font-weight:500;line-height:1.4">{{ t.l }}</div>
+                <div style="margin-top:8px;font-size:12.5px;color:#7A7A83;line-height:1.55">{{ t.s }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:38px;font-size:12.5px;color:#5A5A63;line-height:1.65;max-width:640px">Агенты не имеют доступа в сеть и не могут тратить деньги без подтверждения. Полный список прав и журнал — в Контроле.</div>
+
+      </div>
+    </div>
+
+    <sc-if value="{{ sOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ sClose }}" style="position:absolute;inset:0;z-index:60;background:rgba(4,4,6,.62);animation:fade .16s ease both"></div>
+      <div style="position:absolute;z-index:61;left:0;right:0;top:70px;bottom:50px;display:flex;justify-content:center;align-items:flex-start;pointer-events:none">
+      <div style="pointer-events:auto;width:min(660px,calc(100% - 48px));border-radius:16px;background:#0D0D11;border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 90px -30px rgba(0,0,0,.95);animation:rise .18s ease both;display:flex;flex-direction:column;max-height:100%;overflow:hidden">
+        <div style="padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:12px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;flex:0 0 6px"></span>
+          <input value="{{ sq }}" onChange="{{ onSQ }}" onKeyDown="{{ onSKey }}" placeholder="Искать во всей жизни: артефакты, люди, цитаты, файлы, связи" style="flex:1;font-size:15px;letter-spacing:-.012em;min-width:0" />
+          <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B;white-space:nowrap">esc</div>
+        </div>
+        <div style="flex:1;overflow:hidden auto;min-height:0;padding:8px 8px 12px">
+          <sc-for list="{{ sGroups }}" as="g" hint-placeholder-count="3">
+            <div style="padding:12px 10px 4px">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">{{ g.l }}</div>
+              <div style="margin-top:6px">
+                <sc-for list="{{ g.items }}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{ r.go }}" style="{{ r.st }}" style-hover="background:#15151B">
+                    <div style="font:500 9px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.09em;color:{{ r.c }};text-transform:uppercase;padding-top:4px;white-space:nowrap">{{ r.k }}</div>
+                    <div style="min-width:0">
+                      <div style="font-size:14px;color:#E9E9ED;letter-spacing:-.012em;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.t }}</div>
+                      <div style="font-size:12px;color:#6B6B74;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.s }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ sEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 18px;font-size:13.5px;color:#6B6B74;line-height:1.6">Ничего не нашлось. Но ничего и не потеряно: напиши это в поток — система разберёт и свяжет сама.</div>
+          </sc-if>
+        </div>
+      </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:30px;z-index:50;display:flex;justify-content:center;pointer-events:none"><div style="pointer-events:auto;z-index:30;padding:11px 17px;border-radius:11px;background:#17171D;border:1px solid rgba(255,255,255,.1);font-size:13px;color:#C9C9D0;animation:rise .25s ease both;box-shadow:0 16px 40px -16px rgba(0,0,0,.9);max-width:620px;line-height:1.5">{{ toast }}</div></div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showCaps&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Агенты&quot;}}">
+const NAV = [['Дом', 'ДМ', 'Home.dc.html'], ['Поток', 'ПТ', 'Universal Capture.dc.html'], ['Сегодня', 'СГ', 'Today.dc.html'], ['Граф', 'ГР', 'Graph.dc.html'], ['Агенты', 'АГ', 'Agents.dc.html'], ['Builder', 'BL', 'Builder.dc.html'], ['Контроль', 'КН', 'Control.dc.html']];
+
+const AGENTS = [
+  { id: 'a1', name: 'Вечерний разбор', status: 'работал 40 секунд назад', sc: '#63D397', when: '21:00 ежедневно',
+    did: 'Разобрал 18 объектов дня: 23 предложения, 6 совпадений с существующими объектами, 2 противоречия. Ничего не записал сам.',
+    trigger: 'Каждый день в 21:00 или когда ты нажимаешь «Разобрать день». Если поток пустой — не просыпается.',
+    steps: ['Расшифровывает голосовые локальной моделью', 'Извлекает сущности, суммы, сроки, решения', 'Сверяет с графом и гасит дубликаты', 'Готовит предложения и ждёт твоего согласия'],
+    caps: [['читает поток', 1], ['пишет предложения', 1], ['не создаёт объекты сам', 0], ['без сети', 0]],
+    logs: [['21 июл 21:00', 'Разбор дня: 18 → 23 предложения', '#4821'], ['20 июл 21:00', 'Разбор дня: 11 → 14 предложений', '#4809'], ['19 июл 21:00', 'Поток пустой, пропуск', '—']] },
+  { id: 'a2', name: 'Хранитель чеков', status: 'работает', sc: '#63D397', when: 'при новом фото',
+    did: 'Сегодня распознал 3 чека на 7 970 ₽ и разложил по категориям. Заметил рост доставки на 64% к июню.',
+    trigger: 'Как только в потоке появляется фото или PDF, похожий на чек. Ничего не спрашивает — категории всегда можно поправить.',
+    steps: ['Распознаёт сумму, дату, продавца', 'Определяет категорию по истории покупок', 'Пишет расход и обновляет месячные итоги', 'Если сумма выше обычной в 3 раза — спрашивает'],
+    caps: [['читает фото и PDF', 1], ['пишет расходы', 1], ['не платит', 0], ['без сети', 0]],
+    logs: [['21 июл 21:05', '3 чека → 7 970 ₽, категории проставлены', '#4820'], ['21 июл 13:02', 'Лента 4 380 ₽ → еда', '#4818'], ['20 июл 19:41', 'Аптека 1 240 ₽ → здоровье', '#4812']] },
+  { id: 'a3', name: 'Наблюдатель целей', status: 'нашёл противоречие', sc: '#E5B84B', when: 'раз в сутки',
+    did: 'Сверил цели между собой и нашёл, что накопления 60 000 ₽ и покупка машины в августе несовместимы. Разрыв 410 000 ₽.',
+    trigger: 'Раз в сутки и при каждом изменении цели или крупного обязательства.',
+    steps: ['Пересчитывает свободный поток по счетам', 'Сверяет сроки и суммы всех активных целей', 'Ищет пересечения по деньгам, времени и людям', 'Показывает противоречие с ценой каждого варианта'],
+    caps: [['читает цели и счета', 1], ['пишет противоречия', 1], ['не меняет цели', 0], ['без сети', 0]],
+    logs: [['21 июл 22:10', 'Противоречие: накопления vs август', '#4822'], ['18 июл 22:10', 'Цель «Английский» без действий 43 дня', '#4801'], ['14 июл 22:10', 'Проверка: расхождений нет', '—']] },
+  { id: 'a4', name: 'Тихий секретарь', status: 'выключен', sc: '#5E5E67', when: 'не запущен',
+    did: 'Мог бы держать календарь без конфликтов: находить пересечения и предлагать перенос до того, как ты о них узнаешь.',
+    trigger: 'При любом новом событии в календаре и при упоминании времени в голосовых.',
+    steps: ['Ищет пересечения по времени и людям', 'Проверяет вечера, где стоит тренировка', 'Предлагает 2 варианта переноса', 'Пишет участникам только после твоего согласия'],
+    caps: [['читает календарь', 1], ['предлагает переносы', 1], ['не пишет людям сам', 0], ['без сети', 0]],
+    logs: [['—', 'Агент ни разу не запускался', '—']] },
+];
+
+const TPL = [
+  { l: 'Страж подписок', s: 'Раз в месяц ищет списания за то, чем ты не пользуешься, и приносит на подтверждение.' },
+  { l: 'Хранитель серии', s: 'Следит за привычкой и предупреждает за день до срыва — по твоей же истории обрывов.' },
+  { l: 'Ловец обещаний', s: 'Достаёт из голосовых обещания людям и держит их сроки отдельно от задач.' },
+];
+
+const SEARCH = [
+  ['артефакт', 'Покупка машины', 'проект · 18 источников · разрыв 410 000 ₽', 'Artifact Inspector.dc.html'],
+  ['артефакт', 'Ремонт кухни', 'проект · 240 000 ₽ обязательств · подрядчик ждёт', 'Artifact Inspector.dc.html'],
+  ['цель', 'Откладывать 60 000 ₽ в месяц', 'цель с марта · противоречит августу', 'Artifact Inspector.dc.html'],
+  ['цель', 'Режим и тренировки', 'цель · 12-е возвращение к теме', 'Graph.dc.html'],
+  ['человек', 'Марина', '34 упоминания · условие «без кредита»', 'Graph.dc.html'],
+  ['человек', 'Дмитрий', 'подрядчик · 17 разговоров · паттерн проектов', 'Graph.dc.html'],
+  ['человек', 'Игорь', 'работа · через него пришла Северсталь', 'Graph.dc.html'],
+  ['инсайт', 'После разговоров с Дмитрием ты начинаешь новый проект', '5 проектов, 4 остановились на первой неделе', 'Graph.dc.html'],
+  ['инсайт', 'В дни с тренировкой закрывается на 40% больше задач', 'и нет импульсных покупок · 42 дня', 'Graph.dc.html'],
+  ['противоречие', 'Накопления против покупки в августе', 'разрыв 410 000 ₽ · закроется к декабрю', 'Graph.dc.html'],
+  ['цитата', '«Она согласна на август, если без кредита»', 'голосовое 21 июля 21:20 · 1:48', 'Universal Capture.dc.html'],
+  ['цитата', '«Может, вообще без машины обойтись»', 'голосовое 27 июня · сомнение сохранено', 'Universal Capture.dc.html'],
+  ['файл', 'Смета_кухня_final.pdf', '6 страниц · договор подряда и смета', 'Artifact Inspector.dc.html'],
+  ['файл', 'Каско_расчёт.pdf', '68 000 ₽ в год · учтено в стоимости владения', 'Artifact Inspector.dc.html'],
+  ['чек', 'Лента · 4 380 ₽', 'еда · 21 июля · распознано с фото', 'Control.dc.html'],
+  ['привычка', 'Тренировка', '14 отметок · серия три дня', 'Graph.dc.html'],
+  ['задача', 'Ответить Дмитрию до среды', 'блокирует проект «Ремонт кухни»', 'Today.dc.html'],
+  ['задача', 'Оценить продажу старой машины', 'единственный путь закрыть 410 000 ₽', 'Today.dc.html'],
+  ['память', 'Свободный поток 740 000 ₽', 'расчёт по счетам за 3 месяца', 'Graph.dc.html'],
+  ['агент', 'Страж подписок', 'ждёт разрешения · подписка 1 490 ₽', 'Agents.dc.html'],
+  ['связь', 'Тренировка → импульсные траты', 'сильная связь · 7 из 9 скачков без тренировки', 'Graph.dc.html'],
+  ['команда', 'Разобрать день', '18 объектов в потоке ждут разбора', 'Universal Capture.dc.html'],
+  ['команда', 'Собрать своё пространство', 'Builder · линзы, представления, правила', 'Builder.dc.html'],
+  ['команда', 'Выгрузить архив', 'все артефакты, связи и чеки', 'Control.dc.html'],
+];
+const SKC = { 'артефакт': '#7C8CF8', 'цель': '#9EA9FB', 'человек': '#C79BE0', 'инсайт': '#8FE0B4', 'противоречие': '#E5B84B', 'цитата': '#8B8B93', 'файл': '#E5B84B', 'чек': '#63D397', 'привычка': '#8FBFA8', 'задача': '#7C8CF8', 'память': '#63A9D3', 'агент': '#E5B84B', 'связь': '#8B8B93', 'команда': '#6B6B74' };
+
+class Component extends DCLogic {
+  componentDidMount() { this.bindKeys(); }
+  sOpenFn = () => this.setState({ sOpen: true });
+  sCloseFn = () => this.setState({ sOpen: false, sq: '' });
+  bindKeys() {
+    if (this.keysBound) return;
+    this.keysBound = true;
+    this.keyHandler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); this.setState(st => ({ sOpen: !st.sOpen, sq: '' })); }
+      else if (e.key === 'Escape') this.setState({ sOpen: false });
+    };
+    window.addEventListener('keydown', this.keyHandler);
+  }
+  searchVals() {
+    const st = this.state, q = (st.sq || '').trim().toLowerCase();
+    const hit = q ? SEARCH.filter(r => (r[1] + ' ' + r[2] + ' ' + r[0]).toLowerCase().indexOf(q) >= 0) : SEARCH.filter(r => ['артефакт', 'противоречие', 'инсайт', 'команда'].indexOf(r[0]) >= 0);
+    const order = q ? ['артефакт','цель','противоречие','инсайт','человек','задача','цитата','файл','чек','привычка','память','связь','агент','команда'] : ['артефакт','противоречие','инсайт','команда'];
+    const label = { 'артефакт': 'Артефакты', 'цель': 'Цели', 'противоречие': 'Противоречия', 'инсайт': 'Инсайты', 'человек': 'Люди', 'задача': 'Задачи', 'цитата': 'Цитаты', 'файл': 'Файлы', 'чек': 'Деньги', 'привычка': 'Привычки', 'память': 'Память', 'связь': 'Связи', 'агент': 'Агенты', 'команда': 'Команды' };
+    const groups = order.map(k => ({
+      l: label[k],
+      items: hit.filter(r => r[0] === k).map(r => ({
+        k: r[0], t: r[1], s: r[2], c: SKC[r[0]] || '#6B6B74',
+        st: 'display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start;padding:10px;border-radius:10px;cursor:pointer',
+        go: () => { window.location.href = r[3]; },
+      })),
+    })).filter(g => g.items.length);
+    return {
+      sOpen: !!st.sOpen, sq: st.sq || '', sGroups: groups, sEmpty: !!q && !hit.length,
+      sOpenFn: this.sOpenFn, sClose: this.sCloseFn,
+      onSQ: (e) => this.setState({ sq: e.target.value }),
+      onSKey: (e) => { if (e.key === 'Enter' && hit.length) window.location.href = hit[0][3]; if (e.key === 'Escape') this.sCloseFn(); },
+    };
+  }
+  state = { open: 'a1', done: null, off: {}, toast: '', phase: 'plan', run: 0 };
+
+  runPlan = (always) => {
+    this.setState({ phase: 'run', run: 0 });
+    clearInterval(this.ri);
+    this.ri = setInterval(() => {
+      const n = this.state.run + 1;
+      if (n >= 4) { clearInterval(this.ri); this.setState({ run: 4, phase: 'report' }); return; }
+      this.setState({ run: n });
+    }, 800);
+    if (always) this.say('Разрешено навсегда: отмена неиспользуемых подписок до 2 000 ₽. Каждый раз всё равно будет чек.');
+  };
+  say(t) { clearTimeout(this.tt); this.setState({ toast: t }); this.tt = setTimeout(() => this.setState({ toast: '' }), 3600); }
+  componentWillUnmount() { clearTimeout(this.tt); clearInterval(this.ri); }
+
+  cycleVals() {
+    const s = this.state, ph = s.phase, run = s.run;
+    const PLAN = [
+      ['Найти списание и проверить активность', 'подписка 1 490 ₽, 7-й месяц, сервис не открывался 61 день', 'сделано'],
+      ['Сверить с целями и бюджетом', 'освободит 17 880 ₽ в год · цель «Накопления» +2.4% вероятности', 'сделано'],
+      ['Отменить подписку в личном кабинете', 'необратимое действие — нужно твоё подтверждение', 'нужно ты'],
+      ['Записать расход, чек и обновить прогноз', 'артефакт-квитанция и пересчёт цели', 'после'],
+    ];
+    const stages = { plan: 'план готов · ждёт подтверждения', run: 'исполняет · шаг ' + Math.min(run + 1, 4) + ' из 4', report: 'исполнено · отчёт и квитанция' };
+    const idx = ph === 'plan' ? 0 : ph === 'run' ? 2 : 4;
+    const rail = [['план', 0], ['подтверждение', 1], ['исполнение', 2], ['отчёт', 3], ['квитанция', 4]].map(r => {
+      const on = r[1] <= idx;
+      return { l: r[0], c: on ? '#C9C9D0' : '#43434B', dot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:' + (on ? '#7C8CF8' : '#2A2A32') };
+    });
+    const steps = PLAN.map((p, i) => {
+      const done = ph === 'report' ? true : ph === 'run' ? i < run : i < 2;
+      const active = ph === 'run' && i === run;
+      const blocked = ph === 'plan' && i === 2;
+      return {
+        t: p[0], out: done || active ? p[1] : '', tag: done ? 'готово' : active ? 'идёт' : blocked ? 'нужно твоё да' : 'в плане',
+        c: done ? '#B9B9C2' : active ? '#EDEDF0' : blocked ? '#E5C77E' : '#6B6B74',
+        icon: done ? '✓' : '',
+        mark: 'width:18px;height:18px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;margin-top:1px;color:#0B0B0D;background:' + (done ? '#63D397' : active ? '#7C8CF8' : 'transparent') + ';border:1px solid ' + (done ? '#63D397' : active ? '#7C8CF8' : blocked ? 'rgba(229,184,75,.5)' : 'rgba(255,255,255,.14)') + (active ? ';animation:breathe 1.2s ease-in-out infinite' : ''),
+      };
+    });
+    const acts = ph === 'plan'
+      ? [['Подтвердить план', 1, () => this.runPlan(false)], ['Разрешать такое всегда', 0, () => this.runPlan(true)], ['Не надо', 2, () => { this.setState({ phase: 'report', run: 4 }); this.say('Отказано. Агент не тронет эту подписку 6 месяцев, остальные проверять продолжит.'); }]]
+      : ph === 'run'
+        ? [['Остановить', 2, () => { clearInterval(this.ri); this.setState({ phase: 'plan', run: 0 }); this.say('Остановлено. Сделанное сохранено, необратимый шаг не выполнялся.'); }]]
+        : [['Открыть чек в журнале', 1, () => { window.location.href = 'Control.dc.html'; }], ['Откатить', 0, () => { this.setState({ phase: 'plan', run: 0 }); this.say('Откачено. Подписка снова активна, прогноз цели вернулся к прежнему.'); }]];
+    return {
+      stage: stages[ph], title: 'Отменить подписку 1 490 ₽ в месяц',
+      sub: ph === 'report'
+        ? 'Готово. Освободилось 17 880 ₽ в год, вероятность цели «Накопления» выросла с 54% до 56.4%. Ни один шаг не сделан молча.'
+        : 'Агент сам нашёл лишнее списание, посчитал эффект и составил план. Необратимый шаг он не выполняет без тебя.',
+      bg: ph === 'report' ? 'rgba(99,211,151,.05)' : ph === 'run' ? 'rgba(124,140,248,.05)' : 'rgba(229,184,75,.05)',
+      bc: ph === 'report' ? 'rgba(99,211,151,.24)' : ph === 'run' ? 'rgba(124,140,248,.26)' : 'rgba(229,184,75,.26)',
+      tc: ph === 'report' ? '#8FE0B4' : ph === 'run' ? '#9EA9FB' : '#E5B84B',
+      dot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:' + (ph === 'report' ? '#63D397' : ph === 'run' ? '#7C8CF8' : '#E5B84B') + (ph === 'report' ? '' : ';animation:breathe 1.6s ease-in-out infinite'),
+      rail, steps,
+      receipt: ph === 'report' ? 'Чек #4824 · подписка отменена в 22:16 · расход закрыт, прогноз цели пересчитан' : '',
+      receiptSub: ph === 'report' ? 'Квитанция — такой же артефакт, как всё остальное: у неё есть источник, связи и откат.' : '',
+      acts: acts.map(a => ({
+        l: a[0], go: a[2],
+        st: 'padding:10px 16px;border-radius:10px;font-size:13.5px;cursor:pointer;white-space:nowrap;' + (a[1] === 1 ? 'background:#EDEDF0;color:#0B0B0D;font-weight:560' : a[1] === 0 ? 'border:1px solid rgba(255,255,255,.12);color:#C9C9D0' : 'color:#5A5A63'),
+      })),
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const NAVI = [['Дом', 'Home.dc.html', ''], ['Поток', 'Universal Capture.dc.html', '18'], ['Сегодня', 'Today.dc.html', '4'], ['Граф', 'Graph.dc.html', ''], ['Агенты', 'Agents.dc.html', '1'], ['Builder', 'Builder.dc.html', ''], ['Контроль', 'Control.dc.html', '']];
+    const lenses = NAVI.map(nv => {
+      const on = nv[0] === 'Агенты';
+      return {
+        name: nv[0], n: nv[2],
+        go: () => { if (on) {  } else { window.location.href = nv[1]; } },
+        st: 'display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;font-size:13.5px;letter-spacing:-.012em;cursor:pointer;transition:background .12s;' + (on ? 'background:#17171E;color:#EDEDF0' : 'color:#8B8B93'),
+        dot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:' + (on ? '#7C8CF8' : '#33333B'),
+        badge: nv[2] ? 'margin-left:auto;font:400 11px/1 ui-monospace,Menlo,monospace;color:' + (on ? '#9EA9FB' : '#5A5A63') : 'display:none',
+      };
+    });
+
+    return {
+      lenses,
+      headState: s.phase === 'report' ? '3 агента работают · разрешений не ждёт' : s.phase === 'run' ? 'агент исполняет план · 1 действие' : '3 агента работают · 1 ждёт подтверждения плана',
+      cyc: this.cycleVals(),
+      agents: AGENTS.map(a => {
+        const open = s.open === a.id, off = !!s.off[a.id] || a.id === 'a4';
+        return {
+          name: a.name, did: a.did, when: a.when, trigger: a.trigger, open,
+          status: off ? 'выключен' : a.status, sc: off ? '#5E5E67' : a.sc,
+          card: 'padding:18px 20px;border-radius:14px;background:' + (open ? '#0D0D11' : '#0C0C0F') + ';border:1px solid ' + (open ? 'rgba(124,140,248,.24)' : 'rgba(255,255,255,.07)') + ';opacity:' + (off ? .62 : 1),
+          toggle: () => this.setState({ open: open ? null : a.id }),
+          steps: a.steps.map((t, i) => ({ i: i + 1, t })),
+          caps: a.caps.map(c => ({
+            l: c[1] ? c[0] : '✕ ' + c[0],
+            st: 'padding:6px 11px;border-radius:8px;font-size:12px;' + (c[1] ? 'background:#131318;border:1px solid rgba(255,255,255,.09);color:#C9C9D0' : 'background:rgba(232,112,95,.06);border:1px solid rgba(232,112,95,.2);color:#D9938A'),
+          })),
+          logs: a.logs.map(g => ({ t: g[0], l: g[1], r: g[2] })),
+          run: () => this.say(a.name + ' запущен вручную · результат придёт как предложения, не как записи'),
+          pauseLabel: off ? 'Включить' : 'Выключить',
+          pause: () => { this.setState(st => ({ off: Object.assign({}, st.off, { [a.id]: !off }) })); this.say(off ? a.name + ' включён' : a.name + ' выключен · история и чеки сохранены'); },
+        };
+      }),
+      templates: TPL.map(t => ({ l: t.l, s: t.s, go: () => this.say('Черновик агента «' + t.l + '» создан · настрой шаги и права в конструкторе') })),
+      toast: s.toast,
+      ...this.searchVals(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

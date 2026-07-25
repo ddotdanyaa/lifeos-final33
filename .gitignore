@@ -38,3 +38,10 @@ output/playwright/**/*.png
 # every write would otherwise invalidate the agent's prompt cache (see its README §cache).
 graphify-out/
 graph.json
+
+# Дизайн-архив владельца (359МБ, содержит копию проекта) — эталон распакован в design-system/
+Три варианта системы дизайна.zip
+*.zip
+design-system/uploads/
+# Локально скачанные репозитории-доноры (изучаются, в git не нужны)
+репозитори для внедрения/

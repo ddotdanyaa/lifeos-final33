@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#08080A;height:100%}
+  body{font-family:ui-sans-serif,-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#ECECEE}
+  input,button,textarea{font:inherit;color:inherit;background:none;border:none;outline:none}
+  a{color:#7C8CF8;text-decoration:none}
+  a:hover{color:#9EA9FB}
+  ::selection{background:rgba(124,140,248,.32)}
+  ::-webkit-scrollbar{width:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes slidein{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+  @keyframes breathe{0%,100%{opacity:.35}50%{opacity:.95}}
+  @keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:grid;grid-template-columns:216px 1fr;grid-template-rows:minmax(0,1fr);background:#08080A;overflow:hidden">
+
+  <div style="border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;padding:14px 10px 10px;gap:2px;background:#0A0A0C;overflow:hidden;min-width:0">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 18px">
+      <img src="assets/lifeos-icon.svg" alt="LifeOS" style="width:22px;height:22px;border-radius:7px;display:block;flex:0 0 22px" />
+      <div style="font-size:13.5px;font-weight:560;letter-spacing:-.014em;color:#E9E9ED">LifeOS</div>
+    </div>
+    <div onClick="{{ sOpenFn }}" style="display:flex;align-items:center;gap:10px;padding:8px 11px;margin-bottom:8px;border-radius:10px;background:#0E0E12;border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:13px;color:#6B6B74" style-hover="border-color:rgba(124,140,248,.4);color:#A0A0A8">
+      Поиск<span style="margin-left:auto;font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B">⌘K</span>
+    </div>
+    <sc-for list="{{ lenses }}" as="l" hint-placeholder-count="7">
+      <div onClick="{{ l.go }}" style="{{ l.st }}" style-hover="background:#121218;color:#D6D6DC">
+        <span style="{{ l.dot }}"></span>{{ l.name }}<span style="{{ l.badge }}">{{ l.n }}</span>
+      </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 8px 4px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="width:24px;height:24px;border-radius:50%;background:#1A1A20;border:1px solid rgba(255,255,255,.09);flex:0 0 24px"></div>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;color:#A0A0A8">Данил</div>
+        <div style="font-size:11px;color:#5A5A63;margin-top:3px">всё локально</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden">
+
+    <div style="height:52px;flex:0 0 52px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 22px;gap:10px;background:rgba(8,8,10,.7);backdrop-filter:blur(12px)">
+      <a href="Universal Capture.dc.html" style="font:500 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:#6B6B74;text-transform:uppercase">Поток</a>
+      <div style="color:#33333B;font-size:11px">/</div>
+      <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#6B6B74;text-transform:uppercase">Проекты</div>
+      <div style="color:#33333B;font-size:11px">/</div>
+      <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#7C8CF8;text-transform:uppercase">Покупка машины</div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;border:1px solid rgba(99,211,151,.25);background:rgba(99,211,151,.07)">
+        <span style="width:5px;height:5px;border-radius:50%;background:#63D397"></span>
+        <span style="font-size:12px;color:#8FE0B4;white-space:nowrap">активен · движется</span>
+      </div>
+      <div onClick="{{ askOpen }}" style="padding:7px 13px;border-radius:9px;background:#EDEDF0;color:#0B0B0D;font-size:13px;font-weight:560;white-space:nowrap;cursor:pointer">Спросить об объекте</div>
+    </div>
+
+    <div style="flex:1;overflow:hidden auto;min-height:0;min-width:0">
+      <div style="max-width:920px;margin:0 auto;padding:52px 34px 130px">
+
+        <div style="animation:rise .5s ease both">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.2em;color:#5A5A63;text-transform:uppercase">проект</div>
+            <div style="width:1px;height:11px;background:rgba(255,255,255,.12)"></div>
+            <div style="font-size:11.5px;color:#5A5A63">создан системой сегодня из 18 объектов · руками не заводился</div>
+          </div>
+          <div style="font-size:36px;line-height:1.1;letter-spacing:-.032em;font-weight:500;margin-top:15px">Покупка машины</div>
+          <div style="margin-top:16px;font-size:16px;color:#A8A8B0;line-height:1.55;max-width:640px;text-wrap:pretty">{{ verdict }}</div>
+        </div>
+
+        <div style="margin-top:34px;padding:22px 24px;border-radius:15px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07)">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:20px">
+            <div style="font-size:13px;color:#8B8B93">Живыми деньгами, без кредита</div>
+            <div style="font:400 12px/1 ui-monospace,Menlo,monospace;color:#5A5A63">{{ gapLabel }}</div>
+          </div>
+          <div style="margin-top:14px;position:relative;height:8px;border-radius:6px;background:#15151A;overflow:hidden">
+            <div style="{{ barPlan }}"></div>
+            <div style="{{ barHave }}"></div>
+          </div>
+          <div style="margin-top:11px;display:flex;justify-content:space-between;font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#5A5A63">
+            <div>740 000 ₽ есть</div>
+            <div>{{ planLabel }}</div>
+            <div>1 150 000 ₽ нужно</div>
+          </div>
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:34px;flex-wrap:wrap">
+            <sc-for list="{{ facts }}" as="f" hint-placeholder-count="4">
+              <div style="min-width:120px">
+                <div style="font-size:14px;color:#E4E4E8;letter-spacing:-.01em">{{ f.v }}</div>
+                <div style="font-size:11.5px;color:#5A5A63;margin-top:6px">{{ f.l }}</div>
+                <sc-if value="{{ f.showSrc }}" hint-placeholder-val="{{ true }}">
+                  <div style="font:400 10px/1.4 ui-monospace,Menlo,monospace;color:#43434B;margin-top:5px">{{ f.src }}</div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:38px;display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,.07)">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+            <div onClick="{{ t.go }}" style="{{ t.st }}">{{ t.l }}<span style="{{ t.badge }}">{{ t.n }}</span></div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ tabSut }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:30px;animation:fade .3s ease both">
+            <div style="font-size:19px;line-height:1.5;letter-spacing:-.018em;color:#E9E9ED;max-width:660px;text-wrap:pretty">{{ next }}</div>
+            <div style="margin-top:12px;font-size:13.5px;color:#7A7A83;line-height:1.6;max-width:620px">{{ nextWhy }}</div>
+            <div style="margin-top:20px;display:flex;gap:9px;flex-wrap:wrap">
+              <div onClick="{{ doNext }}" style="padding:10px 16px;border-radius:10px;background:#EDEDF0;color:#0B0B0D;font-size:13.5px;font-weight:560;cursor:pointer;white-space:nowrap">{{ nextAction }}</div>
+              <div onClick="{{ askOpen }}" style="padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.12);font-size:13.5px;color:#C9C9D0;cursor:pointer;white-space:nowrap">Что мешает?</div>
+            </div>
+
+            <div style="margin-top:40px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#5A5A63;text-transform:uppercase">что система знает и откуда</div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ knows }}" as="k" hint-placeholder-count="4">
+                <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;padding:15px 17px;border-radius:12px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07)">
+                  <div>
+                    <div style="font-size:14.5px;color:#E4E4E8;letter-spacing:-.012em;line-height:1.45">{{ k.t }}</div>
+                    <sc-if value="{{ k.showSrc }}" hint-placeholder-val="{{ true }}">
+                      <div style="margin-top:8px;font-size:12.5px;color:#63636C;line-height:1.5">{{ k.s }}</div>
+                    </sc-if>
+                  </div>
+                  <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#4E4E57;padding-top:3px">{{ k.c }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabSrc }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:30px;animation:fade .3s ease both">
+            <div style="font-size:13.5px;color:#7A7A83;line-height:1.6;max-width:620px">Проект не «создан» — он вырос из потока. Каждая строка ниже что-то дала этому объекту. Уберёшь источник — система пересчитает вывод.</div>
+            <sc-for list="{{ srcGroups }}" as="g" hint-placeholder-count="3">
+              <div style="margin-top:32px">
+                <div style="display:flex;align-items:baseline;gap:10px">
+                  <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.2em;color:#5A5A63;text-transform:uppercase">{{ g.t }}</div>
+                  <div style="font-size:11px;color:#3E3E46">{{ g.n }}</div>
+                </div>
+                <div style="margin-top:10px">
+                  <sc-for list="{{ g.items }}" as="s" hint-placeholder-count="3">
+                    <div style="display:grid;grid-template-columns:216px 1fr auto;gap:16px;align-items:start;padding:13px 12px;margin:0 -12px;border-radius:10px;border-top:1px solid rgba(255,255,255,.05)" style-hover="background:#0F0F13">
+                      <div style="font:500 9px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.1em;color:{{ s.kc }};padding-top:3px">{{ s.k }}</div>
+                      <div style="min-width:0">
+                        <div style="font-size:14px;color:#E4E4E8;letter-spacing:-.01em;line-height:1.45">{{ s.t }}</div>
+                        <div style="font-size:12.5px;color:#5E5E67;margin-top:5px;line-height:1.5">{{ s.gave }}</div>
+                      </div>
+                      <div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#4E4E57;padding-top:4px">{{ s.d }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabRel }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:30px;animation:fade .3s ease both;display:grid;grid-template-columns:280px minmax(0,1fr);gap:30px;align-items:start">
+            <div style="position:relative;height:300px;border-radius:15px;background:#0B0B0E;border:1px solid rgba(255,255,255,.06)">
+              <sc-for list="{{ edges }}" as="e" hint-placeholder-count="6">
+                <div style="{{ e.st }}"></div>
+              </sc-for>
+              <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:9px 13px;border-radius:10px;background:#EDEDF0;color:#0B0B0D;font-size:12.5px;font-weight:560;white-space:nowrap">Покупка машины</div>
+              <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="6">
+                <div onClick="{{ n.go }}" style="{{ n.st }}">{{ n.l }}</div>
+              </sc-for>
+            </div>
+            <div>
+              <div style="font-size:13.5px;color:#7A7A83;line-height:1.6">Не облако точек. Только те связи, которые меняют решение — с типом, силой и причиной.</div>
+              <div style="margin-top:18px;display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ rels }}" as="r" hint-placeholder-count="5">
+                  <div style="padding:15px 17px;border-radius:12px;background:#0C0C0F;border:1px solid {{ r.bc }}">
+                    <div style="display:flex;align-items:baseline;gap:10px">
+                      <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.11em;color:{{ r.tc }};text-transform:uppercase">{{ r.type }}</div>
+                      <div style="font-size:14.5px;color:#E4E4E8;letter-spacing:-.012em;flex:1;min-width:120px">{{ r.t }}</div>
+                      <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#4E4E57">{{ r.c }}</div>
+                    </div>
+                    <div style="margin-top:8px;font-size:12.5px;color:#63636C;line-height:1.55">{{ r.s }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabTime }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:30px;animation:fade .3s ease both">
+            <div style="font-size:19px;line-height:1.5;letter-spacing:-.018em;color:#E9E9ED;max-width:640px;text-wrap:pretty">Полгода разговоров и 11 дней действий. Тема сдвинулась только теперь.</div>
+            <div style="margin-top:26px;display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ months }}" as="m" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:64px 1fr 96px;gap:18px;align-items:center;padding:13px 0;border-top:1px solid rgba(255,255,255,.05)">
+                  <div style="font:400 12px/1 ui-monospace,Menlo,monospace;color:#5E5E67">{{ m.t }}</div>
+                  <div style="display:flex;flex-direction:column;gap:5px">
+                    <div style="{{ m.talk }}"></div>
+                    <div style="{{ m.act }}"></div>
+                  </div>
+                  <div style="font-size:12px;color:#5E5E67;text-align:right">{{ m.n }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:20px;font-size:11.5px;color:#5A5A63">
+              <div style="display:flex;align-items:center;gap:7px"><span style="width:16px;height:3px;border-radius:3px;background:#3A3A45"></span>разговоры</div>
+              <div style="display:flex;align-items:center;gap:7px"><span style="width:16px;height:3px;border-radius:3px;background:#7C8CF8"></span>действия</div>
+            </div>
+            <div style="margin-top:34px;padding:20px 22px;border-radius:14px;background:rgba(124,140,248,.05);border:1px solid rgba(124,140,248,.2)">
+              <div style="font-size:16.5px;line-height:1.5;letter-spacing:-.018em;color:#EDEDF0;text-wrap:pretty">Всё, что реально двинуло проект, случилось после того, как ты решил не брать кредит.</div>
+              <div style="margin-top:10px;font-size:13px;color:#8B8B93;line-height:1.6">До 8 июля — 4 варианта и ни одного расчёта. После — расчёт свободного потока, разговор с Мариной, оценка старой машины. Ограничение оказалось полезнее выбора.</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabConf }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:30px;animation:fade .3s ease both">
+            <div style="font-size:19px;line-height:1.5;letter-spacing:-.018em;color:#E9E9ED;max-width:660px;text-wrap:pretty">Две твои цели не сходятся математически. Система не выбирает за тебя — показывает цену каждого варианта.</div>
+            <div style="margin-top:24px;padding:20px 22px;border-radius:14px;background:rgba(229,184,75,.05);border:1px solid rgba(229,184,75,.22)">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.11em;color:#E5B84B;text-transform:uppercase">противоречие</div>
+              <div style="margin-top:11px;font-size:16.5px;line-height:1.45;letter-spacing:-.018em;color:#EDEDF0">«Откладывать 60 000 ₽ в месяц» против «купить машину в августе»</div>
+              <div style="margin-top:10px;font-size:13.5px;color:#8B8B93;line-height:1.6;max-width:620px">Разрыв 410 000 ₽. При текущем свободном потоке он закрывается к декабрю. Значит одно из двух должно измениться — либо появляются деньги со стороны.</div>
+            </div>
+            <div style="margin-top:20px;display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ fixes }}" as="f" hint-placeholder-count="3">
+                <div onClick="{{ f.pick }}" style="{{ f.card }}">
+                  <div style="{{ f.dot }}"></div>
+                  <div>
+                    <div style="font-size:15px;color:#EDEDF0;letter-spacing:-.012em;font-weight:500">{{ f.t }}</div>
+                    <div style="margin-top:7px;font-size:13px;color:#8B8B93;line-height:1.55;max-width:600px">{{ f.s }}</div>
+                    <div style="margin-top:9px;font:400 11.5px/1.5 ui-monospace,Menlo,monospace;color:{{ f.cc }}">{{ f.cost }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:18px;font-size:12.5px;color:#5A5A63;line-height:1.6">Выбор меняет цель, срок и прогноз сверху — и записывается в историю с чеком. Откатить можно всегда.</div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+
+    <sc-if value="{{ ask }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ askClose }}" style="position:absolute;inset:0;z-index:20;background:rgba(4,4,6,.55);animation:fade .2s ease both"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:21;padding:0 34px 26px;display:flex;justify-content:center">
+        <div style="width:100%;max-width:760px;animation:rise .3s cubic-bezier(.2,.8,.2,1) both;border-radius:17px;background:#0D0D11;border:1px solid rgba(255,255,255,.11);box-shadow:0 30px 70px -20px rgba(0,0,0,.95);overflow:hidden">
+          <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:11px">
+            <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;animation:breathe 1.8s ease-in-out infinite"></span>
+            <div style="font-size:13px;color:#8B8B93">AI знает только этот проект и его 18 источников. Не общий чат.</div>
+          </div>
+          <div style="max-height:320px;overflow-y:auto;padding:20px">
+            <sc-if value="{{ noAnswer }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ qs }}" as="q" hint-placeholder-count="3">
+                  <div onClick="{{ q.go }}" style="padding:13px 15px;border-radius:11px;background:#101015;border:1px solid rgba(255,255,255,.07);font-size:14px;color:#D6D6DC;cursor:pointer;letter-spacing:-.01em" style-hover="border-color:rgba(124,140,248,.4)">{{ q.t }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ answer }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px;color:#5E5E67;margin-bottom:14px">{{ answer.q }}</div>
+              <div style="font-size:15.5px;line-height:1.6;color:#E9E9ED;letter-spacing:-.012em;text-wrap:pretty">{{ answer.a }}</div>
+              <div style="margin-top:16px;display:flex;gap:7px;flex-wrap:wrap">
+                <sc-for list="{{ answer.cites }}" as="c" hint-placeholder-count="3">
+                  <div style="padding:6px 10px;border-radius:8px;background:#131318;border:1px solid rgba(255,255,255,.08);font:400 11px/1 ui-monospace,Menlo,monospace;color:#8B8B93">{{ c }}</div>
+                </sc-for>
+              </div>
+              <div onClick="{{ askReset }}" style="margin-top:18px;font-size:13px;color:#7C8CF8;cursor:pointer">Другой вопрос</div>
+            </sc-if>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:12px">
+            <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Спроси про этот проект…" style="flex:1;font-size:14.5px;letter-spacing:-.01em;min-width:0" />
+            <div onClick="{{ askClose }}" style="font-size:12.5px;color:#5A5A63;cursor:pointer">esc</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ sClose }}" style="position:absolute;inset:0;z-index:60;background:rgba(4,4,6,.62);animation:fade .16s ease both"></div>
+      <div style="position:absolute;z-index:61;left:0;right:0;top:70px;bottom:50px;display:flex;justify-content:center;align-items:flex-start;pointer-events:none">
+      <div style="pointer-events:auto;width:min(660px,calc(100% - 48px));border-radius:16px;background:#0D0D11;border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 90px -30px rgba(0,0,0,.95);animation:rise .18s ease both;display:flex;flex-direction:column;max-height:100%;overflow:hidden">
+        <div style="padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:12px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;flex:0 0 6px"></span>
+          <input value="{{ sq }}" onChange="{{ onSQ }}" onKeyDown="{{ onSKey }}" placeholder="Искать во всей жизни: артефакты, люди, цитаты, файлы, связи" style="flex:1;font-size:15px;letter-spacing:-.012em;min-width:0" />
+          <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B;white-space:nowrap">esc</div>
+        </div>
+        <div style="flex:1;overflow:hidden auto;min-height:0;padding:8px 8px 12px">
+          <sc-for list="{{ sGroups }}" as="g" hint-placeholder-count="3">
+            <div style="padding:12px 10px 4px">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">{{ g.l }}</div>
+              <div style="margin-top:6px">
+                <sc-for list="{{ g.items }}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{ r.go }}" style="{{ r.st }}" style-hover="background:#15151B">
+                    <div style="font:500 9px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.09em;color:{{ r.c }};text-transform:uppercase;padding-top:4px;white-space:nowrap">{{ r.k }}</div>
+                    <div style="min-width:0">
+                      <div style="font-size:14px;color:#E9E9ED;letter-spacing:-.012em;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.t }}</div>
+                      <div style="font-size:12px;color:#6B6B74;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.s }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ sEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 18px;font-size:13.5px;color:#6B6B74;line-height:1.6">Ничего не нашлось. Но ничего и не потеряно: напиши это в поток — система разберёт и свяжет сама.</div>
+          </sc-if>
+        </div>
+      </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:34px;z-index:50;display:flex;justify-content:center;pointer-events:none"><div style="pointer-events:auto;z-index:30;padding:11px 17px;border-radius:11px;background:#17171D;border:1px solid rgba(255,255,255,.1);font-size:13px;color:#C9C9D0;animation:rise .25s ease both;box-shadow:0 16px 40px -16px rgba(0,0,0,.9);max-width:560px;line-height:1.5">{{ toast }}</div></div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showProvenance&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Инспектор&quot;},&quot;showConfidence&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Инспектор&quot;}}">
+const KIND = {
+  voice: { k: 'ГОЛОС', c: '#7C8CF8' }, thought: { k: 'МЫСЛЬ', c: '#8B8B93' },
+  link: { k: 'ССЫЛКА', c: '#63A9D3' }, photo: { k: 'ФОТО', c: '#C79BE0' },
+  pdf: { k: 'PDF', c: '#E5B84B' }, calc: { k: 'РАСЧЁТ', c: '#8FBFA8' },
+  receipt: { k: 'ЧЕК', c: '#63D397' },
+};
+
+const SRC = [
+  { m: 'Июль · 11 дней действий', items: [
+    { kind: 'voice', d: '21 июл', t: 'Разговор с Мариной: август, если без кредита', gave: 'Дал срок «август» и условие «без кредита» — переписал цель' },
+    { kind: 'calc', d: '21 июл', t: 'Свободный поток за 3 месяца', gave: 'Дал 740 000 ₽ доступных и разрыв 410 000 ₽' },
+    { kind: 'voice', d: '21 июл', t: 'Надо всё-таки решить с машиной', gave: 'Поднял приоритет: 4-е упоминание за 11 дней' },
+    { kind: 'link', d: '21 июл', t: 'Polo седан 2019 · 1 150 000 ₽', gave: 'Дал целевую цену — стала базой расчёта' },
+    { kind: 'thought', d: '18 июл', t: 'Переплата съест весь смысл покупки', gave: 'Стал решением «без кредита» после подтверждения 21 июля' },
+    { kind: 'photo', d: '14 июл', t: 'Скриншот трёх объявлений', gave: 'Дал диапазон цен 1 050 000 – 1 240 000 ₽' },
+  ] },
+  { m: 'Май – июнь · разговоры', items: [
+    { kind: 'voice', d: '27 июн', t: 'Может, вообще без машины обойтись', gave: 'Отмечен как сомнение — снизил уверенность цели до 61%' },
+    { kind: 'voice', d: '11 июн', t: 'Марина против кредита', gave: 'Первое появление ограничения, тогда без последствий' },
+    { kind: 'pdf', d: '3 июн', t: 'Каско_расчёт.pdf', gave: 'Добавил 68 000 ₽/год к стоимости владения' },
+    { kind: 'voice', d: '19 мая', t: 'Надо бы уже начать смотреть', gave: 'Разговор без действия — таких 9' },
+  ] },
+  { m: 'Февраль – апрель · начало темы', items: [
+    { kind: 'voice', d: '8 апр', t: 'Устал от такси, считаю расходы', gave: 'Дал причину: 14 200 ₽/мес на такси' },
+    { kind: 'receipt', d: 'фев–июл', t: 'Чеки такси · 6 месяцев', gave: '85 200 ₽ — экономический аргумент за покупку' },
+  ] },
+];
+
+const RELS = [
+  { type: 'блокирует', t: 'Задача · Оценить продажу старой машины', c: '94%', s: 'Единственный путь закрыть 410 000 ₽ без кредита и без срыва накоплений. Пока не сделано — цель нереалистична.', tc: '#E8705F', bc: 'rgba(232,112,95,.22)' },
+  { type: 'противоречит', t: 'Цель · Откладывать 60 000 ₽ в месяц', c: '90%', s: 'Две цели тянут один денежный поток. Совместимы только при продаже старой машины.', tc: '#E5B84B', bc: 'rgba(229,184,75,.22)' },
+  { type: 'конкурирует', t: 'Проект · Ремонт кухни', c: '86%', s: 'Аванс 96 000 ₽ в июле уходит из тех же свободных денег. Сдвиг ремонта на месяц = минус 27 дней к машине.', tc: '#E5B84B', bc: 'rgba(229,184,75,.18)' },
+  { type: 'влияет', t: 'Человек · Марина', c: '96%', s: '34 упоминания. Её условие «без кредита» изменило проект сильнее, чем любой из 4 вариантов покупки.', tc: '#7C8CF8', bc: 'rgba(255,255,255,.08)' },
+  { type: 'следствие', t: 'Решение · Без кредита', c: '92%', s: 'Убрало 214 000 ₽ переплаты и добавило 3 месяца ожидания. После него проект впервые начал двигаться.', tc: '#63D397', bc: 'rgba(255,255,255,.08)' },
+  { type: 'питает', t: 'Инсайт · Разговоры без действий', c: '87%', s: 'Этот проект — главный пример паттерна: 23 упоминания против 7 действий.', tc: '#8B8B93', bc: 'rgba(255,255,255,.08)' },
+];
+
+const MONTHS = [
+  { t: 'Февраль', talk: 3, act: 0, n: '3 / 0' },
+  { t: 'Март', talk: 2, act: 0, n: '2 / 0' },
+  { t: 'Апрель', talk: 5, act: 1, n: '5 / 1' },
+  { t: 'Май', talk: 4, act: 0, n: '4 / 0' },
+  { t: 'Июнь', talk: 5, act: 0, n: '5 / 0' },
+  { t: 'Июль', talk: 4, act: 6, n: '4 / 6' },
+];
+
+const FIXES = [
+  { id: 'sell', t: 'Продать старую машину', s: 'Оценка 380 000 – 430 000 ₽ закрывает разрыв целиком. Обе цели остаются как есть.', cost: 'цена: 2–3 недели на продажу · риск: оценка может упасть до 350 000 ₽', cc: '#8FE0B4',
+    verdict: 'Проект реалистичен: покупка в августе, накопления 60 000 ₽ не тронуты. Всё держится на продаже старой машины за 3 недели.', plan: 1150, planLabel: 'продажа закрывает разрыв', gap: 'разрыв закрыт', next: 'Выставить старую машину на продажу — от этого зависит весь август.', nextAction: 'Создать объявление' },
+  { id: 'shift', t: 'Сдвинуть срок на октябрь', s: 'Копишь по 60 000 ₽ и покупаешь без продажи и без кредита.', cost: 'цена: +2 месяца такси (28 400 ₽) · цены по 4 вариантам растут ~4%', cc: '#E5B84B',
+    verdict: 'Проект реалистичен, но обещание Марине «август» становится октябрём. Накопления целы, такси съедает часть выгоды.', plan: 1020, planLabel: 'к октябрю', gap: 'разрыв закроется к 12 октября', next: 'Сказать Марине про новый срок — это её условие, не твоё.', nextAction: 'Открыть разговор' },
+  { id: 'save', t: 'Снизить накопления до 35 000 ₽', s: 'Август остаётся, но цель по накоплениям падает на 42%.', cost: 'цена: минус 300 000 ₽ к резерву за год · резерв опустится ниже 3 месяцев расходов', cc: '#E8705F',
+    verdict: 'Август достижим, но резерв опускается ниже трёх месяцев расходов. Система считает это самым дорогим вариантом.', plan: 1150, planLabel: 'август, за счёт резерва', gap: 'разрыв закрыт, резерв просажен', next: 'Пересчитать резерв: 3 месяца расходов — это 411 000 ₽, останется 240 000 ₽.', nextAction: 'Пересчитать резерв' },
+];
+
+const QS = [
+  { t: 'Почему проект полгода не двигался?',
+    a: 'Потому что до 8 июля не было ограничения. Ты собрал 4 варианта и 23 упоминания, но ни одного расчёта: решать было нечего, выбор был бесконечным. Ограничение «без кредита» появилось из фразы Марины 11 июня и стало твоим решением только 18–21 июля — и сразу после него появились расчёт свободного потока, оценка старой машины и конкретный срок. Проект тормозил не из-за денег, а из-за отсутствия рамки.',
+    cites: ['ГОЛОС 11 июн', 'МЫСЛЬ 18 июл', 'ГОЛОС 21 июл 21:20', 'РАСЧЁТ 21 июл'] },
+  { t: 'Сколько это реально стоит вместе с ремонтом?',
+    a: '1 150 000 ₽ машина, 68 000 ₽ каско в год, 240 000 ₽ ремонт кухни, из которых 96 000 ₽ аванс уже в июле. Свободных денег 740 000 ₽. Если оба проекта идут одновременно, в августе не хватает 506 000 ₽ — то есть без продажи старой машины август невозможен ни при каком раскладе.',
+    cites: ['РАСЧЁТ 21 июл', 'PDF Смета_кухня', 'PDF Каско_расчёт', 'ЧЕКИ фев–июл'] },
+  { t: 'Что будет, если я снова отложу решение?',
+    a: 'По твоей же истории — ничего страшного и ничего хорошего: 5 месяцев с 19 разговорами и одним действием. Но цена ожидания теперь считается: 14 200 ₽ в месяц такси и ~4% роста цен по отслеживаемым вариантам. Каждый отложенный месяц стоит примерно 60 000 ₽ — ровно то, что ты хочешь откладывать.',
+    cites: ['ЧЕКИ такси', 'ССЫЛКА Polo 2019', 'Хронология проекта'] },
+];
+
+const SEARCH = [
+  ['артефакт', 'Покупка машины', 'проект · 18 источников · разрыв 410 000 ₽', 'Artifact Inspector.dc.html'],
+  ['артефакт', 'Ремонт кухни', 'проект · 240 000 ₽ обязательств · подрядчик ждёт', 'Artifact Inspector.dc.html'],
+  ['цель', 'Откладывать 60 000 ₽ в месяц', 'цель с марта · противоречит августу', 'Artifact Inspector.dc.html'],
+  ['цель', 'Режим и тренировки', 'цель · 12-е возвращение к теме', 'Graph.dc.html'],
+  ['человек', 'Марина', '34 упоминания · условие «без кредита»', 'Graph.dc.html'],
+  ['человек', 'Дмитрий', 'подрядчик · 17 разговоров · паттерн проектов', 'Graph.dc.html'],
+  ['человек', 'Игорь', 'работа · через него пришла Северсталь', 'Graph.dc.html'],
+  ['инсайт', 'После разговоров с Дмитрием ты начинаешь новый проект', '5 проектов, 4 остановились на первой неделе', 'Graph.dc.html'],
+  ['инсайт', 'В дни с тренировкой закрывается на 40% больше задач', 'и нет импульсных покупок · 42 дня', 'Graph.dc.html'],
+  ['противоречие', 'Накопления против покупки в августе', 'разрыв 410 000 ₽ · закроется к декабрю', 'Graph.dc.html'],
+  ['цитата', '«Она согласна на август, если без кредита»', 'голосовое 21 июля 21:20 · 1:48', 'Universal Capture.dc.html'],
+  ['цитата', '«Может, вообще без машины обойтись»', 'голосовое 27 июня · сомнение сохранено', 'Universal Capture.dc.html'],
+  ['файл', 'Смета_кухня_final.pdf', '6 страниц · договор подряда и смета', 'Artifact Inspector.dc.html'],
+  ['файл', 'Каско_расчёт.pdf', '68 000 ₽ в год · учтено в стоимости владения', 'Artifact Inspector.dc.html'],
+  ['чек', 'Лента · 4 380 ₽', 'еда · 21 июля · распознано с фото', 'Control.dc.html'],
+  ['привычка', 'Тренировка', '14 отметок · серия три дня', 'Graph.dc.html'],
+  ['задача', 'Ответить Дмитрию до среды', 'блокирует проект «Ремонт кухни»', 'Today.dc.html'],
+  ['задача', 'Оценить продажу старой машины', 'единственный путь закрыть 410 000 ₽', 'Today.dc.html'],
+  ['память', 'Свободный поток 740 000 ₽', 'расчёт по счетам за 3 месяца', 'Graph.dc.html'],
+  ['агент', 'Страж подписок', 'ждёт разрешения · подписка 1 490 ₽', 'Agents.dc.html'],
+  ['связь', 'Тренировка → импульсные траты', 'сильная связь · 7 из 9 скачков без тренировки', 'Graph.dc.html'],
+  ['команда', 'Разобрать день', '18 объектов в потоке ждут разбора', 'Universal Capture.dc.html'],
+  ['команда', 'Собрать своё пространство', 'Builder · линзы, представления, правила', 'Builder.dc.html'],
+  ['команда', 'Выгрузить архив', 'все артефакты, связи и чеки', 'Control.dc.html'],
+];
+const SKC = { 'артефакт': '#7C8CF8', 'цель': '#9EA9FB', 'человек': '#C79BE0', 'инсайт': '#8FE0B4', 'противоречие': '#E5B84B', 'цитата': '#8B8B93', 'файл': '#E5B84B', 'чек': '#63D397', 'привычка': '#8FBFA8', 'задача': '#7C8CF8', 'память': '#63A9D3', 'агент': '#E5B84B', 'связь': '#8B8B93', 'команда': '#6B6B74' };
+
+class Component extends DCLogic {
+  componentDidMount() { this.bindKeys(); }
+  sOpenFn = () => this.setState({ sOpen: true });
+  sCloseFn = () => this.setState({ sOpen: false, sq: '' });
+  bindKeys() {
+    if (this.keysBound) return;
+    this.keysBound = true;
+    this.keyHandler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); this.setState(st => ({ sOpen: !st.sOpen, sq: '' })); }
+      else if (e.key === 'Escape') this.setState({ sOpen: false });
+    };
+    window.addEventListener('keydown', this.keyHandler);
+  }
+  searchVals() {
+    const st = this.state, q = (st.sq || '').trim().toLowerCase();
+    const hit = q ? SEARCH.filter(r => (r[1] + ' ' + r[2] + ' ' + r[0]).toLowerCase().indexOf(q) >= 0) : SEARCH.filter(r => ['артефакт', 'противоречие', 'инсайт', 'команда'].indexOf(r[0]) >= 0);
+    const order = q ? ['артефакт','цель','противоречие','инсайт','человек','задача','цитата','файл','чек','привычка','память','связь','агент','команда'] : ['артефакт','противоречие','инсайт','команда'];
+    const label = { 'артефакт': 'Артефакты', 'цель': 'Цели', 'противоречие': 'Противоречия', 'инсайт': 'Инсайты', 'человек': 'Люди', 'задача': 'Задачи', 'цитата': 'Цитаты', 'файл': 'Файлы', 'чек': 'Деньги', 'привычка': 'Привычки', 'память': 'Память', 'связь': 'Связи', 'агент': 'Агенты', 'команда': 'Команды' };
+    const groups = order.map(k => ({
+      l: label[k],
+      items: hit.filter(r => r[0] === k).map(r => ({
+        k: r[0], t: r[1], s: r[2], c: SKC[r[0]] || '#6B6B74',
+        st: 'display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start;padding:10px;border-radius:10px;cursor:pointer',
+        go: () => { window.location.href = r[3]; },
+      })),
+    })).filter(g => g.items.length);
+    return {
+      sOpen: !!st.sOpen, sq: st.sq || '', sGroups: groups, sEmpty: !!q && !hit.length,
+      sOpenFn: this.sOpenFn, sClose: this.sCloseFn,
+      onSQ: (e) => this.setState({ sq: e.target.value }),
+      onSKey: (e) => { if (e.key === 'Enter' && hit.length) window.location.href = hit[0][3]; if (e.key === 'Escape') this.sCloseFn(); },
+    };
+  }
+  state = { tab: 'sut', fix: null, ask: false, answer: null, draft: '', toast: '' };
+
+  say(t) { clearTimeout(this.tt); this.setState({ toast: t }); this.tt = setTimeout(() => this.setState({ toast: '' }), 3200); }
+  componentWillUnmount() { clearTimeout(this.tt); }
+
+  pick = (f) => {
+    if (this.state.fix === f.id) { this.setState({ fix: null }); this.say('Выбор снят. Противоречие снова открыто.'); return; }
+    this.setState({ fix: f.id });
+    this.say('Записано: «' + f.t + '» · чек #4822 · цель, срок и прогноз обновлены');
+  };
+
+  onDraft = (e) => this.setState({ draft: e.target.value });
+  onKey = (e) => {
+    if (e.key === 'Escape') { this.setState({ ask: false }); return; }
+    if (e.key !== 'Enter') return;
+    const v = this.state.draft.trim();
+    if (!v) return;
+    this.setState({ draft: '', answer: { q: v, a: QS[0].a, cites: QS[0].cites } });
+  };
+
+  renderVals() {
+    const s = this.state;
+    const prov = this.props.showProvenance !== false;
+    const conf = this.props.showConfidence !== false;
+    const fix = FIXES.filter(f => f.id === s.fix)[0];
+
+    const tabs = [['sut', 'Суть', ''], ['src', 'Источники', 12], ['rel', 'Связи', 6], ['time', 'Хронология', ''], ['conf', 'Противоречия', 2]]
+      .map(t => ({
+        l: t[1], n: t[2], go: () => this.setState({ tab: t[0] }),
+        st: 'padding:12px 15px;font-size:13.5px;letter-spacing:-.01em;cursor:pointer;display:flex;align-items:center;gap:7px;border-bottom:1.5px solid ' + (s.tab === t[0] ? '#7C8CF8' : 'transparent') + ';color:' + (s.tab === t[0] ? '#EDEDF0' : '#6B6B74') + ';margin-bottom:-1px',
+        badge: t[2] ? 'font:400 10.5px/1 ui-monospace,Menlo,monospace;color:' + (t[0] === 'conf' ? '#E5B84B' : '#4E4E57') : 'display:none',
+      }));
+
+    const planW = fix ? fix.plan : 740;
+    const NAVI = [['Дом', 'Home.dc.html', ''], ['Поток', 'Universal Capture.dc.html', '18'], ['Сегодня', 'Today.dc.html', '4'], ['Граф', 'Graph.dc.html', ''], ['Агенты', 'Agents.dc.html', '1'], ['Builder', 'Builder.dc.html', ''], ['Контроль', 'Control.dc.html', '']];
+    const lenses = NAVI.map(nv => {
+      const on = nv[0] === '';
+      return {
+        name: nv[0], n: nv[2],
+        go: () => { if (on) {  } else { window.location.href = nv[1]; } },
+        st: 'display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;font-size:13.5px;letter-spacing:-.012em;cursor:pointer;transition:background .12s;' + (on ? 'background:#17171E;color:#EDEDF0' : 'color:#8B8B93'),
+        dot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:' + (on ? '#7C8CF8' : '#33333B'),
+        badge: nv[2] ? 'margin-left:auto;font:400 11px/1 ui-monospace,Menlo,monospace;color:' + (on ? '#9EA9FB' : '#5A5A63') : 'display:none',
+      };
+    });
+
+    const maxBar = 6;
+    return {
+      lenses, tabs,
+      tabSut: s.tab === 'sut', tabSrc: s.tab === 'src', tabRel: s.tab === 'rel', tabTime: s.tab === 'time', tabConf: s.tab === 'conf',
+      verdict: fix ? fix.verdict : 'Нужно 1 150 000 ₽ живыми, есть 740 000 ₽. Разрыв 410 000 ₽ закрывается к декабрю — а обещано август. Пока решение не выбрано, срок не настоящий.',
+      gapLabel: fix ? fix.gap : 'разрыв 410 000 ₽',
+      planLabel: fix ? fix.planLabel : 'к декабрю при текущем потоке',
+      barHave: 'position:absolute;left:0;top:0;bottom:0;width:' + ((740 / 1150) * 100).toFixed(1) + '%;background:#7C8CF8;border-radius:6px;transform-origin:left;animation:grow .6s cubic-bezier(.2,.8,.2,1) both',
+      barPlan: 'position:absolute;left:0;top:0;bottom:0;width:' + ((planW / 1150) * 100).toFixed(1) + '%;background:rgba(124,140,248,.26);border-radius:6px;transition:width .5s cubic-bezier(.2,.8,.2,1)',
+      facts: [
+        { v: fix && fix.id === 'shift' ? 'октябрь' : 'август', l: 'срок', src: 'из голосового 21 июл 21:20', showSrc: prov },
+        { v: 'без кредита', l: 'жёсткое условие', src: 'решение 18 июл, подтверждено 21 июл', showSrc: prov },
+        { v: '23 / 7', l: 'разговоров / действий', src: 'все 7 действий за 11 дней', showSrc: prov },
+        { v: '85 200 ₽', l: 'такси за 6 месяцев', src: 'из чеков, вручную не вводилось', showSrc: prov },
+      ],
+      next: fix ? fix.next : 'Следующий шаг один: закрыть разрыв 410 000 ₽. Без этого «август» — не срок, а пожелание.',
+      nextWhy: fix ? 'Шаг выведен из выбранного варианта на вкладке «Противоречия». Изменишь выбор — изменится и шаг.' : 'Система не предлагает 12 задач. Она предлагает одну, от которой зависят остальные — и покажет три способа её закрыть.',
+      nextAction: fix ? fix.nextAction : 'Выбрать, как закрыть',
+      doNext: () => { if (!fix) { this.setState({ tab: 'conf' }); return; } this.say('Создано: «' + fix.nextAction + '» · привязано к проекту, срок из цели'); },
+      knows: [
+        { t: 'Это один проект, а не 18 заметок', s: 'Голосовые, чеки такси, PDF каско, объявления и разговоры с Мариной сведены по совпадению сущностей — не по папке и не по тегу.', c: conf ? '93%' : '', showSrc: prov },
+        { t: 'Реальный бюджет — 740 000 ₽, а не «примерно миллион»', s: 'Считано из движения по счетам за 3 месяца, а не из твоей оценки.', c: conf ? '88%' : '', showSrc: prov },
+        { t: 'Ограничение важнее вариантов', s: '«Без кредита» изменило проект сильнее, чем все 4 найденные машины вместе.', c: conf ? '92%' : '', showSrc: prov },
+        { t: 'Проект соревнуется с ремонтом за одни деньги', s: 'Аванс 96 000 ₽ в июле уменьшает свободный поток на 13%.', c: conf ? '86%' : '', showSrc: prov },
+        { t: 'Сомнение тоже сохранено', s: '«Может, вообще без машины обойтись» от 27 июня не удалено — уверенность цели держится на 61%, а не на 100%.', c: conf ? '61%' : '', showSrc: prov },
+      ],
+      srcGroups: SRC.map(g => ({
+        t: g.m, n: g.items.length + ' объектов',
+        items: g.items.map(i => ({ k: KIND[i.kind].k, kc: KIND[i.kind].c, t: i.t, gave: i.gave, d: i.d })),
+      })),
+      rels: RELS.map(r => ({ type: r.type, t: r.t, s: r.s, c: conf ? r.c : '', tc: r.tc, bc: r.bc })),
+      nodes: RELS.map((r, i) => {
+        const a = (-90 + i * 60) * Math.PI / 180, R = 94;
+        const x = Math.cos(a) * R, y = Math.sin(a) * R;
+        return {
+          l: r.t.split(' · ')[1], go: () => this.say(r.type + ' → ' + r.t + ' · ' + r.s),
+          st: 'position:absolute;left:calc(50% + ' + x.toFixed(0) + 'px);top:calc(50% + ' + y.toFixed(0) + 'px);transform:translate(-50%,-50%);padding:6px 10px;border-radius:8px;background:#121218;border:1px solid ' + r.bc + ';font-size:11.5px;color:#C9C9D0;white-space:nowrap;cursor:pointer;max-width:100px;overflow:hidden;text-overflow:ellipsis',
+        };
+      }),
+      edges: RELS.map((r, i) => ({
+        st: 'position:absolute;left:50%;top:50%;height:1px;width:94px;transform-origin:0 50%;transform:rotate(' + (-90 + i * 60) + 'deg);background:linear-gradient(90deg,rgba(255,255,255,.16),rgba(255,255,255,.04))',
+      })),
+      months: MONTHS.map(m => ({
+        t: m.t, n: m.n,
+        talk: 'height:4px;border-radius:3px;background:#3A3A45;width:' + ((m.talk / maxBar) * 100).toFixed(0) + '%;min-width:4px',
+        act: 'height:4px;border-radius:3px;background:' + (m.act ? '#7C8CF8' : '#1A1A20') + ';width:' + Math.max((m.act / maxBar) * 100, 1.5).toFixed(0) + '%;min-width:4px',
+      })),
+      fixes: FIXES.map(f => {
+        const on = s.fix === f.id;
+        return {
+          t: f.t, s: f.s, cost: f.cost, cc: f.cc, pick: () => this.pick(f),
+          card: 'display:grid;grid-template-columns:20px 1fr;gap:15px;align-items:start;padding:17px 19px;border-radius:13px;cursor:pointer;transition:background .15s,border-color .15s;border:1px solid ' + (on ? 'rgba(124,140,248,.4)' : 'rgba(255,255,255,.07)') + ';background:' + (on ? 'rgba(124,140,248,.06)' : '#0C0C0F'),
+          dot: 'width:16px;height:16px;border-radius:50%;margin-top:3px;border:1px solid ' + (on ? '#7C8CF8' : 'rgba(255,255,255,.18)') + ';background:' + (on ? 'radial-gradient(circle,#7C8CF8 42%,transparent 46%)' : 'transparent'),
+        };
+      }),
+      ask: s.ask, askOpen: () => this.setState({ ask: true }), askClose: () => this.setState({ ask: false, answer: null }),
+      askReset: () => this.setState({ answer: null }),
+      noAnswer: s.ask && !s.answer, answer: s.answer,
+      qs: QS.map(q => ({ t: q.t, go: () => this.setState({ answer: { q: q.t, a: q.a, cites: q.cites } }) })),
+      draft: s.draft, onDraft: this.onDraft, onKey: this.onKey,
+      toast: s.toast,
+      ...this.searchVals(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

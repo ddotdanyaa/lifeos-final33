@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#08080A;height:100%}
+  body{font-family:ui-sans-serif,-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#ECECEE}
+  input,button,textarea{font:inherit;color:inherit;background:none;border:none;outline:none}
+  a{color:#7C8CF8;text-decoration:none}
+  a:hover{color:#9EA9FB}
+  ::selection{background:rgba(124,140,248,.32)}
+  ::-webkit-scrollbar{width:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes slidein{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+  @keyframes breathe{0%,100%{opacity:.3}50%{opacity:.9}}
+  @keyframes pulsering{0%{transform:scale(1);opacity:.5}100%{transform:scale(2.2);opacity:0}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:grid;grid-template-columns:216px 1fr;grid-template-rows:minmax(0,1fr);background:#08080A;overflow:hidden">
+
+  <div style="border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;padding:14px 10px 10px;gap:2px;background:#0A0A0C;overflow:hidden;min-width:0">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 18px">
+      <img src="assets/lifeos-icon.svg" alt="LifeOS" style="width:22px;height:22px;border-radius:7px;display:block;flex:0 0 22px" />
+      <div style="font-size:13.5px;font-weight:560;letter-spacing:-.014em;color:#E9E9ED">LifeOS</div>
+    </div>
+    <div onClick="{{ sOpenFn }}" style="display:flex;align-items:center;gap:10px;padding:8px 11px;margin-bottom:8px;border-radius:10px;background:#0E0E12;border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:13px;color:#6B6B74" style-hover="border-color:rgba(124,140,248,.4);color:#A0A0A8">
+      Поиск<span style="margin-left:auto;font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B">⌘K</span>
+    </div>
+    <sc-for list="{{ lenses }}" as="l" hint-placeholder-count="7">
+      <div onClick="{{ l.go }}" style="{{ l.st }}" style-hover="background:#121218;color:#D6D6DC">
+        <span style="{{ l.dot }}"></span>{{ l.name }}<span style="{{ l.badge }}">{{ l.n }}</span>
+      </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 8px 4px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="width:24px;height:24px;border-radius:50%;background:#1A1A20;border:1px solid rgba(255,255,255,.09);flex:0 0 24px"></div>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;color:#A0A0A8">Данил</div>
+        <div style="font-size:11px;color:#5A5A63;margin-top:3px">всё локально</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden">
+
+    <div style="height:52px;flex:0 0 52px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 22px;gap:14px;background:rgba(8,8,10,.7);backdrop-filter:blur(12px)">
+      <div style="font:500 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:#7C8CF8;text-transform:uppercase">Поток</div>
+      <div style="width:1px;height:14px;background:rgba(255,255,255,.1)"></div>
+      <div style="font-size:13px;color:#8B8B93">вторник, 21 июля · 22:14</div>
+      <div style="flex:1"></div>
+      <div style="font-size:12.5px;color:#6B6B74;white-space:nowrap">{{ headRight }}</div>
+      <sc-if value="{{ isStream }}" hint-placeholder-val="{{ true }}">
+        <div onClick="{{ start }}" style="display:flex;align-items:center;gap:9px;padding:8px 14px 8px 12px;border-radius:9px;background:#EDEDF0;color:#0B0B0D;font-size:13px;font-weight:560;white-space:nowrap;cursor:pointer;letter-spacing:-.01em">
+          <span style="width:6px;height:6px;border-radius:50%;background:#5B6AD6"></span>
+          Разобрать день
+        </div>
+      </sc-if>
+      <sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ back }}" style="padding:8px 13px;border-radius:9px;border:1px solid rgba(255,255,255,.12);font-size:13px;color:#C9C9D0;cursor:pointer;white-space:nowrap">К потоку</div>
+      </sc-if>
+    </div>
+
+    <div style="flex:1;overflow:hidden auto;min-height:0;min-width:0">
+
+      <sc-if value="{{ isStream }}" hint-placeholder-val="{{ true }}">
+        <div style="max-width:860px;margin:0 auto;padding:56px 34px 200px">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px">
+            <sc-for list="{{ sources }}" as="src" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-radius:11px;background:#0C0C0F;border:1px solid {{ src.bc }}">
+                <span style="{{ src.dot }}"></span>
+                <div>
+                  <div style="font-size:12.5px;color:#D6D6DC;white-space:nowrap">{{ src.l }}</div>
+                  <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#5A5A63;margin-top:5px;white-space:nowrap">{{ src.s }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="animation:rise .5s ease both">
+            <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.2em;color:#5A5A63;text-transform:uppercase">сегодняшний поток</div>
+            <div style="font-size:33px;line-height:1.18;letter-spacing:-.025em;font-weight:500;margin-top:16px;max-width:620px;text-wrap:pretty">Ты выгрузил день.<br><span style="color:#61616A">Ничего не нужно раскладывать руками.</span></div>
+            <div style="margin-top:18px;font-size:14px;color:#93939B;line-height:1.6;max-width:560px">{{ streamSummary }}</div>
+          </div>
+
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+            <div style="margin-top:44px">
+              <div style="display:flex;align-items:baseline;gap:10px">
+                <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.2em;color:#5A5A63;text-transform:uppercase">{{ g.t }}</div>
+                <div style="font-size:11px;color:#3E3E46">{{ g.n }}</div>
+              </div>
+              <div style="margin-top:10px">
+                <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="4">
+                  <div onClick="{{ it.open }}" style="{{ it.row }}" style-hover="background:#0F0F13">
+                    <div style="font:500 9px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.1em;color:{{ it.kc }};padding-top:3px">{{ it.k }}</div>
+                    <div style="min-width:0">
+                      <div style="font-size:14.5px;letter-spacing:-.01em;color:#E4E4E8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.snip }}</div>
+                      <div style="font-size:12px;color:#5E5E67;margin-top:4px">{{ it.sub }}</div>
+                    </div>
+                    <div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#4E4E57;padding-top:4px">{{ it.t }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+
+          <div style="margin-top:56px;padding:18px 20px;border:1px dashed rgba(255,255,255,.09);border-radius:13px;display:flex;align-items:center;gap:14px">
+            <div style="font-size:13px;color:#6B6B74;line-height:1.55">Всё это лежит как есть. LifeOS ещё не создал ни одной задачи, ни одного проекта — <span style="color:#A0A0A8">разбор всегда с твоего согласия</span>.</div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:0 34px 26px;display:flex;justify-content:center;pointer-events:none;background:linear-gradient(to top,#08080A 46%,rgba(8,8,10,0))">
+          <div style="width:100%;max-width:720px;pointer-events:auto">
+            <sc-if value="{{ rec }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:15px;background:#101015;border:1px solid rgba(124,140,248,.35);box-shadow:0 20px 50px -20px rgba(0,0,0,.9)">
+                <div style="position:relative;width:10px;height:10px"><span style="position:absolute;inset:0;border-radius:50%;background:#E8705F"></span><span style="position:absolute;inset:0;border-radius:50%;background:#E8705F;animation:pulsering 1.4s ease-out infinite"></span></div>
+                <div style="font:400 14px/1 ui-monospace,Menlo,monospace;color:#ECECEE">{{ recTime }}</div>
+                <div style="flex:1;display:flex;align-items:center;gap:3px;height:22px">
+                  <sc-for list="{{ live }}" as="b" hint-placeholder-count="40"><div style="{{ b.st }}"></div></sc-for>
+                </div>
+                <div style="font-size:12.5px;color:#6B6B74">отпусти, чтобы сохранить</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ notRec }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 12px 12px 18px;border-radius:15px;background:#0D0D11;border:1px solid rgba(255,255,255,.09);box-shadow:0 20px 50px -20px rgba(0,0,0,.9)">
+                <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Выгрузи что угодно. Тип определит система." style="flex:1;font-size:14.5px;letter-spacing:-.01em;min-width:0" />
+                <div style="font:400 10px/1 ui-monospace,Menlo,monospace;color:#43434B;letter-spacing:.06em">⏎</div>
+                <div style="width:1px;height:20px;background:rgba(255,255,255,.08)"></div>
+                <div onMouseDown="{{ recStart }}" onMouseUp="{{ recStop }}" onMouseLeave="{{ recStop }}" style="width:34px;height:34px;border-radius:10px;background:#17171D;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:#202028">
+                  <div style="width:9px;height:13px;border-radius:5px;background:#B9B9C2"></div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ reply }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:10px;padding:16px 18px;border-radius:14px;background:#0B0B0E;border:1px solid rgba(255,255,255,.1);animation:rise .22s ease both">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;flex:0 0 6px"></span>
+                  <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.13em;color:#6B6B74;text-transform:uppercase">это вопрос — отвечаю, не записываю</div>
+                  <div style="flex:1"></div>
+                  <div onClick="{{ clearReply }}" style="font-size:12px;color:#5A5A63;cursor:pointer">закрыть</div>
+                </div>
+                <div style="margin-top:11px;font-size:14.5px;line-height:1.6;color:#E4E4E8;letter-spacing:-.012em;text-wrap:pretty">{{ reply.a }}</div>
+                <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap">
+                  <sc-for list="{{ reply.cites }}" as="c" hint-placeholder-count="3">
+                    <div style="padding:5px 9px;border-radius:8px;background:#131318;border:1px solid rgba(255,255,255,.08);font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#8B8B93;white-space:nowrap">{{ c }}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <div style="text-align:center;margin-top:9px;font-size:11.5px;color:#43434B">удерживай для голосового · вставь ссылку, файл, фото — всё станет артефактом · вопрос останется вопросом</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isProc }}" hint-placeholder-val="{{ false }}">
+        <div style="max-width:700px;margin:0 auto;padding:120px 34px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:7px;height:7px;border-radius:50%;background:#7C8CF8;animation:breathe 1.6s ease-in-out infinite"></span>
+            <div style="font-size:26px;letter-spacing:-.02em;font-weight:500">Разбираю день</div>
+          </div>
+          <div style="margin-top:8px;font-size:13.5px;color:#6B6B74">Всё локально. Ни один артефакт не уходит из устройства.</div>
+
+          <div style="margin-top:44px;display:flex;flex-direction:column;gap:14px">
+            <sc-for list="{{ logs }}" as="l" hint-placeholder-count="1">
+              <div style="display:grid;grid-template-columns:18px 1fr;gap:12px;align-items:start;animation:rise .35s ease both">
+                <div style="{{ l.dot }}"></div>
+                <div style="font-size:14px;line-height:1.5;color:{{ l.c }};letter-spacing:-.01em">{{ l.l }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin-top:52px;height:1px;background:rgba(255,255,255,.07);position:relative">
+            <div style="{{ progStyle }}"></div>
+          </div>
+          <div style="margin-top:22px;display:flex;gap:38px">
+            <sc-for list="{{ counters }}" as="c" hint-placeholder-count="4">
+              <div>
+                <div style="font:400 22px/1 ui-monospace,Menlo,monospace;color:#E4E4E8;letter-spacing:-.02em">{{ c.v }}</div>
+                <div style="font-size:11.5px;color:#5A5A63;margin-top:7px">{{ c.l }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+        <div style="max-width:900px;margin:0 auto;padding:56px 34px 140px">
+          <div style="animation:rise .5s ease both">
+            <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.2em;color:#5A5A63;text-transform:uppercase">итог разбора · 21 июля</div>
+            <div style="font-size:37px;line-height:1.12;letter-spacing:-.03em;font-weight:500;margin-top:16px">{{ heroTitle }}</div>
+            <div style="margin-top:16px;font-size:14.5px;color:#93939B;line-height:1.6;max-width:600px">{{ heroSub }}</div>
+          </div>
+
+          <sc-if value="{{ applied }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:28px;padding:16px 18px;border-radius:13px;background:rgba(99,211,151,.07);border:1px solid rgba(99,211,151,.22);display:flex;align-items:center;gap:16px">
+              <div style="flex:1">
+                <div style="font-size:13.5px;color:#8FE0B4;line-height:1.5">{{ receipt }}</div>
+                <a href="Artifact Inspector.dc.html" style="display:inline-block;margin-top:9px;font-size:13px;color:#8FE0B4;border-bottom:1px solid rgba(143,224,180,.35)">Открыть проект «Покупка машины» →</a>
+              </div>
+              <div onClick="{{ undo }}" style="padding:7px 12px;border-radius:8px;border:1px solid rgba(99,211,151,.3);font-size:12.5px;color:#8FE0B4;cursor:pointer">Откатить</div>
+            </div>
+          </sc-if>
+
+          <div style="margin-top:40px;padding:22px 24px;border-radius:15px;background:#0B0B0E;border:1px solid rgba(255,255,255,.07)">
+            <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+              <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Прогноз по целям</div>
+              <div style="font-size:12.5px;color:#5A5A63;flex:1;min-width:0">после сегодняшнего дня вероятности пересчитаны</div>
+            </div>
+            <div style="margin-top:18px;display:flex;flex-direction:column;gap:14px">
+              <sc-for list="{{ forecast }}" as="fc" hint-placeholder-count="3">
+                <div>
+                  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+                    <div style="font-size:14.5px;color:#E4E4E8;letter-spacing:-.012em;flex:1;min-width:160px">{{ fc.l }}</div>
+                    <div style="font:400 12px/1 ui-monospace,Menlo,monospace;color:{{ fc.c }};white-space:nowrap">{{ fc.p }}</div>
+                    <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#5E5E67;white-space:nowrap">{{ fc.d }}</div>
+                  </div>
+                  <div style="margin-top:9px;position:relative;height:5px;border-radius:4px;background:#131317">
+                    <div style="{{ fc.bar }}"></div>
+                  </div>
+                  <div style="margin-top:8px;font-size:12.5px;color:#7A7A83;line-height:1.55">{{ fc.s }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06)">
+              <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">где ты недооцениваешь</div>
+              <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ under }}" as="u" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:74px minmax(0,1fr);gap:14px;align-items:baseline">
+                    <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.11em;color:{{ u.c }};text-transform:uppercase;white-space:nowrap">{{ u.k }}</div>
+                    <div style="font-size:13.5px;color:#C9C9D0;line-height:1.55">{{ u.t }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:34px;padding:20px 22px;border-radius:15px;background:rgba(229,184,75,.045);border:1px solid rgba(229,184,75,.2)">
+            <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+              <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Нужно уточнить</div>
+              <div style="font-size:12.5px;color:#8B8B93;flex:1;min-width:0">уверенность низкая — вместо предложения система спрашивает</div>
+            </div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ asks }}" as="a" hint-placeholder-count="2">
+                <div style="padding:16px 18px;border-radius:13px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07)">
+                  <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                    <div style="font-size:14.5px;color:#EDEDF0;letter-spacing:-.012em;line-height:1.45;flex:1;min-width:200px;text-wrap:pretty">{{ a.q }}</div>
+                    <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#4E4E57;white-space:nowrap">{{ a.c }}</div>
+                  </div>
+                  <div style="margin-top:8px;font-size:12.5px;color:#7A7A83;line-height:1.55">{{ a.s }}</div>
+                  <div style="margin-top:13px;display:flex;gap:8px;flex-wrap:wrap">
+                    <sc-for list="{{ a.opts }}" as="o" hint-placeholder-count="2">
+                      <div onClick="{{ o.go }}" style="{{ o.st }}">{{ o.l }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-for list="{{ result }}" as="g" hint-placeholder-count="5">
+            <div style="margin-top:46px">
+              <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.07)">
+                <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap;color:#E9E9ED">{{ g.label }}</div>
+                <div style="font:400 12px/1 ui-monospace,Menlo,monospace;color:#4E4E57">{{ g.n }}</div>
+                <div style="font-size:12.5px;color:#5A5A63;flex:1">{{ g.note }}</div>
+                <div onClick="{{ g.toggleAll }}" style="font-size:12.5px;color:#7C8CF8;cursor:pointer">{{ g.allLabel }}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+                <sc-for list="{{ g.items }}" as="p" hint-placeholder-count="2">
+                  <div style="{{ p.card }}">
+                    <div onClick="{{ p.toggle }}" style="{{ p.box }}">{{ p.mark }}</div>
+                    <div style="min-width:0">
+                      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                        <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.11em;color:#6B6B74;text-transform:uppercase">{{ p.k }}</div>
+                        <div style="{{ p.title }}">{{ p.t }}</div>
+                      </div>
+                      <div style="font-size:13.5px;color:#8B8B93;line-height:1.55;margin-top:7px;max-width:620px;text-wrap:pretty">{{ p.s }}</div>
+                      <sc-if value="{{ p.showWhy }}" hint-placeholder-val="{{ true }}">
+                        <div style="margin-top:11px;padding-left:12px;border-left:2px solid rgba(255,255,255,.1);font-size:12.5px;color:#63636C;line-height:1.5;max-width:600px">{{ p.why }}</div>
+                      </sc-if>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+                      <sc-if value="{{ p.showConf }}" hint-placeholder-val="{{ true }}">
+                        <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#4E4E57">{{ p.c }}</div>
+                      </sc-if>
+                      <div onClick="{{ p.openSrc }}" style="font-size:12px;color:#5E5E67;cursor:pointer;white-space:nowrap" style-hover="color:#9EA9FB">источник</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+
+          <div style="margin-top:52px;padding-top:22px;border-top:1px solid rgba(255,255,255,.07);font-size:13px;color:#5A5A63;line-height:1.6;max-width:620px">Ты не выбирал ни типов, ни папок, ни тегов. Система предложила структуру — ты только согласился. Отклонённое она запомнит и в следующий раз не предложит.</div>
+        </div>
+
+        <div style="position:sticky;bottom:0;padding:0 34px 24px;display:flex;justify-content:center;pointer-events:none;background:linear-gradient(to top,#08080A 55%,rgba(8,8,10,0))">
+          <div style="width:100%;max-width:900px;pointer-events:auto;display:flex;align-items:center;gap:18px;padding:13px 14px 13px 20px;border-radius:15px;background:#0D0D11;border:1px solid rgba(255,255,255,.09);box-shadow:0 20px 50px -20px rgba(0,0,0,.9)">
+            <div style="font-size:13.5px;color:#A0A0A8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ footLeft }}</div>
+            <div style="flex:1"></div>
+            <div onClick="{{ apply }}" style="{{ applyStyle }}">{{ applyLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+
+    <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ close }}" style="position:absolute;inset:0;background:rgba(4,4,6,.5);animation:fade .2s ease both"></div>
+      <div style="position:absolute;top:0;right:0;bottom:0;width:470px;background:#0C0C0F;border-left:1px solid rgba(255,255,255,.08);animation:slidein .28s cubic-bezier(.2,.8,.2,1) both;display:flex;flex-direction:column">
+        <div style="padding:20px 24px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:12px">
+          <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.11em;color:{{ open.kc }}">{{ open.k }}</div>
+          <div style="font:400 12px/1 ui-monospace,Menlo,monospace;color:#5A5A63">{{ open.t }} · {{ open.sub }}</div>
+          <div style="flex:1"></div>
+          <div onClick="{{ close }}" style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B6B74;cursor:pointer;font-size:15px" style-hover="background:#17171D">×</div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:24px">
+          <div style="font-size:16px;line-height:1.45;letter-spacing:-.015em;color:#E9E9ED;text-wrap:pretty">{{ open.snip }}</div>
+          <sc-if value="{{ open.isVoice }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:20px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:#101015;border:1px solid rgba(255,255,255,.07)">
+              <div style="width:28px;height:28px;border-radius:50%;background:#EDEDF0;display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-left:7px solid #0B0B0D;border-top:4.5px solid transparent;border-bottom:4.5px solid transparent;margin-left:2px"></div></div>
+              <div style="flex:1;display:flex;align-items:center;gap:2.5px;height:20px">
+                <sc-for list="{{ open.wave }}" as="b" hint-placeholder-count="46"><div style="{{ b.st }}"></div></sc-for>
+              </div>
+              <div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#5A5A63">{{ open.sub }}</div>
+            </div>
+          </sc-if>
+
+          <div style="margin-top:26px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#5A5A63;text-transform:uppercase">{{ open.secLabel }}</div>
+          <sc-if value="{{ open.raw }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:14px;padding:16px;border-radius:12px;border:1px dashed rgba(255,255,255,.09);font-size:13.5px;color:#6B6B74;line-height:1.6">Пока это сырой поток. LifeOS его не трогал: ни расшифровки, ни сущностей, ни связей.<div onClick="{{ start }}" style="margin-top:14px;display:inline-block;padding:8px 13px;border-radius:9px;background:#17171D;border:1px solid rgba(255,255,255,.1);color:#D6D6DC;font-size:12.5px;cursor:pointer">Разобрать день</div></div>
+          </sc-if>
+          <sc-if value="{{ open.done }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ open.lines }}" as="ln" hint-placeholder-count="4">
+                <div style="display:grid;grid-template-columns:38px 1fr;gap:12px">
+                  <div style="font:400 11px/1.5 ui-monospace,Menlo,monospace;color:#43434B">{{ ln.t }}</div>
+                  <div style="font-size:13.5px;line-height:1.55;color:#B9B9C2">{{ ln.l }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:30px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#5A5A63;text-transform:uppercase">что понял LifeOS</div>
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ open.got }}" as="u" hint-placeholder-count="3">
+                <div style="padding:13px 14px;border-radius:11px;background:#101015;border:1px solid rgba(255,255,255,.07)">
+                  <div style="display:flex;align-items:baseline;gap:9px">
+                    <div style="font-size:14px;letter-spacing:-.01em;color:#E4E4E8;flex:1">{{ u.l }}</div>
+                    <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#4E4E57">{{ u.c }}</div>
+                  </div>
+                  <div style="font-size:12.5px;color:#6B6B74;margin-top:6px;line-height:1.5">{{ u.s }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding:16px 24px;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:9px">
+          <div onClick="{{ close }}" style="flex:1;text-align:center;padding:10px;border-radius:10px;background:#17171D;border:1px solid rgba(255,255,255,.09);font-size:13px;color:#D6D6DC;cursor:pointer">Оставить как есть</div>
+          <div onClick="{{ open.drop }}" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.09);font-size:13px;color:#6B6B74;cursor:pointer" style-hover="color:#E8705F">Удалить</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ sClose }}" style="position:absolute;inset:0;z-index:60;background:rgba(4,4,6,.62);animation:fade .16s ease both"></div>
+      <div style="position:absolute;z-index:61;left:0;right:0;top:70px;bottom:50px;display:flex;justify-content:center;align-items:flex-start;pointer-events:none">
+      <div style="pointer-events:auto;width:min(660px,calc(100% - 48px));border-radius:16px;background:#0D0D11;border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 90px -30px rgba(0,0,0,.95);animation:rise .18s ease both;display:flex;flex-direction:column;max-height:100%;overflow:hidden">
+        <div style="padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:12px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;flex:0 0 6px"></span>
+          <input value="{{ sq }}" onChange="{{ onSQ }}" onKeyDown="{{ onSKey }}" placeholder="Искать во всей жизни: артефакты, люди, цитаты, файлы, связи" style="flex:1;font-size:15px;letter-spacing:-.012em;min-width:0" />
+          <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B;white-space:nowrap">esc</div>
+        </div>
+        <div style="flex:1;overflow:hidden auto;min-height:0;padding:8px 8px 12px">
+          <sc-for list="{{ sGroups }}" as="g" hint-placeholder-count="3">
+            <div style="padding:12px 10px 4px">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">{{ g.l }}</div>
+              <div style="margin-top:6px">
+                <sc-for list="{{ g.items }}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{ r.go }}" style="{{ r.st }}" style-hover="background:#15151B">
+                    <div style="font:500 9px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.09em;color:{{ r.c }};text-transform:uppercase;padding-top:4px;white-space:nowrap">{{ r.k }}</div>
+                    <div style="min-width:0">
+                      <div style="font-size:14px;color:#E9E9ED;letter-spacing:-.012em;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.t }}</div>
+                      <div style="font-size:12px;color:#6B6B74;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.s }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ sEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 18px;font-size:13.5px;color:#6B6B74;line-height:1.6">Ничего не нашлось. Но ничего и не потеряно: напиши это в поток — система разберёт и свяжет сама.</div>
+          </sc-if>
+        </div>
+      </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:110px;z-index:50;display:flex;justify-content:center;pointer-events:none"><div style="pointer-events:auto;padding:10px 16px;border-radius:11px;background:#17171D;border:1px solid rgba(255,255,255,.1);font-size:13px;color:#C9C9D0;animation:rise .25s ease both;box-shadow:0 16px 40px -16px rgba(0,0,0,.9)">{{ toast }}</div></div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showConfidence&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Разбор&quot;},&quot;showEvidence&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Разбор&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;воздух&quot;,&quot;плотно&quot;],&quot;default&quot;:&quot;плотно&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Поток&quot;}}">
+const KIND = {
+  voice: { k: 'ГОЛОС', c: '#7C8CF8' }, thought: { k: 'МЫСЛЬ', c: '#8B8B93' },
+  link: { k: 'ССЫЛКА', c: '#63A9D3' }, photo: { k: 'ФОТО', c: '#C79BE0' },
+  pdf: { k: 'PDF', c: '#E5B84B' }, screen: { k: 'СКРИНШОТ', c: '#8FBFA8' },
+  receipt: { k: 'ЧЕК', c: '#63D397' },
+};
+
+const ITEMS = [
+  { id: 'a1', g: 0, kind: 'voice', t: '07:12', sub: '0:48',
+    snip: 'Надо всё-таки решить с машиной, тянуть уже некуда',
+    lines: [['0:02', 'Надо всё-таки решить с машиной, тянуть уже некуда.'], ['0:11', 'Смотрел Polo седан 2019, пробег 90, просят 1 150.'], ['0:26', 'Марина говорит подождать до сентября, но цены растут.'], ['0:39', 'Надо посчитать, сколько реально свободных денег в месяц.']],
+    got: [{ l: 'Цель · Купить машину до сентября', s: 'уже существует — обновляю, новую не создаю', c: '91%' }, { l: 'Задача · Посчитать свободный поток за 3 месяца', s: 'новая, уходит в проект «Финансы»', c: '84%' }, { l: 'Человек · Марина', s: 'совпадение с существующим (34 упоминания)', c: '96%' }] },
+  { id: 'a2', g: 0, kind: 'thought', t: '08:03', sub: 'набрано',
+    snip: 'Если брать в кредит — переплата съест весь смысл покупки',
+    lines: [['', 'Если брать в кредит — переплата съест весь смысл покупки.']],
+    got: [{ l: 'Решение · Без кредита', s: 'привязано к цели «Машина», влияет на срок', c: '79%' }] },
+  { id: 'a3', g: 0, kind: 'link', t: '08:41', sub: 'avito.ru',
+    snip: 'Polo седан 2019 · 1 150 000 ₽ · 90 000 км',
+    lines: [['', 'Объявление: Polo седан 2019, 1 150 000 ₽, 90 000 км, один владелец.']],
+    got: [{ l: 'Артефакт · Вариант покупки #4', s: 'четвёртый вариант по этой цели за 11 дней', c: '94%' }] },
+  { id: 'b1', g: 1, kind: 'voice', t: '12:20', sub: '1:12',
+    snip: 'Созвон с Дмитрием, он готов взять кухню под себя',
+    lines: [['0:03', 'Созвон с Дмитрием, он готов взять кухню под себя.'], ['0:18', 'Сказал 240 тысяч и три недели, начать может с четверга.'], ['0:41', 'Надо ему ответить до среды, иначе уйдёт на другой объект.'], ['1:02', 'Ещё он предложил зайти в его проект по подряду — интересно.']],
+    got: [{ l: 'Проект · Ремонт кухни', s: 'новый — собран из 6 объектов за 3 недели', c: '88%' }, { l: 'Встреча · Дмитрий, четверг 19:00', s: 'календарь на четверг занят — конфликт', c: '82%' }, { l: 'Задача · Ответить Дмитрию до среды', s: 'срок из фразы «до среды»', c: '90%' }] },
+  { id: 'b2', g: 1, kind: 'photo', t: '12:44', sub: '2 фото',
+    snip: 'Смета от Дмитрия, лист 1 и 2',
+    lines: [['', 'Рукописная смета: демонтаж, электрика, плитка, фурнитура. Итог 240 000 ₽.']],
+    got: [{ l: 'Обязательство · 240 000 ₽', s: 'привязано к проекту «Ремонт кухни»', c: '86%' }] },
+  { id: 'b3', g: 1, kind: 'receipt', t: '13:02', sub: '4 380 ₽',
+    snip: 'Лента · продукты · 4 380 ₽',
+    lines: [['', 'Лента, 21.07, 4 380 ₽, категория: продукты.']],
+    got: [{ l: 'Расход · Еда 4 380 ₽', s: 'еда за месяц: +18% к июню', c: '97%' }] },
+  { id: 'b4', g: 1, kind: 'voice', t: '14:15', sub: '0:22',
+    snip: 'Не забыть сказать Марине про четверг',
+    lines: [['0:01', 'Не забыть сказать Марине про четверг.'], ['0:09', 'И что с машиной я всё-таки хочу решить в августе, а не в сентябре.']],
+    got: [{ l: 'Задача · Сказать Марине про четверг', s: 'связано с встречей с Дмитрием', c: '92%' }, { l: 'Противоречие · август против сентября', s: 'в цели указан сентябрь, в задачах октябрь', c: '81%' }] },
+  { id: 'b5', g: 1, kind: 'screen', t: '16:30', sub: 'календарь',
+    snip: 'Четверг 19:00 — уже занято',
+    lines: [['', 'Скриншот календаря: четверг 19:00 — родительское собрание.']],
+    got: [{ l: 'Конфликт времени · четверг 19:00', s: 'встреча с Дмитрием пересекается', c: '95%' }] },
+  { id: 'c1', g: 2, kind: 'voice', t: '17:05', sub: '2:04',
+    snip: 'Долго думал про работу и куда уходит энергия',
+    lines: [['0:04', 'Долго думал про работу и куда уходит энергия.'], ['0:22', 'После разговоров с Димой я каждый раз загораюсь новым.'], ['0:51', 'А потом через неделю всё это лежит.'], ['1:30', 'Может, проблема не в идеях, а в том, что я не закрываю старое.'], ['1:52', 'Надо честно посмотреть, сколько проектов я бросил за полгода.']],
+    got: [{ l: 'Инсайт · Паттерн «загорелся → бросил»', s: 'подтверждается 5 голосовыми за 90 дней', c: '87%' }, { l: 'Мысль · повторяется 4-й раз', s: 'не создаю новый объект, усиливаю существующий', c: '93%' }] },
+  { id: 'c2', g: 2, kind: 'receipt', t: '18:12', sub: '2 100 ₽',
+    snip: 'АЗС · бензин · 2 100 ₽',
+    lines: [['', 'АЗС, 21.07, 2 100 ₽, категория: транспорт.']],
+    got: [{ l: 'Расход · Транспорт 2 100 ₽', s: 'транспорт стабилен, 8 400 ₽/мес', c: '97%' }] },
+  { id: 'c3', g: 2, kind: 'pdf', t: '18:40', sub: '6 стр.',
+    snip: 'Смета_кухня_final.pdf',
+    lines: [['', 'Договор подряда и смета: 240 000 ₽, срок 21 день, аванс 40%.']],
+    got: [{ l: 'Документ · Договор подряда', s: 'к проекту «Ремонт кухни», аванс 96 000 ₽', c: '89%' }, { l: 'Риск · Аванс без гарантий', s: 'в договоре нет пункта о просрочке', c: '74%' }] },
+  { id: 'c4', g: 2, kind: 'voice', t: '19:41', sub: '3:26',
+    snip: 'Большое: планы на осень, что реально важно',
+    lines: [['0:06', 'Планы на осень. Что реально важно.'], ['0:34', 'Машина, кухня, и наконец нормальный режим.'], ['1:12', 'Хочу откладывать шестьдесят в месяц, но при этом купить машину до сентября.'], ['2:03', 'Тренировки: когда есть, день вообще другой.'], ['2:48', 'Английский опять отложил, это уже четвёртый раз.'], ['3:10', 'Надо выбрать два, а не пять.']],
+    got: [{ l: 'Цель · Режим и тренировки', s: 'новая, связана с 12 упоминаниями', c: '85%' }, { l: 'Противоречие · 60 000 ₽/мес vs машина до сентября', s: 'при текущем потоке взнос собирается к декабрю', c: '90%' }, { l: 'Инсайт · Английский откладывается 4-й раз', s: 'цикл около 6 недель', c: '78%' }] },
+  { id: 'c5', g: 2, kind: 'thought', t: '20:02', sub: 'набрано',
+    snip: 'Кажется, я снова начинаю новый проект после разговора с Димой',
+    lines: [['', 'Кажется, я снова начинаю новый проект после разговора с Димой.']],
+    got: [{ l: 'Инсайт · подтверждение паттерна', s: 'сам заметил то, что система видит с апреля', c: '91%' }] },
+  { id: 'c6', g: 2, kind: 'voice', t: '20:30', sub: '0:39',
+    snip: 'Тренировка была, чувствую себя нормально',
+    lines: [['0:02', 'Тренировка была, чувствую себя нормально.'], ['0:21', 'И почему-то именно в такие дни всё решается быстрее.']],
+    got: [{ l: 'Привычка · Тренировка', s: '14-я отметка, серия 3 дня', c: '96%' }, { l: 'Инсайт · тренировка → решения', s: 'корреляция по 42 дням', c: '80%' }] },
+  { id: 'c7', g: 2, kind: 'receipt', t: '21:05', sub: '1 490 ₽',
+    snip: 'Подписка · 1 490 ₽ · списание',
+    lines: [['', 'Списание подписки 1 490 ₽, повторяется 7-й месяц.']],
+    got: [{ l: 'Расход · Подписки 1 490 ₽', s: 'не открывал сервис 2 месяца', c: '88%' }] },
+  { id: 'c8', g: 2, kind: 'voice', t: '21:20', sub: '1:48',
+    snip: 'Разговор с Мариной: она согласна на август, если без кредита',
+    lines: [['0:05', 'Поговорили с Мариной.'], ['0:24', 'Она согласна на август, если без кредита.'], ['1:02', 'Значит нужно 1 150 живыми, а у нас есть 740.'], ['1:31', 'Разница 410, это либо продать старую, либо ждать.']],
+    got: [{ l: 'Решение · Август, без кредита', s: 'обновляет цель, срок сдвигается', c: '92%' }, { l: 'Задача · Оценить продажу старой машины', s: 'новая, блокирует цель', c: '86%' }] },
+  { id: 'c9', g: 2, kind: 'thought', t: '21:55', sub: 'набрано',
+    snip: 'Надо посчитать свободные деньги за три месяца',
+    lines: [['', 'Надо посчитать свободные деньги за три месяца.']],
+    got: [{ l: 'Дубликат · уже есть такая задача', s: 'из голосового 07:12 — не создаю вторую', c: '94%' }] },
+  { id: 'c10', g: 2, kind: 'voice', t: '22:03', sub: '0:31',
+    snip: 'Завтра: позвонить в банк по ставке',
+    lines: [['0:02', 'Завтра позвонить в банк по ставке.'], ['0:18', 'Хотя если без кредита, то это уже не нужно. Ладно, пусть будет.']],
+    got: [{ l: 'Задача · Позвонить в банк', s: 'помечена как «возможно отменена» решением 21:20', c: '71%' }] },
+];
+
+const GROUPS = [{ t: 'Утро', ids: 0 }, { t: 'День', ids: 1 }, { t: 'Вечер', ids: 2 }];
+
+const STAGES = [
+  { l: 'Расшифровываю 8 голосовых — 11 минут, локальная модель', c: [8, 0, 0, 0] },
+  { l: 'Читаю PDF, 2 фото и скриншот календаря', c: [8, 0, 0, 0] },
+  { l: 'Извлекаю сущности: люди, суммы, сроки, решения, привычки', c: [8, 41, 0, 0] },
+  { l: 'Сверяю с твоим графом — 6 совпадений, дубликаты не создаю', c: [8, 41, 6, 0] },
+  { l: 'Строю связи между сущностями и существующими целями', c: [8, 41, 6, 19] },
+  { l: 'Смотрю 90 дней назад: повторы, противоречия, риски', c: [8, 41, 6, 19] },
+  { l: 'Собрал предложения. Ничего не записано без твоего согласия', c: [8, 41, 6, 19] },
+];
+
+const RESULT = [
+  { id: 'proj', label: 'Проекты', note: 'собраны из разрозненных сообщений',
+    items: [
+      { id: 'p1', k: 'новый проект', t: 'Ремонт кухни', s: '6 объектов за 3 недели: голосовое, две фотографии сметы, PDF договора, обязательство 240 000 ₽ и подрядчик Дмитрий.', why: 'Раньше это лежало как 6 несвязанных объектов. Общее — Дмитрий, сумма и срок.', c: '88%' },
+      { id: 'p2', k: 'новый проект', t: 'Покупка машины', s: 'Объединяет 14 объектов за 6 месяцев: 4 варианта, расчёты, решение «без кредита», разговоры с Мариной.', why: 'Тема упоминалась 23 раза с февраля, но проекта не было — были отдельные заметки.', c: '93%' },
+    ] },
+  { id: 'goal', label: 'Цели', note: 'обновление, а не создание копий',
+    items: [
+      { id: 'g1', k: 'обновление', t: 'Купить машину — срок сдвигается на август', s: 'Марина согласна на август при покупке без кредита. Нужно 1 150 000 ₽, есть 740 000 ₽. Разрыв 410 000 ₽ блокирует цель.', why: 'Голосовое 21:20 отменяет условие из февральской версии цели.', c: '92%' },
+      { id: 'g2', k: 'новая цель', t: 'Режим и тренировки', s: 'Ты возвращаешься к этому 12-й раз, но целью это никогда не было.', why: '«Тренировки: когда есть, день вообще другой» — 19:41 и 11 похожих.', c: '85%' },
+    ] },
+  { id: 'task', label: 'Задачи', note: '11 найдено · 2 отброшено как дубликаты',
+    items: [
+      { id: 't1', k: 'задача · срок', t: 'Ответить Дмитрию до среды', s: 'Иначе он уходит на другой объект — блокирует весь проект «Ремонт кухни».', why: '«Надо ему ответить до среды» — 12:20', c: '90%' },
+      { id: 't2', k: 'задача', t: 'Посчитать свободные деньги за 3 месяца', s: 'Прозвучало дважды (07:12 и 21:55) — создаю одну.', why: 'Второе упоминание распознано как дубликат, не как новая задача.', c: '84%' },
+      { id: 't3', k: 'задача · блокер', t: 'Оценить продажу старой машины', s: 'Единственный путь закрыть разрыв 410 000 ₽ без кредита.', why: 'Выведено из расчёта в голосовом 21:20, ты этого не проговаривал.', c: '86%' },
+      { id: 't4', k: 'задача', t: 'Сказать Марине про четверг', s: 'Связана с конфликтом в календаре.', why: '14:15', c: '92%' },
+      { id: 't5', k: 'под вопросом', t: 'Позвонить в банк по ставке', s: 'Решение «без кредита» в 21:20, скорее всего, отменяет эту задачу. Оставить?', why: 'Ты сам сказал «если без кредита, то это уже не нужно».', c: '71%' },
+      { id: 't6', k: 'ещё 5 задач', t: 'Мелкие задачи из вечерних голосовых', s: 'Английский, отмена подписки, режим сна, звонок маме, счёт за воду.', why: 'Сгруппированы, чтобы не засорять список.', c: '80%' },
+    ] },
+  { id: 'time', label: 'Календарь', note: 'найден конфликт',
+    items: [
+      { id: 'm1', k: 'встреча · конфликт', t: 'Дмитрий, четверг 19:00', s: 'Четверг 19:00 уже занят родительским собранием. Предлагаю четверг 21:00 или среду 19:00.', why: 'Скриншот календаря 16:30 против голосового 12:20.', c: '95%' },
+    ] },
+  { id: 'money', label: 'Деньги', note: 'из чеков, без ручного ввода',
+    items: [
+      { id: 'e1', k: '3 расхода', t: '7 970 ₽ за день', s: 'Еда 4 380 ₽, транспорт 2 100 ₽, подписка 1 490 ₽.', why: 'Распознано с фотографий чеков.', c: '97%' },
+      { id: 'e2', k: 'наблюдение', t: 'Еда: +18% к июню', s: 'При цели «откладывать 60 000 ₽» это минус 6 200 ₽ к плану месяца.', why: 'Сравнение 21 дня июля с июнем.', c: '89%' },
+      { id: 'e3', k: 'предложение', t: 'Отменить подписку 1 490 ₽', s: 'Списывается 7-й месяц, сервис не открывался 2 месяца. 17 880 ₽ в год.', why: 'Списание есть, активности нет.', c: '88%' },
+    ] },
+  { id: 'conflict', label: 'Противоречия', note: 'то, что ты не видел сам',
+    items: [
+      { id: 'x1', k: 'противоречие', t: '«Откладывать 60 000 ₽» против «машина до августа»', s: 'При текущем потоке 410 000 ₽ собираются к декабрю. Либо срок, либо сумма накоплений, либо продажа старой машины — третьего нет.', why: 'Две цели, заданные в разное время, никогда не сверялись между собой.', c: '90%' },
+      { id: 'x2', k: 'противоречие', t: 'Марине — август, в задачах — октябрь', s: 'Обещание в разговоре расходится со сроками в твоих же задачах на 2 месяца.', why: '14:15 и 21:20 против сроков задач от 3 июля.', c: '81%' },
+    ] },
+  { id: 'insight', label: 'Инсайты', note: 'ради этого стоит открывать LifeOS',
+    items: [
+      { id: 'i1', k: 'паттерн · 90 дней', t: 'После каждого разговора с Дмитрием ты начинаешь новый проект. Из 5 таких проектов 4 остановились на первой неделе.', s: 'Сегодня это случилось в шестой раз: «он предложил зайти в его проект по подряду — интересно».', why: 'Пять голосовых с апреля по июль + даты остановки проектов в графе.', c: '87%' },
+      { id: 'i2', k: 'паттерн · 42 дня', t: 'В дни с тренировкой ты закрываешь на 40% больше задач и не делаешь импульсных покупок.', s: 'Серия прервалась 11 дней назад — тогда же появились три импульсные траты.', why: 'Отметки привычки против закрытых задач и чеков.', c: '80%' },
+      { id: 'i3', k: 'паттерн · 6 месяцев', t: 'Про машину ты говоришь полгода, но реальные действия начались только 11 дней назад.', s: 'Разговоров 23, действий 7 — и все 7 в последние 11 дней. Тема наконец сдвинулась.', why: 'Соотношение упоминаний и действий по цели.', c: '94%' },
+    ] },
+];
+
+const SEARCH = [
+  ['артефакт', 'Покупка машины', 'проект · 18 источников · разрыв 410 000 ₽', 'Artifact Inspector.dc.html'],
+  ['артефакт', 'Ремонт кухни', 'проект · 240 000 ₽ обязательств · подрядчик ждёт', 'Artifact Inspector.dc.html'],
+  ['цель', 'Откладывать 60 000 ₽ в месяц', 'цель с марта · противоречит августу', 'Artifact Inspector.dc.html'],
+  ['цель', 'Режим и тренировки', 'цель · 12-е возвращение к теме', 'Graph.dc.html'],
+  ['человек', 'Марина', '34 упоминания · условие «без кредита»', 'Graph.dc.html'],
+  ['человек', 'Дмитрий', 'подрядчик · 17 разговоров · паттерн проектов', 'Graph.dc.html'],
+  ['человек', 'Игорь', 'работа · через него пришла Северсталь', 'Graph.dc.html'],
+  ['инсайт', 'После разговоров с Дмитрием ты начинаешь новый проект', '5 проектов, 4 остановились на первой неделе', 'Graph.dc.html'],
+  ['инсайт', 'В дни с тренировкой закрывается на 40% больше задач', 'и нет импульсных покупок · 42 дня', 'Graph.dc.html'],
+  ['противоречие', 'Накопления против покупки в августе', 'разрыв 410 000 ₽ · закроется к декабрю', 'Graph.dc.html'],
+  ['цитата', '«Она согласна на август, если без кредита»', 'голосовое 21 июля 21:20 · 1:48', 'Universal Capture.dc.html'],
+  ['цитата', '«Может, вообще без машины обойтись»', 'голосовое 27 июня · сомнение сохранено', 'Universal Capture.dc.html'],
+  ['файл', 'Смета_кухня_final.pdf', '6 страниц · договор подряда и смета', 'Artifact Inspector.dc.html'],
+  ['файл', 'Каско_расчёт.pdf', '68 000 ₽ в год · учтено в стоимости владения', 'Artifact Inspector.dc.html'],
+  ['чек', 'Лента · 4 380 ₽', 'еда · 21 июля · распознано с фото', 'Control.dc.html'],
+  ['привычка', 'Тренировка', '14 отметок · серия три дня', 'Graph.dc.html'],
+  ['задача', 'Ответить Дмитрию до среды', 'блокирует проект «Ремонт кухни»', 'Today.dc.html'],
+  ['задача', 'Оценить продажу старой машины', 'единственный путь закрыть 410 000 ₽', 'Today.dc.html'],
+  ['память', 'Свободный поток 740 000 ₽', 'расчёт по счетам за 3 месяца', 'Graph.dc.html'],
+  ['агент', 'Страж подписок', 'ждёт разрешения · подписка 1 490 ₽', 'Agents.dc.html'],
+  ['связь', 'Тренировка → импульсные траты', 'сильная связь · 7 из 9 скачков без тренировки', 'Graph.dc.html'],
+  ['команда', 'Разобрать день', '18 объектов в потоке ждут разбора', 'Universal Capture.dc.html'],
+  ['команда', 'Собрать своё пространство', 'Builder · линзы, представления, правила', 'Builder.dc.html'],
+  ['команда', 'Выгрузить архив', 'все артефакты, связи и чеки', 'Control.dc.html'],
+];
+const SKC = { 'артефакт': '#7C8CF8', 'цель': '#9EA9FB', 'человек': '#C79BE0', 'инсайт': '#8FE0B4', 'противоречие': '#E5B84B', 'цитата': '#8B8B93', 'файл': '#E5B84B', 'чек': '#63D397', 'привычка': '#8FBFA8', 'задача': '#7C8CF8', 'память': '#63A9D3', 'агент': '#E5B84B', 'связь': '#8B8B93', 'команда': '#6B6B74' };
+
+class Component extends DCLogic {
+  componentDidMount() { this.bindKeys(); }
+  sOpenFn = () => this.setState({ sOpen: true });
+  sCloseFn = () => this.setState({ sOpen: false, sq: '' });
+  bindKeys() {
+    if (this.keysBound) return;
+    this.keysBound = true;
+    this.keyHandler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); this.setState(st => ({ sOpen: !st.sOpen, sq: '' })); }
+      else if (e.key === 'Escape') this.setState({ sOpen: false });
+    };
+    window.addEventListener('keydown', this.keyHandler);
+  }
+  searchVals() {
+    const st = this.state, q = (st.sq || '').trim().toLowerCase();
+    const hit = q ? SEARCH.filter(r => (r[1] + ' ' + r[2] + ' ' + r[0]).toLowerCase().indexOf(q) >= 0) : SEARCH.filter(r => ['артефакт', 'противоречие', 'инсайт', 'команда'].indexOf(r[0]) >= 0);
+    const order = q ? ['артефакт','цель','противоречие','инсайт','человек','задача','цитата','файл','чек','привычка','память','связь','агент','команда'] : ['артефакт','противоречие','инсайт','команда'];
+    const label = { 'артефакт': 'Артефакты', 'цель': 'Цели', 'противоречие': 'Противоречия', 'инсайт': 'Инсайты', 'человек': 'Люди', 'задача': 'Задачи', 'цитата': 'Цитаты', 'файл': 'Файлы', 'чек': 'Деньги', 'привычка': 'Привычки', 'память': 'Память', 'связь': 'Связи', 'агент': 'Агенты', 'команда': 'Команды' };
+    const groups = order.map(k => ({
+      l: label[k],
+      items: hit.filter(r => r[0] === k).map(r => ({
+        k: r[0], t: r[1], s: r[2], c: SKC[r[0]] || '#6B6B74',
+        st: 'display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start;padding:10px;border-radius:10px;cursor:pointer',
+        go: () => { window.location.href = r[3]; },
+      })),
+    })).filter(g => g.items.length);
+    return {
+      sOpen: !!st.sOpen, sq: st.sq || '', sGroups: groups, sEmpty: !!q && !hit.length,
+      sOpenFn: this.sOpenFn, sClose: this.sCloseFn,
+      onSQ: (e) => this.setState({ sq: e.target.value }),
+      onSKey: (e) => { if (e.key === 'Enter' && hit.length) window.location.href = hit[0][3]; if (e.key === 'Escape') this.sCloseFn(); },
+    };
+  }
+  state = { view: 'stream', stage: -1, off: {}, applied: false, open: null, draft: '', rec: false, recT: 0, toast: '', extra: [], gone: {}, reply: null, asked: {} };
+
+  componentWillUnmount() { clearInterval(this.tick); clearInterval(this.rt); }
+
+  say(t) { clearTimeout(this.tt); this.setState({ toast: t }); this.tt = setTimeout(() => this.setState({ toast: '' }), 2000); }
+
+  start = () => {
+    if (this.state.view === 'processing') return;
+    this.setState({ view: 'processing', stage: 0, open: null });
+    clearInterval(this.tick);
+    this.tick = setInterval(() => {
+      const n = this.state.stage + 1;
+      if (n >= STAGES.length) { clearInterval(this.tick); setTimeout(() => this.setState({ view: 'result' }), 900); return; }
+      this.setState({ stage: n });
+    }, 850);
+  };
+
+  back = () => this.setState({ view: 'stream' });
+
+  toggle = (id) => this.setState(s => ({ off: Object.assign({}, s.off, { [id]: !s.off[id] }) }));
+
+  toggleGroup = (g) => {
+    const anyOn = g.items.some(p => !this.state.off[p.id]);
+    const off = Object.assign({}, this.state.off);
+    g.items.forEach(p => { off[p.id] = anyOn; });
+    this.setState({ off });
+  };
+
+  apply = () => {
+    if (this.state.applied) { this.say('Уже записано. Можно откатить.'); return; }
+    this.setState({ applied: true });
+  };
+  undo = () => { this.setState({ applied: false }); this.say('Откатил. Граф вернулся к состоянию до 22:14.'); };
+
+  onDraft = (e) => this.setState({ draft: e.target.value });
+  onKey = (e) => {
+    if (e.key !== 'Enter') return;
+    const v = this.state.draft.trim();
+    if (!v) return;
+    const low = v.toLowerCase();
+    const isQ = v.indexOf('?') >= 0 || /^(почему|что|сколько|когда|где|кто|как|зачем|успева|можно|стоит|реально|напомни)/.test(low);
+    if (isQ) {
+      const A = [
+        { m: ['сколько', 'денег', 'трат', 'расход'], a: 'Свободных 740 000 ₽. Сегодня ушло 7 970 ₽: еда 4 380, транспорт 2 100, подписка 1 490. Еда за месяц +18% к июню.', cites: ['43 чека июля', 'РАСЧЁТ по счетам'] },
+        { m: ['дмитри', 'кто', 'марин'], a: 'Дмитрий ждёт ответа до среды по кухне. Марина дала условие «без кредита» — из него выросло решение и новый срок августа.', cites: ['ГОЛОС 12:20', 'ГОЛОС 21:20'] },
+        { m: ['машин', 'polo', 'август'], a: 'Нужно 1 150 000 ₽ живыми, есть 740 000 ₽. Август реален только при продаже старой машины — задача создана 21 июля, действий пока ноль.', cites: ['ЦЕЛЬ Машина', 'РАСЧЁТ 21 июл'] },
+      ];
+      const hit = A.filter(x => x.m.some(m => low.indexOf(m) >= 0))[0] || A[2];
+      this.setState({ draft: '', reply: hit });
+      return;
+    }
+    this.setState(s => ({ draft: '', reply: null, extra: [{ id: 'n' + Date.now(), g: 2, kind: 'thought', t: this.now(), sub: 'только что', snip: v, lines: [['', v]], got: [] }].concat(s.extra) }));
+    this.say('Принято в поток. Тип определится при разборе.');
+  };
+
+  now() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+  recStart = () => {
+    if (this.state.rec) return;
+    this.setState({ rec: true, recT: 0 });
+    this.rt = setInterval(() => this.setState(s => ({ recT: s.recT + 0.1 })), 100);
+  };
+  recStop = () => {
+    if (!this.state.rec) return;
+    clearInterval(this.rt);
+    const d = this.state.recT;
+    this.setState(s => ({ rec: false, recT: 0, extra: [{ id: 'v' + Date.now(), g: 2, kind: 'voice', t: this.now(), sub: this.fmt(d), snip: 'Голосовое, ' + this.fmt(d), lines: [['0:00', 'Не расшифровано.']], got: [] }].concat(s.extra) }));
+    if (d > 0.4) this.say('Голосовое в потоке. Расшифрую при разборе — локально.');
+  };
+  fmt(n) { const m = Math.floor(n / 60), s = Math.floor(n % 60); return m + ':' + String(s).padStart(2, '0'); }
+
+  wave(seed, n) {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const h = 3 + Math.abs(Math.sin(seed * 1.7 + i * 0.9) * Math.cos(i * 0.31)) * 15;
+      out.push({ st: 'flex:1;min-width:1.5px;border-radius:2px;height:' + h.toFixed(1) + 'px;background:rgba(255,255,255,' + (0.16 + (h / 18) * 0.34).toFixed(2) + ')' });
+    }
+    return out;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const conf = this.props.showConfidence !== false;
+    const evid = this.props.showEvidence !== false;
+    const pad = this.props.density === 'плотно' ? '9px 12px' : '14px 12px';
+
+    const all = s.extra.concat(ITEMS).filter(i => !s.gone[i.id]);
+    const done = s.view === 'result';
+
+    const mkItem = (it) => {
+      const km = KIND[it.kind];
+      return {
+        t: it.t, sub: it.sub, snip: it.snip, k: km.k, kc: km.c,
+        row: 'display:grid;grid-template-columns:74px 1fr auto;gap:16px;align-items:start;padding:' + pad + ';margin:0 -12px;border-radius:10px;border-top:1px solid rgba(255,255,255,.05);cursor:pointer;transition:background .12s',
+        open: () => this.setState({
+          open: Object.assign({}, it, {
+            k: km.k, kc: km.c, isVoice: it.kind === 'voice',
+            wave: this.wave(it.t.charCodeAt(1), 46),
+            raw: !done, done: done,
+            secLabel: done ? 'расшифровка' : 'сырой источник',
+            lines: it.lines.map(l => ({ t: l[0], l: l[1] })),
+            got: it.got.map(g => ({ l: g.l, s: g.s, c: conf ? g.c : '' })),
+            drop: () => { this.setState(st => ({ gone: Object.assign({}, st.gone, { [it.id]: true }), open: null })); this.say('Удалено из потока.'); },
+          }),
+        }),
+      };
+    };
+
+    const groups = GROUPS.map(g => {
+      const items = all.filter(i => i.g === g.ids);
+      return { t: g.t, n: items.length + ' объектов', items: items.map(mkItem) };
+    }).filter(g => g.items.length);
+
+    const voices = all.filter(i => i.kind === 'voice').length;
+    const streamSummary = all.length + ' объектов: ' + voices + ' голосовых, 3 чека, PDF, 2 фото, скриншот, мысли и ссылка. Ни один не отсортирован — это нормально.';
+
+    const result = RESULT.map(g => {
+      const anyOn = g.items.some(p => !s.off[p.id]);
+      return {
+        label: g.label, note: g.note, n: g.items.length,
+        allLabel: anyOn ? 'снять все' : 'вернуть все',
+        toggleAll: () => this.toggleGroup(g),
+        items: g.items.map(p => {
+          const on = !s.off[p.id];
+          const ins = g.id === 'insight';
+          return {
+            k: p.k, t: p.t, s: p.s, why: p.why, c: p.c,
+            showWhy: evid, showConf: conf && !!p.c,
+            mark: on ? '✓' : '',
+            card: 'display:grid;grid-template-columns:22px 1fr auto;gap:16px;align-items:start;padding:' + (ins ? '20px' : '16px 18px') + ';border-radius:13px;border:1px solid ' + (on ? (ins ? 'rgba(124,140,248,.22)' : 'rgba(255,255,255,.08)') : 'rgba(255,255,255,.05)') + ';background:' + (on ? (ins ? 'rgba(124,140,248,.05)' : '#0D0D11') : 'transparent') + ';opacity:' + (on ? 1 : .42) + ';transition:opacity .15s,background .15s',
+            box: 'width:19px;height:19px;border-radius:6px;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;border:1px solid ' + (on ? '#7C8CF8' : 'rgba(255,255,255,.16)') + ';background:' + (on ? '#7C8CF8' : 'transparent') + ';color:#0B0B0D',
+            title: (ins ? 'font-size:17px;line-height:1.4;letter-spacing:-.02em;' : 'font-size:15px;letter-spacing:-.012em;') + 'font-weight:500;color:#EDEDF0;flex:1;min-width:200px;text-wrap:pretty;text-decoration:' + (on ? 'none' : 'line-through'),
+            toggle: () => this.toggle(p.id),
+            openSrc: () => this.say('Источник: ' + p.why),
+          };
+        }),
+      };
+    });
+
+    const total = RESULT.reduce((a, g) => a + g.items.length, 0);
+    const on = RESULT.reduce((a, g) => a + g.items.filter(p => !s.off[p.id]).length, 0);
+
+    const st = s.stage;
+    const cv = STAGES[Math.max(0, Math.min(st, STAGES.length - 1))].c;
+    const NAVI = [['Дом', 'Home.dc.html', ''], ['Поток', 'Universal Capture.dc.html', '18'], ['Сегодня', 'Today.dc.html', '4'], ['Граф', 'Graph.dc.html', ''], ['Агенты', 'Agents.dc.html', '1'], ['Builder', 'Builder.dc.html', ''], ['Контроль', 'Control.dc.html', '']];
+    const lenses = NAVI.map(nv => {
+      const on = nv[0] === 'Поток';
+      return {
+        name: nv[0], n: nv[2],
+        go: () => { if (on) { this.setState({ view: 'stream' }); } else { window.location.href = nv[1]; } },
+        st: 'display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;font-size:13.5px;letter-spacing:-.012em;cursor:pointer;transition:background .12s;' + (on ? 'background:#17171E;color:#EDEDF0' : 'color:#8B8B93'),
+        dot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:' + (on ? '#7C8CF8' : '#33333B'),
+        badge: nv[2] ? 'margin-left:auto;font:400 11px/1 ui-monospace,Menlo,monospace;color:' + (on ? '#9EA9FB' : '#5A5A63') : 'display:none',
+      };
+    });
+
+    return {
+      lenses, groups, streamSummary, result,
+      isStream: s.view === 'stream', isProc: s.view === 'processing', isResult: s.view === 'result',
+      headRight: s.view === 'result' ? total + ' предложений · ' + on + ' выбрано' : all.length + ' объектов ждут разбора',
+      start: this.start, back: this.back,
+      draft: s.draft, onDraft: this.onDraft, onKey: this.onKey,
+      reply: s.reply, clearReply: () => this.setState({ reply: null }),
+      sources: [
+        ['Telegram', '12 сообщений · Hermes забрал в 21:58', '#63A9D3', 1],
+        ['Диктофон телефона', '6 голосовых · 11 минут', '#7C8CF8', 1],
+        ['Ноутбук', '3 мысли набраны днём', '#8B8B93', 0],
+        ['Фото и файлы', '3 чека, PDF, 2 фото, скриншот', '#E5B84B', 0],
+      ].map(x => ({
+        l: x[0], s: x[1],
+        bc: x[3] ? 'rgba(124,140,248,.22)' : 'rgba(255,255,255,.07)',
+        dot: 'width:7px;height:7px;border-radius:50%;flex:0 0 7px;background:' + x[2],
+      })),
+      rec: s.rec, notRec: !s.rec, recTime: this.fmt(s.recT), live: this.wave(s.recT * 3, 40),
+      recStart: this.recStart, recStop: this.recStop,
+      logs: STAGES.slice(0, st + 1).map((g, i) => ({
+        l: g.l, c: i === st ? '#ECECEE' : '#5E5E67',
+        dot: i === st
+          ? 'width:7px;height:7px;border-radius:50%;background:#7C8CF8;margin:6px 0 0 5px;animation:breathe 1.4s ease-in-out infinite'
+          : 'width:7px;height:7px;border-radius:50%;background:#2A2A32;margin:6px 0 0 5px',
+      })),
+      progStyle: 'position:absolute;left:0;top:0;height:1px;background:#7C8CF8;transition:width .8s linear;width:' + Math.round(((st + 1) / STAGES.length) * 100) + '%',
+      counters: [{ v: cv[0], l: 'голосовых разобрано' }, { v: cv[1], l: 'сущностей найдено' }, { v: cv[2], l: 'совпадений, не дублей' }, { v: cv[3], l: 'новых связей' }],
+      heroTitle: s.applied ? 'Хаос разобран.' : 'Хаос можно закрыть.',
+      heroSub: s.applied
+        ? 'День больше не в голове. ' + on + ' изменений в графе, всё с источником и возможностью откатить.'
+        : all.length + ' входящих объектов → ' + total + ' предложений. Ты не выбирал типы, папки и теги — только согласись или откажись.',
+      forecast: [
+        { l: 'Купить машину в августе', p: '38%', d: 'было 61%', c: '#E8705F', w: 38, s: 'Упало: обещан август, но разрыв 410 000 ₽ и аванс по кухне в том же месяце. Растёт только при продаже старой машины.' },
+        { l: 'Откладывать 60 000 ₽ в месяц', p: '54%', d: 'было 72%', c: '#E5B84B', w: 54, s: 'Еда +18% и доставка +64% съедают 6 200 ₽ месячного плана. Пока обе денежные цели тянут один поток.' },
+        { l: 'Режим и тренировки', p: '71%', d: 'было 44%', c: '#8FE0B4', w: 71, s: 'Выросло: серия три дня и связь с закрытыми задачами подтверждена на 42 днях.' },
+        { l: 'Ремонт кухни в срок', p: '66%', d: 'новая', c: '#8FE0B4', w: 66, s: 'Держится на ответе Дмитрию до среды. Пропустишь — минус месяц и подрядчик уходит.' },
+      ].map(f => Object.assign({}, f, {
+        bar: 'position:absolute;left:0;top:0;bottom:0;width:' + f.w + '%;border-radius:4px;background:' + f.c + ';opacity:.7;transform-origin:left;animation:grow .6s cubic-bezier(.2,.8,.2,1) both',
+      })),
+      under: [
+        { k: 'деньги', c: '#E8705F', t: 'Ты считаешь машину как 1 150 000 ₽, но с каско и постановкой на учёт это 1 236 000 ₽ — на 86 000 ₽ больше плана.' },
+        { k: 'время', c: '#E5B84B', t: 'Ремонт «три недели» по твоим прошлым двум проектам занимал 31 и 38 дней. Реалистичный срок — 5 недель, а не 3.' },
+        { k: 'нагрузка', c: '#E5B84B', t: 'На неделю набрано 11 задач при твоей средней 6.4 закрытых. Три из них придётся перенести — система предупреждает заранее.' },
+      ],
+      asks: [
+        {
+          id: 'q1', q: 'Задача «Позвонить в банк по ставке» ещё нужна?', c: 'уверенность 71%',
+          s: 'Ты сказал «если без кредита, то это уже не нужно» — но оставил фразу «ладно, пусть будет». Сам объект создавать не буду, пока не скажешь.',
+          opts: [['Не нужна', 1], ['Оставить', 0]],
+        },
+        {
+          id: 'q2', q: '«Зайти в проект подряда у Дмитрия» — это цель или просто мысль?', c: 'уверенность 64%',
+          s: 'Похоже на шестой заход паттерна «загорелся и бросил». Пока считаю мыслью и в проекты не выношу.',
+          opts: [['Просто мысль', 1], ['Это цель', 0]],
+        },
+      ].map(a => Object.assign({}, a, {
+        opts: a.opts.map(o => ({
+          l: o[0],
+          go: () => this.say(o[1] ? 'Записал: «' + o[0] + '». Система запомнила и в следующий раз не будет спрашивать про такое.' : 'Ок, создаю объект и связываю с целями. Чек в журнале.'),
+          st: 'padding:8px 13px;border-radius:9px;font-size:12.5px;cursor:pointer;white-space:nowrap;' + (o[1] ? 'background:#EDEDF0;color:#0B0B0D;font-weight:560' : 'border:1px solid rgba(255,255,255,.12);color:#A0A0A8'),
+        })),
+      })),
+      applied: s.applied,
+      receipt: 'Записано в 22:14 · ' + on + ' изменений · чек #4821 · источник у каждого объекта сохранён',
+      footLeft: s.applied ? 'Отклонённое система запомнила и больше не предложит' : 'Выбрано ' + on + ' из ' + total + ' · отклонено ' + (total - on),
+      applyLabel: s.applied ? 'Записано' : 'Применить ' + on,
+      applyStyle: 'padding:10px 18px;border-radius:10px;font-size:13.5px;font-weight:560;letter-spacing:-.01em;cursor:pointer;' + (s.applied ? 'background:rgba(99,211,151,.14);color:#8FE0B4;border:1px solid rgba(99,211,151,.3)' : 'background:#EDEDF0;color:#0B0B0D'),
+      apply: this.apply, undo: this.undo,
+      open: s.open, close: () => this.setState({ open: null }),
+      toast: s.toast,
+      ...this.searchVals(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

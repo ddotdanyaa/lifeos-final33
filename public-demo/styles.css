@@ -47,27 +47,32 @@
   --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px rgba(16, 24, 40, 0.08);
   --shadow-float: 0 4px 8px rgba(16, 24, 40, 0.08), 0 16px 32px rgba(16, 24, 40, 0.14);
   --shadow-modal: 0 8px 16px rgba(16, 24, 40, 0.1), 0 24px 48px rgba(16, 24, 40, 0.18);
-  --focus-ring: 0 0 0 3px rgba(91, 91, 214, 0.32);
+  --focus-ring: 0 0 0 3px rgba(91, 95, 214, 0.34);
   --text-3xl: 34px;
   color-scheme: light;
   /* V2-REDESIGN (2026-07-23): новая спокойная премиум-идентичность (Linear/Notion-grade) —
      мягкие нейтральные поверхности, ТОНКИЕ светлые линии (меньше «коробочности»), уверенный
      индиго-акцент вместо бирюзы, глубина — мягким возвышением, а не жирными рамками. Меняем
      только значения токенов — каскадит на весь UI без правок компонентов. */
-  --paper: #f7f8fa;
+  /* V3-DESIGN-SYSTEM (2026-07-25): токены сведены с эталонным дизайном владельца
+     (design-system/*.dc.html, см. design-system/HANDOFF.md). Ключевое из эталона:
+     ТЁПЛЫЙ НЕЙТРАЛЬНЫЙ базис без синевы, ПОЛУПРОЗРАЧНЫЕ волосяные границы вместо
+     сплошных серых линий (убирает «коробочность»), индиго-акцент #7C8CF8.
+     Светлая тема выведена из той же семьи; эталон тёмный-первый (ниже). */
+  --paper: #f7f7f9;
   --surface: #ffffff;
-  --surface-soft: #f0f2f6;
-  --ink: #101423;
-  --muted: #667085;
-  --line: #e6e8ee;
-  --deep: #1e1b3a;
-  --deep-2: #312e6e;
-  --accent: #5b5bd6;
-  --amber: #d97706;
+  --surface-soft: #f1f1f4;
+  --ink: #0c0c0f;
+  --muted: #6b6b74;
+  --line: rgba(12, 12, 15, 0.1);
+  --deep: #1a1a2e;
+  --deep-2: #33346b;
+  --accent: #5b5fd6;
+  --amber: #b4832a;
   --blue: #3538cd;
-  --green: #15803d;
-  --red: #be123c;
-  --danger: #be123c;
+  --green: #2f8f5b;
+  --red: #c4574a;
+  --danger: #c4574a;
   --color-capture: #075985;
   --color-inbox: #0891b2;
   --color-task: #d97706;
@@ -92,42 +97,52 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --paper: #0b0d12;
-    --surface: #15181f;
-    --surface-soft: #1c2029;
-    --ink: #e8ebf2;
-    --muted: #939eae;
-    --line: #262b36;
-    --accent: #7c78e8;
-    --deep: #1e1b3a;
-    --deep-2: #3a377e;
+    /* V3: точные значения эталона (design-system/*.dc.html). */
+    --paper: #08080a;
+    --surface: #0e0e12;
+    --surface-soft: #17171d;
+    --ink: #ededf0;
+    --muted: #8b8b93;
+    --line: rgba(255, 255, 255, 0.09);
+    --accent: #7c8cf8;
+    --amber: #e5b84b;
+    --green: #8fe0b4;
+    --red: #e8705f;
+    --danger: #e8705f;
+    --deep: #17171d;
+    --deep-2: #33333b;
     --shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
     --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.5);
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-float: 0 2px 4px rgba(0, 0, 0, 0.3), 0 12px 24px rgba(0, 0, 0, 0.4);
     --shadow-modal: 0 8px 16px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.5);
-    --focus-ring: 0 0 0 3px rgba(124, 120, 232, 0.4);
+    --focus-ring: 0 0 0 3px rgba(124, 140, 248, 0.42);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper: #0b0d12;
-  --surface: #15181f;
-  --surface-soft: #1c2029;
-  --ink: #e8ebf2;
-  --muted: #939eae;
-  --line: #262b36;
-  --accent: #7c78e8;
-  --deep: #1e1b3a;
-  --deep-2: #3a377e;
+  /* V3: точные значения эталона (design-system/*.dc.html). */
+  --paper: #08080a;
+  --surface: #0e0e12;
+  --surface-soft: #17171d;
+  --ink: #ededf0;
+  --muted: #8b8b93;
+  --line: rgba(255, 255, 255, 0.09);
+  --accent: #7c8cf8;
+  --amber: #e5b84b;
+  --green: #8fe0b4;
+  --red: #e8705f;
+  --danger: #e8705f;
+  --deep: #17171d;
+  --deep-2: #33333b;
   --shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
   --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-float: 0 2px 4px rgba(0, 0, 0, 0.3), 0 12px 24px rgba(0, 0, 0, 0.4);
   --shadow-modal: 0 8px 16px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.5);
-  --focus-ring: 0 0 0 3px rgba(124, 120, 232, 0.4);
+  --focus-ring: 0 0 0 3px rgba(124, 140, 248, 0.42);
 }
 
 /* Public-grade chat-first rescue layer */
@@ -5711,14 +5726,15 @@ audio {
    entire token block for two sessions - see the fix note on the :root block at the top of
    this file. */
 :root {
-  --bg-app: #f6f7f9;
+  /* V3: сведено с эталоном (тёплый нейтральный базис, полупрозрачные волосяные линии). */
+  --bg-app: #f7f7f9;
   --bg-surface: #ffffff;
-  --bg-surface-2: #f3f4f7;
-  --bg-surface-hover: #eef0f3;
-  --text-main: #0d1017;
-  --text-muted: #6b7280;
-  --line-soft: rgba(15, 23, 42, 0.09);
-  --line-hairline: rgba(15, 23, 42, 0.06);
+  --bg-surface-2: #f1f1f4;
+  --bg-surface-hover: #ebebef;
+  --text-main: #0c0c0f;
+  --text-muted: #6b6b74;
+  --line-soft: rgba(12, 12, 15, 0.1);
+  --line-hairline: rgba(12, 12, 15, 0.07);
   --accent-capture: #0ea5e9;
   --accent-task: #f59e0b;
   --accent-calendar: #f97316;
@@ -5735,26 +5751,27 @@ audio {
 }
 
 :root[data-theme="dark"] {
-  --bg-app: #0a0b0e;
-  --bg-surface: #131418;
-  --bg-surface-2: #1a1c21;
-  --bg-surface-hover: #21242b;
-  --text-main: #eef0f4;
-  --text-muted: #8b909c;
-  --line-soft: rgba(255, 255, 255, 0.08);
-  --line-hairline: rgba(255, 255, 255, 0.06);
+  /* V3: точные значения эталона — #08080A база, #0E0E12 поверхность, #17171D приподнятая. */
+  --bg-app: #08080a;
+  --bg-surface: #0e0e12;
+  --bg-surface-2: #17171d;
+  --bg-surface-hover: #202028;
+  --text-main: #ededf0;
+  --text-muted: #8b8b93;
+  --line-soft: rgba(255, 255, 255, 0.1);
+  --line-hairline: rgba(255, 255, 255, 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg-app: #0a0b0e;
-    --bg-surface: #131418;
-    --bg-surface-2: #1a1c21;
-    --bg-surface-hover: #21242b;
-    --text-main: #eef0f4;
-    --text-muted: #8b909c;
-    --line-soft: rgba(255, 255, 255, 0.08);
-    --line-hairline: rgba(255, 255, 255, 0.06);
+    --bg-app: #08080a;
+    --bg-surface: #0e0e12;
+    --bg-surface-2: #17171d;
+    --bg-surface-hover: #202028;
+    --text-main: #ededf0;
+    --text-muted: #8b8b93;
+    --line-soft: rgba(255, 255, 255, 0.1);
+    --line-hairline: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -5982,15 +5999,15 @@ audio {
 
 .ui-btn-primary {
   border-color: transparent;
-  background: #2563eb;
+  background: var(--accent);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.16), 0 1px 3px rgba(37, 99, 235, 0.24);
+  box-shadow: 0 1px 2px rgba(91, 95, 214, 0.16), 0 1px 3px rgba(91, 95, 214, 0.24);
 }
 
 .ui-btn-primary:hover {
-  background: #1d4ed8;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2), 0 8px 16px rgba(37, 99, 235, 0.24);
+  background: color-mix(in srgb, var(--accent) 86%, #000);
+  box-shadow: 0 2px 4px rgba(91, 95, 214, 0.2), 0 8px 16px rgba(91, 95, 214, 0.24);
 }
 
 .ui-btn:disabled,

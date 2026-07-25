@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#08080A;height:100%}
+  body{font-family:ui-sans-serif,-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#ECECEE}
+  input,button{font:inherit;color:inherit;background:none;border:none;outline:none}
+  a{color:#7C8CF8;text-decoration:none}
+  a:hover{color:#9EA9FB}
+  ::selection{background:rgba(124,140,248,.32)}
+  ::-webkit-scrollbar{width:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes breathe{0%,100%{opacity:.35}50%{opacity:.95}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:grid;grid-template-columns:216px 1fr;grid-template-rows:minmax(0,1fr);background:#08080A;overflow:hidden">
+
+  <div style="border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;padding:14px 10px 10px;gap:2px;background:#0A0A0C;overflow:hidden;min-width:0">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 18px">
+      <img src="assets/lifeos-icon.svg" alt="LifeOS" style="width:22px;height:22px;border-radius:7px;display:block;flex:0 0 22px" />
+      <div style="font-size:13.5px;font-weight:560;letter-spacing:-.014em;color:#E9E9ED">LifeOS</div>
+    </div>
+    <div onClick="{{ sOpenFn }}" style="display:flex;align-items:center;gap:10px;padding:8px 11px;margin-bottom:8px;border-radius:10px;background:#0E0E12;border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:13px;color:#6B6B74" style-hover="border-color:rgba(124,140,248,.4);color:#A0A0A8">
+      Поиск<span style="margin-left:auto;font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B">⌘K</span>
+    </div>
+    <sc-for list="{{ lenses }}" as="l" hint-placeholder-count="7">
+      <div onClick="{{ l.go }}" style="{{ l.st }}" style-hover="background:#121218;color:#D6D6DC">
+        <span style="{{ l.dot }}"></span>{{ l.name }}<span style="{{ l.badge }}">{{ l.n }}</span>
+      </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 8px 4px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="width:24px;height:24px;border-radius:50%;background:#1A1A20;border:1px solid rgba(255,255,255,.09);flex:0 0 24px"></div>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;color:#A0A0A8">Данил</div>
+        <div style="font-size:11px;color:#5A5A63;margin-top:3px">всё локально</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden">
+
+    <div style="height:52px;flex:0 0 52px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 22px;gap:6px;background:rgba(8,8,10,.7);backdrop-filter:blur(12px)">
+      <sc-for list="{{ spaces }}" as="sp" hint-placeholder-count="4">
+        <div onClick="{{ sp.go }}" style="{{ sp.st }}">{{ sp.l }}</div>
+      </sc-for>
+      <div style="flex:1"></div>
+      <div style="font-size:12.5px;color:#5A5A63;white-space:nowrap">одна модель данных · 4 представления</div>
+    </div>
+
+    <div style="flex:1;overflow:hidden auto;min-height:0;min-width:0">
+      <div style="max-width:880px;margin:0 auto;padding:52px 34px 120px">
+
+        <div style="animation:rise .5s ease both">
+          <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.2em;color:#5A5A63;text-transform:uppercase">вторник, 21 июля · 22:14</div>
+          <div style="font-size:29px;line-height:1.28;letter-spacing:-.028em;font-weight:500;margin-top:16px;max-width:700px;text-wrap:pretty">{{ state }}</div>
+        </div>
+
+        <div style="margin-top:28px;padding:13px 14px 13px 18px;border-radius:15px;background:#0D0D11;border:1px solid rgba(255,255,255,.09);display:flex;align-items:center;gap:12px">
+          <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Скажи что угодно: мысль, факт, вопрос. Тип определит система." style="flex:1;font-size:14.5px;letter-spacing:-.012em;min-width:0" />
+          <div style="font:400 10px/1 ui-monospace,Menlo,monospace;color:#43434B">⏎</div>
+          <div style="width:1px;height:20px;background:rgba(255,255,255,.08)"></div>
+          <div onClick="{{ hold }}" style="width:33px;height:33px;border-radius:10px;background:#17171D;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 33px" style-hover="background:#202028">
+            <div style="width:9px;height:13px;border-radius:5px;background:#B9B9C2"></div>
+          </div>
+        </div>
+
+        <sc-if value="{{ reply }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:12px;padding:18px 20px;border-radius:14px;background:#0B0B0E;border:1px solid rgba(255,255,255,.08);animation:rise .25s ease both">
+            <div style="display:flex;align-items:center;gap:9px">
+              <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;flex:0 0 6px"></span>
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.13em;color:#6B6B74;text-transform:uppercase">{{ reply.tag }}</div>
+              <div style="flex:1"></div>
+              <div onClick="{{ clearReply }}" style="font-size:12px;color:#5A5A63;cursor:pointer">закрыть</div>
+            </div>
+            <div style="margin-top:12px;font-size:15px;line-height:1.6;color:#E4E4E8;letter-spacing:-.012em;text-wrap:pretty">{{ reply.a }}</div>
+            <div style="margin-top:12px;display:flex;gap:7px;flex-wrap:wrap">
+              <sc-for list="{{ reply.cites }}" as="c" hint-placeholder-count="3">
+                <div style="padding:6px 10px;border-radius:8px;background:#131318;border:1px solid rgba(255,255,255,.08);font:400 11px/1 ui-monospace,Menlo,monospace;color:#8B8B93;white-space:nowrap">{{ c }}</div>
+              </sc-for>
+            </div>
+            <div style="margin-top:13px;font-size:12.5px;color:#5A5A63;line-height:1.55">{{ reply.note }}</div>
+          </div>
+        </sc-if>
+
+        <div style="margin-top:40px">
+          <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Одно действие</div>
+            <div style="font-size:12.5px;color:#5A5A63;flex:1;min-width:0">{{ bestNote }}</div>
+            <div onClick="{{ recalc }}" style="font-size:12.5px;color:#7C8CF8;cursor:pointer;white-space:nowrap">{{ recalcLabel }}</div>
+          </div>
+
+          <div style="margin-top:14px;padding:22px 24px;border-radius:15px;background:rgba(124,140,248,.055);border:1px solid rgba(124,140,248,.26)">
+            <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.13em;color:#7C8CF8;text-transform:uppercase;white-space:nowrap">{{ best.k }}</div>
+              <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#8FE0B4;white-space:nowrap">{{ best.conf }}</div>
+            </div>
+            <div style="margin-top:12px;font-size:21px;line-height:1.32;letter-spacing:-.022em;font-weight:500;color:#EDEDF0;max-width:600px;text-wrap:pretty">{{ best.t }}</div>
+            <div style="margin-top:11px;font-size:14px;color:#9A9AA2;line-height:1.6;max-width:580px;text-wrap:pretty">{{ best.s }}</div>
+            <div style="margin-top:14px;padding-left:12px;border-left:2px solid rgba(124,140,248,.35);font-size:12.5px;color:#7A7A83;line-height:1.55;max-width:560px">{{ best.why }}</div>
+            <div style="margin-top:18px;display:flex;gap:9px;flex-wrap:wrap">
+              <div onClick="{{ best.go }}" style="padding:11px 18px;border-radius:10px;background:#EDEDF0;color:#0B0B0D;font-size:13.5px;font-weight:560;cursor:pointer;white-space:nowrap">{{ best.act }}</div>
+              <div onClick="{{ best.later }}" style="padding:11px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.12);font-size:13.5px;color:#C9C9D0;cursor:pointer;white-space:nowrap">Не сейчас</div>
+            </div>
+          </div>
+
+          <div onClick="{{ toggleRest }}" style="margin-top:14px;display:flex;align-items:center;gap:10px;font-size:13px;color:#6B6B74;cursor:pointer">
+            <span style="width:5px;height:5px;border-radius:50%;background:#33333B;flex:0 0 5px"></span>{{ restLabel }}
+          </div>
+
+          <sc-if value="{{ showRest }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;animation:fade .25s ease both">
+              <sc-for list="{{ rest }}" as="r" hint-placeholder-count="2">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start;padding:16px 18px;border-radius:13px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07)">
+                  <div style="min-width:0">
+                    <div style="font-size:15px;line-height:1.4;letter-spacing:-.014em;font-weight:500;color:#E9E9ED;text-wrap:pretty">{{ r.t }}</div>
+                    <div style="margin-top:7px;font-size:13px;color:#8B8B93;line-height:1.55;text-wrap:pretty">{{ r.s }}</div>
+                    <div style="margin-top:9px;font:400 11.5px/1.5 ui-monospace,Menlo,monospace;color:#5E5E67">{{ r.why }}</div>
+                  </div>
+                  <div onClick="{{ r.go }}" style="padding:9px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.12);font-size:13px;color:#C9C9D0;cursor:pointer;white-space:nowrap">{{ r.act }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="margin-top:46px">
+          <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Ждёт твоего решения</div>
+            <div style="font:400 12px/1 ui-monospace,Menlo,monospace;color:#E5B84B">{{ decCount }}</div>
+            <div style="font-size:12.5px;color:#5A5A63;flex:1">система не решает за тебя</div>
+          </div>
+          <div style="margin-top:14px;display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="2">
+              <div style="{{ d.card }}">
+                <div style="font-size:15px;color:#EDEDF0;letter-spacing:-.012em;font-weight:500;line-height:1.45">{{ d.t }}</div>
+                <div style="margin-top:8px;font-size:13.5px;color:#8B8B93;line-height:1.55;max-width:600px;text-wrap:pretty">{{ d.s }}</div>
+                <div style="margin-top:13px;display:flex;gap:8px;flex-wrap:wrap">
+                  <sc-for list="{{ d.opts }}" as="o" hint-placeholder-count="2">
+                    <div onClick="{{ o.go }}" style="{{ o.st }}">{{ o.l }}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:46px">
+          <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Система заметила</div>
+            <div style="font-size:12.5px;color:#5A5A63;flex:1">за 90 дней, без твоих просьб</div>
+            <a href="Graph.dc.html" style="font-size:12.5px">все закономерности →</a>
+          </div>
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ insights }}" as="n" hint-placeholder-count="2">
+              <div style="padding:20px 22px;border-radius:14px;background:rgba(124,140,248,.05);border:1px solid rgba(124,140,248,.2)">
+                <div style="font-size:17px;line-height:1.45;letter-spacing:-.018em;color:#EDEDF0;text-wrap:pretty">{{ n.t }}</div>
+                <div style="margin-top:9px;font-size:13px;color:#8B8B93;line-height:1.6">{{ n.s }}</div>
+                <div style="margin-top:12px;display:flex;align-items:center;gap:14px">
+                  <a href="Graph.dc.html" style="font-size:12.5px">показать в графе</a>
+                  <div onClick="{{ n.hide }}" style="font-size:12.5px;color:#5A5A63;cursor:pointer">не показывать такое</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:46px;padding-top:24px;border-top:1px solid rgba(255,255,255,.07);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+          <a href="Universal Capture.dc.html" style="padding:17px 18px;border-radius:13px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07);display:block">
+            <div style="font:400 21px/1 ui-monospace,Menlo,monospace;color:#E4E4E8">18</div>
+            <div style="margin-top:8px;font-size:13px;color:#C9C9D0">в потоке, не разобрано</div>
+            <div style="margin-top:5px;font-size:12px;color:#5A5A63">разбор занимает 40 секунд</div>
+          </a>
+          <a href="Today.dc.html" style="padding:17px 18px;border-radius:13px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07);display:block">
+            <div style="font:400 21px/1 ui-monospace,Menlo,monospace;color:#E4E4E8">4</div>
+            <div style="margin-top:8px;font-size:13px;color:#C9C9D0">блока в дне, один конфликт</div>
+            <div style="margin-top:5px;font-size:12px;color:#5A5A63">четверг 19:00 занят дважды</div>
+          </a>
+          <a href="Agents.dc.html" style="padding:17px 18px;border-radius:13px;background:#0C0C0F;border:1px solid rgba(229,184,75,.25);display:block">
+            <div style="font:400 21px/1 ui-monospace,Menlo,monospace;color:#E5B84B">1</div>
+            <div style="margin-top:8px;font-size:13px;color:#C9C9D0">агент ждёт разрешения</div>
+            <div style="margin-top:5px;font-size:12px;color:#5A5A63">отменить подписку 1 490 ₽</div>
+          </a>
+        </div>
+
+        <div style="margin-top:34px;font-size:12.5px;color:#5A5A63;line-height:1.65;max-width:620px">Дом, Работа, Финансы и Здоровье выше — не отдельные приложения и не папки. Это разные срезы одного хранилища артефактов: переключение меняет ранжирование, а не данные.</div>
+
+      </div>
+    </div>
+
+    <sc-if value="{{ sOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ sClose }}" style="position:absolute;inset:0;z-index:60;background:rgba(4,4,6,.62);animation:fade .16s ease both"></div>
+      <div style="position:absolute;z-index:61;left:0;right:0;top:70px;bottom:50px;display:flex;justify-content:center;align-items:flex-start;pointer-events:none">
+      <div style="pointer-events:auto;width:min(660px,calc(100% - 48px));border-radius:16px;background:#0D0D11;border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 90px -30px rgba(0,0,0,.95);animation:rise .18s ease both;display:flex;flex-direction:column;max-height:100%;overflow:hidden">
+        <div style="padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:12px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;flex:0 0 6px"></span>
+          <input value="{{ sq }}" onChange="{{ onSQ }}" onKeyDown="{{ onSKey }}" placeholder="Искать во всей жизни: артефакты, люди, цитаты, файлы, связи" style="flex:1;font-size:15px;letter-spacing:-.012em;min-width:0" />
+          <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B;white-space:nowrap">esc</div>
+        </div>
+        <div style="flex:1;overflow:hidden auto;min-height:0;padding:8px 8px 12px">
+          <sc-for list="{{ sGroups }}" as="g" hint-placeholder-count="3">
+            <div style="padding:12px 10px 4px">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">{{ g.l }}</div>
+              <div style="margin-top:6px">
+                <sc-for list="{{ g.items }}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{ r.go }}" style="{{ r.st }}" style-hover="background:#15151B">
+                    <div style="font:500 9px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.09em;color:{{ r.c }};text-transform:uppercase;padding-top:4px;white-space:nowrap">{{ r.k }}</div>
+                    <div style="min-width:0">
+                      <div style="font-size:14px;color:#E9E9ED;letter-spacing:-.012em;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.t }}</div>
+                      <div style="font-size:12px;color:#6B6B74;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.s }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ sEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 18px;font-size:13.5px;color:#6B6B74;line-height:1.6">Ничего не нашлось. Но ничего и не потеряно: напиши это в поток — система разберёт и свяжет сама.</div>
+          </sc-if>
+        </div>
+      </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:30px;z-index:50;display:flex;justify-content:center;pointer-events:none"><div style="pointer-events:auto;z-index:30;padding:11px 17px;border-radius:11px;background:#17171D;border:1px solid rgba(255,255,255,.1);font-size:13px;color:#C9C9D0;animation:rise .25s ease both;box-shadow:0 16px 40px -16px rgba(0,0,0,.9);max-width:600px;line-height:1.5">{{ toast }}</div></div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;space&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Всё&quot;,&quot;Финансы&quot;,&quot;Дом&quot;,&quot;Здоровье&quot;],&quot;default&quot;:&quot;Всё&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Дом&quot;}}">
+const NAV = [['Дом', 'ДМ', 'Home.dc.html'], ['Поток', 'ПТ', 'Universal Capture.dc.html'], ['Сегодня', 'СГ', 'Today.dc.html'], ['Граф', 'ГР', 'Graph.dc.html'], ['Агенты', 'АГ', 'Agents.dc.html'], ['Builder', 'BL', 'Builder.dc.html'], ['Контроль', 'КН', 'Control.dc.html']];
+
+const SPACES = {
+  'Всё': {
+    state: 'Две цели двигаются, одна противоречит другой. Свободных денег 740 000 ₽. День выгружен, но не разобран.',
+    ranked: [
+      { t: 'Закрыть разрыв 410 000 ₽ по машине', s: 'От этого зависят срок покупки, обещание Марине и цель по накоплениям. Три способа посчитаны, выбор за тобой.', why: 'блокирует 2 цели и 4 задачи · срок обещан на август', act: 'Открыть', href: 'Artifact Inspector.dc.html', hot: 1 },
+      { t: 'Ответить Дмитрию до среды', s: 'Иначе подрядчик уходит на другой объект и проект «Ремонт кухни» встаёт на месяц.', why: 'дедлайн через 20 часов · дальше цена растёт', act: 'Открыть', href: 'Today.dc.html', hot: 0 },
+      { t: 'Разобрать поток за сегодня', s: '18 объектов лежат сырыми: голосовые, чеки, PDF договора. Пока не разобраны — не участвуют ни в целях, ни в деньгах.', why: 'после разбора появятся 23 предложения', act: 'Разобрать', href: 'Universal Capture.dc.html', hot: 0 },
+    ],
+    decisions: [
+      { id: 'd1', t: 'Четверг 19:00 занят дважды', s: 'Встреча с Дмитрием против родительского собрания. Свободно: четверг 21:00 или среда 19:00.', opts: [['Среда 19:00', 1], ['Четверг 21:00', 0], ['Решу сам', 0]] },
+      { id: 'd2', t: 'Подписка 1 490 ₽ списывается 7-й месяц', s: 'Сервис не открывался 2 месяца. Агент готов отменить — нужно разрешение. 17 880 ₽ в год.', opts: [['Отменить', 1], ['Оставить', 0]] },
+    ],
+    insights: [
+      { id: 'n1', t: 'После каждого разговора с Дмитрием ты начинаешь новый проект. Из 5 таких проектов 4 остановились на первой неделе.', s: 'Сегодня это случилось в шестой раз. Основано на 5 голосовых с апреля и датах остановки проектов.' },
+      { id: 'n2', t: 'В дни с тренировкой ты закрываешь на 40% больше задач и не делаешь импульсных покупок.', s: 'Серия прервалась 11 дней назад — тогда же появились три импульсные траты.' },
+    ],
+  },
+  'Финансы': {
+    state: 'Расходы на еду выросли на 18%. Накопления 60 000 ₽ в месяц не сходятся с покупкой машины в августе.',
+    ranked: [
+      { t: 'Выбрать: накопления или срок покупки', s: 'Разрыв 410 000 ₽. Продажа старой машины закрывает его целиком, сдвиг на октябрь стоит 28 400 ₽ такси.', why: 'самое дорогое решение месяца', act: 'Посчитать', href: 'Artifact Inspector.dc.html', hot: 1 },
+      { t: 'Отменить подписку 1 490 ₽', s: 'Не используется 2 месяца, списывается 7-й. Агент ждёт разрешения.', why: '17 880 ₽ в год без пользы', act: 'Разрешить', href: 'Agents.dc.html', hot: 0 },
+      { t: 'Проверить аванс по кухне', s: '96 000 ₽ уходят в июле из тех же свободных денег, что и первый взнос за машину.', why: 'минус 13% к свободному потоку', act: 'Открыть', href: 'Artifact Inspector.dc.html', hot: 0 },
+    ],
+    decisions: [
+      { id: 'f1', t: 'Еда: 4 380 ₽ сегодня, +18% к июню', s: 'При цели «откладывать 60 000 ₽» это минус 6 200 ₽ к плану месяца. Поставить лимит?', opts: [['Лимит 45 000 ₽', 1], ['Без лимита', 0]] },
+    ],
+    insights: [
+      { id: 'f2', t: 'Импульсные траты появляются на 3–5 день после того, как ты пропускаешь тренировки.', s: 'Совпадение по 42 дням: 7 из 9 импульсных покупок попали в такие окна.' },
+    ],
+  },
+  'Дом': {
+    state: 'Ремонт кухни стал проектом: 240 000 ₽ обязательств, подрядчик ждёт ответа до среды.',
+    ranked: [
+      { t: 'Ответить Дмитрию до среды', s: 'Он держит для тебя три недели с четверга. Дальше уходит на другой объект.', why: 'дедлайн через 20 часов', act: 'Открыть', href: 'Today.dc.html', hot: 1 },
+      { t: 'Проверить договор перед авансом', s: 'В смете нет пункта о просрочке, а аванс 96 000 ₽ — 40%. Система пометила это как риск.', why: 'риск 74% · деньги уходят первыми', act: 'Открыть PDF', href: 'Artifact Inspector.dc.html', hot: 0 },
+      { t: 'Сказать Марине про четверг', s: 'Встреча попадает на родительское собрание — это её вечер.', why: 'связано с конфликтом в календаре', act: 'Открыть', href: 'Today.dc.html', hot: 0 },
+    ],
+    decisions: [
+      { id: 'h1', t: 'Аванс 40% без гарантий просрочки', s: 'Предложить Дмитрию 20% сейчас и 20% после демонтажа?', opts: [['Предложить 20/20', 1], ['Платить как есть', 0]] },
+    ],
+    insights: [
+      { id: 'h2', t: 'Ремонт и машина тянут один денежный поток — ты планировал их как независимые.', s: 'В июле их суммы пересекаются на 96 000 ₽. Ни в одной из целей это не учтено.' },
+    ],
+  },
+  'Здоровье': {
+    state: 'Тренировки вернулись: серия 3 дня. Сон сдвинут на 40 минут позже уже вторую неделю.',
+    ranked: [
+      { t: 'Держать серию тренировок', s: 'Третий день подряд. Прошлые две серии обрывались на четвёртом — именно после вечерних созвонов.', why: 'напрямую влияет на закрытые задачи и траты', act: 'Открыть', href: 'Today.dc.html', hot: 1 },
+      { t: 'Вернуть отбой к 23:30', s: 'Две недели сдвига совпали с падением закрытых задач на 22%.', why: 'корреляция по 42 дням', act: 'Открыть', href: 'Graph.dc.html', hot: 0 },
+    ],
+    decisions: [
+      { id: 'z1', t: 'Четверг 21:00 — встреча вместо тренировки', s: 'Если перенести встречу с Дмитрием на 21:00, тренировка выпадает четвёртый раз за месяц.', opts: [['Встречу на среду', 1], ['Пропустить тренировку', 0]] },
+    ],
+    insights: [
+      { id: 'z2', t: 'После тренировок ты принимаешь более осторожные финансовые решения — все четыре отказа от импульсных покупок случились в такие дни.', s: 'Основано на отметках привычки, чеках и решениях в голосовых за 42 дня.' },
+    ],
+  },
+};
+
+const SEARCH = [
+  ['артефакт', 'Покупка машины', 'проект · 18 источников · разрыв 410 000 ₽', 'Artifact Inspector.dc.html'],
+  ['артефакт', 'Ремонт кухни', 'проект · 240 000 ₽ обязательств · подрядчик ждёт', 'Artifact Inspector.dc.html'],
+  ['цель', 'Откладывать 60 000 ₽ в месяц', 'цель с марта · противоречит августу', 'Artifact Inspector.dc.html'],
+  ['цель', 'Режим и тренировки', 'цель · 12-е возвращение к теме', 'Graph.dc.html'],
+  ['человек', 'Марина', '34 упоминания · условие «без кредита»', 'Graph.dc.html'],
+  ['человек', 'Дмитрий', 'подрядчик · 17 разговоров · паттерн проектов', 'Graph.dc.html'],
+  ['человек', 'Игорь', 'работа · через него пришла Северсталь', 'Graph.dc.html'],
+  ['инсайт', 'После разговоров с Дмитрием ты начинаешь новый проект', '5 проектов, 4 остановились на первой неделе', 'Graph.dc.html'],
+  ['инсайт', 'В дни с тренировкой закрывается на 40% больше задач', 'и нет импульсных покупок · 42 дня', 'Graph.dc.html'],
+  ['противоречие', 'Накопления против покупки в августе', 'разрыв 410 000 ₽ · закроется к декабрю', 'Graph.dc.html'],
+  ['цитата', '«Она согласна на август, если без кредита»', 'голосовое 21 июля 21:20 · 1:48', 'Universal Capture.dc.html'],
+  ['цитата', '«Может, вообще без машины обойтись»', 'голосовое 27 июня · сомнение сохранено', 'Universal Capture.dc.html'],
+  ['файл', 'Смета_кухня_final.pdf', '6 страниц · договор подряда и смета', 'Artifact Inspector.dc.html'],
+  ['файл', 'Каско_расчёт.pdf', '68 000 ₽ в год · учтено в стоимости владения', 'Artifact Inspector.dc.html'],
+  ['чек', 'Лента · 4 380 ₽', 'еда · 21 июля · распознано с фото', 'Control.dc.html'],
+  ['привычка', 'Тренировка', '14 отметок · серия три дня', 'Graph.dc.html'],
+  ['задача', 'Ответить Дмитрию до среды', 'блокирует проект «Ремонт кухни»', 'Today.dc.html'],
+  ['задача', 'Оценить продажу старой машины', 'единственный путь закрыть 410 000 ₽', 'Today.dc.html'],
+  ['память', 'Свободный поток 740 000 ₽', 'расчёт по счетам за 3 месяца', 'Graph.dc.html'],
+  ['агент', 'Страж подписок', 'ждёт разрешения · подписка 1 490 ₽', 'Agents.dc.html'],
+  ['связь', 'Тренировка → импульсные траты', 'сильная связь · 7 из 9 скачков без тренировки', 'Graph.dc.html'],
+  ['команда', 'Разобрать день', '18 объектов в потоке ждут разбора', 'Universal Capture.dc.html'],
+  ['команда', 'Собрать своё пространство', 'Builder · линзы, представления, правила', 'Builder.dc.html'],
+  ['команда', 'Выгрузить архив', 'все артефакты, связи и чеки', 'Control.dc.html'],
+];
+const SKC = { 'артефакт': '#7C8CF8', 'цель': '#9EA9FB', 'человек': '#C79BE0', 'инсайт': '#8FE0B4', 'противоречие': '#E5B84B', 'цитата': '#8B8B93', 'файл': '#E5B84B', 'чек': '#63D397', 'привычка': '#8FBFA8', 'задача': '#7C8CF8', 'память': '#63A9D3', 'агент': '#E5B84B', 'связь': '#8B8B93', 'команда': '#6B6B74' };
+
+const ANSWERS = [
+  { m: ['успева', 'смогу', 'получится', 'реально ли'],
+    a: 'При текущем свободном потоке — нет: разрыв 410 000 ₽ закрывается к декабрю, а обещан август. Успеваешь только если продать старую машину за 3 недели. Это единственный вариант, где обе цели остаются целыми.',
+    cites: ['РАСЧЁТ 21 июл', 'ГОЛОС 21 июл 21:20', 'ЦЕЛЬ Накопления'],
+    note: 'Это ответ, а не задача. Ничего в графе не создано.' },
+  { m: ['сколько', 'денег', 'трат', 'расход', 'бюджет'],
+    a: 'Свободных 740 000 ₽. В июле уже ушло 7 970 ₽ за день и 96 000 ₽ аванса по кухне. Еда выросла на 18%, доставка на 64% — и оба скачка приходятся на дни без тренировки.',
+    cites: ['43 чека июля', 'РАСЧЁТ по счетам', 'ПРИВЫЧКА Тренировка'],
+    note: 'Считано из чеков и движения по счетам, вручную ты не вводил ничего.' },
+  { m: ['дмитри', 'марин', 'кто ', 'человек'],
+    a: 'Дмитрий: 17 разговоров, после каждого появляется новый проект — 4 из 5 остановились на первой неделе. Марина наоборот: после разговоров с ней ты чаще доводишь начатое, и её условие «без кредита» сдвинуло всю цель по машине.',
+    cites: ['ГРАФ · люди', '412 задач за 90 дней', 'ГОЛОС 11 июн'],
+    note: 'Открыть их в графе — Граф → Карта связей.' },
+];
+
+class Component extends DCLogic {
+  componentDidMount() { this.bindKeys(); }
+  sOpenFn = () => this.setState({ sOpen: true });
+  sCloseFn = () => this.setState({ sOpen: false, sq: '' });
+  bindKeys() {
+    if (this.keysBound) return;
+    this.keysBound = true;
+    this.keyHandler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); this.setState(st => ({ sOpen: !st.sOpen, sq: '' })); }
+      else if (e.key === 'Escape') this.setState({ sOpen: false });
+    };
+    window.addEventListener('keydown', this.keyHandler);
+  }
+  searchVals() {
+    const st = this.state, q = (st.sq || '').trim().toLowerCase();
+    const hit = q ? SEARCH.filter(r => (r[1] + ' ' + r[2] + ' ' + r[0]).toLowerCase().indexOf(q) >= 0) : SEARCH.filter(r => ['артефакт', 'противоречие', 'инсайт', 'команда'].indexOf(r[0]) >= 0);
+    const order = q ? ['артефакт','цель','противоречие','инсайт','человек','задача','цитата','файл','чек','привычка','память','связь','агент','команда'] : ['артефакт','противоречие','инсайт','команда'];
+    const label = { 'артефакт': 'Артефакты', 'цель': 'Цели', 'противоречие': 'Противоречия', 'инсайт': 'Инсайты', 'человек': 'Люди', 'задача': 'Задачи', 'цитата': 'Цитаты', 'файл': 'Файлы', 'чек': 'Деньги', 'привычка': 'Привычки', 'память': 'Память', 'связь': 'Связи', 'агент': 'Агенты', 'команда': 'Команды' };
+    const groups = order.map(k => ({
+      l: label[k],
+      items: hit.filter(r => r[0] === k).map(r => ({
+        k: r[0], t: r[1], s: r[2], c: SKC[r[0]] || '#6B6B74',
+        st: 'display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start;padding:10px;border-radius:10px;cursor:pointer',
+        go: () => { window.location.href = r[3]; },
+      })),
+    })).filter(g => g.items.length);
+    return {
+      sOpen: !!st.sOpen, sq: st.sq || '', sGroups: groups, sEmpty: !!q && !hit.length,
+      sOpenFn: this.sOpenFn, sClose: this.sCloseFn,
+      onSQ: (e) => this.setState({ sq: e.target.value }),
+      onSKey: (e) => { if (e.key === 'Enter' && hit.length) window.location.href = hit[0][3]; if (e.key === 'Escape') this.sCloseFn(); },
+    };
+  }
+  state = { sp: 'Всё', done: {}, hidden: {}, toast: '', draft: '', reply: null, showRest: false, recalcAt: 0, later: {} };
+
+  onDraft = (e) => this.setState({ draft: e.target.value });
+  onKey = (e) => {
+    if (e.key !== 'Enter') return;
+    const v = this.state.draft.trim();
+    if (!v) return;
+    const low = v.toLowerCase();
+    const isQ = v.indexOf('?') >= 0 || /^(почему|что|сколько|когда|где|кто|как|зачем|успева|можно|стоит|реально)/.test(low);
+    if (isQ) {
+      const hit = ANSWERS.filter(a => a.m.some(m => low.indexOf(m) >= 0))[0] || ANSWERS[0];
+      this.setState({ draft: '', reply: { tag: 'ответ по твоим артефактам', a: hit.a, cites: hit.cites, note: hit.note } });
+      return;
+    }
+    this.setState({ draft: '', reply: null });
+    this.say('Принято в поток. Тип, связи и место определит вечерний разбор — ты ничего не выбираешь.');
+  };
+  hold = () => this.say('Держи для записи голосового. Расшифровка локальная, файл не уходит с устройства.');
+  recalc = () => { this.setState({ recalcAt: Date.now() }); this.say('Приоритеты пересчитаны: учтены 3 новых события за сегодня и аванс по кухне.'); };
+  say(t) { clearTimeout(this.tt); this.setState({ toast: t }); this.tt = setTimeout(() => this.setState({ toast: '' }), 3400); }
+  componentWillUnmount() { clearTimeout(this.tt); }
+  go(href) { window.location.href = href; }
+
+  renderVals() {
+    const s = this.state, d = SPACES[s.sp];
+    const NAVI = [['Дом', 'Home.dc.html', ''], ['Поток', 'Universal Capture.dc.html', '18'], ['Сегодня', 'Today.dc.html', '4'], ['Граф', 'Graph.dc.html', ''], ['Агенты', 'Agents.dc.html', '1'], ['Builder', 'Builder.dc.html', ''], ['Контроль', 'Control.dc.html', '']];
+    const lenses = NAVI.map(nv => {
+      const on = nv[0] === 'Дом';
+      return {
+        name: nv[0], n: nv[2],
+        go: () => { if (on) {  } else { window.location.href = nv[1]; } },
+        st: 'display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;font-size:13.5px;letter-spacing:-.012em;cursor:pointer;transition:background .12s;' + (on ? 'background:#17171E;color:#EDEDF0' : 'color:#8B8B93'),
+        dot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:' + (on ? '#7C8CF8' : '#33333B'),
+        badge: nv[2] ? 'margin-left:auto;font:400 11px/1 ui-monospace,Menlo,monospace;color:' + (on ? '#9EA9FB' : '#5A5A63') : 'display:none',
+      };
+    });
+
+    const spaces = Object.keys(SPACES).map(k => ({
+      l: k, go: () => this.setState({ sp: k }),
+      st: 'padding:6px 12px;border-radius:8px;font-size:13px;letter-spacing:-.01em;cursor:pointer;' + (k === s.sp ? 'background:#1B1B22;color:#EDEDF0;border:1px solid rgba(255,255,255,.1)' : 'color:#6B6B74'),
+    }));
+
+    const decisions = d.decisions.filter(x => !s.done[x.id]).map(x => ({
+      t: x.t, s: x.s,
+      card: 'padding:18px 20px;border-radius:14px;background:#0C0C0F;border:1px solid rgba(229,184,75,.2)',
+      opts: x.opts.map(o => ({
+        l: o[0],
+        go: () => { this.setState(st => ({ done: Object.assign({}, st.done, { [x.id]: true }) })); this.say(o[1] ? 'Записано: «' + o[0] + '» · чек создан, связанные объекты обновлены' : 'Ок, оставил как есть. Система запомнила твой выбор.'); },
+        st: 'padding:8px 13px;border-radius:9px;font-size:13px;cursor:pointer;' + (o[1] ? 'background:#EDEDF0;color:#0B0B0D;font-weight:560' : 'border:1px solid rgba(255,255,255,.12);color:#A0A0A8'),
+      })),
+    }));
+
+    const pool = d.ranked.filter(r => !s.later[r.t]);
+    const bestSrc = pool[0] || d.ranked[0];
+    const others = pool.slice(1);
+    const CONF = { 'Всё': '94%', 'Финансы': '91%', 'Дом': '96%', 'Здоровье': '82%' };
+
+    return {
+      lenses, spaces, state: d.state,
+      draft: s.draft, onDraft: this.onDraft, onKey: this.onKey, hold: this.hold,
+      reply: s.reply, clearReply: () => this.setState({ reply: null }),
+      recalc: this.recalc,
+      recalcLabel: s.recalcAt ? 'пересчитано только что' : 'пересчитать приоритеты',
+      bestNote: 'уверенность высокая — система показывает одно, а не пять',
+      best: {
+        k: bestSrc.hot ? 'самое важное сейчас' : 'следующее по влиянию',
+        conf: 'уверенность ' + (CONF[s.sp] || '90%'),
+        t: bestSrc.t, s: bestSrc.s, act: bestSrc.act,
+        why: 'Почему это, а не другое: ' + bestSrc.why + '. Остальное подождёт без потерь — проверено по срокам и связям.',
+        go: () => this.go(bestSrc.href),
+        later: () => { this.setState(st => ({ later: Object.assign({}, st.later, { [bestSrc.t]: true }) })); this.say('Отложено. Система пересчитала и подняла следующее по влиянию.'); },
+      },
+      showRest: s.showRest,
+      toggleRest: () => this.setState(st => ({ showRest: !st.showRest })),
+      restLabel: s.showRest ? 'свернуть остальное' : 'ещё ' + others.length + ' важных, но не первых',
+      rest: others.map(r => ({ t: r.t, s: r.s, why: r.why, act: r.act, go: () => this.go(r.href) })),
+      decisions, decCount: decisions.length,
+      insights: d.insights.filter(x => !s.hidden[x.id]).map(x => ({
+        t: x.t, s: x.s,
+        hide: () => { this.setState(st => ({ hidden: Object.assign({}, st.hidden, { [x.id]: true }) })); this.say('Не буду. Такой тип закономерности отключён — можно вернуть в Контроле.'); },
+      })),
+      toast: s.toast,
+      ...this.searchVals(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

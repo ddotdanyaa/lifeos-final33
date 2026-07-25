@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#08080A;height:100%}
+  body{font-family:ui-sans-serif,-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#ECECEE}
+  input,button{font:inherit;color:inherit;background:none;border:none;outline:none}
+  a{color:#7C8CF8;text-decoration:none}
+  a:hover{color:#9EA9FB}
+  ::selection{background:rgba(124,140,248,.32)}
+  ::-webkit-scrollbar{width:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:grid;grid-template-columns:216px 1fr;grid-template-rows:minmax(0,1fr);background:#08080A;overflow:hidden">
+
+  <div style="border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;padding:14px 10px 10px;gap:2px;background:#0A0A0C;overflow:hidden;min-width:0">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 18px">
+      <img src="assets/lifeos-icon.svg" alt="LifeOS" style="width:22px;height:22px;border-radius:7px;display:block;flex:0 0 22px" />
+      <div style="font-size:13.5px;font-weight:560;letter-spacing:-.014em;color:#E9E9ED">LifeOS</div>
+    </div>
+    <div onClick="{{ sOpenFn }}" style="display:flex;align-items:center;gap:10px;padding:8px 11px;margin-bottom:8px;border-radius:10px;background:#0E0E12;border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:13px;color:#6B6B74" style-hover="border-color:rgba(124,140,248,.4);color:#A0A0A8">
+      Поиск<span style="margin-left:auto;font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B">⌘K</span>
+    </div>
+    <sc-for list="{{ lenses }}" as="l" hint-placeholder-count="7">
+      <div onClick="{{ l.go }}" style="{{ l.st }}" style-hover="background:#121218;color:#D6D6DC">
+        <span style="{{ l.dot }}"></span>{{ l.name }}<span style="{{ l.badge }}">{{ l.n }}</span>
+      </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 8px 4px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="width:24px;height:24px;border-radius:50%;background:#1A1A20;border:1px solid rgba(255,255,255,.09);flex:0 0 24px"></div>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;color:#A0A0A8">Данил</div>
+        <div style="font-size:11px;color:#5A5A63;margin-top:3px">всё локально</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden">
+
+    <div style="height:52px;flex:0 0 52px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 22px;gap:14px;background:rgba(8,8,10,.7);backdrop-filter:blur(12px)">
+      <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#7C8CF8;text-transform:uppercase">Контроль</div>
+      <div style="width:1px;height:14px;background:rgba(255,255,255,.1)"></div>
+      <div style="font-size:13px;color:#8B8B93;white-space:nowrap">{{ headState }}</div>
+      <div style="flex:1"></div>
+      <div onClick="{{ exportAll }}" style="padding:8px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.12);font-size:13px;color:#C9C9D0;cursor:pointer;white-space:nowrap">Выгрузить всё</div>
+    </div>
+
+    <div style="flex:1;overflow:hidden auto;min-height:0;min-width:0">
+      <div style="max-width:900px;margin:0 auto;padding:48px 34px 110px">
+
+        <div style="animation:rise .5s ease both;max-width:640px">
+          <div style="font-size:27px;line-height:1.28;letter-spacing:-.027em;font-weight:500;text-wrap:pretty">Всё живёт на устройстве. Наружу не уходит ничего, пока ты не разрешил конкретный маршрут.</div>
+          <div style="margin-top:14px;font-size:13.5px;color:#7A7A83;line-height:1.65">Расшифровка голоса, поиск по смыслу и разбор дня работают локально. Ниже видно, что лежит внутри, что уходит и что делали агенты.</div>
+        </div>
+
+        <div style="margin-top:38px">
+          <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Что лежит внутри</div>
+            <div style="font-size:12.5px;color:#5A5A63;flex:1">1 247 объектов · 3 891 связь · 214 МБ</div>
+          </div>
+          <div style="margin-top:16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+            <sc-for list="{{ cols }}" as="c" hint-placeholder-count="8">
+              <div style="padding:15px 16px;border-radius:12px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07)">
+                <div style="font:400 19px/1 ui-monospace,Menlo,monospace;color:#E4E4E8">{{ c.n }}</div>
+                <div style="margin-top:8px;font-size:12.5px;color:#8B8B93">{{ c.l }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:44px">
+          <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Маршруты наружу</div>
+            <div style="font-size:12.5px;color:#5A5A63;flex:1">включаешь — сразу видно, что именно уйдёт</div>
+          </div>
+          <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ routes }}" as="r" hint-placeholder-count="3">
+              <div style="{{ r.card }}">
+                <div style="display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start">
+                  <div>
+                    <div style="display:flex;align-items:baseline;gap:11px;flex-wrap:wrap">
+                      <div style="font-size:15px;font-weight:500;letter-spacing:-.012em;color:#EDEDF0">{{ r.l }}</div>
+                      <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:{{ r.sc }}">{{ r.state }}</div>
+                    </div>
+                    <div style="margin-top:8px;font-size:13px;color:#8B8B93;line-height:1.55;max-width:560px">{{ r.s }}</div>
+                    <sc-if value="{{ r.on }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:11px;padding:12px 14px;border-radius:11px;background:rgba(229,184,75,.05);border:1px solid rgba(229,184,75,.2);font-size:12.5px;color:#E5C77E;line-height:1.55">{{ r.leaks }}</div>
+                    </sc-if>
+                  </div>
+                  <div onClick="{{ r.go }}" style="{{ r.sw }}"><div style="{{ r.knob }}"></div></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:44px">
+          <div style="display:flex;align-items:baseline;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:16.5px;font-weight:520;letter-spacing:-.015em;white-space:nowrap">Журнал изменений</div>
+            <div style="font-size:12.5px;color:#5A5A63;flex:1">каждое действие системы и агентов, с откатом</div>
+          </div>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{ receipts }}" as="r" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:74px 66px 1fr auto;gap:14px;padding:13px 0;border-top:1px solid rgba(255,255,255,.05);align-items:baseline">
+                <div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#4E4E57">{{ r.t }}</div>
+                <div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#7C8CF8">{{ r.id }}</div>
+                <div>
+                  <div style="font-size:13.5px;color:#D6D6DC;line-height:1.5">{{ r.l }}</div>
+                  <div style="margin-top:4px;font-size:12px;color:#5A5A63">{{ r.by }}</div>
+                </div>
+                <div onClick="{{ r.undo }}" style="{{ r.btn }}">{{ r.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top:44px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
+          <div style="padding:18px 20px;border-radius:14px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:14.5px;font-weight:500;letter-spacing:-.012em;color:#EDEDF0">Забрать свои данные</div>
+            <div style="margin-top:9px;font-size:13px;color:#8B8B93;line-height:1.6">Один архив: артефакты, связи, источники, чеки и твои собственные сущности из конструктора. Формат читается без LifeOS.</div>
+            <div onClick="{{ exportAll }}" style="margin-top:14px;display:inline-block;padding:9px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.12);font-size:13px;color:#C9C9D0;cursor:pointer;white-space:nowrap">Собрать архив</div>
+          </div>
+          <div style="padding:18px 20px;border-radius:14px;background:#0C0C0F;border:1px solid rgba(232,112,95,.2)">
+            <div style="font-size:14.5px;font-weight:500;letter-spacing:-.012em;color:#EDEDF0">Остановить всё</div>
+            <div style="margin-top:9px;font-size:13px;color:#8B8B93;line-height:1.6">Выключает разбор, агентов и любые маршруты наружу. Данные остаются, система замирает до твоей команды.</div>
+            <div onClick="{{ stopAll }}" style="{{ stopStyle }}">{{ stopLabel }}</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <sc-if value="{{ sOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ sClose }}" style="position:absolute;inset:0;z-index:60;background:rgba(4,4,6,.62);animation:fade .16s ease both"></div>
+      <div style="position:absolute;z-index:61;left:0;right:0;top:70px;bottom:50px;display:flex;justify-content:center;align-items:flex-start;pointer-events:none">
+      <div style="pointer-events:auto;width:min(660px,calc(100% - 48px));border-radius:16px;background:#0D0D11;border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 90px -30px rgba(0,0,0,.95);animation:rise .18s ease both;display:flex;flex-direction:column;max-height:100%;overflow:hidden">
+        <div style="padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:12px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;flex:0 0 6px"></span>
+          <input value="{{ sq }}" onChange="{{ onSQ }}" onKeyDown="{{ onSKey }}" placeholder="Искать во всей жизни: артефакты, люди, цитаты, файлы, связи" style="flex:1;font-size:15px;letter-spacing:-.012em;min-width:0" />
+          <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B;white-space:nowrap">esc</div>
+        </div>
+        <div style="flex:1;overflow:hidden auto;min-height:0;padding:8px 8px 12px">
+          <sc-for list="{{ sGroups }}" as="g" hint-placeholder-count="3">
+            <div style="padding:12px 10px 4px">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">{{ g.l }}</div>
+              <div style="margin-top:6px">
+                <sc-for list="{{ g.items }}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{ r.go }}" style="{{ r.st }}" style-hover="background:#15151B">
+                    <div style="font:500 9px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.09em;color:{{ r.c }};text-transform:uppercase;padding-top:4px;white-space:nowrap">{{ r.k }}</div>
+                    <div style="min-width:0">
+                      <div style="font-size:14px;color:#E9E9ED;letter-spacing:-.012em;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.t }}</div>
+                      <div style="font-size:12px;color:#6B6B74;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.s }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ sEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 18px;font-size:13.5px;color:#6B6B74;line-height:1.6">Ничего не нашлось. Но ничего и не потеряно: напиши это в поток — система разберёт и свяжет сама.</div>
+          </sc-if>
+        </div>
+      </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:30px;z-index:50;display:flex;justify-content:center;pointer-events:none"><div style="pointer-events:auto;z-index:30;padding:11px 17px;border-radius:11px;background:#17171D;border:1px solid rgba(255,255,255,.1);font-size:13px;color:#C9C9D0;animation:rise .25s ease both;box-shadow:0 16px 40px -16px rgba(0,0,0,.9);max-width:640px;line-height:1.5">{{ toast }}</div></div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showJournal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Контроль&quot;}}">
+const NAV = [['Дом', 'ДМ', 'Home.dc.html'], ['Поток', 'ПТ', 'Universal Capture.dc.html'], ['Сегодня', 'СГ', 'Today.dc.html'], ['Граф', 'ГР', 'Graph.dc.html'], ['Агенты', 'АГ', 'Agents.dc.html'], ['Builder', 'BL', 'Builder.dc.html'], ['Контроль', 'КН', 'Control.dc.html']];
+
+const COLS = [
+  { l: 'артефактов из потока', n: '1 247' }, { l: 'голосовых, расшифровано локально', n: '486' },
+  { l: 'чеков и документов', n: '312' }, { l: 'связей между объектами', n: '3 891' },
+  { l: 'целей и проектов', n: '19' }, { l: 'закономерностей', n: '34' },
+  { l: 'своих сущностей из конструктора', n: '3' }, { l: 'чеков в журнале', n: '4 824' },
+];
+
+const ROUTES = [
+  { id: 'r1', l: 'Локальные модели', s: 'Расшифровка голоса, эмбеддинги для поиска по смыслу, разбор дня. Работают на устройстве, интернет не нужен.', fixed: 1, leaks: '' },
+  { id: 'r2', l: 'Облачная модель для сложных вопросов', s: 'Нужна только для длинных рассуждений по графу. По умолчанию выключена.', leaks: 'Уйдут: текст вопроса и до 12 обезличенных выдержек из артефактов. Не уйдут: аудио, фото, чеки, суммы, имена — они заменяются метками вида «человек-1».' },
+  { id: 'r3', l: 'Импорт банковской выписки', s: 'Разовая загрузка файла для точного расчёта свободного потока.', leaks: 'Файл обрабатывается локально, наружу не уходит. Наружу уходит только запрос на курс валют — без сумм.' },
+];
+
+const RECEIPTS = [
+  { id: '#4824', t: '22:16', l: 'Подписка 1 490 ₽/мес отменена', by: 'агент «Страж подписок» · с твоего разрешения' },
+  { id: '#4823', t: '22:15', l: 'Встреча с Дмитрием перенесена на среду 19:00', by: 'ты · из конфликта календаря' },
+  { id: '#4822', t: '22:10', l: 'Противоречие целей зафиксировано', by: 'агент «Наблюдатель целей»' },
+  { id: '#4821', t: '22:14', l: '19 предложений применено: 2 проекта, 11 задач, 3 расхода', by: 'ты · разбор дня' },
+  { id: '#4820', t: '21:05', l: '3 чека распознано, категории проставлены', by: 'агент «Хранитель чеков»' },
+];
+
+const SEARCH = [
+  ['артефакт', 'Покупка машины', 'проект · 18 источников · разрыв 410 000 ₽', 'Artifact Inspector.dc.html'],
+  ['артефакт', 'Ремонт кухни', 'проект · 240 000 ₽ обязательств · подрядчик ждёт', 'Artifact Inspector.dc.html'],
+  ['цель', 'Откладывать 60 000 ₽ в месяц', 'цель с марта · противоречит августу', 'Artifact Inspector.dc.html'],
+  ['цель', 'Режим и тренировки', 'цель · 12-е возвращение к теме', 'Graph.dc.html'],
+  ['человек', 'Марина', '34 упоминания · условие «без кредита»', 'Graph.dc.html'],
+  ['человек', 'Дмитрий', 'подрядчик · 17 разговоров · паттерн проектов', 'Graph.dc.html'],
+  ['человек', 'Игорь', 'работа · через него пришла Северсталь', 'Graph.dc.html'],
+  ['инсайт', 'После разговоров с Дмитрием ты начинаешь новый проект', '5 проектов, 4 остановились на первой неделе', 'Graph.dc.html'],
+  ['инсайт', 'В дни с тренировкой закрывается на 40% больше задач', 'и нет импульсных покупок · 42 дня', 'Graph.dc.html'],
+  ['противоречие', 'Накопления против покупки в августе', 'разрыв 410 000 ₽ · закроется к декабрю', 'Graph.dc.html'],
+  ['цитата', '«Она согласна на август, если без кредита»', 'голосовое 21 июля 21:20 · 1:48', 'Universal Capture.dc.html'],
+  ['цитата', '«Может, вообще без машины обойтись»', 'голосовое 27 июня · сомнение сохранено', 'Universal Capture.dc.html'],
+  ['файл', 'Смета_кухня_final.pdf', '6 страниц · договор подряда и смета', 'Artifact Inspector.dc.html'],
+  ['файл', 'Каско_расчёт.pdf', '68 000 ₽ в год · учтено в стоимости владения', 'Artifact Inspector.dc.html'],
+  ['чек', 'Лента · 4 380 ₽', 'еда · 21 июля · распознано с фото', 'Control.dc.html'],
+  ['привычка', 'Тренировка', '14 отметок · серия три дня', 'Graph.dc.html'],
+  ['задача', 'Ответить Дмитрию до среды', 'блокирует проект «Ремонт кухни»', 'Today.dc.html'],
+  ['задача', 'Оценить продажу старой машины', 'единственный путь закрыть 410 000 ₽', 'Today.dc.html'],
+  ['память', 'Свободный поток 740 000 ₽', 'расчёт по счетам за 3 месяца', 'Graph.dc.html'],
+  ['агент', 'Страж подписок', 'ждёт разрешения · подписка 1 490 ₽', 'Agents.dc.html'],
+  ['связь', 'Тренировка → импульсные траты', 'сильная связь · 7 из 9 скачков без тренировки', 'Graph.dc.html'],
+  ['команда', 'Разобрать день', '18 объектов в потоке ждут разбора', 'Universal Capture.dc.html'],
+  ['команда', 'Собрать своё пространство', 'Builder · линзы, представления, правила', 'Builder.dc.html'],
+  ['команда', 'Выгрузить архив', 'все артефакты, связи и чеки', 'Control.dc.html'],
+];
+const SKC = { 'артефакт': '#7C8CF8', 'цель': '#9EA9FB', 'человек': '#C79BE0', 'инсайт': '#8FE0B4', 'противоречие': '#E5B84B', 'цитата': '#8B8B93', 'файл': '#E5B84B', 'чек': '#63D397', 'привычка': '#8FBFA8', 'задача': '#7C8CF8', 'память': '#63A9D3', 'агент': '#E5B84B', 'связь': '#8B8B93', 'команда': '#6B6B74' };
+
+class Component extends DCLogic {
+  componentDidMount() { this.bindKeys(); }
+  sOpenFn = () => this.setState({ sOpen: true });
+  sCloseFn = () => this.setState({ sOpen: false, sq: '' });
+  bindKeys() {
+    if (this.keysBound) return;
+    this.keysBound = true;
+    this.keyHandler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); this.setState(st => ({ sOpen: !st.sOpen, sq: '' })); }
+      else if (e.key === 'Escape') this.setState({ sOpen: false });
+    };
+    window.addEventListener('keydown', this.keyHandler);
+  }
+  searchVals() {
+    const st = this.state, q = (st.sq || '').trim().toLowerCase();
+    const hit = q ? SEARCH.filter(r => (r[1] + ' ' + r[2] + ' ' + r[0]).toLowerCase().indexOf(q) >= 0) : SEARCH.filter(r => ['артефакт', 'противоречие', 'инсайт', 'команда'].indexOf(r[0]) >= 0);
+    const order = q ? ['артефакт','цель','противоречие','инсайт','человек','задача','цитата','файл','чек','привычка','память','связь','агент','команда'] : ['артефакт','противоречие','инсайт','команда'];
+    const label = { 'артефакт': 'Артефакты', 'цель': 'Цели', 'противоречие': 'Противоречия', 'инсайт': 'Инсайты', 'человек': 'Люди', 'задача': 'Задачи', 'цитата': 'Цитаты', 'файл': 'Файлы', 'чек': 'Деньги', 'привычка': 'Привычки', 'память': 'Память', 'связь': 'Связи', 'агент': 'Агенты', 'команда': 'Команды' };
+    const groups = order.map(k => ({
+      l: label[k],
+      items: hit.filter(r => r[0] === k).map(r => ({
+        k: r[0], t: r[1], s: r[2], c: SKC[r[0]] || '#6B6B74',
+        st: 'display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start;padding:10px;border-radius:10px;cursor:pointer',
+        go: () => { window.location.href = r[3]; },
+      })),
+    })).filter(g => g.items.length);
+    return {
+      sOpen: !!st.sOpen, sq: st.sq || '', sGroups: groups, sEmpty: !!q && !hit.length,
+      sOpenFn: this.sOpenFn, sClose: this.sCloseFn,
+      onSQ: (e) => this.setState({ sq: e.target.value }),
+      onSKey: (e) => { if (e.key === 'Enter' && hit.length) window.location.href = hit[0][3]; if (e.key === 'Escape') this.sCloseFn(); },
+    };
+  }
+  state = { on: {}, undone: {}, stopped: false, toast: '' };
+  say(t) { clearTimeout(this.tt); this.setState({ toast: t }); this.tt = setTimeout(() => this.setState({ toast: '' }), 4200); }
+  componentWillUnmount() { clearTimeout(this.tt); }
+
+  renderVals() {
+    const s = this.state;
+    const NAVI = [['Дом', 'Home.dc.html', ''], ['Поток', 'Universal Capture.dc.html', '18'], ['Сегодня', 'Today.dc.html', '4'], ['Граф', 'Graph.dc.html', ''], ['Агенты', 'Agents.dc.html', '1'], ['Builder', 'Builder.dc.html', ''], ['Контроль', 'Control.dc.html', '']];
+    const lenses = NAVI.map(nv => {
+      const on = nv[0] === 'Контроль';
+      return {
+        name: nv[0], n: nv[2],
+        go: () => { if (on) {  } else { window.location.href = nv[1]; } },
+        st: 'display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;font-size:13.5px;letter-spacing:-.012em;cursor:pointer;transition:background .12s;' + (on ? 'background:#17171E;color:#EDEDF0' : 'color:#8B8B93'),
+        dot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:' + (on ? '#7C8CF8' : '#33333B'),
+        badge: nv[2] ? 'margin-left:auto;font:400 11px/1 ui-monospace,Menlo,monospace;color:' + (on ? '#9EA9FB' : '#5A5A63') : 'display:none',
+      };
+    });
+
+    const openRoutes = ROUTES.filter(r => !r.fixed && s.on[r.id]).length;
+
+    return {
+      lenses, cols: COLS,
+      headState: s.stopped ? 'система остановлена · данные на месте' : (openRoutes ? openRoutes + ' маршрут наружу открыт тобой' : 'наружу не уходит ничего'),
+      routes: ROUTES.map(r => {
+        const on = r.fixed ? true : !!s.on[r.id];
+        return {
+          l: r.l, s: r.s, on: on && !r.fixed, leaks: r.leaks,
+          state: r.fixed ? 'всегда локально' : on ? 'включено тобой' : 'выключено',
+          sc: r.fixed ? '#63D397' : on ? '#E5B84B' : '#5E5E67',
+          card: 'padding:18px 20px;border-radius:14px;background:#0C0C0F;border:1px solid ' + (on && !r.fixed ? 'rgba(229,184,75,.24)' : 'rgba(255,255,255,.07)'),
+          sw: 'width:42px;height:24px;border-radius:14px;padding:3px;cursor:' + (r.fixed ? 'default' : 'pointer') + ';display:flex;justify-content:' + (on ? 'flex-end' : 'flex-start') + ';background:' + (on ? (r.fixed ? 'rgba(99,211,151,.3)' : 'rgba(229,184,75,.35)') : '#1A1A20') + ';border:1px solid rgba(255,255,255,.09);transition:background .2s',
+          knob: 'width:18px;height:18px;border-radius:50%;background:' + (on ? (r.fixed ? '#63D397' : '#E5B84B') : '#54545E'),
+          go: () => {
+            if (r.fixed) { this.say('Локальные модели отключить нельзя — на них держится весь разбор.'); return; }
+            const next = !on;
+            this.setState(st => ({ on: Object.assign({}, st.on, { [r.id]: next }) }));
+            this.say(next ? 'Маршрут открыт. Каждый выход наружу теперь пишется в журнал отдельным чеком.' : 'Маршрут закрыт. Всё снова считается только на устройстве.');
+          },
+        };
+      }),
+      receipts: RECEIPTS.map(r => {
+        const undone = !!s.undone[r.id];
+        return {
+          t: r.t, id: r.id, l: r.l, by: undone ? r.by + ' · откачено' : r.by,
+          label: undone ? 'откачено' : 'откатить',
+          btn: 'font-size:12.5px;cursor:' + (undone ? 'default' : 'pointer') + ';color:' + (undone ? '#4E4E57' : '#7C8CF8') + ';white-space:nowrap',
+          undo: () => { if (undone) return; this.setState(st => ({ undone: Object.assign({}, st.undone, { [r.id]: true }) })); this.say('Откачено: ' + r.l + '. Связанные объекты вернулись в состояние до ' + r.t + '.'); },
+        };
+      }),
+      exportAll: () => this.say('Архив собран: 1 247 артефактов, 3 891 связь, 4 824 чека, 3 своих сущности. Читается без LifeOS.'),
+      stopLabel: s.stopped ? 'Включить обратно' : 'Остановить систему',
+      stopStyle: 'margin-top:14px;display:inline-block;padding:9px 14px;border-radius:9px;font-size:13px;cursor:pointer;' + (s.stopped ? 'background:#EDEDF0;color:#0B0B0D;font-weight:560' : 'border:1px solid rgba(232,112,95,.35);color:#E8705F'),
+      stopAll: () => { const n = !s.stopped; this.setState({ stopped: n }); this.say(n ? 'Система остановлена. Разбор, агенты и маршруты выключены — данные не тронуты.' : 'Система снова работает. Пропущенный поток разберётся вечером.'); },
+      toast: s.toast,
+      ...this.searchVals(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

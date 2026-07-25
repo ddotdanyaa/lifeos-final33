@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#08080A;height:100%}
+  body{font-family:ui-sans-serif,-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#ECECEE}
+  input,button{font:inherit;color:inherit;background:none;border:none;outline:none}
+  a{color:#7C8CF8;text-decoration:none}
+  a:hover{color:#9EA9FB}
+  ::selection{background:rgba(124,140,248,.32)}
+  ::-webkit-scrollbar{width:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @keyframes drawer{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+  @keyframes breathe{0%,100%{opacity:.35}50%{opacity:.95}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:grid;grid-template-columns:216px 1fr;grid-template-rows:minmax(0,1fr);background:#08080A;overflow:hidden">
+
+  <div style="border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;padding:14px 10px 10px;gap:2px;background:#0A0A0C;overflow:hidden;min-width:0">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 8px 18px">
+      <img src="assets/lifeos-icon.svg" alt="LifeOS" style="width:22px;height:22px;border-radius:7px;display:block;flex:0 0 22px" />
+      <div style="font-size:13.5px;font-weight:560;letter-spacing:-.014em;color:#E9E9ED">LifeOS</div>
+    </div>
+    <div onClick="{{ sOpenFn }}" style="display:flex;align-items:center;gap:10px;padding:8px 11px;margin-bottom:8px;border-radius:10px;background:#0E0E12;border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:13px;color:#6B6B74" style-hover="border-color:rgba(124,140,248,.4);color:#A0A0A8">
+      Поиск<span style="margin-left:auto;font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B">⌘K</span>
+    </div>
+    <sc-for list="{{ lenses }}" as="l" hint-placeholder-count="7">
+      <div onClick="{{ l.go }}" style="{{ l.st }}" style-hover="background:#121218;color:#D6D6DC">
+        <span style="{{ l.dot }}"></span>{{ l.name }}<span style="{{ l.badge }}">{{ l.n }}</span>
+      </div>
+    </sc-for>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 8px 4px;border-top:1px solid rgba(255,255,255,.06)">
+      <div style="width:24px;height:24px;border-radius:50%;background:#1A1A20;border:1px solid rgba(255,255,255,.09);flex:0 0 24px"></div>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;color:#A0A0A8">Данил</div>
+        <div style="font-size:11px;color:#5A5A63;margin-top:3px">всё локально</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden">
+
+    <div style="height:52px;flex:0 0 52px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 20px;gap:12px;background:rgba(8,8,10,.72);backdrop-filter:blur(12px);z-index:5">
+      <div style="display:flex;gap:3px;padding:3px;border-radius:10px;background:#101015;border:1px solid rgba(255,255,255,.07)">
+        <div onClick="{{ toMap }}" style="{{ tabMapSt }}">Карта связей</div>
+        <div onClick="{{ toQ }}" style="{{ tabQSt }}">Вопросы о жизни</div>
+      </div>
+      <sc-if value="{{ isMap }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 12px;border-radius:10px;background:#0E0E12;border:1px solid rgba(255,255,255,.08);min-width:212px">
+          <span style="width:5px;height:5px;border-radius:50%;background:#43434B;flex:0 0 5px"></span>
+          <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Найти объект в графе" style="flex:1;font-size:13px;min-width:0" />
+          <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ clearQuery }}" style="font-size:12px;color:#5A5A63;cursor:pointer">×</div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <div style="flex:1"></div>
+      <div style="font-size:12.5px;color:#5A5A63;white-space:nowrap">{{ head }}</div>
+    </div>
+
+    <sc-if value="{{ isMap }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column">
+
+      <div style="flex:0 0 auto;padding:9px 20px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#0A0A0D">
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <sc-for list="{{ legend }}" as="c" hint-placeholder-count="6">
+            <div onClick="{{ c.go }}" style="{{ c.st }}"><span style="{{ c.dot }}"></span>{{ c.l }}<span style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#5E5E67">{{ c.n }}</span></div>
+          </sc-for>
+        </div>
+        <div style="width:1px;height:16px;background:rgba(255,255,255,.09)"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <sc-for list="{{ kinds }}" as="k" hint-placeholder-count="5">
+            <div onClick="{{ k.go }}" style="{{ k.st }}"><span style="{{ k.line }}"></span>{{ k.l }}</div>
+          </sc-for>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <div onClick="{{ zoomOut }}" style="width:29px;height:29px;border-radius:9px;background:#0E0E12;border:1px solid rgba(255,255,255,.09);display:flex;align-items:center;justify-content:center;font-size:15px;color:#A0A0A8;cursor:pointer">−</div>
+          <div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#5E5E67;width:38px;text-align:center">{{ zoomLabel }}</div>
+          <div onClick="{{ zoomIn }}" style="width:29px;height:29px;border-radius:9px;background:#0E0E12;border:1px solid rgba(255,255,255,.09);display:flex;align-items:center;justify-content:center;font-size:15px;color:#A0A0A8;cursor:pointer">+</div>
+          <div onClick="{{ reset }}" style="margin-left:4px;padding:8px 12px;border-radius:9px;background:#0E0E12;border:1px solid rgba(255,255,255,.09);font-size:12.5px;color:#A0A0A8;cursor:pointer;white-space:nowrap">Сбросить вид</div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-height:0;position:relative;overflow:hidden">
+
+        <div style="position:absolute;inset:0;background:radial-gradient(circle at 46% 40%,#0D0D13,#08080A 76%)"></div>
+
+        <div ref="{{ setStage }}" onMouseDown="{{ panStart }}" onMouseMove="{{ panMove }}" onMouseUp="{{ panEnd }}" onMouseLeave="{{ panEnd }}" onWheel="{{ onWheel }}" style="{{ stageStyle }}">
+          <div style="{{ worldStyle }}">
+            <svg viewBox="0 0 960 620" width="960" height="620" style="display:block;overflow:visible">
+              <defs>
+                <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+                  <feGaussianBlur stdDeviation="7"></feGaussianBlur>
+                </filter>
+              </defs>
+              <sc-for list="{{ edges }}" as="e" hint-placeholder-count="60">
+                <path d="{{ e.d }}" fill="none" stroke="{{ e.c }}" stroke-width="{{ e.w }}" opacity="{{ e.o }}" stroke-linecap="round"></path>
+              </sc-for>
+              <sc-for list="{{ glows }}" as="g" hint-placeholder-count="8">
+                <circle cx="{{ g.x }}" cy="{{ g.y }}" r="{{ g.r }}" fill="{{ g.c }}" opacity="{{ g.o }}" filter="url(#soft)"></circle>
+              </sc-for>
+              <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="41">
+                <circle cx="{{ n.x }}" cy="{{ n.y }}" r="{{ n.r }}" fill="{{ n.f }}" stroke="{{ n.s }}" stroke-width="{{ n.sw }}" opacity="{{ n.o }}"></circle>
+              </sc-for>
+            </svg>
+            <div style="position:absolute;left:0;top:0;width:960px;height:620px">
+              <sc-for list="{{ hits }}" as="n" hint-placeholder-count="41">
+                <div onMouseDown="{{ n.grab }}" title="{{ n.title }}" style="{{ n.st }}"></div>
+              </sc-for>
+              <sc-for list="{{ hulls }}" as="h" hint-placeholder-count="6">
+                <div style="{{ h.st }}">{{ h.l }}</div>
+              </sc-for>
+              <sc-for list="{{ labels }}" as="t" hint-placeholder-count="20">
+                <div style="{{ t.st }}">{{ t.l }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:20px;bottom:13px;max-width:320px;font-size:11.5px;color:#3E3E46;line-height:1.55;pointer-events:none">размер узла — сколько жизни на нём держится · толщина линии — сила влияния · тяни узлы, колесо — масштаб</div>
+
+        <sc-if value="{{ noFocus }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;right:16px;bottom:14px;width:288px;padding:15px 17px;border-radius:14px;background:rgba(11,11,14,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08)">
+            <div style="font-size:14.5px;font-weight:520;letter-spacing:-.014em;color:#EDEDF0">Нажми на узел</div>
+            <div style="margin-top:8px;font-size:12.5px;color:#8B8B93;line-height:1.6">Панель справа покажет, <span style="color:#C9C9D0">почему</span> объекты связаны, что тормозит цель и что изменилось за неделю.</div>
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ top }}" as="t" hint-placeholder-count="4">
+                <div onClick="{{ t.go }}" style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:9px 0;border-top:1px solid rgba(255,255,255,.05);cursor:pointer;align-items:baseline">
+                  <div style="font-size:12.5px;color:#C9C9D0">{{ t.l }}</div>
+                  <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#4E4E57;white-space:nowrap">{{ t.n }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ focus }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;right:0;top:0;bottom:0;width:392px;background:rgba(10,10,13,.96);backdrop-filter:blur(14px);border-left:1px solid rgba(255,255,255,.08);animation:drawer .26s cubic-bezier(.2,.8,.2,1) both;display:flex;flex-direction:column;min-height:0">
+            <div style="padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:flex-start;gap:12px">
+              <span style="{{ focus.dot }}"></span>
+              <div style="flex:1;min-width:0">
+                <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.13em;color:#6B6B74;text-transform:uppercase">{{ focus.kind }}</div>
+                <div style="margin-top:9px;font-size:18px;line-height:1.34;letter-spacing:-.02em;font-weight:500;color:#EDEDF0;text-wrap:pretty">{{ focus.l }}</div>
+              </div>
+              <div onClick="{{ close }}" style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B6B74;cursor:pointer;font-size:16px;flex:0 0 26px" style-hover="background:#17171D">×</div>
+            </div>
+
+            <div style="padding:0 20px;display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,.06)">
+              <sc-for list="{{ ptabs }}" as="t" hint-placeholder-count="3">
+                <div onClick="{{ t.go }}" style="{{ t.st }}">{{ t.l }}</div>
+              </sc-for>
+            </div>
+
+            <div style="flex:1;overflow:hidden auto;min-height:0;min-width:0;padding:18px 20px 24px;word-break:break-word">
+
+              <sc-if value="{{ pWhy }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:13.5px;color:#8B8B93;line-height:1.6">{{ focus.s }}</div>
+                <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
+                  <div style="flex:0 0 auto">
+                    <div style="font:400 17px/1 ui-monospace,Menlo,monospace;color:#E4E4E8">{{ focus.deg }}</div>
+                    <div style="font-size:11.5px;color:#5A5A63;margin-top:6px;white-space:nowrap">связей</div>
+                  </div>
+                  <div style="flex:0 0 auto">
+                    <div style="font:400 17px/1 ui-monospace,Menlo,monospace;color:#E4E4E8">{{ focus.mentions }}</div>
+                    <div style="font-size:11.5px;color:#5A5A63;margin-top:6px;white-space:nowrap">упоминаний</div>
+                  </div>
+                  <div style="flex:0 0 auto">
+                    <div style="font:400 15.5px/1 ui-monospace,Menlo,monospace;color:{{ focus.wc }}">{{ focus.weight }}</div>
+                    <div style="font-size:11.5px;color:#5A5A63;margin-top:7px;white-space:nowrap">вес в жизни</div>
+                  </div>
+                </div>
+                <div style="margin-top:22px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">почему связано</div>
+                <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ focus.nb }}" as="b" hint-placeholder-count="5">
+                    <div onClick="{{ b.go }}" style="padding:13px 14px;border-radius:11px;background:#0E0E12;border:1px solid {{ b.bc }};cursor:pointer" style-hover="border-color:rgba(124,140,248,.4)">
+                      <div style="display:flex;align-items:baseline;gap:9px">
+                        <div style="font:500 9px/1 ui-monospace,Menlo,monospace;letter-spacing:.11em;color:{{ b.tc }};text-transform:uppercase;white-space:nowrap">{{ b.type }}</div>
+                        <div style="font-size:13.5px;color:#E4E4E8;letter-spacing:-.012em;line-height:1.4;flex:1">{{ b.l }}</div>
+                      </div>
+                      <div style="margin-top:7px;font-size:12.5px;color:#7A7A83;line-height:1.55">{{ b.why }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ pImpact }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13.5px;color:#8B8B93;line-height:1.6">{{ focus.impactLead }}</div>
+                <div style="margin-top:20px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">цепочка влияния</div>
+                <div style="margin-top:12px;display:flex;flex-direction:column;gap:0">
+                  <sc-for list="{{ focus.path }}" as="p" hint-placeholder-count="4">
+                    <div>
+                      <div style="display:flex;align-items:center;gap:11px">
+                        <span style="{{ p.dot }}"></span>
+                        <div style="font-size:13.5px;color:#E4E4E8;letter-spacing:-.012em;flex:1">{{ p.l }}</div>
+                      </div>
+                      <sc-if value="{{ p.arrow }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:grid;grid-template-columns:9px 1fr;gap:11px;padding:2px 0">
+                          <div style="justify-self:center;width:1px;height:26px;background:linear-gradient(180deg,rgba(124,140,248,.55),rgba(124,140,248,.15))"></div>
+                          <div style="font-size:12px;color:#6B6B74;line-height:1.45;padding:5px 0">{{ p.arrow }}</div>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="margin-top:22px;padding:15px 16px;border-radius:12px;background:rgba(124,140,248,.05);border:1px solid rgba(124,140,248,.2)">
+                  <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.13em;color:#7C8CF8;text-transform:uppercase">если убрать этот узел</div>
+                  <div style="margin-top:9px;font-size:13.5px;color:#D6D6DC;line-height:1.55">{{ focus.remove }}</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ pDelta }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13.5px;color:#8B8B93;line-height:1.6">Что случилось с этим узлом за последние 7 дней. Граф хранит не только связи, но и когда они появились.</div>
+                <div style="margin-top:18px;display:flex;flex-direction:column;gap:2px">
+                  <sc-for list="{{ focus.delta }}" as="d" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:56px 1fr;gap:14px;padding:13px 0;border-top:1px solid rgba(255,255,255,.05);align-items:start">
+                      <div style="font:400 11.5px/1.4 ui-monospace,Menlo,monospace;color:#4E4E57">{{ d.t }}</div>
+                      <div>
+                        <div style="font-size:13.5px;color:#D6D6DC;line-height:1.5">{{ d.l }}</div>
+                        <div style="margin-top:5px;font-size:12px;color:#5E5E67">{{ d.s }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+            </div>
+
+            <div style="padding:14px 20px;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:8px">
+              <a href="Artifact Inspector.dc.html" style="flex:1;text-align:center;padding:10px;border-radius:10px;background:#EDEDF0;color:#0B0B0D;font-size:13px;font-weight:560">Открыть объект</a>
+              <div onClick="{{ focus.ask }}" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);font-size:13px;color:#C9C9D0;cursor:pointer;white-space:nowrap">Спросить</div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isQ }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;overflow:hidden auto;min-height:0;min-width:0">
+        <div style="max-width:1040px;margin:0 auto;padding:40px 34px 100px">
+          <div style="display:grid;grid-template-columns:284px minmax(0,1fr);gap:34px;align-items:start">
+
+            <div>
+              <div style="font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.2em;color:#5A5A63;text-transform:uppercase">спроси про свою жизнь</div>
+              <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ qs }}" as="q" hint-placeholder-count="6">
+                  <div onClick="{{ q.go }}" style="{{ q.st }}">{{ q.l }}</div>
+                </sc-for>
+              </div>
+              <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.07);font-size:12.5px;color:#5A5A63;line-height:1.6">Obsidian отвечает «что связано». Здесь граф отвечает «почему связано», «что тормозит» и «что изменилось» — считает, а не рисует.</div>
+            </div>
+
+            <div style="min-width:0">
+              <div style="animation:fade .3s ease both">
+                <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">{{ a.tag }}</div>
+                <div style="margin-top:14px;font-size:25px;line-height:1.32;letter-spacing:-.026em;font-weight:500;max-width:660px;text-wrap:pretty">{{ a.head }}</div>
+                <div style="margin-top:14px;font-size:14px;color:#8B8B93;line-height:1.65;max-width:640px;text-wrap:pretty">{{ a.body }}</div>
+              </div>
+
+              <sc-if value="{{ isBars }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top:32px;display:flex;flex-direction:column;gap:3px">
+                  <sc-for list="{{ a.rows }}" as="r" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:158px 1fr 96px;gap:16px;align-items:center;padding:13px 0;border-top:1px solid rgba(255,255,255,.05)">
+                      <div style="font-size:13.5px;color:#D6D6DC;letter-spacing:-.01em">{{ r.l }}</div>
+                      <div style="position:relative;height:6px;border-radius:4px;background:#131317">
+                        <div style="{{ r.bar }}"></div>
+                      </div>
+                      <div style="font:400 12px/1 ui-monospace,Menlo,monospace;color:{{ r.c }};text-align:right">{{ r.v }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isConflict }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:32px;padding:26px;border-radius:15px;background:#0B0B0E;border:1px solid rgba(255,255,255,.06)">
+                  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:190px;padding:15px 17px;border-radius:12px;background:#121218;border:1px solid rgba(255,255,255,.1)">
+                      <div style="font-size:14.5px;color:#EDEDF0;letter-spacing:-.012em;font-weight:500">Откладывать 60 000 ₽/мес</div>
+                      <div style="margin-top:6px;font-size:12px;color:#5E5E67">цель · март · уверенность 88%</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:120px">
+                      <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.11em;color:#E8705F">не сходятся</div>
+                      <div style="width:100%;height:1px;background:linear-gradient(90deg,rgba(232,112,95,.15),rgba(232,112,95,.65),rgba(232,112,95,.15))"></div>
+                      <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#5E5E67">410 000 ₽</div>
+                    </div>
+                    <div style="flex:1;min-width:190px;padding:15px 17px;border-radius:12px;background:#121218;border:1px solid rgba(255,255,255,.1)">
+                      <div style="font-size:14.5px;color:#EDEDF0;letter-spacing:-.012em;font-weight:500">Купить машину в августе</div>
+                      <div style="margin-top:6px;font-size:12px;color:#5E5E67">цель · февраль · уверенность 61%</div>
+                    </div>
+                  </div>
+                  <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.06);font-size:13.5px;color:#8B8B93;line-height:1.6">Обе цели ставились в разное время и никогда не сверялись между собой. Третья цель — «Ремонт кухни» — тянет те же деньги: аванс 96 000 ₽ в июле.</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isWeek }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:32px;padding:24px;border-radius:15px;background:#0B0B0E;border:1px solid rgba(255,255,255,.06)">
+                  <div style="display:flex;gap:8px;align-items:flex-end">
+                    <sc-for list="{{ a.days }}" as="d" hint-placeholder-count="14">
+                      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:9px">
+                        <div style="{{ d.st }}"></div>
+                        <div style="font:400 10px/1 ui-monospace,Menlo,monospace;color:#43434B">{{ d.l }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:22px;flex-wrap:wrap;font-size:12px;color:#5A5A63">
+                    <div style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:3px;background:#7C8CF8"></span>день с движением</div>
+                    <div style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:3px;background:#2A2A32"></span>день без действий</div>
+                    <div style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:3px;background:#E8705F"></span>вечерний созвон</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isClusters }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:32px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+                  <sc-for list="{{ a.chips }}" as="c" hint-placeholder-count="6">
+                    <div onClick="{{ c.go }}" style="{{ c.st }}">{{ c.l }}<span style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#5E5E67;margin-left:9px">{{ c.n }}</span></div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isDelta }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:32px;display:flex;flex-direction:column;gap:2px">
+                  <sc-for list="{{ a.deltas }}" as="d" hint-placeholder-count="5">
+                    <div style="display:grid;grid-template-columns:74px minmax(0,1fr) auto;gap:16px;padding:15px 0;border-top:1px solid rgba(255,255,255,.05);align-items:start">
+                      <div style="font:400 11.5px/1.4 ui-monospace,Menlo,monospace;color:#4E4E57">{{ d.t }}</div>
+                      <div>
+                        <div style="font-size:14px;color:#E4E4E8;letter-spacing:-.012em;line-height:1.45">{{ d.l }}</div>
+                        <div style="margin-top:6px;font-size:12.5px;color:#6B6B74;line-height:1.5">{{ d.s }}</div>
+                      </div>
+                      <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:{{ d.c }};white-space:nowrap;padding-top:3px">{{ d.tag }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <div style="margin-top:34px;font:500 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;color:#5A5A63;text-transform:uppercase">на чём основано</div>
+              <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ a.evid }}" as="e" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start;padding:14px 16px;border-radius:11px;background:#0C0C0F;border:1px solid rgba(255,255,255,.07)">
+                    <div style="font-size:13.5px;color:#C9C9D0;line-height:1.5">{{ e.t }}</div>
+                    <div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#4E4E57;white-space:nowrap;padding-top:2px">{{ e.n }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="margin-top:22px;display:flex;gap:9px;flex-wrap:wrap">
+                <div onClick="{{ a.act }}" style="padding:10px 16px;border-radius:10px;background:#EDEDF0;color:#0B0B0D;font-size:13.5px;font-weight:560;cursor:pointer;white-space:nowrap">{{ a.actLabel }}</div>
+                <div onClick="{{ a.show }}" style="padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.12);font-size:13.5px;color:#C9C9D0;cursor:pointer;white-space:nowrap">Показать на карте</div>
+                <div onClick="{{ a.mute }}" style="padding:10px 16px;border-radius:10px;font-size:13.5px;color:#5A5A63;cursor:pointer;white-space:nowrap">Это неверно</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ sClose }}" style="position:absolute;inset:0;z-index:60;background:rgba(4,4,6,.62);animation:fade .16s ease both"></div>
+      <div style="position:absolute;z-index:61;left:0;right:0;top:70px;bottom:50px;display:flex;justify-content:center;align-items:flex-start;pointer-events:none">
+      <div style="pointer-events:auto;width:min(660px,calc(100% - 48px));border-radius:16px;background:#0D0D11;border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 90px -30px rgba(0,0,0,.95);animation:rise .18s ease both;display:flex;flex-direction:column;max-height:100%;overflow:hidden">
+        <div style="padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:12px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#7C8CF8;flex:0 0 6px"></span>
+          <input value="{{ sq }}" onChange="{{ onSQ }}" onKeyDown="{{ onSKey }}" placeholder="Искать во всей жизни: артефакты, люди, цитаты, файлы, связи" style="flex:1;font-size:15px;letter-spacing:-.012em;min-width:0" />
+          <div style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:#43434B;white-space:nowrap">esc</div>
+        </div>
+        <div style="flex:1;overflow:hidden auto;min-height:0;padding:8px 8px 12px">
+          <sc-for list="{{ sGroups }}" as="g" hint-placeholder-count="3">
+            <div style="padding:12px 10px 4px">
+              <div style="font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;color:#5A5A63;text-transform:uppercase">{{ g.l }}</div>
+              <div style="margin-top:6px">
+                <sc-for list="{{ g.items }}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{ r.go }}" style="{{ r.st }}" style-hover="background:#15151B">
+                    <div style="font:500 9px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.09em;color:{{ r.c }};text-transform:uppercase;padding-top:4px;white-space:nowrap">{{ r.k }}</div>
+                    <div style="min-width:0">
+                      <div style="font-size:14px;color:#E9E9ED;letter-spacing:-.012em;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.t }}</div>
+                      <div style="font-size:12px;color:#6B6B74;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.s }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ sEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 18px;font-size:13.5px;color:#6B6B74;line-height:1.6">Ничего не нашлось. Но ничего и не потеряно: напиши это в поток — система разберёт и свяжет сама.</div>
+          </sc-if>
+        </div>
+      </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:26px;z-index:50;display:flex;justify-content:center;pointer-events:none"><div style="pointer-events:auto;z-index:40;padding:11px 17px;border-radius:11px;background:#17171D;border:1px solid rgba(255,255,255,.12);font-size:13px;color:#C9C9D0;animation:rise .25s ease both;box-shadow:0 16px 40px -16px rgba(0,0,0,.9);max-width:600px;line-height:1.5">{{ toast }}</div></div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;map&quot;,&quot;q&quot;],&quot;default&quot;:&quot;map&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Граф&quot;},&quot;question&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;people&quot;,&quot;block&quot;,&quot;goals&quot;,&quot;money&quot;,&quot;energy&quot;,&quot;delta&quot;,&quot;repeat&quot;],&quot;default&quot;:&quot;people&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Граф&quot;}}">
+const CL = {
+  money: { l: 'Деньги', c: '#63D397', x: 178, y: 252 },
+  work: { l: 'Работа', c: '#7C8CF8', x: 802, y: 172 },
+  home: { l: 'Дом и ремонт', c: '#E5B84B', x: 788, y: 466 },
+  people: { l: 'Люди', c: '#C79BE0', x: 488, y: 352 },
+  health: { l: 'Здоровье', c: '#8FBFA8', x: 236, y: 500 },
+  mind: { l: 'Цели и решения', c: '#9EA9FB', x: 494, y: 126 },
+};
+
+const N = [
+  ['flow', 'Свободный поток 740 000 ₽', 'money', 13, 'расчёт', 'Считается по движению счетов за 3 месяца. На нём держатся обе денежные цели.', 41],
+  ['save', 'Накопления 60 000 ₽/мес', 'money', 11, 'цель', 'Цель с марта. Не сходится с покупкой машины в августе.', 28],
+  ['food', 'Расходы на еду', 'money', 8, 'категория', 'Июль +18% к июню. Скачки совпадают с днями без тренировки.', 43],
+  ['deliv', 'Доставка', 'money', 7, 'категория', '+64% к июню. Семь из девяти скачков — в дни без тренировки.', 19],
+  ['subs', 'Подписки', 'money', 6, 'категория', '1 490 ₽ седьмой месяц за неиспользуемый сервис. Агент отменил.', 7],
+  ['taxi', 'Такси 85 200 ₽ за полгода', 'money', 7, 'расчёт', 'Главный экономический аргумент за покупку машины.', 61],
+  ['adv', 'Аванс по кухне 96 000 ₽', 'money', 8, 'обязательство', 'Уходит в июле из тех же денег, что и первый взнос за машину.', 6],
+  ['kasko', 'Каско 68 000 ₽ в год', 'money', 5, 'расчёт', 'Взято из PDF, добавлено к стоимости владения без твоего участия.', 3],
+  ['recs', 'Чеки июля', 'money', 6, 'источник', '43 чека, распознаны с фотографий. Руками не вводились.', 43],
+
+  ['car', 'Купить машину', 'mind', 15, 'цель · проект', 'Полгода разговоров, 11 дней действий. Разрыв 410 000 ₽.', 23],
+  ['nocred', 'Решение: без кредита', 'mind', 10, 'решение', 'Появилось из условия Марины. После него проект впервые двинулся.', 9],
+  ['confl', 'Противоречие целей', 'mind', 11, 'противоречие', 'Накопления и август несовместимы: разрыв закрывается к декабрю.', 4],
+  ['eng', 'Английский', 'mind', 6, 'цель', 'Откладывается четвёртый раз циклом около шести недель. Действий ноль.', 9],
+  ['job', 'Сменить работу', 'mind', 6, 'цель', 'Семь упоминаний, ни одного действия. Всегда после созвонов.', 7],
+  ['regime', 'Режим и сон', 'mind', 7, 'цель', 'Отбой сдвинут на 40 минут две недели. Закрытых задач минус 22%.', 12],
+  ['patt', 'Паттерн: загорелся и бросил', 'mind', 9, 'закономерность', 'Пять проектов после разговоров с Дмитрием, четыре остановились.', 5],
+
+  ['dim', 'Дмитрий', 'home', 12, 'человек', 'После каждого разговора появляется новый проект. Закрытых задач потом минус 34%.', 17],
+  ['kitchen', 'Ремонт кухни', 'home', 12, 'проект', 'Собран из шести объектов за три недели. 240 000 ₽ обязательств.', 6],
+  ['smeta', 'Смета 240 000 ₽', 'home', 8, 'документ', 'Две фотографии и PDF договора, сведены в один объект.', 4],
+  ['risk', 'Риск: аванс без гарантий', 'home', 7, 'риск', 'В договоре нет пункта о просрочке, а аванс — 40%.', 2],
+  ['thu', 'Четверг 19:00', 'home', 7, 'конфликт времени', 'Встреча с Дмитрием против родительского собрания.', 3],
+  ['podr', 'Проект подряда', 'home', 5, 'идея', 'Предложение Дмитрия. Шестой такой заход за четыре месяца.', 2],
+
+  ['marina', 'Марина', 'people', 13, 'человек', '34 упоминания. Её условие изменило проект сильнее любого из четырёх вариантов.', 34],
+  ['promise', 'Обещание Марине: август', 'people', 8, 'обещание', 'Расходится со сроками в задачах на два месяца.', 5],
+  ['igor', 'Игорь', 'people', 7, 'человек', 'Рабочие проекты. После разговоров задачи закрываются чуть чаще.', 11],
+  ['parents', 'Родители', 'people', 5, 'люди', 'Звонки по воскресеньям. На цели не влияют.', 8],
+  ['school', 'Родительское собрание', 'people', 5, 'событие', 'Четверг 19:00. Вечер Марины.', 2],
+  ['calls', 'Вечерние созвоны', 'people', 9, 'закономерность', 'После них на следующий день 1.2 задачи вместо 3.4.', 14],
+
+  ['train', 'Тренировка', 'health', 12, 'привычка', '14 отметок. В такие дни задач закрывается на 40% больше.', 14],
+  ['series', 'Серия три дня', 'health', 6, 'состояние', 'Прошлые две серии обрывались на четвёртом дне — после вечерних созвонов.', 3],
+  ['sleep', 'Сон 23:30', 'health', 7, 'привычка', 'Сдвинут две недели. Совпало с падением закрытых задач.', 12],
+  ['impulse', 'Импульсные траты', 'health', 8, 'закономерность', 'Появляются на третий–пятый день после пропуска тренировок.', 9],
+  ['pool', 'Бассейн', 'health', 5, 'привычка', 'Раз в неделю. На результаты не влияет.', 4],
+  ['back', 'Спина', 'health', 5, 'здоровье', 'Четыре упоминания, действий ноль.', 4],
+
+  ['sever', 'Северсталь 480 000 ₽', 'work', 10, 'клиент', 'Переговоры. Закрывает 61% цели по доходу.', 12],
+  ['avrora', 'Аврора 250 000 ₽', 'work', 8, 'клиент', 'В работе, сдача второго августа.', 9],
+  ['granit', 'Гранит: 17 дней тишины', 'work', 7, 'клиент', 'Правило из конструктора создало задачу само.', 5],
+  ['romash', 'Ромашка: счёт 11 дней', 'work', 6, 'счёт', 'Ждёт оплату. Влияет на свободный поток августа.', 4],
+  ['income', 'Цель по доходу', 'work', 10, 'цель', 'Единственная цель, где действий больше, чем разговоров.', 16],
+  ['deep', 'Глубокие блоки', 'work', 7, 'ритуал', 'Два часа без встреч. Единственное окно дня.', 22],
+];
+
+const T = {
+  block: { l: 'блокирует', c: '#E8705F' },
+  contra: { l: 'противоречит', c: '#E5B84B' },
+  cause: { l: 'следствие', c: '#63D397' },
+  influ: { l: 'влияет', c: '#7C8CF8' },
+  feed: { l: 'питает', c: '#8B8B93' },
+};
+
+const E = [
+  ['car', 'flow', 3, 'block', 'Цель упирается в свободные деньги: нужно 1 150 000 ₽, доступно 740 000 ₽.'],
+  ['car', 'nocred', 3, 'cause', 'Решение «без кредита» переписало цель: убрало 214 000 ₽ переплаты и добавило три месяца ожидания.'],
+  ['car', 'marina', 3, 'influ', 'Её условие изменило проект сильнее, чем все четыре найденные машины вместе.'],
+  ['car', 'taxi', 2, 'feed', 'Такси на 85 200 ₽ за полгода — экономическое обоснование цели, собрано из чеков.'],
+  ['car', 'kasko', 1, 'feed', 'Каско добавлено к стоимости владения из PDF автоматически.'],
+  ['car', 'confl', 3, 'contra', 'Срок «август» не сходится с целью по накоплениям: разрыв 410 000 ₽.'],
+  ['car', 'promise', 2, 'influ', 'Август — не расчёт, а обещание, данное в разговоре 21 июля.'],
+  ['car', 'patt', 1, 'feed', 'Главный пример паттерна: 23 разговора против 7 действий.'],
+  ['confl', 'save', 3, 'contra', 'Накопления 60 000 ₽ в месяц и покупка в августе тянут один поток.'],
+  ['confl', 'flow', 2, 'block', 'При текущем потоке разрыв закрывается только к декабрю.'],
+  ['confl', 'adv', 2, 'block', 'Аванс 96 000 ₽ в июле уменьшает свободные деньги на 13%.'],
+  ['save', 'flow', 3, 'block', 'Цель по накоплениям целиком зависит от свободного потока.'],
+  ['food', 'flow', 2, 'influ', 'Рост еды на 18% съедает 6 200 ₽ месячного плана накоплений.'],
+  ['deliv', 'food', 2, 'cause', 'Доставка выросла на 64% и тянет за собой всю категорию еды.'],
+  ['subs', 'flow', 1, 'influ', '17 880 ₽ в год за сервис, который не открывался два месяца.'],
+  ['recs', 'food', 2, 'feed', '43 чека распознаны с фотографий — категории проставлены без тебя.'],
+  ['recs', 'deliv', 1, 'feed', 'Доставка выделена из чеков как отдельная категория.'],
+  ['recs', 'taxi', 1, 'feed', 'Полгода чеков такси сложены в один аргумент.'],
+  ['taxi', 'flow', 1, 'influ', '14 200 ₽ в месяц — цена каждого отложенного месяца.'],
+  ['kitchen', 'dim', 3, 'cause', 'Проект появился из разговора с Дмитрием, а не из твоего плана.'],
+  ['kitchen', 'smeta', 2, 'feed', 'Две фотографии сметы и PDF договора сведены в один документ.'],
+  ['kitchen', 'adv', 3, 'block', 'Аванс 40% уходит первым, до начала работ.'],
+  ['kitchen', 'risk', 2, 'contra', 'В договоре нет пункта о просрочке, а деньги уходят вперёд.'],
+  ['smeta', 'risk', 1, 'feed', 'Риск выведен из текста сметы, ты о нём не говорил.'],
+  ['kitchen', 'thu', 2, 'block', 'Старт работ привязан к встрече в четверг.'],
+  ['dim', 'podr', 2, 'cause', 'Шестое предложение нового дела за четыре месяца.'],
+  ['dim', 'patt', 3, 'cause', 'Пять проектов после разговоров с ним, четыре остановились на первой неделе.'],
+  ['dim', 'calls', 2, 'feed', 'Большинство вечерних созвонов — с ним.'],
+  ['thu', 'school', 3, 'contra', 'Четверг 19:00 занят родительским собранием.'],
+  ['thu', 'marina', 2, 'influ', 'Это её вечер, а не просто занятый слот в календаре.'],
+  ['thu', 'train', 1, 'block', 'Перенос на 21:00 убирает тренировку четвёртый раз за месяц.'],
+  ['marina', 'promise', 3, 'cause', 'Обещание дано в разговоре, а не поставлено как задача.'],
+  ['marina', 'nocred', 3, 'cause', 'Условие «без кредита» прозвучало от неё 11 июня.'],
+  ['marina', 'school', 2, 'feed', 'Собрание — в её календаре.'],
+  ['marina', 'train', 1, 'influ', 'Часть тренировок вы делаете вместе — они не срываются.'],
+  ['calls', 'impulse', 2, 'cause', 'После поздних созвонов чаще появляются импульсные траты.'],
+  ['calls', 'series', 2, 'block', 'Все три обрыва серии тренировок начались после созвонов.'],
+  ['calls', 'sleep', 2, 'block', 'Отбой сдвигается на 40 минут именно в такие дни.'],
+  ['calls', 'igor', 1, 'feed', 'Часть созвонов рабочие, они на сон не влияют.'],
+  ['train', 'series', 3, 'cause', '14 отметок, из них три подряд — текущая серия.'],
+  ['train', 'impulse', 3, 'influ', 'В дни с тренировкой импульсных покупок нет: семь из девяти скачков — без неё.'],
+  ['train', 'sleep', 1, 'influ', 'После тренировки засыпаешь раньше на 25 минут.'],
+  ['train', 'pool', 1, 'feed', 'Бассейн идёт в ту же привычку, но на результаты не влияет.'],
+  ['back', 'train', 1, 'block', 'Спина — причина двух пропусков, упоминалась четыре раза.'],
+  ['impulse', 'food', 2, 'cause', 'Импульсные траты почти всегда еда и доставка.'],
+  ['impulse', 'deliv', 2, 'cause', 'Три из четырёх импульсных покупок июля — доставка.'],
+  ['sleep', 'regime', 3, 'block', 'Цель «режим» держится на времени отбоя.'],
+  ['regime', 'deep', 1, 'influ', 'Глубокие блоки получаются только после нормального сна.'],
+  ['income', 'sever', 3, 'feed', 'Северсталь закрывает 61% годовой цели по доходу.'],
+  ['income', 'avrora', 2, 'feed', 'Аврора — сдача второго августа, деньги в августе.'],
+  ['income', 'granit', 1, 'block', '17 дней тишины: сделка остывает.'],
+  ['income', 'romash', 1, 'block', 'Счёт ждёт оплату 11 дней.'],
+  ['income', 'flow', 3, 'cause', 'Доход — источник свободного потока, из которого идут обе цели.'],
+  ['romash', 'flow', 2, 'block', 'Пока счёт не оплачен, август считается по нижней границе.'],
+  ['igor', 'sever', 2, 'feed', 'Клиент пришёл через него.'],
+  ['deep', 'income', 2, 'influ', 'Дни с глубокими блоками дают больше движения по клиентам.'],
+  ['job', 'calls', 2, 'cause', 'Мысль о смене работы появляется только после вечерних созвонов.'],
+  ['job', 'income', 1, 'contra', 'Смена работы обнулила бы текущую цель по доходу.'],
+  ['eng', 'regime', 1, 'feed', 'Английский всегда планируется в те же вечерние часы, что и режим.'],
+  ['patt', 'job', 2, 'feed', 'Семь упоминаний без действий — тот же паттерн.'],
+  ['nocred', 'flow', 2, 'cause', 'Без кредита цель считается только живыми деньгами.'],
+];
+
+const IDX = {}; N.forEach((n, i) => { IDX[n[0]] = i; });
+const ADJ = {}; E.forEach(e => { (ADJ[e[0]] = ADJ[e[0]] || []).push(e); (ADJ[e[1]] = ADJ[e[1]] || []).push(e); });
+const DEG = {}; E.forEach(e => { DEG[e[0]] = (DEG[e[0]] || 0) + 1; DEG[e[1]] = (DEG[e[1]] || 0) + 1; });
+
+const DELTA = {
+  car: [['21 июля', 'Появилось решение «без кредита»', 'связь с Мариной стала сильной'], ['21 июля', 'Найдено противоречие с накоплениями', 'новый узел в графе'], ['18 июля', 'Первый реальный расчёт', 'до этого были только варианты'], ['14 июля', 'Четвёртый вариант покупки', 'цена сузилась до 1 150 000 ₽']],
+  marina: [['21 июля', 'Дала условие «август без кредита»', 'вес узла вырос на 18%'], ['19 июля', 'Связана с конфликтом четверга', 'новая связь'], ['16 июля', '34-е упоминание', 'самый упоминаемый человек']],
+  train: [['21 июля', 'Третий день серии', 'серия восстановлена'], ['10 июля', 'Серия оборвалась после созвона', 'третий такой обрыв'], ['8 июля', 'Подтверждена связь с тратами', 'уверенность 80%']],
+  dim: [['21 июля', 'Предложил проект подряда', 'шестой заход за четыре месяца'], ['21 июля', 'Из разговора вырос проект «Ремонт кухни»', 'новый проект'], ['12 июля', 'Паттерн подтверждён пятым случаем', 'уверенность 87%']],
+  flow: [['21 июля', 'Пересчитан по трём месяцам', '740 000 ₽ вместо оценки «примерно миллион»'], ['21 июля', 'Учтён аванс по кухне', 'минус 13%'], ['17 июля', 'Добавлены чеки такси', 'аргумент за покупку']],
+};
+
+const Q = [
+  { id: 'people', l: 'Кто влияет на мою продуктивность?', kind: 'bars', tag: 'люди · 90 дней', node: 'dim',
+    head: 'Дмитрий даёт тебе энергию и отнимает результат.',
+    body: 'После разговоров с ним появляются новые проекты, но закрытых задач в следующие три дня становится меньше на 34%. С Мариной наоборот: после разговоров ты чаще доводишь начатое до конца.',
+    rows: [{ l: 'Марина', v: '+41%', p: 82, c: '#8FE0B4' }, { l: 'Игорь (работа)', v: '+12%', p: 46, c: '#8FE0B4' }, { l: 'Родители', v: '0%', p: 22, c: '#5E5E67' }, { l: 'Дмитрий', v: '−34%', p: 68, c: '#E8705F' }],
+    evid: [{ t: '17 разговоров, привязанных к людям, за 90 дней', n: 'голосовые' }, { t: 'Закрытые задачи в течение трёх дней после каждого разговора', n: '412 задач' }, { t: 'Пять проектов, начатых после разговоров с Дмитрием', n: '4 остановились' }],
+    actLabel: 'Ограничить новые проекты после созвонов' },
+  { id: 'block', l: 'Что тормозит мою главную цель?', kind: 'bars', tag: 'цель «Купить машину»', node: 'car',
+    head: 'Цель тормозит не нехватка денег, а незакрытое решение.',
+    body: 'Разрыв 410 000 ₽ известен и считаем. Но продажа старой машины — единственный путь его закрыть — не начата: задача создана, действий ноль восемь дней. Всё остальное в проекте готово.',
+    rows: [{ l: 'Продажа старой машины', v: 'блокер', p: 94, c: '#E8705F' }, { l: 'Аванс по кухне', v: 'минус 13%', p: 58, c: '#E5B84B' }, { l: 'Счёт Ромашки', v: 'минус 4%', p: 26, c: '#E5B84B' }, { l: 'Цена варианта', v: 'стабильна', p: 14, c: '#5E5E67' }],
+    evid: [{ t: 'Задача «Оценить продажу» создана 21 июля', n: '0 действий' }, { t: 'Свободный поток за три месяца', n: '740 000 ₽' }, { t: 'Обязательства июля по ремонту', n: '96 000 ₽' }],
+    actLabel: 'Начать с блокера' },
+  { id: 'goals', l: 'Какие цели противоречат друг другу?', kind: 'conflict', tag: 'цели · математика', node: 'confl',
+    head: 'Две цели не могут быть выполнены одновременно. Разрыв — 410 000 ₽.',
+    body: 'При текущем свободном потоке накопления и покупка в августе несовместимы: разрыв закрывается только к декабрю. Система нашла это, сравнив цели между собой — ты ставил их в разные месяцы и никогда не сводил.',
+    evid: [{ t: 'Свободный поток по движению счетов за три месяца', n: '740 000 ₽' }, { t: 'Целевая цена по четырём вариантам', n: '1 150 000 ₽' }, { t: 'Обязательства по ремонту в июле', n: '96 000 ₽' }],
+    actLabel: 'Открыть три способа закрыть разрыв' },
+  { id: 'money', l: 'Почему выросли расходы?', kind: 'bars', tag: 'деньги · июль против июня', node: 'food',
+    head: 'Рост дала еда, а причина не в ценах — в пропущенных тренировках.',
+    body: 'Еда плюс 18%, доставка плюс 64%. Все крупные скачки попали в дни, когда тренировки не было. Подписки при этом растут молча — седьмой месяц за неиспользуемый сервис.',
+    rows: [{ l: 'Доставка', v: '+64%', p: 92, c: '#E8705F' }, { l: 'Еда в магазине', v: '+18%', p: 54, c: '#E5B84B' }, { l: 'Подписки', v: '+6%', p: 24, c: '#E5B84B' }, { l: 'Транспорт', v: '0%', p: 18, c: '#5E5E67' }, { l: 'Развлечения', v: '−22%', p: 30, c: '#8FE0B4' }],
+    evid: [{ t: 'Чеки за июль, распознанные с фотографий', n: '43 чека' }, { t: 'Отметки привычки «тренировка»', n: '14 из 21 дня' }, { t: 'Совпадение скачков с днями без тренировки', n: '7 из 9' }],
+    actLabel: 'Поставить лимит на доставку' },
+  { id: 'energy', l: 'Где теряется энергия?', kind: 'week', tag: 'энергия · 14 дней', node: 'calls',
+    head: 'Энергия уходит не на работу, а на вечерние созвоны.',
+    body: 'В дни с созвоном после 20:00 на следующий день закрывается в среднем 1.2 задачи вместо 3.4, и тренировка пропускается в четырёх случаях из пяти. Три обрыва серии начались ровно так.',
+    days: [1, 1, 0, 2, 0, 1, 1, 2, 0, 1, 1, 0, 2, 1],
+    evid: [{ t: 'Созвоны после 20:00 из календаря и голосовых', n: '5 дней' }, { t: 'Закрытые задачи на следующий день', n: 'разница ×2.8' }, { t: 'Обрывы серии тренировок', n: '3 из 3 после созвонов' }],
+    actLabel: 'Не ставить созвоны после 20:00' },
+  { id: 'delta', l: 'Что изменилось за неделю?', kind: 'delta', tag: 'граф · 7 дней', node: 'car',
+    head: 'Граф вырос на 34 связи, и одна из них меняет всё.',
+    body: 'Появление решения «без кредита» сдвинуло центр тяжести: цель по машине перестала быть разговором и стала расчётом. Заодно вскрылось противоречие, которое лежало с марта.',
+    deltas: [
+      { t: '21 июля', l: 'Решение «без кредита» связало Марину, цель и свободный поток', s: 'три сильные связи за один вечер — раньше цель висела ни на чём', tag: 'сильное', c: '#8FE0B4' },
+      { t: '21 июля', l: 'Найдено противоречие: накопления против августа', s: 'обе цели существовали месяцами и ни разу не сверялись', tag: 'новое', c: '#7C8CF8' },
+      { t: '21 июля', l: 'Проект «Ремонт кухни» собран из шести объектов', s: 'фотографии сметы, PDF, обязательство и подрядчик стали одним проектом', tag: 'новое', c: '#7C8CF8' },
+      { t: '18 июля', l: 'Паттерн «загорелся и бросил» подтверждён шестой раз', s: 'уверенность выросла с 71% до 87%', tag: 'усиление', c: '#E5B84B' },
+      { t: '17 июля', l: 'Серия тренировок восстановлена', s: 'связь с импульсными тратами подтверждена на 42 днях', tag: 'усиление', c: '#E5B84B' },
+    ],
+    evid: [{ t: 'Новые связи за 7 дней', n: '34' }, { t: 'Новых объектов', n: '18' }, { t: 'Связей, изменивших вес', n: '11' }],
+    actLabel: 'Показать неделю на карте' },
+  { id: 'repeat', l: 'Какие мысли повторяются?', kind: 'clusters', tag: 'мысли · 6 месяцев', node: 'patt',
+    head: 'Пять тем ты проговариваешь месяцами. Действия появились только у одной.',
+    body: 'Повторение — это не шум, а сигнал важности. Система не создаёт новую заметку на каждое упоминание: она усиливает существующую тему и показывает разрыв между разговорами и действиями.',
+    chips: [{ l: 'Машина', n: '23 · 7 действий', p: 1 }, { l: 'Режим и сон', n: '12 · 1', p: 0 }, { l: 'Английский', n: '9 · 0', p: 0 }, { l: 'Сменить работу', n: '7 · 0', p: 0 }, { l: 'Ремонт', n: '6 · 4', p: 1 }, { l: 'Спина', n: '4 · 0', p: 0 }],
+    evid: [{ t: 'Голосовые и мысли, сведённые по смыслу, а не по словам', n: '61 объект' }, { t: 'Темы, где действий ноль дольше 90 дней', n: '3 темы' }, { t: 'Английский откладывается циклом ~6 недель', n: '4-й раз' }],
+    actLabel: 'Выбрать две темы и закрыть остальные' },
+];
+
+const PATHS = {
+  car: [['Купить машину', ''], ['Свободный поток 740 000 ₽', 'упирается в деньги: не хватает 410 000 ₽'], ['Продажа старой машины', 'единственный путь закрыть разрыв без кредита'], ['Обещание Марине: август', 'от этого зависит, сдержишь ли ты слово']],
+  marina: [['Марина', ''], ['Решение: без кредита', 'её условие стало твоим решением'], ['Купить машину', 'решение переписало цель и срок'], ['Свободный поток', 'цель теперь считается живыми деньгами']],
+  train: [['Тренировка', ''], ['Импульсные траты', 'в дни с тренировкой их нет'], ['Расходы на еду', 'семь из девяти скачков — без тренировки'], ['Накопления 60 000 ₽/мес', 'минус 6 200 ₽ к плану месяца']],
+  dim: [['Дмитрий', ''], ['Паттерн: загорелся и бросил', 'пять проектов, четыре остановились'], ['Сменить работу', 'мысль всегда после разговоров с ним'], ['Цель по доходу', 'смена работы обнулила бы её']],
+  calls: [['Вечерние созвоны', ''], ['Сон 23:30', 'отбой сдвигается на 40 минут'], ['Режим и сон', 'цель держится на времени отбоя'], ['Глубокие блоки', 'без сна их не получается']],
+};
+
+const REMOVE = {
+  car: 'Рассыплется девять связей: обещание Марине, расчёт свободного потока, каско, четыре варианта покупки и противоречие с накоплениями. Это самый нагруженный узел твоих целей.',
+  marina: 'Исчезнут решение «без кредита», обещание на август и половина конфликта четверга. Цель по машине останется без условий — то есть снова станет разговором.',
+  train: 'Пропадёт объяснение импульсных трат и половина связей здоровья с деньгами. Это узел, через который здоровье влияет на финансы.',
+  dim: 'Останутся проект «Ремонт кухни» и смета, но исчезнет объяснение, почему ты начинаешь проекты и не заканчиваешь.',
+  flow: 'Обе денежные цели потеряют основание: они держатся на одном расчёте, который система обновляет сама.',
+};
+
+const SEARCH = [
+  ['артефакт', 'Покупка машины', 'проект · 18 источников · разрыв 410 000 ₽', 'Artifact Inspector.dc.html'],
+  ['артефакт', 'Ремонт кухни', 'проект · 240 000 ₽ обязательств · подрядчик ждёт', 'Artifact Inspector.dc.html'],
+  ['цель', 'Откладывать 60 000 ₽ в месяц', 'цель с марта · противоречит августу', 'Artifact Inspector.dc.html'],
+  ['цель', 'Режим и тренировки', 'цель · 12-е возвращение к теме', 'Graph.dc.html'],
+  ['человек', 'Марина', '34 упоминания · условие «без кредита»', 'Graph.dc.html'],
+  ['человек', 'Дмитрий', 'подрядчик · 17 разговоров · паттерн проектов', 'Graph.dc.html'],
+  ['человек', 'Игорь', 'работа · через него пришла Северсталь', 'Graph.dc.html'],
+  ['инсайт', 'После разговоров с Дмитрием ты начинаешь новый проект', '5 проектов, 4 остановились на первой неделе', 'Graph.dc.html'],
+  ['инсайт', 'В дни с тренировкой закрывается на 40% больше задач', 'и нет импульсных покупок · 42 дня', 'Graph.dc.html'],
+  ['противоречие', 'Накопления против покупки в августе', 'разрыв 410 000 ₽ · закроется к декабрю', 'Graph.dc.html'],
+  ['цитата', '«Она согласна на август, если без кредита»', 'голосовое 21 июля 21:20 · 1:48', 'Universal Capture.dc.html'],
+  ['цитата', '«Может, вообще без машины обойтись»', 'голосовое 27 июня · сомнение сохранено', 'Universal Capture.dc.html'],
+  ['файл', 'Смета_кухня_final.pdf', '6 страниц · договор подряда и смета', 'Artifact Inspector.dc.html'],
+  ['файл', 'Каско_расчёт.pdf', '68 000 ₽ в год · учтено в стоимости владения', 'Artifact Inspector.dc.html'],
+  ['чек', 'Лента · 4 380 ₽', 'еда · 21 июля · распознано с фото', 'Control.dc.html'],
+  ['привычка', 'Тренировка', '14 отметок · серия три дня', 'Graph.dc.html'],
+  ['задача', 'Ответить Дмитрию до среды', 'блокирует проект «Ремонт кухни»', 'Today.dc.html'],
+  ['задача', 'Оценить продажу старой машины', 'единственный путь закрыть 410 000 ₽', 'Today.dc.html'],
+  ['память', 'Свободный поток 740 000 ₽', 'расчёт по счетам за 3 месяца', 'Graph.dc.html'],
+  ['агент', 'Страж подписок', 'ждёт разрешения · подписка 1 490 ₽', 'Agents.dc.html'],
+  ['связь', 'Тренировка → импульсные траты', 'сильная связь · 7 из 9 скачков без тренировки', 'Graph.dc.html'],
+  ['команда', 'Разобрать день', '18 объектов в потоке ждут разбора', 'Universal Capture.dc.html'],
+  ['команда', 'Собрать своё пространство', 'Builder · линзы, представления, правила', 'Builder.dc.html'],
+  ['команда', 'Выгрузить архив', 'все артефакты, связи и чеки', 'Control.dc.html'],
+];
+const SKC = { 'артефакт': '#7C8CF8', 'цель': '#9EA9FB', 'человек': '#C79BE0', 'инсайт': '#8FE0B4', 'противоречие': '#E5B84B', 'цитата': '#8B8B93', 'файл': '#E5B84B', 'чек': '#63D397', 'привычка': '#8FBFA8', 'задача': '#7C8CF8', 'память': '#63A9D3', 'агент': '#E5B84B', 'связь': '#8B8B93', 'команда': '#6B6B74' };
+
+class Component extends DCLogic {
+  sOpenFn = () => this.setState({ sOpen: true });
+  sCloseFn = () => this.setState({ sOpen: false, sq: '' });
+  bindKeys() {
+    if (this.keysBound) return;
+    this.keysBound = true;
+    this.keyHandler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); this.setState(st => ({ sOpen: !st.sOpen, sq: '' })); }
+      else if (e.key === 'Escape') this.setState({ sOpen: false });
+    };
+    window.addEventListener('keydown', this.keyHandler);
+  }
+  searchVals() {
+    const st = this.state, q = (st.sq || '').trim().toLowerCase();
+    const hit = q ? SEARCH.filter(r => (r[1] + ' ' + r[2] + ' ' + r[0]).toLowerCase().indexOf(q) >= 0) : SEARCH.filter(r => ['артефакт', 'противоречие', 'инсайт', 'команда'].indexOf(r[0]) >= 0);
+    const order = q ? ['артефакт','цель','противоречие','инсайт','человек','задача','цитата','файл','чек','привычка','память','связь','агент','команда'] : ['артефакт','противоречие','инсайт','команда'];
+    const label = { 'артефакт': 'Артефакты', 'цель': 'Цели', 'противоречие': 'Противоречия', 'инсайт': 'Инсайты', 'человек': 'Люди', 'задача': 'Задачи', 'цитата': 'Цитаты', 'файл': 'Файлы', 'чек': 'Деньги', 'привычка': 'Привычки', 'память': 'Память', 'связь': 'Связи', 'агент': 'Агенты', 'команда': 'Команды' };
+    const groups = order.map(k => ({
+      l: label[k],
+      items: hit.filter(r => r[0] === k).map(r => ({
+        k: r[0], t: r[1], s: r[2], c: SKC[r[0]] || '#6B6B74',
+        st: 'display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:start;padding:10px;border-radius:10px;cursor:pointer',
+        go: () => { window.location.href = r[3]; },
+      })),
+    })).filter(g => g.items.length);
+    return {
+      sOpen: !!st.sOpen, sq: st.sq || '', sGroups: groups, sEmpty: !!q && !hit.length,
+      sOpenFn: this.sOpenFn, sClose: this.sCloseFn,
+      onSQ: (e) => this.setState({ sq: e.target.value }),
+      onSKey: (e) => { if (e.key === 'Enter' && hit.length) window.location.href = hit[0][3]; if (e.key === 'Escape') this.sCloseFn(); },
+    };
+  }
+  state = { mode: 'map', q: 'people', focus: null, ptab: 'why', off: {}, offT: {}, query: '', z: 1, tx: 0, ty: 0, toast: '', tick: 0 };
+  P = {};
+
+  componentDidMount() {
+    this.bindKeys();
+    this.layout();
+    this.fit();
+    this.onResize = () => this.fit();
+    window.addEventListener('resize', this.onResize);
+  }
+  componentWillUnmount() { clearTimeout(this.tt); window.removeEventListener('resize', this.onResize); }
+
+  fit = () => {
+    const el = this.stage;
+    if (!el) { setTimeout(this.fit, 60); return; }
+    const w = el.clientWidth, h = el.clientHeight;
+    if (!w || !h) { setTimeout(this.fit, 60); return; }
+    const k = Math.min((w - 28) / 960, (h - 24) / 620);
+    this.setState({ fit: Math.max(0.62, k) });
+  };
+  setStage = (el) => { if (el && el !== this.stage) { this.stage = el; this.fit(); } };
+
+  layout() {
+    const P = {};
+    N.forEach((n, i) => {
+      const c = CL[n[2]];
+      P[n[0]] = [c.x + Math.sin(i * 2.7) * 62, c.y + Math.cos(i * 1.83) * 58];
+    });
+    const ids = N.map(n => n[0]);
+    for (let it = 0; it < 420; it++) {
+      const cool = 1 - it / 420;
+      const F = {}; ids.forEach(id => { F[id] = [0, 0]; });
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          const a = P[ids[i]], b = P[ids[j]];
+          let dx = a[0] - b[0], dy = a[1] - b[1];
+          let d2 = dx * dx + dy * dy; if (d2 < 1) { d2 = 1; dx = (i % 2 ? 1 : -1); dy = (j % 2 ? 1 : -1); }
+          const d = Math.sqrt(d2);
+          const sz = (N[IDX[ids[i]]][3] + N[IDX[ids[j]]][3]) * 0.5;
+          const rep = (2400 + sz * 130) / d2;
+          F[ids[i]][0] += (dx / d) * rep; F[ids[i]][1] += (dy / d) * rep;
+          F[ids[j]][0] -= (dx / d) * rep; F[ids[j]][1] -= (dy / d) * rep;
+        }
+      }
+      E.forEach(e => {
+        const a = P[e[0]], b = P[e[1]];
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+        const rest = 132 - e[2] * 16;
+        const f = (d - rest) * 0.016 * e[2];
+        F[e[0]][0] += (dx / d) * f * 10; F[e[0]][1] += (dy / d) * f * 10;
+        F[e[1]][0] -= (dx / d) * f * 10; F[e[1]][1] -= (dy / d) * f * 10;
+      });
+      ids.forEach(id => {
+        const c = CL[N[IDX[id]][2]];
+        F[id][0] += (c.x - P[id][0]) * 0.085;
+        F[id][1] += (c.y - P[id][1]) * 0.085;
+      });
+      ids.forEach(id => {
+        const step = Math.min(9, 1.6 + cool * 8);
+        const fx = Math.max(-step, Math.min(step, F[id][0] * 0.09));
+        const fy = Math.max(-step, Math.min(step, F[id][1] * 0.09));
+        P[id][0] = Math.max(74, Math.min(886, P[id][0] + fx));
+        P[id][1] = Math.max(62, Math.min(556, P[id][1] + fy));
+      });
+    }
+    this.P = P;
+    this.setState(s => ({ tick: s.tick + 1 }));
+  }
+
+  relax(pin, rounds) {
+    const P = this.P, ids = N.map(n => n[0]);
+    for (let it = 0; it < rounds; it++) {
+      const F = {}; ids.forEach(id => { F[id] = [0, 0]; });
+      E.forEach(e => {
+        const a = P[e[0]], b = P[e[1]];
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+        const f = (d - (132 - e[2] * 16)) * 0.02 * e[2];
+        F[e[0]][0] += (dx / d) * f * 8; F[e[0]][1] += (dy / d) * f * 8;
+        F[e[1]][0] -= (dx / d) * f * 8; F[e[1]][1] -= (dy / d) * f * 8;
+      });
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          const a = P[ids[i]], b = P[ids[j]];
+          const dx = a[0] - b[0], dy = a[1] - b[1];
+          const d2 = Math.max(dx * dx + dy * dy, 1), d = Math.sqrt(d2);
+          if (d > 190) continue;
+          const rep = 2600 / d2;
+          F[ids[i]][0] += (dx / d) * rep; F[ids[i]][1] += (dy / d) * rep;
+          F[ids[j]][0] -= (dx / d) * rep; F[ids[j]][1] -= (dy / d) * rep;
+        }
+      }
+      ids.forEach(id => {
+        if (id === pin) return;
+        P[id][0] = Math.max(74, Math.min(886, P[id][0] + Math.max(-5, Math.min(5, F[id][0] * 0.07))));
+        P[id][1] = Math.max(62, Math.min(556, P[id][1] + Math.max(-5, Math.min(5, F[id][1] * 0.07))));
+      });
+    }
+  }
+
+  say(t) { clearTimeout(this.tt); this.setState({ toast: t }); this.tt = setTimeout(() => this.setState({ toast: '' }), 3800); }
+
+  grab = (id, ev) => {
+    ev.stopPropagation();
+    this.setState({ focus: id, ptab: 'why' });
+    const svg = document.querySelector('svg');
+    if (!svg) return;
+    const box = svg.getBoundingClientRect();
+    const sx = 960 / box.width, sy = 620 / box.height;
+    const x0 = ev.clientX, y0 = ev.clientY;
+    let moved = false;
+    const move = (e) => {
+      if (!moved && Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) < 4) return;
+      moved = true;
+      this.P[id] = [
+        Math.max(84, Math.min(876, (e.clientX - box.left) * sx)),
+        Math.max(74, Math.min(548, (e.clientY - box.top) * sy)),
+      ];
+      this.relax(id, 3);
+      this.setState(s => ({ tick: s.tick + 1 }));
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+  };
+
+  panStart = (e) => { this.pan = { x: e.clientX, y: e.clientY, tx: this.state.tx, ty: this.state.ty }; };
+  panMove = (e) => {
+    if (!this.pan) return;
+    this.setState({ tx: this.pan.tx + (e.clientX - this.pan.x), ty: this.pan.ty + (e.clientY - this.pan.y) });
+  };
+  panEnd = () => { this.pan = null; };
+  onWheel = (e) => {
+    e.preventDefault();
+    const z = Math.max(0.55, Math.min(2.4, this.state.z * (e.deltaY > 0 ? 0.92 : 1.08)));
+    this.setState({ z });
+  };
+
+  renderVals() {
+    const s = this.state;
+    const P = this.P;
+    const q = Q.filter(x => x.id === s.q)[0];
+
+    const NAVI = [['Дом', 'Home.dc.html', ''], ['Поток', 'Universal Capture.dc.html', '18'], ['Сегодня', 'Today.dc.html', '4'], ['Граф', 'Graph.dc.html', ''], ['Агенты', 'Agents.dc.html', '1'], ['Builder', 'Builder.dc.html', ''], ['Контроль', 'Control.dc.html', '']];
+    const lenses = NAVI.map(nv => {
+      const on = nv[0] === 'Граф';
+      return {
+        name: nv[0], n: nv[2],
+        go: () => { if (!on) window.location.href = nv[1]; },
+        st: 'display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;font-size:13.5px;letter-spacing:-.012em;cursor:pointer;transition:background .12s;' + (on ? 'background:#17171E;color:#EDEDF0' : 'color:#8B8B93'),
+        dot: 'width:6px;height:6px;border-radius:50%;flex:0 0 6px;background:' + (on ? '#7C8CF8' : '#33333B'),
+        badge: nv[2] ? 'margin-left:auto;font:400 11px/1 ui-monospace,Menlo,monospace;color:' + (on ? '#9EA9FB' : '#5A5A63') : 'display:none',
+      };
+    });
+
+    const ready = !!P[N[0][0]];
+    const qq = s.query.trim().toLowerCase();
+    const match = (n) => qq && n[1].toLowerCase().indexOf(qq) >= 0;
+    const visN = (id) => !s.off[N[IDX[id]][2]];
+    const visE = (e) => visN(e[0]) && visN(e[1]) && !s.offT[e[3]];
+    const shown = E.filter(visE);
+
+    const near = {};
+    if (s.focus) { near[s.focus] = 1; shown.forEach(e => { if (e[0] === s.focus) near[e[1]] = 1; if (e[1] === s.focus) near[e[0]] = 1; }); }
+    const dim = (id) => s.focus ? (near[id] ? 1 : 0.1) : (qq ? (match(N[IDX[id]]) ? 1 : 0.14) : 1);
+
+    const nodeOf = (id) => N[IDX[id]];
+
+    const edges = ready ? shown.map(e => {
+      const a = P[e[0]], b = P[e[1]];
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      const len = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+      const bow = Math.min(len * 0.12, 26);
+      const cx = mx - (dy / len) * bow, cy = my + (dx / len) * bow;
+      const act = s.focus && (e[0] === s.focus || e[1] === s.focus);
+      return {
+        d: 'M' + a[0].toFixed(1) + ' ' + a[1].toFixed(1) + ' Q' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ' ' + b[0].toFixed(1) + ' ' + b[1].toFixed(1),
+        c: act ? T[e[3]].c : T[e[3]].c,
+        w: act ? e[2] * 1.05 + 0.8 : e[2] * 0.5 + 0.3,
+        o: s.focus ? (act ? 0.9 : 0.045) : (0.13 + e[2] * 0.055),
+      };
+    }) : [];
+
+    const glows = ready ? N.filter(n => visN(n[0]) && (n[3] >= 12 || s.focus === n[0])).map(n => ({
+      x: P[n[0]][0].toFixed(1), y: P[n[0]][1].toFixed(1), r: (n[3] * 1.5).toFixed(0),
+      c: CL[n[2]].c, o: (s.focus === n[0] ? 0.5 : 0.16) * dim(n[0]),
+    })) : [];
+
+    const nodes = ready ? N.filter(n => visN(n[0])).map(n => {
+      const p = P[n[0]], on = s.focus === n[0], hit = match(n);
+      return {
+        x: p[0].toFixed(1), y: p[1].toFixed(1), r: (n[3] * 0.6 + 3.4).toFixed(1),
+        f: CL[n[2]].c, s: on ? '#FFFFFF' : hit ? '#FFFFFF' : CL[n[2]].c, sw: on ? 2.2 : hit ? 1.6 : 1,
+        o: on ? 1 : dim(n[0]) * 0.62,
+      };
+    }) : [];
+
+    const hits = ready ? N.filter(n => visN(n[0])).map(n => {
+      const p = P[n[0]], r = Math.max(n[3] * 0.6 + 3.4, 9);
+      return {
+        title: n[1], grab: (ev) => this.grab(n[0], ev),
+        st: 'position:absolute;left:' + (p[0] - r - 3).toFixed(1) + 'px;top:' + (p[1] - r - 3).toFixed(1) + 'px;width:' + ((r + 3) * 2).toFixed(1) + 'px;height:' + ((r + 3) * 2).toFixed(1) + 'px;border-radius:50%;cursor:pointer;pointer-events:auto',
+      };
+    }) : [];
+
+    const cand = ready ? N.filter(n => visN(n[0]) && (s.focus ? near[n[0]] : (qq ? match(n) : n[3] >= 11)))
+      .sort((a, b) => (s.focus === a[0] ? -1 : s.focus === b[0] ? 1 : b[3] - a[3])) : [];
+    const placed = [];
+    const labels = cand.map(n => {
+      const p = P[n[0]], on = s.focus === n[0];
+      const txt = n[1].length > 30 ? n[1].slice(0, 28) + '…' : n[1];
+      const fs = on ? 13 : 11.5, w = txt.length * fs * 0.54, h = fs + 5;
+      const base = n[3] * 0.6 + 12;
+      let x = Math.min(Math.max(p[0], 8 + w / 2), 952 - w / 2), y = p[1] + base;
+      const tries = [[0, 0], [0, -(base * 2)], [0, h + 3], [0, -(base * 2 + h + 3)], [w / 2 + 14, -base + h / 2], [-(w / 2 + 14), -base + h / 2], [0, h * 2 + 6], [0, -(base * 2 + h * 2)]];
+      for (let t = 0; t < tries.length; t++) {
+        const cx = x + tries[t][0], cy = y + tries[t][1];
+        const hit = placed.some(r => Math.abs(r.cx - cx) < (r.w + w) / 2 + 7 && Math.abs(r.cy - cy) < (r.h + h) / 2 + 4);
+        if (!hit || t === tries.length - 1) { x = cx; y = cy; break; }
+      }
+      placed.push({ cx: x, cy: y, w, h });
+      return {
+        l: txt,
+        st: 'position:absolute;left:' + x.toFixed(0) + 'px;top:' + (y - h / 2).toFixed(0) + 'px;transform:translateX(-50%);white-space:nowrap;font-size:' + fs + 'px;font-weight:' + (on ? 560 : 400) + ';letter-spacing:-.008em;color:' + (on ? '#FFFFFF' : '#A8A8B0') + ';opacity:' + dim(n[0]).toFixed(2) + ';text-shadow:0 1px 8px #08080A,0 0 4px #08080A',
+      };
+    });
+
+    const hulls = ready ? Object.keys(CL).filter(k => !s.off[k]).map(k => {
+      const pts = N.filter(n => n[2] === k).map(n => P[n[0]]);
+      const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length;
+      const top = Math.min.apply(null, pts.map(p => p[1]));
+      return {
+        l: CL[k].l,
+        st: 'position:absolute;left:' + cx.toFixed(0) + 'px;top:' + (top - 40).toFixed(0) + 'px;transform:translateX(-50%);white-space:nowrap;font:500 9.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:' + CL[k].c + ';opacity:' + (s.focus || qq ? 0.2 : 0.46),
+      };
+    }) : [];
+
+    const counts = {}; N.forEach(n => { counts[n[2]] = (counts[n[2]] || 0) + 1; });
+
+    const f = s.focus ? nodeOf(s.focus) : null;
+    const nb = s.focus ? shown.filter(e => e[0] === s.focus || e[1] === s.focus)
+      .sort((a, b) => b[2] - a[2])
+      .map(e => {
+        const other = e[0] === s.focus ? e[1] : e[0];
+        return {
+          l: nodeOf(other)[1], type: T[e[3]].l, tc: T[e[3]].c, why: e[4],
+          bc: e[2] === 3 ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.07)',
+          go: () => this.setState({ focus: other, ptab: 'why' }),
+        };
+      }) : [];
+
+    const wsum = s.focus ? shown.filter(e => e[0] === s.focus || e[1] === s.focus).reduce((a, e) => a + e[2], 0) : 0;
+
+    const ptabs = [['why', 'Почему'], ['impact', 'Влияние'], ['delta', 'Изменения']].map(t => ({
+      l: t[1], go: () => this.setState({ ptab: t[0] }),
+      st: 'padding:12px 13px;font-size:13px;cursor:pointer;border-bottom:1.5px solid ' + (s.ptab === t[0] ? '#7C8CF8' : 'transparent') + ';color:' + (s.ptab === t[0] ? '#EDEDF0' : '#6B6B74') + ';margin-bottom:-1px',
+    }));
+
+    const path = (PATHS[s.focus] || [[f ? f[1] : '', ''], ['Свободный поток 740 000 ₽', 'через ' + (DEG[s.focus] || 0) + ' связей упирается в деньги']]);
+    const delta = DELTA[s.focus] || [['за 7 дней', 'Связи этого узла не менялись', 'последнее изменение более недели назад']];
+
+    const top = N.slice().sort((a, b) => (DEG[b[0]] || 0) - (DEG[a[0]] || 0)).slice(0, 4)
+      .map(n => ({ l: n[1], n: (DEG[n[0]] || 0) + ' связей', go: () => this.setState({ focus: n[0], ptab: 'why' }) }));
+
+    return {
+      lenses,
+      isMap: s.mode === 'map', isQ: s.mode === 'q',
+      toMap: () => this.setState({ mode: 'map' }), toQ: () => this.setState({ mode: 'q' }),
+      tabMapSt: 'padding:6px 12px;border-radius:8px;font-size:12.5px;white-space:nowrap;cursor:pointer;' + (s.mode === 'map' ? 'background:#1E1E26;color:#EDEDF0' : 'color:#6B6B74'),
+      tabQSt: 'padding:6px 12px;border-radius:8px;font-size:12.5px;white-space:nowrap;cursor:pointer;' + (s.mode === 'q' ? 'background:#1E1E26;color:#EDEDF0' : 'color:#6B6B74'),
+      head: s.mode === 'map' ? N.length + ' объектов · ' + shown.length + ' связей' : 'собрано из твоих артефактов',
+
+      query: s.query, hasQuery: !!s.query,
+      onQuery: (e) => this.setState({ query: e.target.value, focus: null }),
+      clearQuery: () => this.setState({ query: '' }),
+
+      setStage: this.setStage,
+      stageStyle: 'position:absolute;inset:0;overflow:hidden;cursor:' + (this.pan ? 'grabbing' : 'grab'),
+      worldStyle: 'position:absolute;left:50%;top:50%;width:960px;height:620px;margin:-310px 0 0 -480px;transform:translate(' + (s.tx + (f ? -186 : 0)) + 'px,' + s.ty + 'px) scale(' + ((s.fit || 1) * s.z).toFixed(3) + ');transform-origin:center center;transition:transform .22s cubic-bezier(.2,.8,.2,1)',
+      zoomLabel: Math.round(s.z * 100) + '%',
+      zoomIn: () => this.setState(st => ({ z: Math.min(2.4, st.z * 1.15) })),
+      zoomOut: () => this.setState(st => ({ z: Math.max(0.55, st.z / 1.15) })),
+      reset: () => { this.setState({ z: 1, tx: 0, ty: 0, off: {}, offT: {}, focus: null, query: '' }); this.layout(); },
+      panStart: this.panStart, panMove: this.panMove, panEnd: this.panEnd, onWheel: this.onWheel,
+
+      edges, nodes, hits, labels, hulls, glows, top,
+
+      legend: Object.keys(CL).map(k => {
+        const on = !s.off[k];
+        return {
+          l: CL[k].l, n: counts[k],
+          go: () => this.setState(st => ({ off: Object.assign({}, st.off, { [k]: on }), focus: null })),
+          st: 'display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;font-size:12px;white-space:nowrap;cursor:pointer;' + (on ? 'background:#101015;border:1px solid rgba(255,255,255,.09);color:#D6D6DC' : 'background:transparent;border:1px solid rgba(255,255,255,.05);color:#43434B'),
+          dot: 'width:7px;height:7px;border-radius:50%;flex:0 0 7px;background:' + (on ? CL[k].c : '#2A2A32'),
+        };
+      }),
+      kinds: Object.keys(T).map(k => {
+        const on = !s.offT[k];
+        return {
+          l: T[k].l,
+          go: () => this.setState(st => ({ offT: Object.assign({}, st.offT, { [k]: on }) })),
+          st: 'display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:8px;font-size:11.5px;white-space:nowrap;cursor:pointer;' + (on ? 'color:#A8A8B0' : 'color:#3E3E46'),
+          line: 'width:13px;height:2px;border-radius:2px;flex:0 0 13px;background:' + (on ? T[k].c : '#2A2A32'),
+        };
+      }),
+
+      noFocus: !f, close: () => this.setState({ focus: null }),
+      focus: f ? {
+        l: f[1], kind: f[4], s: f[5], mentions: f[6], deg: DEG[f[0]] || 0, nb,
+        weight: wsum >= 20 ? 'высокий' : wsum >= 12 ? 'средний' : 'малый',
+        wc: wsum >= 20 ? '#E8705F' : wsum >= 12 ? '#E5B84B' : '#8FE0B4',
+        dot: 'width:10px;height:10px;border-radius:50%;margin-top:5px;flex:0 0 10px;background:' + CL[f[2]].c,
+        impactLead: 'Через какие объекты этот узел дотягивается до твоих целей — и почему каждый шаг именно такой.',
+        path: path.map((p, i) => ({ l: p[0], arrow: i < path.length - 1 ? path[i + 1][1] : '', dot: 'width:9px;height:9px;border-radius:50%;flex:0 0 9px;background:' + (i === 0 ? '#7C8CF8' : 'rgba(124,140,248,.35)') })),
+        remove: REMOVE[f[0]] || 'Узел держит ' + (DEG[f[0]] || 0) + ' связей. Без него часть объяснений в графе перестанет собираться.',
+        delta: delta.map(d => ({ t: d[0], l: d[1], s: d[2] })),
+        ask: () => this.say('AI отвечает только про «' + f[1] + '» и его ' + (DEG[f[0]] || 0) + ' связей — не общий чат.'),
+      } : null,
+      ptabs, pWhy: s.ptab === 'why', pImpact: s.ptab === 'impact', pDelta: s.ptab === 'delta',
+
+      qs: Q.map(x => ({
+        l: x.l, go: () => this.setState({ q: x.id }),
+        st: 'padding:12px 14px;border-radius:11px;font-size:13.5px;line-height:1.4;letter-spacing:-.01em;cursor:pointer;text-wrap:pretty;' + (x.id === s.q ? 'background:#15151B;color:#EDEDF0;border:1px solid rgba(124,140,248,.3)' : 'color:#8B8B93;border:1px solid transparent'),
+      })),
+      isBars: q.kind === 'bars', isConflict: q.kind === 'conflict', isWeek: q.kind === 'week', isClusters: q.kind === 'clusters', isDelta: q.kind === 'delta',
+      a: {
+        tag: q.tag, head: q.head, body: q.body, evid: q.evid, actLabel: q.actLabel, deltas: q.deltas || [],
+        rows: (q.rows || []).map(r => ({ l: r.l, v: r.v, c: r.c, bar: 'position:absolute;left:0;top:0;bottom:0;width:' + r.p + '%;border-radius:4px;background:' + r.c + ';opacity:.75;transform-origin:left;animation:grow .5s cubic-bezier(.2,.8,.2,1) both' })),
+        days: (q.days || []).map((d, i) => ({
+          l: (8 + i) + ' июл',
+          st: 'width:100%;height:' + (d === 2 ? 34 : d === 1 ? 24 : 12) + 'px;border-radius:5px;background:' + (d === 2 ? '#E8705F' : d === 1 ? '#7C8CF8' : '#2A2A32'),
+        })),
+        chips: (q.chips || []).map(c => ({
+          l: c.l, n: c.n, go: () => this.say(c.l + ' · ' + c.n + ' — тема открывается со всеми упоминаниями и действиями'),
+          st: 'display:flex;align-items:baseline;padding:11px 15px;border-radius:11px;cursor:pointer;font-size:14px;letter-spacing:-.012em;color:#E4E4E8;background:' + (c.p ? 'rgba(124,140,248,.07)' : '#0C0C0F') + ';border:1px solid ' + (c.p ? 'rgba(124,140,248,.26)' : 'rgba(255,255,255,.07)'),
+        })),
+        act: () => this.say('Принято · ' + q.actLabel + ' · записано как правило, агент проследит'),
+        show: () => this.setState({ mode: 'map', focus: q.node, ptab: q.id === 'delta' ? 'delta' : 'why' }),
+        mute: () => this.say('Отмечено как неверное. Система понизит вес этой закономерности и спросит, что именно не так.'),
+      },
+      toast: s.toast,
+      ...this.searchVals(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
