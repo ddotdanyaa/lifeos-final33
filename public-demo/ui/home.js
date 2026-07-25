@@ -280,11 +280,9 @@ export function renderAssistantHome(ctx) {
   const quietHours = isQuietHours(ctx.nowTime);
   return [
     `<section class="assistant-home-v2${quietHours ? " quiet-hours" : ""}" data-testid="command-center" data-quiet-hours="${quietHours ? "true" : "false"}">`,
-    `<div class="home-hero-copy">`,
-    `<span>LifeOS</span>`,
-    `<h1>Локальная ОС для дня, знаний и контроля</h1>`,
-    `<p>Один вход превращает хаос в артефакты: задачи, деньги, знания, календарь, привычки и связи.</p>`,
-    `</div>`,
+    // V3-DESIGN: в каноне (design-system/Home.dc.html) героя нет — экран сразу начинается с
+    // состояния жизни и главного действия. Рекламный блок съедал первый экран и не отвечал
+    // на вопрос «что сейчас важнее всего».
     renderLifeFocus(ctx),
     `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
