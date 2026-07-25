@@ -238,6 +238,40 @@ function isQuietHours(nowTime) {
   return Number.isFinite(hour) && (hour >= 22 || hour < 6);
 }
 
+// V3-DESIGN (эталон design-system/Home.dc.html): Дом отвечает на один вопрос — что сейчас
+// важнее всего. Состояние жизни одной фразой, ОДНО лучшее действие с обоснованием «почему
+// это, а не другое», остальное — свёрнутым списком. Не дашборд из плиток (законы 1/6 HANDOFF).
+function renderLifeFocus(ctx) {
+  const focus = ctx.lifeFocus || {};
+  if (!focus.hasFocus) {
+    return [
+      `<section class="life-focus life-focus-empty" data-testid="life-focus">`,
+      `<p class="life-focus-state" data-testid="life-focus-state">${escapeHtml(focus.stateLine || "")}</p>`,
+      `</section>`
+    ].join("");
+  }
+  const best = focus.best;
+  const percent = Math.round((focus.confidence || 0) * 100);
+  return [
+    `<section class="life-focus" data-testid="life-focus">`,
+    `<p class="life-focus-state" data-testid="life-focus-state">${escapeHtml(focus.stateLine || "")}</p>`,
+    `<article class="life-focus-best" data-testid="life-focus-best">`,
+    `<header><span class="life-focus-label">Сейчас важнее всего</span><span class="life-focus-conf" data-testid="life-focus-confidence">уверенность ${percent}%</span></header>`,
+    `<h2>${escapeHtml(best.title)}</h2>`,
+    `<p>${escapeHtml(best.summary)}</p>`,
+    `<p class="life-focus-why" data-testid="life-focus-why">Почему это: ${escapeHtml(best.why)}</p>`,
+    button("set-surface", "Открыть", { id: best.surface, kind: "primary", testId: "life-focus-open" }),
+    `</article>`,
+    focus.others && focus.others.length ? [
+      `<details class="life-focus-others" data-testid="life-focus-others">`,
+      `<summary>Ещё ${focus.others.length} важных</summary>`,
+      `<ul>${focus.others.map((item) => `<li data-testid="life-focus-other"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.why)}</span></li>`).join("")}</ul>`,
+      `</details>`
+    ].join("") : "",
+    `</section>`
+  ].join("");
+}
+
 export function renderAssistantHome(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
@@ -251,6 +285,7 @@ export function renderAssistantHome(ctx) {
     `<h1>Локальная ОС для дня, знаний и контроля</h1>`,
     `<p>Один вход превращает хаос в артефакты: задачи, деньги, знания, календарь, привычки и связи.</p>`,
     `</div>`,
+    renderLifeFocus(ctx),
     `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
     renderHumanAnswerCard(ctx),

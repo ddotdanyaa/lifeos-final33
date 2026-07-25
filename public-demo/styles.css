@@ -9549,3 +9549,109 @@ audio {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* V3-DESIGN: блок фокуса на Доме (эталон design-system/Home.dc.html — состояние жизни,
+   одно лучшее действие с обоснованием, остальное свёрнуто). Спокойно, много воздуха,
+   волосяные границы, акцент только на главном действии. */
+.life-focus {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.life-focus-state {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-base);
+  line-height: var(--line-height-normal);
+}
+
+.life-focus-best {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.life-focus-best header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.life-focus-label {
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.life-focus-conf {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.life-focus-best h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: var(--line-height-tight);
+  color: var(--ink);
+}
+
+.life-focus-best p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+}
+
+.life-focus-why {
+  color: var(--muted);
+  font-size: var(--text-xs) !important;
+  opacity: 0.85;
+}
+
+.life-focus-best button {
+  justify-self: start;
+  margin-top: var(--space-2);
+}
+
+.life-focus-others summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  padding: var(--space-2) 0;
+}
+
+.life-focus-others ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.life-focus-others li {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.life-focus-others li strong {
+  font-size: var(--text-sm);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.life-focus-others li span {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}

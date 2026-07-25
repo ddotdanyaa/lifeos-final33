@@ -11626,6 +11626,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     resolvedPeople: resolvePeople(state),
     personMergeSuggestions: personMergeSuggestions(state),
     computedInsights: computeInsights(state),
+    lifeFocus: computeLifeFocus(state),
     eveningReflection: eveningReflection(state),
     userModel: computeUserModel(state),
     workDecision: workDecisionSupport(state),
@@ -12487,6 +12488,99 @@ function financeWeeklySeries(state) {
   const hoursByDay = days.map((day) => txs.filter((tx) => tx.kind === "income" && tx.day === day).reduce((sum, tx) => sum + (tx.shiftHours || 0), 0));
   const labels = days.map((day) => day.slice(5).split("-").reverse().join("."));
   return { labels, expenseByDay, incomeByDay, hoursByDay };
+}
+
+// V3-DESIGN (эталон design-system/Home.dc.html, законы 1/6 из HANDOFF.md): Дом отвечает на
+// ОДИН вопрос — «что сейчас важнее всего для жизни». Ранжирование по ВЛИЯНИЮ (сколько целей и
+// задач держит, насколько просрочено), а не по времени в календаре, и у каждого кандидата —
+// «почему это, а не другое». Читает существующие коллекции, ничего не создаёт и не мутирует.
+function computeLifeFocus(state) {
+  const today = todayKey();
+  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+  const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done");
+  const openProposals = Object.values(state.proposals || {}).filter((item) => item.status === "open");
+  const rawCaptures = Object.values(state.sources || {}).filter((item) => !item.deleted && String(item.createdAt || "").slice(0, 10) === today);
+  const candidates = [];
+
+  for (const task of openTasks) {
+    let impact = 0;
+    const why = [];
+    const goal = task.goalId ? goals.find((item) => item.id === task.goalId) : null;
+    if (goal) {
+      impact += 40;
+      why.push("двигает цель «" + (goal.title || "цель") + "»");
+    }
+    const overdueDays = task.day && task.day < today ? Math.round(ageInDays(task.day + "T00:00:00", Date.now())) : 0;
+    if (overdueDays > 0) {
+      impact += 25 + Math.min(overdueDays, 10);
+      why.push("просрочена на " + overdueDays + " " + pluralRu(overdueDays, "день", "дня", "дней"));
+    } else if (task.day === today) {
+      impact += 15;
+      why.push("на сегодня");
+    }
+    if (task.startTime) impact += 5;
+    if (!impact) continue;
+    candidates.push({
+      id: task.id,
+      kind: "task",
+      title: task.title || "Задача",
+      summary: goal ? "Без этого шага цель «" + (goal.title || "цель") + "» стоит на месте." : "Открытая задача с датой — дальше она только дорожает.",
+      why: why.join(" · "),
+      impact,
+      surface: "today"
+    });
+  }
+
+  // Неразобранный поток: пока захваты не разобраны, они не участвуют ни в целях, ни в деньгах.
+  if (openProposals.length >= 3) {
+    candidates.push({
+      id: "focus-digest",
+      kind: "digest",
+      title: "Разобрать поток за сегодня",
+      summary: rawCaptures.length
+        ? "Сырых записей за сегодня: " + rawCaptures.length + ". Пока не разобраны — не участвуют ни в целях, ни в деньгах."
+        : "Есть неразобранные предложения — пока не подтвердишь, они не влияют ни на цели, ни на деньги.",
+      why: openProposals.length + " " + pluralRu(openProposals.length, "предложение ждёт", "предложения ждут", "предложений ждут") + " решения",
+      impact: 30 + Math.min(openProposals.length, 20),
+      surface: "capture"
+    });
+  }
+
+  for (const goal of goals) {
+    const linked = openTasks.filter((task) => task.goalId === goal.id);
+    if (linked.length) continue;
+    candidates.push({
+      id: goal.id,
+      kind: "goal",
+      title: "Дать цели следующий шаг: «" + (goal.title || "цель") + "»",
+      summary: "У активной цели нет ни одной открытой задачи — она не двигается.",
+      why: "цель без следующего шага",
+      impact: 35,
+      surface: "goals"
+    });
+  }
+
+  candidates.sort((a, b) => b.impact - a.impact);
+  const best = candidates[0] || null;
+  const others = candidates.slice(1, 4);
+  // Гейт по уверенности (закон 6): отрыв лидера от следующего = насколько выбор однозначен.
+  const gap = best && others[0] ? best.impact - others[0].impact : best ? best.impact : 0;
+  const confidence = !best ? 0 : Math.max(0.5, Math.min(0.96, 0.6 + gap / 100));
+
+  const stateParts = [];
+  if (goals.length) stateParts.push(goals.length + " " + pluralRu(goals.length, "активная цель", "активные цели", "активных целей"));
+  const overdueCount = openTasks.filter((task) => task.day && task.day < today).length;
+  if (overdueCount) stateParts.push(overdueCount + " " + pluralRu(overdueCount, "задача просрочена", "задачи просрочены", "задач просрочено"));
+  if (openProposals.length) stateParts.push(openProposals.length + " " + pluralRu(openProposals.length, "предложение ждёт", "предложения ждут", "предложений ждут") + " решения");
+  if (rawCaptures.length) stateParts.push("сегодня записано " + rawCaptures.length);
+
+  return {
+    best,
+    others,
+    confidence,
+    hasFocus: Boolean(best),
+    stateLine: stateParts.length ? stateParts.join(" · ") + "." : "Пока пусто — запиши мысль, расход или задачу, и здесь появится главное."
+  };
 }
 
 function ownerTodaySummary(state) {
