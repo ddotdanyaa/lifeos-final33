@@ -1059,6 +1059,7 @@ function createInitialState() {
     // коллекция - настройка поведения, не артефакт).
     financeCategoryRules: [],
     theme: "system",
+    activeSpace: "all",
     financeWeeklyGoal: 0,
     financePaydayDay: 0,
     commandPaletteOpen: false,
@@ -2492,6 +2493,7 @@ function normalizeState(input) {
         }))
       : [],
     theme: base.theme === "dark" || base.theme === "light" ? base.theme : "system",
+    activeSpace: ["all", "work", "money", "health"].includes(base.activeSpace) ? base.activeSpace : "all",
     financeWeeklyGoal: Number.isFinite(Number(base.financeWeeklyGoal)) ? Math.max(0, Number(base.financeWeeklyGoal)) : 0,
     financePaydayDay: Number.isFinite(Number(base.financePaydayDay)) ? Math.max(0, Math.min(28, Math.round(Number(base.financePaydayDay)))) : 0,
     commandPaletteOpen: Boolean(base.commandPaletteOpen),
@@ -11690,6 +11692,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     personMergeSuggestions: personMergeSuggestions(state),
     computedInsights: computeInsights(state),
     lifeFocus: computeLifeFocus(state),
+    lifeSpaces: LIFE_SPACES.map((row) => ({ id: row[0], label: row[1], active: (state.activeSpace || "all") === row[0] })),
     graphAnswers: computeGraphAnswers(state),
     eveningReflection: eveningReflection(state),
     userModel: computeUserModel(state),
@@ -12558,8 +12561,32 @@ function financeWeeklySeries(state) {
 // ОДИН вопрос — «что сейчас важнее всего для жизни». Ранжирование по ВЛИЯНИЮ (сколько целей и
 // задач держит, насколько просрочено), а не по времени в календаре, и у каждого кандидата —
 // «почему это, а не другое». Читает существующие коллекции, ничего не создаёт и не мутирует.
+// Закон №1 канона (design-system/HANDOFF.md): Дом/Работа/Деньги/Здоровье — не разделы, а линзы
+// над ОДНОЙ моделью. Переключение меняет только ранжирование кандидатов фокуса.
+const LIFE_SPACES = [
+  ["all", "Всё"],
+  ["work", "Работа"],
+  ["money", "Деньги"],
+  ["health", "Здоровье"]
+];
+
+const SPACE_HINTS = {
+  work: ["работ", "проект", "клиент", "смена", "задач", "дедлайн", "встреч", "созвон"],
+  money: ["деньг", "накоп", "купить", "оплат", "расход", "доход", "бюджет", "цена", "машин", "квартир", "кредит", "ипотек"],
+  health: ["здоров", "сон", "трениров", "спорт", "врач", "энерг", "питан", "вода", "шаг"]
+};
+
+function spaceRelevanceBoost(space, text) {
+  if (!space || space === "all") return 0;
+  const hints = SPACE_HINTS[space];
+  if (!hints) return 0;
+  const lower = String(text || "").toLocaleLowerCase();
+  return hints.some((hint) => lower.includes(hint)) ? 50 : -20;
+}
+
 function computeLifeFocus(state) {
   const today = todayKey();
+  const activeSpace = LIFE_SPACES.some((row) => row[0] === state.activeSpace) ? state.activeSpace : "all";
   const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
   const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done");
   const openProposals = Object.values(state.proposals || {}).filter((item) => item.status === "open");
@@ -12624,6 +12651,11 @@ function computeLifeFocus(state) {
     });
   }
 
+  // Линза пространства: поднимает релевантное выбранной сфере, приглушает остальное.
+  // Данные не фильтруются — меняется только порядок (закон №1).
+  for (const candidate of candidates) {
+    candidate.impact += spaceRelevanceBoost(activeSpace, candidate.title + " " + candidate.summary);
+  }
   candidates.sort((a, b) => b.impact - a.impact);
   const best = candidates[0] || null;
   const others = candidates.slice(1, 4);
@@ -17918,6 +17950,14 @@ async function handleAction(action, id) {
         actionType: actionInput ? actionInput.value : "task"
       });
       if (!result.ok) state.commandMessage = result.errors.join("; ");
+    });
+    return;
+  }
+  if (action === "set-space") {
+    // Закон №1 канона: пространства — ЛИНЗЫ над одной моделью. Переключение меняет
+    // ранжирование фокуса, а не данные: ничего не создаётся, не скрывается и не удаляется.
+    await store.commit("Пространство переключено", (state) => {
+      state.activeSpace = LIFE_SPACES.some((row) => row[0] === id) ? id : "all";
     });
     return;
   }

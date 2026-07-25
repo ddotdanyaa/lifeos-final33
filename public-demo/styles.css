@@ -9814,3 +9814,46 @@ audio {
   font-size: var(--text-xs) !important;
   opacity: 0.8;
 }
+
+/* V3-DESIGN: шапка канона — линзы жизни вместо рекламного заголовка (закон №1). */
+.lifeos-header-v3 .space-tabs-v3 {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.space-tab-v3 {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.space-tab-v3:hover {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.space-tab-v3.active {
+  background: var(--surface-soft);
+  border-color: var(--line);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.space-tabs-note {
+  margin-left: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+@media (max-width: 720px) {
+  .space-tabs-note { display: none; }
+}

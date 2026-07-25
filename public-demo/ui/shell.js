@@ -156,8 +156,13 @@ export function renderNewShell(ctx) {
     `<input id="audio-import" data-testid="audio-import" type="file" accept="audio/*" multiple hidden>`,
     `<input id="backup-import" data-testid="backup-import" type="file" accept="application/json,.json" hidden>`,
     `<input id="obsidian-vault-import" data-testid="obsidian-vault-import" type="file" webkitdirectory multiple hidden>`,
-    `<header class="lifeos-public-header">`,
-    `<div><strong>LifeOS v34</strong><span>Локальная персональная ОС для жизни, данных, знаний и действий</span></div>`,
+    `<header class="lifeos-public-header lifeos-header-v3">`,
+    // V3-DESIGN (канон design-system/Home.dc.html): верх — линзы жизни над одной моделью, а не
+    // рекламный заголовок. Переключение меняет ранжирование фокуса, данные те же (закон №1).
+    `<div class="space-tabs-v3" data-testid="space-tabs">`,
+    (ctx.lifeSpaces || []).map((space) => `<button class="space-tab-v3${space.active ? " active" : ""}" data-action="set-space" data-id="${escapeHtml(space.id)}" data-testid="space-tab-${escapeHtml(space.id)}">${escapeHtml(space.label)}</button>`).join(""),
+    `<span class="space-tabs-note">одна модель данных · ${(ctx.lifeSpaces || []).length} представления</span>`,
+    `</div>`,
     `<label class="global-search-v2"><span>Найти</span><input id="global-search" data-testid="global-search" value="${escapeHtml(ctx.searchQuery || "")}" autocomplete="off" aria-label="Поиск"></label>`,
     `<div class="header-actions-v2">`,
     `<button class="top-capture-v2" data-action="set-surface" data-id="capture" data-testid="top-capture">Ввод</button>`,
