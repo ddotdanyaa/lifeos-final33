@@ -11690,6 +11690,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     personMergeSuggestions: personMergeSuggestions(state),
     computedInsights: computeInsights(state),
     lifeFocus: computeLifeFocus(state),
+    graphAnswers: computeGraphAnswers(state),
     eveningReflection: eveningReflection(state),
     userModel: computeUserModel(state),
     workDecision: workDecisionSupport(state),
@@ -12875,6 +12876,84 @@ function detectProjectClusters(state) {
   }
   results.sort((a, b) => b.members.length - a.members.length);
   return results.slice(0, 3);
+}
+
+// P1-1 (донор-алгоритм: Neo4j GDS PageRank — общеизвестный алгоритм, реализован сам под нашу
+// проекцию). Влияние узла = не число связей, а качество входящих: на что ссылается влиятельное,
+// само влиятельно. Считается на существующем графе артефактов, ничего не создаёт.
+function computeGraphInfluence(state, iterations, damping) {
+  const graph = graphForDisplay(state);
+  const nodes = graph.nodes || [];
+  if (nodes.length < 3) return [];
+  const d = Number.isFinite(damping) ? damping : 0.85;
+  const rounds = Number.isFinite(iterations) ? iterations : 20;
+  const ids = nodes.map((node) => node.id);
+  const index = new Map(ids.map((id, i) => [id, i]));
+  const outLinks = ids.map(() => []);
+  const outCount = ids.map(() => 0);
+  for (const link of graph.links || []) {
+    const from = index.get(link.source);
+    const to = index.get(link.target);
+    if (from === undefined || to === undefined || from === to) continue;
+    outLinks[to].push(from); // входящие для to: кто на него ссылается
+    outCount[from] += 1;
+  }
+  let rank = ids.map(() => 1 / ids.length);
+  for (let step = 0; step < rounds; step += 1) {
+    const next = ids.map(() => (1 - d) / ids.length);
+    for (let i = 0; i < ids.length; i += 1) {
+      for (const from of outLinks[i]) {
+        if (outCount[from] > 0) next[i] += d * (rank[from] / outCount[from]);
+      }
+    }
+    rank = next;
+  }
+  const max = Math.max(...rank);
+  return nodes
+    .map((node, i) => ({ id: node.id, title: node.title || node.label || node.id, type: node.type || "", score: rank[i], percent: max > 0 ? Math.round((rank[i] / max) * 100) : 0 }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+}
+
+// P1-1 (канон design-system/Graph.dc.html: граф отвечает «почему», а не «что связано»).
+// Ответы считаются из реальных данных; если данных мало — честно говорим об этом, а не выдумываем.
+function computeGraphAnswers(state) {
+  const answers = [];
+  const influence = computeGraphInfluence(state);
+  if (influence.length >= 3) {
+    answers.push({
+      id: "influence",
+      question: "Что влияет сильнее всего?",
+      head: "Сильнее всего на твою систему влияет «" + influence[0].title + "».",
+      body: "Влияние считается как в PageRank: важно не число связей, а качество входящих — на что ссылается влиятельное, само становится влиятельным.",
+      rows: influence.map((item) => ({ label: item.title, value: item.percent + "%", percent: item.percent })),
+      evidence: "Расчёт по " + (graphForDisplay(state).links || []).length + " связям графа"
+    });
+  }
+
+  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+  const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done");
+  const blockers = [];
+  for (const goal of goals) {
+    const linked = openTasks.filter((task) => task.goalId === goal.id);
+    const overdue = linked.filter((task) => task.day && task.day < todayKey());
+    if (!linked.length) {
+      blockers.push({ label: goal.title || "Цель", value: "нет шага", percent: 100, why: "нет ни одной открытой задачи — цель не двигается" });
+    } else if (overdue.length) {
+      blockers.push({ label: goal.title || "Цель", value: overdue.length + " просроч.", percent: Math.min(100, overdue.length * 34), why: "просроченные задачи держат цель" });
+    }
+  }
+  if (blockers.length) {
+    answers.push({
+      id: "blockers",
+      question: "Что блокирует цели?",
+      head: blockers.length === 1 ? "Одна цель стоит на месте." : blockers.length + " цели стоят на месте.",
+      body: blockers.map((item) => "«" + item.label + "» — " + item.why).join("; ") + ".",
+      rows: blockers,
+      evidence: "Проверено " + goals.length + " активных целей и " + openTasks.length + " открытых задач"
+    });
+  }
+  return answers;
 }
 
 // I4 (донор-принцип: Neo4j degree/centrality): узел с самой высокой степенью связей - «хаб»,
@@ -20566,6 +20645,9 @@ window.__lifeosKnowledgeBase = {
   },
   findExistingByTitleForTest(collectionName, title) {
     return store ? findExistingByTitle(store.state[collectionName], title) : null;
+  },
+  computeGraphAnswersForTest() {
+    return store ? computeGraphAnswers(store.state) : [];
   },
   detectProjectClustersForTest() {
     return store ? detectProjectClusters(store.state) : [];

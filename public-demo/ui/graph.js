@@ -46,7 +46,41 @@ function renderPeoplePanel(ctx) {
   ].join("");
 }
 
+// P1-1 (канон design-system/Graph.dc.html): граф отвечает на вопросы о жизни, а не только
+// рисует узлы. Донор-алгоритм — PageRank (Neo4j GDS), реализован под нашу проекцию.
+function renderGraphAnswers(ctx) {
+  const answers = ctx.graphAnswers || [];
+  if (!answers.length) {
+    return [
+      `<section class="graph-answers graph-answers-empty" data-testid="graph-answers">`,
+      `<div class="graph-answers-head"><span>Вопросы о жизни</span></div>`,
+      `<p class="empty-inline" data-testid="graph-answers-empty">Пока мало данных для выводов. Появятся, когда накопятся связи, цели и задачи.</p>`,
+      `</section>`
+    ].join("");
+  }
+  return [
+    `<section class="graph-answers" data-testid="graph-answers">`,
+    `<div class="graph-answers-head"><span>Вопросы о жизни</span><em>посчитано по твоим связям</em></div>`,
+    answers.map((answer) => [
+      `<article class="graph-answer" data-testid="graph-answer" data-answer="${escapeHtml(answer.id)}">`,
+      `<h3>${escapeHtml(answer.question)}</h3>`,
+      `<strong data-testid="graph-answer-head">${escapeHtml(answer.head)}</strong>`,
+      `<p>${escapeHtml(answer.body)}</p>`,
+      `<div class="graph-answer-rows">${answer.rows.map((row) => [
+        `<div class="graph-answer-row" data-testid="graph-answer-row">`,
+        `<span class="gar-label">${escapeHtml(row.label)}</span>`,
+        `<span class="gar-bar"><i style="width:${Math.max(4, Math.min(100, Number(row.percent) || 0))}%"></i></span>`,
+        `<span class="gar-value">${escapeHtml(String(row.value))}</span>`,
+        `</div>`
+      ].join("")).join("")}</div>`,
+      `<p class="graph-answer-evidence" data-testid="graph-answer-evidence">${escapeHtml(answer.evidence)}</p>`,
+      `</article>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
 export function renderGraph(ctx) {
-  const body = `<div class="graph-workspace-split">${renderGraphCanvas(ctx)}${renderInspectorDrawer(ctx)}</div>${renderPeoplePanel(ctx)}`;
+  const body = `<div class="graph-workspace-split">${renderGraphCanvas(ctx)}${renderInspectorDrawer(ctx)}</div>${renderGraphAnswers(ctx)}${renderPeoplePanel(ctx)}`;
   return renderWorkspaceLayout("graph", "Граф связей", "Большой canvas: локальный и глобальный граф, фильтры, поиск, inspector и причины связей.", body, { testId: "workspace-graph", kicker: "Связи" });
 }
