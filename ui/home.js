@@ -252,8 +252,13 @@ function renderLifeFocus(ctx) {
   }
   const best = focus.best;
   const percent = Math.round((focus.confidence || 0) * 100);
+  // Надстрочная метка канона: день недели, дата и время — контекст «когда это состояние».
+  const now = new Date();
+  const stamp = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })
+    + " · " + String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
   return [
     `<section class="life-focus" data-testid="life-focus">`,
+    `<p class="canon-eyebrow" data-testid="life-focus-stamp">${escapeHtml(stamp)}</p>`,
     `<p class="life-focus-state" data-testid="life-focus-state">${escapeHtml(focus.stateLine || "")}</p>`,
     `<article class="life-focus-best" data-testid="life-focus-best">`,
     `<header><span class="life-focus-label">Сейчас важнее всего</span><span class="life-focus-conf" data-testid="life-focus-confidence">уверенность ${percent}%</span></header>`,

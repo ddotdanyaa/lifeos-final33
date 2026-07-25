@@ -9957,3 +9957,84 @@ audio {
 .home-mini-summary-compact .streak-flame {
   display: none;
 }
+
+/* ============================================================
+   V3-CANON TYPOGRAPHY & RHYTHM (точные значения из design-system/*.dc.html)
+   Канон: центрированная колонка, крупные лёгкие заголовки с отрицательным
+   трекингом, моноширинные надстрочные метки, много воздуха. Это глобальный
+   слой — меняет ритм всех экранов сразу, разметку не трогает.
+   ============================================================ */
+
+/* Контентная колонка канона: содержимое по центру, не растянуто на всю ширину. */
+.lifeos-main-v2 > * {
+  max-width: 1040px;
+  margin-inline: auto;
+}
+
+.lifeos-main-v2 {
+  padding-top: var(--space-6);
+}
+
+/* Надстрочная метка канона: ВТОРНИК · ПОТОК · ГОЛОС · УТРО */
+.canon-eyebrow,
+.life-focus-label,
+.graph-answers-head span,
+.insights-head span,
+.evening-head span {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.life-focus-label { color: var(--accent); }
+
+/* Крупный заголовок канона (29px / -.028em / 500) — состояние жизни на Доме. */
+.life-focus-state {
+  font-size: 29px;
+  line-height: 1.28;
+  letter-spacing: -0.028em;
+  font-weight: 500;
+  color: var(--ink);
+  max-width: 700px;
+  text-wrap: pretty;
+  margin: var(--space-3) 0 var(--space-7);
+}
+
+/* Заголовок карточки главного действия (21px / -.022em). */
+.life-focus-best h2 {
+  font-size: 21px;
+  line-height: 1.32;
+  letter-spacing: -0.022em;
+  font-weight: 500;
+  max-width: 600px;
+  text-wrap: pretty;
+}
+
+.life-focus-best {
+  padding: var(--space-6);
+  border-radius: 14px;
+}
+
+.life-focus-best p {
+  font-size: 15px;
+  line-height: 1.55;
+  letter-spacing: -0.012em;
+  max-width: 640px;
+}
+
+/* «Почему это, а не другое» — цитатный блок канона с левой линией. */
+.life-focus-why {
+  border-left: 2px solid var(--line);
+  padding-left: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.life-focus { gap: var(--space-5); }
+
+/* Заголовки секций канона: крупнее и с воздухом. */
+.graph-answer strong { font-size: 21px; line-height: 1.32; letter-spacing: -0.022em; font-weight: 500; }
+.graph-answer { padding: var(--space-5); border-radius: 14px; }
+.graph-answers { gap: var(--space-4); margin-top: var(--space-6); }
