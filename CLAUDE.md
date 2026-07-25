@@ -13,6 +13,8 @@
 - Зависимости рантайма — утверждённый список движков в плане §10 (marked, dompurify, minisearch, cytoscape, chart.js, sortablejs, epubjs, @toast-ui/editor, tesseract.js, @huggingface/transformers, pdfjs-dist, fflate). **Новые зависимости — только по решению владельца.** Движки подключать по одному в профильном пакете; после подключения обновить service-worker кэш и `tools/build-public.mjs`. Node — только для тулинга.
 - Ключевые файлы: `app.js` (storage kernel + capture analyzer, ~764 КБ), `artifact-os-architecture.mjs` (исполняемый контракт: 47 коллекций, 27 workspace-линз, schema v3), `ui/shell.js` (навигация), `ui/*.js` + `ui/v34-platform.js` (поверхности), `styles.css`. Сервер: `server.mjs` (порт 4173, отдаёт файлы live).
 - `public-demo/` генерируется из исходников: после правок `ui/**`, `app.js`, `styles.css`, `index.html`, `artifact-os-architecture.mjs` → `node tools/build-public.mjs`.
+- **Эталон дизайна владельца — `design-system/`** (8 кликабельных экранов `*.dc.html` + `HANDOFF.md` с 10 законами продукта и контрактом бэкенда). Открывается на том же сервере: `/design-system/Home.dc.html`. Это **источник визуального языка и поведения**; переносим ПОВЕДЕНИЕ, а не пиксели, в наш стек (прототипный DC-рантайм НЕ тащим). Токены `styles.css` уже сведены с ним (V3).
+- **Один локалхост: 4173.** Держать ровно один сервер (`npm start`); лишние порты (4174/4199 и т.п.) — гасить, чтобы не путаться, какой из них настоящий.
 
 ## 3. Автономная работа (execution discipline)
 
