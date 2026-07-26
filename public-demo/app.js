@@ -5527,7 +5527,16 @@ function createActionProposalsForSource(state, sourceId) {
   if (entities.dates.length) {
     proposals.push(addProposal(state, "entity-extract", "📅 Даты: " + entities.dates.join(", "), source.id, source.noteId, { fields: { entityType: "date", names: entities.dates } }));
   }
+  // Одна трата — один смысл. Анализатор на «Потратил 4380 продукты Лента» отдаёт и расход,
+  // и задачу с ТЕМ ЖЕ названием, и после подтверждения в списке дел появляется «Потратил
+  // продукты Лента» — дело, которое уже сделано. Деньги здесь — настоящий смысл записи,
+  // поэтому задачу-двойника не заводим. Другие пары типов не трогаем: разложение одного
+  // захвата на смену + доход + задачу задумано и работает (RR-001).
+  const moneyTitles = new Set((analysis.drafts || [])
+    .filter((item) => item.type === "finance_expense" || item.type === "finance_income" || item.type === "shift")
+    .map((item) => normalizeTitle(item.title || "")));
   for (const item of analysis.drafts || []) {
+    if (item.type === "task" && moneyTitles.has(normalizeTitle(item.title || ""))) continue;
     proposals.push(addProposal(state, item.type, item.title, source.id, source.noteId, item));
   }
   const draftTypes = new Set((analysis.drafts || []).map((item) => item.type));
@@ -5535,10 +5544,12 @@ function createActionProposalsForSource(state, sourceId) {
   const hasDirectProjection = (analysis.drafts || []).some((item) => directTypes.has(item.type));
   const hasTaskDraft = draftTypes.has("task");
   const hasCalendarDraft = draftTypes.has("calendar") || draftTypes.has("reminder");
-  if (!hasDirectProjection) {
-    proposals.push(addProposal(state, "plan", "Разобрать " + title + " сегодня", source.id, source.noteId));
-    proposals.push(addProposal(state, "task", "Вытащить задачи из " + title, source.id, source.noteId));
-  }
+  // Захват, который анализатор не понял, НЕ превращается в задачу. Раньше здесь появлялись
+  // «Разобрать X сегодня» и «Вытащить задачи из X» — служебные заглушки, которые после
+  // подтверждения становились настоящими задачами в списке владельца: на прогоне вечернего дампа
+  // из 11 задач 5 были такими. Сама запись не теряется (у неё есть источник, заметка и
+  // предложение «сохранить в базу»), а о непонятых захватах честно сообщает разбор дня.
+  if (!hasDirectProjection) source.parsedIntent = "not-understood";
   for (const line of analysis.actionLines.slice(0, 3)) {
     if (hasTaskDraft) continue;
     proposals.push(addProposal(state, "task", "Сделать: " + line, source.id, source.noteId));
@@ -5561,7 +5572,8 @@ function createActionProposalsForSource(state, sourceId) {
     && analysis.actionLines.length <= 1
     && !analysis.urls.length
     && !analysis.emails.length;
-  if (!hasOnlySimpleDirectProjection) proposals.push(addProposal(state, "agent", "Запустить локального организатора для " + title, source.id, source.noteId));
+  // «Запустить локального организатора» — тоже служебный шаг, а не дело владельца: он попадал
+  // в общий список предложений и требовал решения там, где решать нечего.
   return proposals.filter(Boolean);
 }
 
@@ -14296,6 +14308,7 @@ function runDayDigest(state) {
   const transcribed = sources.filter((source) => source.kind === "audio" && (source.transcript || Object.values(state.transcriptSegments || {}).some((segment) => segment.sourceId === source.id))).length;
   const files = sources.filter((source) => source.kind !== "audio" && source.kind !== "text").length;
   const texts = sources.filter((source) => source.kind === "text").length;
+  const notUnderstood = sources.filter((source) => source.parsedIntent === "not-understood").length;
   const entityProposals = proposals.filter((item) => item.type === "entity-extract");
   const entityNames = new Set();
   for (const item of entityProposals) {
@@ -14311,7 +14324,10 @@ function runDayDigest(state) {
       id: "read",
       label: "Читаю захваты за сегодня",
       value: sources.length ? sources.length + " " + pluralRu(sources.length, "объект", "объекта", "объектов") : "нечего читать",
-      detail: sources.length ? [voices ? voices + " голосовых" : "", files ? files + " файлов" : "", texts ? texts + " текстовых" : ""].filter(Boolean).join(" · ") : "За сегодня захватов не было."
+      detail: sources.length
+        ? [voices ? voices + " голосовых" : "", files ? files + " файлов" : "", texts ? texts + " текстовых" : ""].filter(Boolean).join(" · ")
+          + (notUnderstood ? ". Из них " + notUnderstood + " " + pluralRu(notUnderstood, "захват не разобран", "захвата не разобраны", "захватов не разобрано") + " — они сохранены как записи, но задач из них не выдумано." : "")
+        : "За сегодня захватов не было."
     },
     {
       id: "transcribe",
