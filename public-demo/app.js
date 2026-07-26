@@ -8600,6 +8600,67 @@ async function stopAudioRecording() {
 // entity-resolution): повторное упоминание УСИЛИВАЕТ существующий объект, а не плодит второй.
 // Сверка идёт ДО создания: нормализованное совпадение заголовка, затем нечёткое (vendored
 // AFFiNE fuzzy), затем пересечение различающих слов. Возвращает существующий объект или null.
+// ----------------------------------------------------------------------------
+// Точность закона №4: энтропия имени + шинглы (донор Graphiti dedup_helpers.py)
+// ----------------------------------------------------------------------------
+// Донор: Graphiti (Apache-2.0) — `graphiti_core/utils/maintenance/dedup_helpers.py`. Их пайплайн
+// (MinHash + LSH + LLM-добор) целиком нам не нужен, но два приёма решают реальную проблему:
+// 1) ЭНТРОПИЯ имени: короткое или однообразное название («дело», «ааа») не годится для нечёткого
+//    слияния — на нём легко склеить два РАЗНЫХ объекта. Такие сверяем только точным совпадением.
+// 2) ШИНГЛЫ (3-граммы) + Жаккар: «Ответить Дмитрию до среды» и «Ответить Дмитрию до среды!!»
+//    — один объект, хотя по словам совпадение неполное.
+const DEDUP_ENTROPY_THRESHOLD = 1.5;
+const DEDUP_MIN_NAME_LENGTH = 6;
+const DEDUP_JACCARD_THRESHOLD = 0.72;
+
+function nameEntropy(normalized) {
+  const chars = String(normalized || "").replace(/\s+/g, "");
+  if (!chars) return 0;
+  const counts = new Map();
+  for (const char of chars) counts.set(char, (counts.get(char) || 0) + 1);
+  let entropy = 0;
+  for (const count of counts.values()) {
+    const probability = count / chars.length;
+    entropy -= probability * Math.log2(probability);
+  }
+  return entropy;
+}
+
+// Достаточно ли имя «своеобразно», чтобы доверять нечёткому сравнению.
+function hasHighNameEntropy(normalized) {
+  const clean = String(normalized || "");
+  const tokens = clean.split(/\s+/).filter(Boolean);
+  if (clean.length < DEDUP_MIN_NAME_LENGTH && tokens.length < 2) return false;
+  return nameEntropy(clean) >= DEDUP_ENTROPY_THRESHOLD;
+}
+
+function nameShingles(normalized) {
+  const cleaned = String(normalized || "").replace(/\s+/g, "");
+  if (cleaned.length < 2) return new Set(cleaned ? [cleaned] : []);
+  const shingles = new Set();
+  for (let index = 0; index <= cleaned.length - 3; index += 1) shingles.add(cleaned.slice(index, index + 3));
+  return shingles;
+}
+
+function jaccardSimilarity(a, b) {
+  if (!a.size && !b.size) return 1;
+  if (!a.size || !b.size) return 0;
+  let intersection = 0;
+  for (const item of a) if (b.has(item)) intersection += 1;
+  return intersection / (a.size + b.size - intersection);
+}
+
+// Похожи ли два названия настолько, что это один объект. Точное совпадение — всегда да.
+// Нечёткое — только когда ОБА имени достаточно своеобразны (иначе «дело» склеится с «тело»).
+function looksLikeSameObject(titleA, titleB) {
+  const a = normalizeTitle(titleA || "");
+  const b = normalizeTitle(titleB || "");
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (!hasHighNameEntropy(a) || !hasHighNameEntropy(b)) return false;
+  return jaccardSimilarity(nameShingles(a), nameShingles(b)) >= DEDUP_JACCARD_THRESHOLD;
+}
+
 // P0-1 (закон №4): «уже есть такое — усиливаю, а не создаю второе» должно быть ВИДНО.
 // Раньше усиление писало только строку в журнал изменений, и владелец не мог отличить
 // «не создал дубль» от «ничего не сделал». Теперь у каждого усиления есть чек в Контроле.
@@ -8632,6 +8693,10 @@ function findExistingByTitle(collection, title) {
     // машину» и «накопить на квартиру» склеились бы в один объект. Нужно совпадение предмета и
     // заметная доля меньшего набора: «накопить на машину до декабря» ↔ «на машину, надо ускориться».
     if (shared >= 1 && shared / Math.min(wantedWords.size, otherWords.size) >= 0.5) return item;
+    // Донор Graphiti: добор по 3-граммам с проверкой энтропии имени. Ловит хвосты, которые
+    // словарное сравнение пропускает («…до среды» против «…до среды!!»), и при этом не даёт
+    // склеить короткие невыразительные названия.
+    if (looksLikeSameObject(wanted, other)) return item;
   }
   return null;
 }

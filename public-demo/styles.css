@@ -11226,3 +11226,47 @@ audio {
 .second-brain-forgotten { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
 .second-brain-forgotten > span { font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .second-brain-themes .topic-member em { font-style: normal; opacity: 0.6; }
+
+/* ============================================================
+   ВТОРОЙ МОЗГ НА ДОМЕ
+   Те же вычисленные темы и вес памяти, что на Графе, но там, где
+   владелец бывает каждый день. Дом и Граф не расходятся в выводах.
+   ============================================================ */
+
+.second-brain { display: grid; gap: var(--space-2); }
+
+.second-brain-headline {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.4;
+  letter-spacing: -0.018em;
+  font-weight: 500;
+  color: var(--ink);
+  max-width: 620px;
+}
+
+.second-brain-themes { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.second-brain-theme {
+  display: grid;
+  gap: 1px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.second-brain-theme:hover { border-color: var(--accent); }
+.second-brain-theme strong { font-size: var(--text-sm); font-weight: 500; color: var(--ink); }
+.second-brain-theme em { font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--muted); }
+
+.second-brain-note {
+  margin: 0;
+  border-left: 2px solid var(--line);
+  padding-left: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--muted);
+}

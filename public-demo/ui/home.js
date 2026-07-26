@@ -152,25 +152,29 @@ function renderUserModelPanel(ctx) {
   ].join("");
 }
 
-// Второй мозг на первом экране: отчёт графа одной фразой + забытое, но важное. Это не новая
-// логика — те же проекции, что на Графе (computeGraphReport / computeForgottenImportant),
-// вынесенные туда, где владелец бывает каждый день.
+// Второй мозг на первом экране: те же вычисленные проекции, что живут на Графе (отчёт, темы,
+// забытое-но-важное, неожиданные связи), вынесенные туда, где владелец бывает каждый день.
+// Своей логики нет — иначе Дом и Граф начали бы расходиться в выводах.
 function renderSecondBrain(ctx) {
   const report = ctx.graphReport || { hasReport: false, lines: [] };
-  const forgotten = ctx.forgottenImportant || [];
   const clusters = ctx.topicClusters || [];
+  const forgotten = ctx.forgottenImportant || [];
+  const surprises = ctx.surprisingLinks || [];
   if (!report.hasReport && !forgotten.length) return "";
   return [
     `<section class="second-brain" data-testid="second-brain">`,
-    `<div class="insights-head"><span>Второй мозг</span><em>что система знает о твоей системе</em></div>`,
+    `<div class="insights-head"><span>Второй мозг</span><em>посчитано по связям, не по папкам</em></div>`,
     report.hasReport ? `<p class="second-brain-headline" data-testid="second-brain-headline">${escapeHtml(report.headline)}</p>` : "",
     clusters.length
-      ? `<div class="second-brain-themes" data-testid="second-brain-themes">${clusters.slice(0, 4).map((cluster) => `<button class="topic-member" data-action="open-object" data-id="${escapeHtml(cluster.hubId)}" data-testid="second-brain-theme">${escapeHtml(cluster.name)} <em>${cluster.size}</em></button>`).join("")}</div>`
+      ? `<div class="second-brain-themes" data-testid="second-brain-themes">${clusters.slice(0, 5).map((cluster) => `<button class="second-brain-theme" data-action="open-object" data-id="${escapeHtml(cluster.hubId)}" data-testid="second-brain-theme"><strong>${escapeHtml(cluster.name)}</strong><em>${cluster.size} ${plural(cluster.size, "объект", "объекта", "объектов")}</em></button>`).join("")}</div>`
       : "",
     // «Забыто, но важно» — ровно то, ради чего в памяти вес, а не удаление: старое с сильными
-    // связями не должно исчезать под свежим шумом.
+    // связями не должно исчезать под свежим шумом. Каждая строка кликабельна — ведёт в объект.
     forgotten.length
-      ? `<div class="second-brain-forgotten" data-testid="second-brain-forgotten"><span>Забыто, но важно:</span>${forgotten.map((row) => `<button class="topic-member" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="second-brain-forgotten-item">${escapeHtml(row.title)}</button>`).join("")}</div>`
+      ? `<div class="second-brain-forgotten" data-testid="second-brain-forgotten"><span>Забыто, но важно:</span>${forgotten.map((row) => `<button class="second-brain-theme" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="second-brain-forgotten-item"><strong>${escapeHtml(row.title)}</strong></button>`).join("")}</div>`
+      : "",
+    surprises.length
+      ? `<p class="second-brain-note" data-testid="second-brain-surprise">Неожиданное: «${escapeHtml(surprises[0].from)}» ↔ «${escapeHtml(surprises[0].to)}» — ${escapeHtml(surprises[0].reasons.join(", "))}</p>`
       : "",
     button("set-surface", "Открыть граф", { id: "graph", kind: "ghost", testId: "second-brain-open-graph" }),
     `</section>`
