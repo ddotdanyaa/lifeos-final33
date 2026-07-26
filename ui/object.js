@@ -96,6 +96,25 @@ function renderPeopleReview(review) {
   ].join("");
 }
 
+// Похожие записи. Название честное: это сходство ТЕКСТА, а не смысла — модели эмбеддингов в
+// продукте нет, и выдавать одно за другое нельзя. Подпись говорит это прямо, чтобы владелец знал
+// цену находке, а у каждой строки видно, за что она сюда попала.
+function renderSimilar(similar) {
+  if (!similar || !similar.length) return "";
+  return [
+    `<div class="object-similar" data-testid="object-similar">`,
+    `<p class="canon-eyebrow">Похожее по тексту</p>`,
+    `<p class="object-similar-note" data-testid="object-similar-note">Совпадение слов и их форм, а не смысла: модели смысла в системе нет, поэтому обещать её нельзя.</p>`,
+    similar.map((row) => [
+      `<button class="object-similar-row" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="object-similar-row">`,
+      `<span class="object-similar-body"><strong>${escapeHtml(row.title)}</strong><em data-testid="object-similar-why">${escapeHtml(row.why)}</em></span>`,
+      `<span class="object-similar-score" data-testid="object-similar-score">${row.percent}%</span>`,
+      `</button>`
+    ].join("")).join(""),
+    `</div>`
+  ].join("");
+}
+
 function renderEssence(inspector) {
   return [
     `<div class="object-panel" data-testid="object-panel-sut">`,
@@ -112,6 +131,7 @@ function renderEssence(inspector) {
       `</div>`
     ].join(""), ""),
     `</div>`,
+    renderSimilar(inspector.similar),
     `</div>`
   ].join("");
 }

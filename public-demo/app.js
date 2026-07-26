@@ -14282,6 +14282,9 @@ function computeObjectInspector(state) {
     tabs: OBJECT_TABS.map((row) => ({ id: row[0], label: row[1], count: counts[row[0]] || 0, active: row[0] === tab })),
     next: objectNextStep(state, id, kind, object, conflicts),
     knows: objectKnows(state, id, kind, object),
+    // Похожие записи считаются ТОЛЬКО среди тех, что не связаны с объектом напрямую: показывать
+    // соседа по графу ещё раз как «похожее» — это повтор, а не находка.
+    similar: computeSimilarRecords(state, id, 4, relations.map((row) => row.id)),
     sourceGroups,
     relations,
     months: objectTimelineMonths(state, id, kind, object),
@@ -15905,6 +15908,122 @@ function computeSurprisingLinks(state, limit = 4) {
 // Зачем: после вечернего дампа из 20–30 записей важное тонет в свежем шуме.
 
 const MEMORY_HALF_LIFE_DAYS = 30;
+
+// Похожие записи. ЧЕСТНОЕ НАЗВАНИЕ: это сходство ТЕКСТА, а не смысла. Настоящие семантические
+// соседи (P2-1 роадмапа) требуют модели эмбеддингов, её нет — и выдавать одно за другое нельзя.
+// Зато tf-idf по трёхбуквенным кускам работает без единой зависимости и переживает русскую
+// морфологию: «машину» и «машины» дают почти одинаковые наборы кусков, где точное сравнение
+// слов уже проваливается. Донор-идея — гибридный ретривер LlamaIndex/Haystack, лексическая
+// половина которого ровно такая.
+const SIMILAR_MIN_SCORE = 0.16;
+const SIMILAR_TEXT_LIMIT = 600;
+let similarityIndexCache = new WeakMap();
+
+// Тело заметки начинается служебной шапкой («Source artifact: …», «Kind: text», «Repository
+// status: …»), одинаковой у ВСЕХ записей. Без её удаления похожими оказывались любые две записи:
+// «Позвонить маме» и цель про машину совпадали на 54% по одной этой шапке. Латинские ключи
+// «слово:» в русском теле — всегда машинерия, поэтому правило по ним и построено.
+function stripRecordBoilerplate(text) {
+  return String(text || "")
+    .replace(/^---[\s\S]*?^---/m, " ")
+    .replace(/^[A-Za-z_][\w -]*:.*$/gm, " ")
+    .replace(/^#{1,6}\s+/gm, " ")
+    .replace(/^\s*-\s*\[[ x]\]\s*/gm, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function recordSearchText(state, id) {
+  const resolved = graphNodeObject(state, id);
+  if (!resolved || !resolved.object) return "";
+  const object = resolved.object;
+  return stripRecordBoilerplate([object.title, object.name, object.body, object.text, object.summary, object.reason, object.detail]
+    .filter((part) => typeof part === "string" && part)
+    .join(" "))
+    .slice(0, SIMILAR_TEXT_LIMIT);
+}
+
+function buildSimilarityIndex(state) {
+  const graph = buildLifeGraph(state);
+  const cached = similarityIndexCache.get(graph);
+  if (cached) return cached;
+  const docs = [];
+  const df = new Map();
+  for (const node of graph.nodes) {
+    const normalized = normalizeTitle(recordSearchText(state, node.id));
+    const grams = nameShingles(normalized);
+    // Меньше трёх кусков — сравнивать нечего, такой узел только шумит в знаменателе idf.
+    if (grams.size < 3) continue;
+    docs.push({ id: node.id, key: node.key, label: node.label, grams, words: contentWordsForMatch(normalized) });
+    for (const gram of grams) df.set(gram, (df.get(gram) || 0) + 1);
+  }
+  const index = { docs, df, total: docs.length };
+  similarityIndexCache.set(graph, index);
+  return index;
+}
+
+// idf: кусок, встречающийся почти везде, почти ничего не значит; редкий — значит много.
+function gramWeight(index, gram) {
+  return Math.log((index.total + 1) / ((index.df.get(gram) || 0) + 1)) + 1;
+}
+
+function weightedCosine(index, a, b) {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (const gram of a) {
+    const weight = gramWeight(index, gram);
+    normA += weight * weight;
+    if (b.has(gram)) dot += weight * weight;
+  }
+  for (const gram of b) {
+    const weight = gramWeight(index, gram);
+    normB += weight * weight;
+  }
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  return denominator > 0 ? dot / denominator : 0;
+}
+
+// Ключ группы графа жизни для любой проекции объекта. Узел графа жизни носит id САМОЙ СИЛЬНОЙ
+// проекции (у пары «заметка + цель» это заметка), поэтому искать по id открытого объекта мало:
+// открыта цель, а в индексе лежит её заметка.
+function lifeGroupKeyFor(state, objectId) {
+  const resolved = graphNodeObject(state, objectId);
+  if (!resolved || !resolved.object) return "";
+  const raw = String(resolved.object.title || resolved.object.name || "");
+  return normalizeTitle(raw.replace(/\.[a-z0-9]{1,5}$/i, "").replace(/^highlight:\s*/i, ""));
+}
+
+function computeSimilarRecords(state, objectId, limit = 4, excludeIds = []) {
+  const index = buildSimilarityIndex(state);
+  const targetKey = lifeGroupKeyFor(state, objectId);
+  const target = index.docs.find((doc) => doc.id === objectId)
+    || (targetKey ? index.docs.find((doc) => doc.key === targetKey) : null);
+  if (!target) return [];
+  const skip = new Set([objectId, target.id].concat(excludeIds || []));
+  // Соседи по графу исключаются по КЛЮЧУ группы, а не по id: связь ведёт на задачу, а в индексе
+  // может лежать её заметка — и сосед показался бы ещё раз как «похожее».
+  const skipKeys = new Set([targetKey].concat((excludeIds || []).map((id) => lifeGroupKeyFor(state, id))).filter(Boolean));
+  const rows = [];
+  for (const doc of index.docs) {
+    if (skip.has(doc.id) || skipKeys.has(doc.key)) continue;
+    const score = weightedCosine(index, target.grams, doc.grams);
+    if (score < SIMILAR_MIN_SCORE) continue;
+    // Объяснение — общие ПРЕДМЕТНЫЕ слова по основе, а не проценты в вакууме: владелец должен
+    // видеть, за что запись сюда попала, и не согласиться (закон №5).
+    const targetStems = new Set([...target.words].map((word) => lifeTermStem(word)));
+    const shared = [...doc.words].filter((word) => targetStems.has(lifeTermStem(word)));
+    rows.push({
+      id: doc.id,
+      title: shorten(doc.label || "", 70),
+      percent: Math.round(score * 100),
+      why: shared.length
+        ? "общие слова: " + [...new Set(shared)].slice(0, 3).join(", ")
+        : "совпадают куски слов, общих целых слов нет — скорее всего разные формы одного"
+    });
+  }
+  return rows.sort((a, b) => b.percent - a.percent).slice(0, Math.max(1, limit));
+}
 
 // Свежесть с периодом полураспада: месяц назад — половина веса, два месяца — четверть.
 // Ноль не достигается никогда: старое приглушается, но не исчезает (ADD-only, §7).
