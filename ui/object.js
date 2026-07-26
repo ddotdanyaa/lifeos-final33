@@ -106,6 +106,24 @@ function renderRelations(inspector) {
   ].join("");
 }
 
+// P1-2 (донор Graphiti): история значений поля. Факт не стирается — у него закрывается окно
+// валидности, поэтому видно, что было верно раньше и почему изменилось.
+function renderHistory(inspector) {
+  const history = inspector.history || [];
+  if (!history.length) return "";
+  return [
+    `<div class="object-history" data-testid="object-history">`,
+    `<p class="canon-eyebrow">Что менялось</p>`,
+    history.map((row) => [
+      `<div class="object-history-row" data-testid="object-history-row">`,
+      `<time>${escapeHtml(row.at)}</time>`,
+      `<span><strong>${escapeHtml(row.label)}</strong>: ${escapeHtml(row.from)} → ${escapeHtml(row.to)}${row.reason ? " · " + escapeHtml(row.reason) : ""}</span>`,
+      `</div>`
+    ].join("")).join(""),
+    `</div>`
+  ].join("");
+}
+
 function renderTimeline(inspector) {
   if (!inspector.months.length) {
     return `<div class="object-panel" data-testid="object-panel-time"><p class="empty-inline" data-testid="object-timeline-empty">Хронологии пока нет: у объекта одна дата и ни одного связанного события.</p></div>`;
@@ -125,6 +143,7 @@ function renderTimeline(inspector) {
       `</div>`
     ].join("")).join(""),
     `</div>`,
+    renderHistory(inspector),
     `</div>`
   ].join("");
 }

@@ -11886,6 +11886,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     bridgeNodes: computeBridgeNodes(state),
     surprisingLinks: computeSurprisingLinks(state),
     graphReport: computeGraphReport(state),
+    goalForecast: computeGoalForecast(state),
     memoryImportance: computeMemoryImportance(state),
     forgottenImportant: computeForgottenImportant(state),
     graphPath: state.graphPathQuery && state.graphPathQuery.from && state.graphPathQuery.to
@@ -13512,6 +13513,7 @@ function computeObjectInspector(state) {
     sourceGroups,
     relations,
     months: objectTimelineMonths(state, id, kind, object),
+    history: objectHistoryRows(object),
     conflicts: conflicts.map((conflict) => Object.assign({}, conflict, {
       options: conflict.options.map((option) => Object.assign({}, option, {
         chosen: Boolean(decision && decision.conflictId === conflict.id && decision.optionId === option.id)
@@ -13753,7 +13755,9 @@ function resolveTodayConflict(state, compositeId) {
   if (!record) return;
   if (option.apply) {
     const field = option.apply.field === "startTime" && state.reminders[blockId] ? "time" : option.apply.field;
+    const before = record[field];
     record[field] = option.apply.value;
+    recordFieldChange(state, record, field, before, "разведение пересечения");
     record.updatedAt = now();
   }
   addAudit(state, "today.conflict.resolve", "Пересечение в " + block.time + ": " + option.label, record.noteId || "");
@@ -15061,6 +15065,158 @@ function computeGraphReport(state) {
   };
 }
 
+// ============================================================================
+// Bi-temporal: факт не удаляется, а перестаёт быть верным (P1-2)
+// ============================================================================
+// Донор: Graphiti (Apache-2.0) — `graphiti_core/utils/maintenance/`: противоречие не стирает
+// старый факт, а ЗАКРЫВАЕТ его окно валидности, оставляя историю. Их Neo4j-схему не берём,
+// берём принцип: у поля артефакта есть история значений, и по ней видно, что было верно на дату.
+// Зачем это владельцу: «срок был август, стал октябрь» — это не опечатка, а решение, и оно
+// должно остаться в системе, иначе через месяц не вспомнить, почему сдвинулось.
+
+const FIELD_HISTORY_LIMIT = 12;
+
+// Человеческие имена полей: история читается фразой, а не именем переменной из кода.
+const FIELD_HISTORY_LABELS = {
+  targetDate: "срок",
+  targetAmount: "сумма цели",
+  day: "дата",
+  startTime: "время",
+  status: "состояние",
+  goalId: "привязка к цели",
+  title: "название"
+};
+
+function recordFieldChange(state, record, field, previousValue, reason) {
+  if (!record) return;
+  const before = previousValue === undefined || previousValue === null ? "" : String(previousValue);
+  const after = record[field] === undefined || record[field] === null ? "" : String(record[field]);
+  if (before === after) return;
+  if (!Array.isArray(record.history)) record.history = [];
+  // ADD-only: закрываем предыдущее значение датой, а не затираем его.
+  record.history.push({ field, from: before, to: after, at: now(), reason: cleanLine(reason || "") });
+  record.history = record.history.slice(-FIELD_HISTORY_LIMIT);
+}
+
+// «Что было верно на дату»: откатываем историю назад до нужного момента и отдаём значение,
+// которое стояло тогда. Не мутирует — читает.
+function fieldValueAt(record, field, isoDate) {
+  if (!record) return "";
+  const history = Array.isArray(record.history) ? record.history : [];
+  const later = history.filter((row) => row.field === field && String(row.at) > String(isoDate)).sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  if (!later.length) return record[field] === undefined ? "" : String(record[field]);
+  return String(later[0].from);
+}
+
+function objectHistoryRows(record) {
+  const history = Array.isArray(record && record.history) ? record.history : [];
+  const humanValue = (field, value) => {
+    if (!value) return "";
+    // Даты показываем как везде в продукте, а не сырым ISO из хранилища.
+    return field === "targetDate" || field === "day" ? formatObjectDay(value) : String(value);
+  };
+  return history.slice().reverse().map((row) => ({
+    at: formatObjectStamp(row.at),
+    label: FIELD_HISTORY_LABELS[row.field] || row.field,
+    from: humanValue(row.field, row.from) || "не было",
+    to: humanValue(row.field, row.to) || "снято",
+    reason: row.reason
+  }));
+}
+
+// ============================================================================
+// Прогноз по целям и «где недооценил» (P1-6)
+// ============================================================================
+// Вероятность считается из потока по счетам, а не назначается. «Было» берём не из скрытого
+// снимка, а из истории поля: если срок двигали, пересчитываем вероятность со СТАРЫМ сроком —
+// так дельта честная и ничего не пишется молча.
+function goalProbability(gap, monthsLeft, perMonth, consistency) {
+  if (gap <= 0) return 0.98;
+  if (perMonth <= 0 || monthsLeft <= 0) return 0.05;
+  const ratio = (perMonth * monthsLeft) / gap;
+  const base = Math.max(0.03, Math.min(0.97, ratio >= 1 ? 0.72 + Math.min(0.25, (ratio - 1) * 0.4) : ratio * 0.65));
+  return Math.max(0.03, Math.min(0.97, base * (0.6 + consistency * 0.4)));
+}
+
+function computeGoalForecast(state) {
+  const flow = objectMonthlyFreeFlow(state);
+  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done" && Number(goal.targetAmount) > 0 && goal.targetDate);
+  if (!goals.length) return { rows: [], underestimated: computeUnderestimated(state), hasFlow: flow.known };
+  // Стабильность потока: в скольких из трёх последних месяцев доход перекрывал расходы.
+  let positiveMonths = 0;
+  for (let index = 0; index < 3; index += 1) {
+    const from = dateKeyFromOffset(-30 * (index + 1));
+    // Верхняя граница окна исключающая, поэтому для текущего месяца берём завтра: иначе
+    // сегодняшние доходы и траты не попадали в счёт и поток «за этот месяц» всегда был нулевым.
+    const to = index === 0 ? dateKeyFromOffset(1) : dateKeyFromOffset(-30 * index);
+    const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted && tx.day >= from && tx.day < to);
+    const income = txs.filter((tx) => tx.kind === "income").reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    const expense = txs.filter((tx) => tx.kind === "expense").reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    if (income > expense) positiveMonths += 1;
+  }
+  const consistency = positiveMonths / 3;
+
+  const rows = goals.map((goal) => {
+    const have = objectGoalProgress(state, goal);
+    const gap = Math.max(0, Number(goal.targetAmount) - have);
+    const monthsLeft = (new Date(goal.targetDate + "T00:00:00").getTime() - Date.now()) / (86400000 * 30.4);
+    const probability = goalProbability(gap, monthsLeft, flow.known ? flow.perMonth : 0, consistency);
+    // «Было»: та же формула со старым сроком/суммой из истории поля — без скрытых снимков.
+    const previousDate = fieldValueAt(goal, "targetDate", dateKeyFromOffset(-14) + "T00:00:00.000Z");
+    const previousAmount = Number(fieldValueAt(goal, "targetAmount", dateKeyFromOffset(-14) + "T00:00:00.000Z")) || Number(goal.targetAmount);
+    let previous = null;
+    if (previousDate && previousDate !== goal.targetDate) {
+      const previousMonths = (new Date(previousDate + "T00:00:00").getTime() - Date.now()) / (86400000 * 30.4);
+      previous = goalProbability(Math.max(0, previousAmount - have), previousMonths, flow.known ? flow.perMonth : 0, consistency);
+    } else if (previousAmount && previousAmount !== Number(goal.targetAmount)) {
+      previous = goalProbability(Math.max(0, previousAmount - have), monthsLeft, flow.known ? flow.perMonth : 0, consistency);
+    }
+    const explanation = !flow.known
+      ? "Движения по счетам за 90 дней нет — вероятность посчитана как «почти ноль», потому что обеспечения не видно, а не потому что цель плохая."
+      : flow.perMonth <= 0
+        ? "Свободного потока нет: за 90 дней расходы съели доход. При таком потоке срок ничем не обеспечен."
+        : "При потоке " + formatObjectMoney(flow.perMonth) + " в месяц до срока накопится " + formatObjectMoney(Math.max(0, Math.round(flow.perMonth * monthsLeft)))
+          + ", нужно " + formatObjectMoney(gap) + ". Стабильность потока: " + positiveMonths + " из 3 месяцев в плюсе.";
+    return {
+      id: goal.id,
+      title: shorten(goal.title || "Цель", 50),
+      percent: Math.round(probability * 100),
+      previousPercent: previous === null ? null : Math.round(previous * 100),
+      deadline: formatObjectDay(goal.targetDate),
+      explanation
+    };
+  });
+  return { rows: rows.sort((a, b) => a.percent - b.percent), underestimated: computeUnderestimated(state), hasFlow: flow.known };
+}
+
+// «Где недооценил» — только по фактам: перерасход против собственного бюджета и сроки,
+// которые уже двигали. Никаких «ты обычно недооцениваешь» без числа за спиной.
+function computeUnderestimated(state) {
+  const rows = [];
+  const monthStart = todayKey().slice(0, 8) + "01";
+  for (const budget of Object.values(state.budgets || {}).filter((item) => !item.deleted)) {
+    const limit = Number(budget.limit || budget.amount || 0);
+    if (limit <= 0) continue;
+    const spent = Object.values(state.financeTransactions || {})
+      .filter((tx) => !tx.deleted && tx.kind === "expense" && tx.day >= monthStart && normalizeTitle(tx.category || "") === normalizeTitle(budget.category || budget.title || ""))
+      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    if (spent > limit) {
+      rows.push({ kind: "деньги", text: "«" + shorten(budget.title || budget.category || "бюджет", 40) + "»: потрачено " + formatObjectMoney(spent) + " при лимите " + formatObjectMoney(limit) + " — перерасход " + formatObjectMoney(spent - limit) + "." });
+    }
+  }
+  for (const goal of Object.values(state.goals || {}).filter((item) => !item.deleted)) {
+    const moves = (Array.isArray(goal.history) ? goal.history : []).filter((row) => row.field === "targetDate");
+    if (moves.length) {
+      rows.push({ kind: "время", text: "Срок цели «" + shorten(goal.title || "цель", 40) + "» двигали " + moves.length + " " + pluralRu(moves.length, "раз", "раза", "раз") + ": " + formatObjectDay(moves[0].from) + " → " + formatObjectDay(moves[moves.length - 1].to) + "." });
+    }
+  }
+  const overdue = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && task.day && task.day < todayKey());
+  if (overdue.length >= 3) {
+    rows.push({ kind: "нагрузка", text: overdue.length + " " + pluralRu(overdue.length, "задача просрочена", "задачи просрочены", "задач просрочено") + " — столько дел на день не помещается." });
+  }
+  return rows.slice(0, 4);
+}
+
 function objectReturnSurface(state) {
   const from = cleanLine((state.objectView && state.objectView.from) || "");
   if (from && from !== "object") return from;
@@ -15090,6 +15246,8 @@ function resolveObjectConflict(state, compositeId) {
     decision.field = apply.field;
     decision.previous = record[apply.field];
     record[apply.field] = apply.value;
+    // P1-2: старое значение не исчезает, а закрывается датой — потом видно, почему сдвинулось.
+    recordFieldChange(state, record, apply.field, decision.previous, "решение: " + option.title);
     record.updatedAt = now();
   } else if (apply && apply.taskId && state.tasks[apply.taskId]) {
     const task = state.tasks[apply.taskId];
@@ -15107,6 +15265,7 @@ function resolveObjectConflict(state, compositeId) {
       decision.previous = task.status;
       task.status = "done";
     }
+    if (decision.field) recordFieldChange(state, task, decision.field, decision.previous, "решение: " + option.title);
     task.updatedAt = now();
   }
   record.decision = decision;
@@ -15124,7 +15283,9 @@ function revertObjectDecision(state) {
   const decision = record.decision;
   if (decision.field && decision.previous !== undefined) {
     const target = decision.taskId && state.tasks[decision.taskId] ? state.tasks[decision.taskId] : record;
+    const before = target[decision.field];
     target[decision.field] = decision.previous;
+    recordFieldChange(state, target, decision.field, before, "откат решения");
     target.updatedAt = now();
   }
   delete record.decision;
@@ -15652,6 +15813,7 @@ function eveningReflection(state) {
 const DASHBOARD_WIDGETS = [
   { key: "morning", label: "Утренняя сводка" },
   { key: "insights", label: "Инсайты" },
+  { key: "forecast", label: "Прогноз по целям" },
   { key: "usermodel", label: "О тебе" },
   { key: "reflection", label: "Подвести день" },
   { key: "myday", label: "Мой день" },

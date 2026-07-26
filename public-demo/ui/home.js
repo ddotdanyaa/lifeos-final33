@@ -152,6 +152,32 @@ function renderUserModelPanel(ctx) {
   ].join("");
 }
 
+// P1-6: прогноз по целям. Вероятность считается из потока по счетам, «было» берётся из истории
+// поля (P1-2), а не из скрытого снимка — поэтому дельта честная и ничего не пишется молча.
+function renderGoalForecast(ctx) {
+  const forecast = ctx.goalForecast || { rows: [], underestimated: [] };
+  if (!forecast.rows.length && !forecast.underestimated.length) return "";
+  return [
+    `<section class="goal-forecast" data-testid="goal-forecast">`,
+    `<div class="insights-head"><span>Прогноз по целям</span><em>из движения по счетам, не из ощущений</em></div>`,
+    forecast.rows.map((row) => [
+      `<article class="forecast-row" data-testid="forecast-row" data-goal="${escapeHtml(row.id)}">`,
+      `<div class="forecast-head"><strong>${escapeHtml(row.title)}</strong><span data-testid="forecast-percent">${row.percent}%${row.previousPercent === null ? "" : ` <em>было ${row.previousPercent}%</em>`}</span></div>`,
+      `<div class="forecast-bar"><i style="width:${Math.max(2, Math.min(100, row.percent))}%"></i></div>`,
+      `<p data-testid="forecast-why">${escapeHtml(row.explanation)}</p>`,
+      `<span class="forecast-deadline">срок ${escapeHtml(row.deadline)}</span>`,
+      `</article>`
+    ].join("")).join(""),
+    forecast.underestimated.length ? [
+      `<div class="forecast-underestimated" data-testid="forecast-underestimated">`,
+      `<span>Где недооценил:</span>`,
+      `<ul>${forecast.underestimated.map((row) => `<li data-testid="underestimated-row"><em>${escapeHtml(row.kind)}</em> ${escapeHtml(row.text)}</li>`).join("")}</ul>`,
+      `</div>`
+    ].join("") : "",
+    `</section>`
+  ].join("");
+}
+
 // R1.3: «Продолжить чтение» - последняя книга/материал в процессе + позиция (донор-идея
 // super-productivity continue-where-left). Пусто, если ничего не читается сейчас - без
 // заглушек (renderInsightsPanel/renderEveningReflection делают так же).
@@ -183,7 +209,8 @@ const DASHBOARD_WIDGET_RENDERERS = {
   usermodel: renderUserModelPanel,
   reflection: renderEveningReflection,
   myday: renderMyDay,
-  reading: renderContinueReadingCard
+  reading: renderContinueReadingCard,
+  forecast: renderGoalForecast
 };
 function renderDashboardWidgets(ctx) {
   const layout = ctx.dashboardLayout || { order: [], hiddenKeys: [] };
