@@ -217,6 +217,52 @@ function renderOwnerInstructions(ctx) {
   ].join("");
 }
 
+
+// Контроль (канон design-system/Control.dc.html): два ответа, которых не хватало — куда данные
+// могут уйти (и что именно уйдёт) и что система сделала (с откатом). Данные из app.js
+// (computeOutboundRoutes / computeReceiptJournal), здесь только разметка.
+function renderOutboundRoutes(ctx) {
+  const view = ctx.outboundRoutes || { routes: [], zones: [], activeCount: 0 };
+  return [
+    `<section class="outbound-routes" data-testid="outbound-routes">`,
+    `<div class="section-title">Маршруты наружу <span data-testid="outbound-active-count">${view.activeCount} ${view.activeCount === 1 ? "включён" : "включено"}</span></div>`,
+    `<p class="outbound-note">Ниже — всё, что вообще способно отправить данные с этого устройства. У каждого маршрута написано, что именно уйдёт.</p>`,
+    view.routes.map((route) => [
+      `<div class="outbound-route${route.active ? " is-active" : ""}" data-testid="outbound-route" data-route="${escapeHtml(route.id)}">`,
+      `<div class="outbound-route-head"><strong>${escapeHtml(route.label)}</strong><span class="outbound-status" data-testid="outbound-status">${escapeHtml(route.statusLabel)}</span></div>`,
+      `<p data-testid="outbound-payload">${escapeHtml(route.payload)}</p>`,
+      route.note ? `<em class="outbound-note-line">${escapeHtml(route.note)}</em>` : "",
+      `</div>`
+    ].join("")).join(""),
+    `<div class="privacy-zones" data-testid="privacy-zones">`,
+    view.zones.map((zone) => `<div class="privacy-zone" data-testid="privacy-zone"><strong>${escapeHtml(zone.label)}</strong><span>${escapeHtml(zone.value)}</span><em>${escapeHtml(zone.detail)}</em></div>`).join(""),
+    `</div>`,
+    `</section>`
+  ].join("");
+}
+
+function renderReceiptJournal(ctx) {
+  const rows = ctx.receiptJournal || [];
+  return [
+    `<section class="receipt-journal" data-testid="receipt-journal">`,
+    `<div class="section-title">Журнал чеков <span data-testid="receipt-count">${rows.length}</span></div>`,
+    rows.length
+      ? rows.map((row) => [
+          `<div class="receipt-row" data-testid="receipt-row" data-kind="${escapeHtml(row.kind)}">`,
+          `<time>${escapeHtml(row.at)}</time>`,
+          `<span class="receipt-body"><strong>${escapeHtml(row.kind)}</strong><em>${escapeHtml(compactText(row.summary, 160))}</em></span>`,
+          `<span class="receipt-actions">`,
+          row.openable ? button("open-object", "Объект", { id: row.objectId, kind: "ghost", testId: "receipt-open-object" }) : "",
+          // Кнопка отката стоит только там, где возврат действительно реализован.
+          row.revertible ? button("revert-receipt", "Вернуть как было", { id: row.objectId, kind: "ghost", testId: "receipt-revert" }) : "",
+          `</span>`,
+          `</div>`
+        ].join("")).join("")
+      : `<div class="empty-inline" data-testid="receipt-journal-empty">Чеков пока нет: система ещё ничего значимого не делала.</div>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderControl(ctx) {
   const audit = ctx.auditLog || [];
   const snapshots = ctx.control?.rollbackSnapshots || [];
@@ -243,6 +289,8 @@ export function renderControl(ctx) {
       `<div class="empty-inline">Изменений пока нет.</div>`
     ),
     renderOwnerInstructions(ctx),
+    renderOutboundRoutes(ctx),
+    renderReceiptJournal(ctx),
     `</section>`,
     `<aside class="control-actions">`,
     `<h3>Данные</h3>`,

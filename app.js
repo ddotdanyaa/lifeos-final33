@@ -2629,6 +2629,8 @@ function normalizeState(input) {
       backupRestoreReport: null,
       dayDigest: null,
       lastAnswer: null,
+      agentPlan: null,
+      agentReport: null,
       packInstallPreview: null,
       privacyZones: {
         local: "active",
@@ -3674,6 +3676,133 @@ function typedPaletteMatches(state, type, rest) {
       }));
   }
   return [];
+}
+
+// ============================================================================
+// Поиск ⌘K по всему (канон: одинаковая палитра на каждом экране)
+// ============================================================================
+// Раньше ⌘K искал только команды, а живые данные — лишь через префиксы task:/money:, которые
+// надо знать заранее. Канон требует другого: один ввод находит артефакты, задачи, цели, людей,
+// файлы, голосовые, цитаты, деньги, привычки, связи и команды — сгруппированно и без префикса.
+// Ищем по тем же коллекциям, что и весь остальной продукт: новых индексов не заводим.
+
+// Машинные метки рёбер, которые всё же значат жизнь, а не проводку: задача действительно
+// двигает цель, и такую связь искать словом полезно.
+const OMNI_LINK_ALLOWED = new Set(["task-goal"]);
+
+const OMNI_GROUPS = [
+  ["artifact", "Артефакты"],
+  ["goal", "Цели"],
+  ["task", "Задачи"],
+  ["person", "Люди"],
+  ["capture", "Файлы и голосовые"],
+  ["quote", "Цитаты"],
+  ["money", "Деньги"],
+  ["habit", "Привычки"],
+  ["insight", "Инсайты"],
+  ["link", "Связи"],
+  ["command", "Команды"]
+];
+
+// Сила совпадения, а не просто «да/нет». Fuzzy применяем ТОЛЬКО к названию: на длинном теле
+// заметки подпоследовательность м-а-ш-и-н находится почти везде, и по запросу «машин» в ответ
+// приходили «CRM / клиенты» и «Проектный cockpit». По телу — только точное вхождение.
+function omniScore(term, title, body) {
+  const name = normalizeTitle(title || "");
+  if (name.includes(term)) return 3;
+  if (fuzzyMatchFn && name && fuzzyMatchFn(name, term)) return 2;
+  if (body && normalizeTitle(body).includes(term)) return 1;
+  return 0;
+}
+
+function searchEverything(state, query, commands) {
+  const term = normalizeTitle(query || "");
+  if (!term) return [];
+  const rows = [];
+  const add = (kind, id, title, hint, score, action) => {
+    if (!score) return;
+    rows.push({ kind, id, title: shorten(title || "без названия", 70), hint, score, action: action || "open-object" });
+  };
+
+  for (const note of Object.values(state.notes || {})) {
+    if (note.deleted || note.systemType === "product_brain") continue;
+    const links = Array.isArray(note.links) ? note.links.length : 0;
+    add("artifact", note.id, note.title, links ? links + " " + pluralRu(links, "связь", "связи", "связей") : "заметка без связей", omniScore(term, note.title, note.body));
+  }
+  for (const goal of Object.values(state.goals || {})) {
+    if (goal.deleted) continue;
+    add("goal", goal.id, goal.title, [goal.status === "done" ? "закрыта" : "активная", goal.targetAmount ? formatObjectMoney(goal.targetAmount) : "", goal.targetDate ? "до " + formatObjectDay(goal.targetDate) : ""].filter(Boolean).join(" · "), omniScore(term, goal.title, ""));
+  }
+  for (const task of Object.values(state.tasks || {})) {
+    if (task.deleted) continue;
+    add("task", task.id, task.title, [task.status === "done" ? "готово" : "открыта", task.day ? formatObjectDay(task.day) : "без даты", task.startTime || ""].filter(Boolean).join(" · "), omniScore(term, task.title, ""));
+  }
+  for (const person of resolvePeople(state)) {
+    // У человека нет своего артефакта — ведём в Граф, где он и живёт как узел.
+    add("person", "graph", person.name, person.mentions + " " + pluralRu(person.mentions, "упоминание", "упоминания", "упоминаний") + (person.aliases.length ? " · также: " + person.aliases.join(", ") : ""), omniScore(term, person.name + " " + person.aliases.join(" "), ""), "set-surface");
+  }
+  for (const source of Object.values(state.sources || {})) {
+    if (source.deleted) continue;
+    add("capture", source.id, source.name, streamKindLabel(source) + " · " + formatObjectStamp(source.createdAt), omniScore(term, source.name, source.text));
+  }
+  for (const highlight of Object.values(state.highlights || {})) {
+    if (highlight.deleted) continue;
+    add("quote", highlight.id, highlight.text || highlight.title, "цитата · " + formatObjectDay(highlight.createdAt), omniScore(term, highlight.text || highlight.title, ""));
+  }
+  for (const tx of Object.values(state.financeTransactions || {})) {
+    if (tx.deleted) continue;
+    add("money", tx.id, tx.title + " · " + formatObjectMoney(tx.amount), (tx.kind === "income" ? "доход" : "расход") + " · " + (tx.category || "без категории") + (tx.day ? " · " + formatObjectDay(tx.day) : ""), omniScore(term, tx.title + " " + (tx.category || ""), ""));
+  }
+  for (const habit of Object.values(state.habits || {})) {
+    if (habit.deleted) continue;
+    const checkins = Object.keys(habit.checkins || {}).length;
+    add("habit", habit.id, habit.title, checkins + " " + pluralRu(checkins, "отметка", "отметки", "отметок"), omniScore(term, habit.title, ""));
+  }
+  for (const insight of Object.values(state.insights || {})) {
+    if (insight.status === "ignored") continue;
+    add("insight", insight.id, insight.title, insight.detail || "инсайт", omniScore(term, insight.title, insight.detail));
+  }
+  // Связи: ищем по объяснению ребра — «что кого блокирует» находится словом, а не кликами.
+  // Одна пара узлов даёт одну строку: три ребра между теми же двумя объектами — это шум.
+  const graph = graphForDisplay(state);
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const seenPairs = new Set();
+  for (const link of graph.links) {
+    const reason = graphEdgeReasonLabel(link.label);
+    const from = nodeById.get(link.source);
+    const to = nodeById.get(link.target);
+    if (!from || !to || !reason) continue;
+    // Один и тот же текст, разложенный по коллекциям (цитата → заметка → источник), даёт
+    // рёбра «сам на себя». Это внутренняя проводка, а не связь между разными вещами жизни.
+    // Внутренняя проводка отсеивается по самому ребру, а не по похожести названий: у неё
+    // машинная метка («goal-note», «highlight-source»), тогда как настоящая связь между
+    // артефактами несёт заголовок цели/заметки. Один и тот же текст, разложенный по
+    // коллекциям, соединён именно проводкой — в поиск по жизни ей нельзя.
+    if (!OMNI_LINK_ALLOWED.has(link.label) && /^[a-z0-9-]+$/.test(String(link.label || ""))) continue;
+    const fromKey = normalizeTitle(from.label);
+    const toKey = normalizeTitle(to.label);
+    if (!fromKey || !toKey || fromKey === toKey) continue;
+    const pair = fromKey + ">" + toKey;
+    if (seenPairs.has(pair)) continue;
+    const score = Math.max(omniScore(term, from.label, ""), omniScore(term, to.label, ""), omniScore(term, reason, ""));
+    if (!score) continue;
+    seenPairs.add(pair);
+    add("link", link.source, from.label + " → " + to.label, reason, score);
+  }
+  for (const command of commands || []) {
+    add("command", command.id, command.title, command.group + " · " + command.hint, omniScore(term, command.title + " " + command.group, command.hint), "run-command");
+  }
+
+  const order = OMNI_GROUPS.map((row) => row[0]);
+  // Внутри группы точные совпадения выше нечётких: сначала то, что владелец и искал.
+  return rows.sort((a, b) => (order.indexOf(a.kind) - order.indexOf(b.kind)) || (b.score - a.score));
+}
+
+function omniSearchGroups(state, query, commands) {
+  const rows = searchEverything(state, query, commands);
+  return OMNI_GROUPS
+    .map(([kind, label]) => ({ kind, label, items: rows.filter((row) => row.kind === kind).slice(0, 5) }))
+    .filter((group) => group.items.length);
 }
 
 function saveCurrentSearch(state) {
@@ -11712,6 +11841,9 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     todayPlan: computeTodayPlan(state),
     dayDigest: computeDayDigestView(state),
     groundedAnswer: computeAnswerView(state),
+    agentsView: computeAgentsView(state),
+    outboundRoutes: computeOutboundRoutes(state),
+    receiptJournal: computeReceiptJournal(state),
     eveningReflection: eveningReflection(state),
     userModel: computeUserModel(state),
     workDecision: workDecisionSupport(state),
@@ -11852,6 +11984,9 @@ function renderCommandPalette(state) {
   }
   items = items.slice(0, 12);
   const saved = savedSearchList(state).slice(0, 8);
+  // Канон: ⌘K находит не только команды, а всё — артефакты, задачи, людей, файлы, голосовые,
+  // цитаты, деньги, привычки, связи. Группы идут выше команд: чаще ищут свои данные.
+  const omniGroups = typed.type ? [] : omniSearchGroups(state, query, allItems);
   return [
     "<div class=\"command-palette-overlay\" data-testid=\"command-palette\">",
     "<div class=\"command-palette-dialog\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Командная палитра LifeOS\">",
@@ -11859,8 +11994,19 @@ function renderCommandPalette(state) {
     "<div><span>Artifact OS</span><h2>Команды</h2><p>Один быстрый вход: рабочие места, текущий поиск, связи и безопасные действия.</p></div>",
     "<button data-action=\"close-command-palette\" data-testid=\"close-command-palette\" aria-label=\"Закрыть командную палитру\">Закрыть</button>",
     "</div>",
-    "<label class=\"command-palette-search\"><span>Найти команду или поиск: финансы, граф, задача, чтение · task:/money: сузит по типу</span><input id=\"command-palette-query\" data-testid=\"command-palette-query\" autocomplete=\"off\" value=\"" + escapeHtml(query) + "\"></label>",
+    "<label class=\"command-palette-search\"><span>Найди что угодно: артефакты, задачи, цели, людей, файлы, голосовые, цитаты, деньги, связи и команды</span><input id=\"command-palette-query\" data-testid=\"command-palette-query\" autocomplete=\"off\" value=\"" + escapeHtml(query) + "\"></label>",
     "<div class=\"command-palette-body\">",
+    omniGroups.map((group) => [
+      "<section data-testid=\"omni-group\" data-group=\"" + escapeHtml(group.kind) + "\">",
+      "<div class=\"command-palette-section-title\">" + escapeHtml(group.label) + "</div>",
+      group.items.map((item) => [
+        "<button class=\"command-palette-row omni-row\" data-action=\"" + escapeHtml(item.action) + "\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"omni-result\" data-kind=\"" + escapeHtml(item.kind) + "\">",
+        "<span><strong>" + highlightMatch(item.title, query) + "</strong><em>" + escapeHtml(item.hint) + "</em></span>",
+        "<kbd>↵</kbd>",
+        "</button>"
+      ].join("")).join(""),
+      "</section>"
+    ].join("")).join(""),
     "<section>",
     "<div class=\"command-palette-section-title\">" + (typed.type ? "Типизированный поиск" : "Команды") + "</div>",
     items.length ? items.map((item) => [
@@ -13910,6 +14056,276 @@ function answerDigestQuestion(state, compositeId) {
   }
   dismissProposal(state, proposalId);
   addReceipt(state, "decision", proposalId, "Вопрос «" + shorten(proposal.title, 60) + "» закрыт ответом «нет» — объект не создавался.", { surface: "capture", noteId: proposal.noteId || "" });
+}
+
+// ============================================================================
+// Агенты (канон design-system/Agents.dc.html)
+// ============================================================================
+// Агент — не «магическая кнопка», а именованная обёртка над способностью, которая уже работает:
+// у него виден триггер, шаги, права (что может и чего НЕ может) и журнал чеков. Цикл ровно
+// канонный: план → подтверждение → исполнение → отчёт → квитанция (донор-идея LangGraph HITL).
+// Здесь только агенты, за которыми стоит настоящий код: выдуманных в список не берём (§7).
+
+const LIFEOS_AGENTS = [
+  {
+    id: "evening-digest",
+    name: "Вечерний разбор",
+    when: "Вручную, кнопкой. Расписания в LifeOS нет — агент не просыпается сам.",
+    steps: [
+      "Читает сегодняшние захваты",
+      "Извлекает сущности: людей, суммы, сроки",
+      "Сверяет с графом и гасит дубликаты",
+      "Готовит предложения и вопросы, ждёт согласия"
+    ],
+    rights: [
+      ["читает поток за сегодня", true],
+      ["пишет предложения и вопросы", true],
+      ["не создаёт объекты сам", false],
+      ["не выходит в сеть", false]
+    ]
+  },
+  {
+    id: "goal-watcher",
+    name: "Наблюдатель целей",
+    when: "Вручную. Сверяет активные цели между собой и со свободным потоком по счетам.",
+    steps: [
+      "Пересчитывает свободный поток по движению за 90 дней",
+      "Сверяет сроки и суммы активных целей",
+      "Ищет цели, которые тянут один поток",
+      "Показывает противоречие с ценой каждого варианта"
+    ],
+    rights: [
+      ["читает цели, задачи и счета", true],
+      ["пишет отчёт о противоречиях", true],
+      ["не меняет цели и сроки", false],
+      ["не выходит в сеть", false]
+    ]
+  },
+  {
+    id: "quiet-secretary",
+    name: "Тихий секретарь",
+    when: "Вручную. Смотрит расписание на сегодня и ищет пересечения по времени.",
+    steps: [
+      "Собирает блоки дня с временем",
+      "Ищет пересечения отрезков",
+      "Считает первое свободное окно для переноса",
+      "Показывает варианты — переносит только по твоей команде"
+    ],
+    rights: [
+      ["читает задачи, блоки плана и напоминания", true],
+      ["предлагает перенос", true],
+      ["не двигает время само", false],
+      ["не пишет людям", false]
+    ]
+  }
+];
+
+function agentById(agentId) {
+  return LIFEOS_AGENTS.find((agent) => agent.id === agentId) || null;
+}
+
+// План — что агент СДЕЛАЕТ, посчитанное по текущему состоянию, а не общее описание. Если делать
+// нечего, план так и говорит: тогда и подтверждать нечего.
+function computeAgentPlan(state, agentId) {
+  const agent = agentById(agentId);
+  if (!agent) return null;
+  if (agent.id === "evening-digest") {
+    const sources = digestSourcesForDay(state, todayKey());
+    return {
+      agentId,
+      name: agent.name,
+      summary: sources.length
+        ? "Прочитает " + sources.length + " " + pluralRu(sources.length, "захват", "захвата", "захватов") + " за сегодня и соберёт предложения. Ни один объект без твоего согласия создан не будет."
+        : "За сегодня захватов нет — читать нечего, запускать бессмысленно.",
+      canRun: sources.length > 0,
+      createdAt: now()
+    };
+  }
+  if (agent.id === "goal-watcher") {
+    const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+    return {
+      agentId,
+      name: agent.name,
+      summary: goals.length
+        ? "Сверит " + goals.length + " " + pluralRu(goals.length, "активную цель", "активные цели", "активных целей") + " между собой и с потоком по счетам. Цели не изменит — только покажет расхождения."
+        : "Активных целей нет — сверять нечего.",
+      canRun: goals.length > 0,
+      createdAt: now()
+    };
+  }
+  const blocks = computeTodayPlan(state).blocks;
+  return {
+    agentId,
+    name: agent.name,
+    summary: blocks.length
+      ? "Проверит " + blocks.length + " " + pluralRu(blocks.length, "блок", "блока", "блоков") + " сегодняшнего расписания на пересечения. Время само не подвинет."
+      : "На сегодня блоков со временем нет — проверять нечего.",
+    canRun: blocks.length > 0,
+    createdAt: now()
+  };
+}
+
+// Исполнение: агент делает ровно то, что было в плане, и отдаёт отчёт. Отчёт — факты со
+// счётчиками, а не «готово». Квитанция пишется всегда, даже когда агент ничего не нашёл.
+function runAgent(state, agentId) {
+  const agent = agentById(agentId);
+  const plan = state.control.agentPlan;
+  if (!agent || !plan || plan.agentId !== agentId) return;
+  let findings = [];
+  let summary = "";
+  if (agent.id === "evening-digest") {
+    runDayDigest(state);
+    const digest = state.control.dayDigest;
+    const counts = (digest && digest.counts) || { sources: 0, proposals: 0, matches: 0, asks: 0 };
+    summary = "Разобрано " + counts.sources + " " + pluralRu(counts.sources, "захват", "захвата", "захватов") + ": " + counts.proposals + " " + pluralRu(counts.proposals, "предложение", "предложения", "предложений") + ", " + counts.matches + " " + pluralRu(counts.matches, "совпадение", "совпадения", "совпадений") + " с существующим, " + counts.asks + " " + pluralRu(counts.asks, "вопрос", "вопроса", "вопросов") + ". Ничего не записано.";
+    findings = (digest ? digest.stages : []).map((stage) => stage.label + ": " + stage.value);
+  } else if (agent.id === "goal-watcher") {
+    const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+    for (const goal of goals) {
+      for (const conflict of objectConflicts(state, goal.id, "goal", goal)) {
+        findings.push("«" + shorten(goal.title || "цель", 40) + "» — " + conflict.title + ": " + conflict.summary);
+      }
+    }
+    summary = findings.length
+      ? "Проверено " + goals.length + " " + pluralRu(goals.length, "цель", "цели", "целей") + ", найдено " + findings.length + " " + pluralRu(findings.length, "расхождение", "расхождения", "расхождений") + ". Цели не изменены — решение за тобой в объекте цели."
+      : "Проверено " + goals.length + " " + pluralRu(goals.length, "цель", "цели", "целей") + ": расхождений нет, сроки и суммы сходятся с потоком.";
+  } else {
+    const plan2 = computeTodayPlan(state);
+    for (const block of plan2.blocks.filter((row) => row.conflict)) {
+      findings.push(block.time + " «" + shorten(block.title, 40) + "» — " + block.conflict.explanation + " Варианты: " + block.conflict.options.map((option) => option.label).join(", ") + ".");
+    }
+    summary = findings.length
+      ? "Найдено " + findings.length + " " + pluralRu(findings.length, "пересечение", "пересечения", "пересечений") + " в сегодняшнем дне. Время не двигал — варианты переноса ждут на экране Сегодня."
+      : "Пересечений в сегодняшнем дне нет — расписание сходится.";
+  }
+  state.control.agentReport = { agentId, name: agent.name, summary, findings: findings.slice(0, 8), createdAt: now() };
+  state.control.agentPlan = null;
+  addAudit(state, "agent.run", "Агент «" + agent.name + "»: " + summary, "");
+  addReceipt(state, "agent", agentId, "Агент «" + agent.name + "» отработал по подтверждённому плану. " + summary, { surface: "agents" });
+}
+
+function computeAgentsView(state) {
+  const plan = state.control.agentPlan || null;
+  const report = state.control.agentReport || null;
+  const receipts = (state.control.receipts || []).filter((receipt) => receipt.kind === "agent");
+  return {
+    agents: LIFEOS_AGENTS.map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      when: agent.when,
+      steps: agent.steps,
+      rights: agent.rights.map(([label, allowed]) => ({ label, allowed })),
+      // Журнал агента — его собственные чеки из Контроля, а не отдельная история.
+      journal: receipts.filter((receipt) => receipt.objectId === agent.id).slice(-4).reverse()
+        .map((receipt) => ({ at: formatObjectStamp(receipt.createdAt), summary: shorten(receipt.summary, 120) })),
+      planned: Boolean(plan && plan.agentId === agent.id),
+      plan: plan && plan.agentId === agent.id ? plan : null,
+      report: report && report.agentId === agent.id ? Object.assign({}, report, { at: formatObjectStamp(report.createdAt) }) : null
+    }))
+  };
+}
+
+// ============================================================================
+// Контроль: маршруты наружу и журнал чеков (канон design-system/Control.dc.html)
+// ============================================================================
+// Канон требует ответа на два вопроса: «куда мои данные могут уйти и что именно уйдёт» и
+// «что система сделала, и как это откатить». Раньше Контроль показывал журнал изменений, но
+// не маршруты и не сами чеки. Маршрут описывается точно: не «интеграция», а что конкретно
+// покинет устройство и при каком действии.
+
+const OUTBOUND_ROUTE_PAYLOADS = {
+  ollama: "Текст активного артефакта и твой вопрос уходят на локальный адрес Ollama. Дальше устройства ничего не идёт — если адрес остаётся 127.0.0.1.",
+  calendarSync: "Заголовки и время событий календаря. Содержимое заметок не отправляется.",
+  bank: "Ничего не уходит: подключение банка не настроено. Выписка попадает в LifeOS только файлом, который ты выбираешь сам.",
+  mail: "Ничего не уходит: почта не подключена.",
+  smartHome: "Команды устройствам и запрос их состояния — на адрес твоего локального хаба.",
+  screen: "Снимок активного окна. Включается только явным разрешением браузера и остаётся на устройстве.",
+  models: "Маршруты моделей хранятся локально. Внешний запуск требует отдельного действия владельца.",
+  notifications: "Наружу ничего: уведомления рисует сам браузер на этом устройстве.",
+  pwa: "Наружу ничего: service worker кэширует файлы приложения локально."
+};
+
+const OUTBOUND_ACTIVE_STATUSES = new Set(["reachable", "models_found", "generation_ok", "degraded"]);
+
+function computeOutboundRoutes(state) {
+  const rows = [];
+  for (const [key, provider] of Object.entries(state.providers || {})) {
+    const payload = OUTBOUND_ROUTE_PAYLOADS[key];
+    // В маршруты попадает только то, что вообще способно отправить данные с устройства.
+    // Парсеры, плеер и локальный календарь наружу не ходят — им тут не место.
+    if (!payload) continue;
+    const status = key === "ollama" ? state.ollama.status : provider.status;
+    rows.push({
+      id: key,
+      label: provider.label || key,
+      status,
+      statusLabel: providerStatusHuman(status),
+      active: OUTBOUND_ACTIVE_STATUSES.has(status),
+      payload,
+      note: provider.requiredAction || ""
+    });
+  }
+  const zones = state.control.privacyZones || {};
+  return {
+    routes: rows.sort((a, b) => Number(b.active) - Number(a.active) || a.label.localeCompare(b.label)),
+    activeCount: rows.filter((row) => row.active).length,
+    zones: [
+      { id: "local", label: "Локальное хранилище", value: privacyZoneHuman(zones.local || "active"), detail: "Все артефакты лежат в IndexedDB этого браузера. Ничего не синхронизируется само." },
+      { id: "providers", label: "Провайдеры", value: privacyZoneHuman(zones.providers || "gated"), detail: "Каждый маршрут наружу включается вручную и виден в списке выше." },
+      { id: "privateMedia", label: "Личные медиа", value: privacyZoneHuman(zones.privateMedia || "manual"), detail: "Фото и аудио остаются файлами на устройстве, наружу не отправляются." }
+    ]
+  };
+}
+
+// Зоны приватности тоже RU-first: «active»/«gated» на экране владельца — это техжаргон.
+function privacyZoneHuman(value) {
+  const map = { active: "включено", gated: "по разрешению", manual: "только вручную", off: "выключено" };
+  return map[String(value || "")] || String(value || "");
+}
+
+function providerStatusHuman(status) {
+  const map = {
+    "local-only": "работает локально",
+    "not-connected": "не подключено",
+    "not-configured": "нужна настройка",
+    "permission-required": "нужно разрешение",
+    "parser-required": "нужен парсер",
+    unchecked: "не проверено",
+    reachable: "доступно",
+    models_found: "модели найдены",
+    generation_ok: "работает",
+    degraded: "частично работает",
+    error: "ошибка подключения",
+    offline: "не подключено",
+    revoked: "отключено",
+    "service-worker-ready": "работает локально",
+    "offline-ready": "работает локально",
+    blocked: "заблокировано",
+    "blocked_by_browser_or_cors": "заблокировано браузером"
+  };
+  return map[String(status || "")] || String(status || "неизвестно").replace(/[-_]/g, " ");
+}
+
+// Журнал чеков: что система сделала и что из этого можно вернуть. Откат честный — кнопка
+// стоит только там, где возврат действительно реализован, а не «на будущее».
+function computeReceiptJournal(state) {
+  const receipts = (state.control.receipts || []).slice(-40).reverse();
+  return receipts.map((receipt) => {
+    const resolved = receipt.objectId ? graphNodeObject(state, receipt.objectId) : null;
+    const record = resolved && resolved.object ? resolved.object : null;
+    const revertible = Boolean(record && record.decision && record.decision.field && record.decision.previous !== undefined);
+    return {
+      id: receipt.id,
+      kind: receipt.kind,
+      objectId: receipt.objectId || "",
+      summary: receipt.summary,
+      at: formatObjectStamp(receipt.createdAt),
+      locality: receipt.locality || "local",
+      surface: receipt.surface || "",
+      openable: Boolean(record),
+      revertible
+    };
+  });
 }
 
 function objectReturnSurface(state) {
@@ -19250,6 +19666,23 @@ async function handleAction(action, id) {
     });
     return;
   }
+  if (action === "plan-agent") {
+    await store.commit("План агента собран", (state) => {
+      state.control.agentPlan = computeAgentPlan(state, id);
+      state.control.agentReport = null;
+    });
+    return;
+  }
+  if (action === "cancel-agent-plan") {
+    await store.commit("План агента отменён", (state) => {
+      state.control.agentPlan = null;
+    });
+    return;
+  }
+  if (action === "confirm-agent-plan") {
+    await store.commit("Агент отработал", (state) => runAgent(state, id));
+    return;
+  }
   if (action === "run-day-digest") {
     await store.commit("Разбор дня выполнен", (state) => runDayDigest(state));
     return;
@@ -19264,6 +19697,16 @@ async function handleAction(action, id) {
   }
   if (action === "resolve-object-conflict") {
     await store.commit("Противоречие закрыто", (state) => resolveObjectConflict(state, id));
+    return;
+  }
+  // Откат прямо из журнала чеков: сначала открываем объект, потом возвращаем значение —
+  // владелец видит, что именно откатилось, а не «готово» без контекста.
+  if (action === "revert-receipt") {
+    await store.commit("Решение отменено из журнала", (state) => {
+      state.objectView = { id: cleanLine(id || ""), tab: "conf", from: state.activeSurface };
+      revertObjectDecision(state);
+      state.objectView = { id: "", tab: "sut", from: "" };
+    });
     return;
   }
   if (action === "revert-object-decision") {

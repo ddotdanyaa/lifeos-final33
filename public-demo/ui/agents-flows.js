@@ -36,11 +36,67 @@ function renderAgentCenter(ctx) {
   ].join("");
 }
 
+// Агенты (канон design-system/Agents.dc.html): у каждого виден триггер, шаги, права и журнал
+// чеков, а работает он строго циклом план → подтверждение → исполнение → отчёт → квитанция.
+// Данные из app.js (computeAgentsView); в списке только агенты, за которыми стоит настоящий код.
+function agentCard(agent) {
+  return [
+    `<article class="agent-card" data-testid="agent-card" data-agent="${escapeHtml(agent.id)}">`,
+    `<header class="agent-card-head"><h4>${escapeHtml(agent.name)}</h4><span class="agent-card-when" data-testid="agent-when">${escapeHtml(agent.when)}</span></header>`,
+    `<ol class="agent-card-steps" data-testid="agent-steps-list">${agent.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>`,
+    // Права показываются обеими сторонами: что агент может И чего он не может (§7).
+    `<ul class="agent-card-rights" data-testid="agent-rights">`,
+    agent.rights.map((right) => `<li class="${right.allowed ? "can" : "cannot"}" data-testid="agent-right"><span aria-hidden="true">${right.allowed ? "+" : "−"}</span>${escapeHtml(right.label)}</li>`).join(""),
+    `</ul>`,
+    agent.plan ? [
+      `<div class="agent-plan" data-testid="agent-plan">`,
+      `<strong>План</strong>`,
+      `<p data-testid="agent-plan-summary">${escapeHtml(agent.plan.summary)}</p>`,
+      `<div class="agent-plan-actions">`,
+      agent.plan.canRun
+        ? button("confirm-agent-plan", "Подтвердить и запустить", { id: agent.id, kind: "primary", testId: "confirm-agent-plan" })
+        : `<span class="agent-plan-blocked" data-testid="agent-plan-blocked">Запускать нечего — подтверждать нечего.</span>`,
+      button("cancel-agent-plan", "Отменить", { kind: "ghost", testId: "cancel-agent-plan" }),
+      `</div>`,
+      `</div>`
+    ].join("") : button("plan-agent", "Показать план", { id: agent.id, kind: "ghost", testId: "plan-agent" }),
+    agent.report ? [
+      `<div class="agent-report" data-testid="agent-report">`,
+      `<strong>Отчёт · ${escapeHtml(agent.report.at)}</strong>`,
+      `<p data-testid="agent-report-summary">${escapeHtml(agent.report.summary)}</p>`,
+      agent.report.findings.length
+        ? `<ul class="agent-report-findings">${agent.report.findings.map((row) => `<li data-testid="agent-report-finding">${escapeHtml(row)}</li>`).join("")}</ul>`
+        : "",
+      `</div>`
+    ].join("") : "",
+    `<div class="agent-journal" data-testid="agent-journal">`,
+    `<span class="agent-journal-title">Журнал чеков</span>`,
+    agent.journal.length
+      ? agent.journal.map((row) => `<div class="agent-journal-row" data-testid="agent-journal-row"><time>${escapeHtml(row.at)}</time><span>${escapeHtml(row.summary)}</span></div>`).join("")
+      : `<div class="empty-inline" data-testid="agent-journal-empty">Агент ещё ни разу не запускался.</div>`,
+    `</div>`,
+    `</article>`
+  ].join("");
+}
+
+function renderNamedAgents(ctx) {
+  const agents = (ctx.agentsView || {}).agents || [];
+  if (!agents.length) return "";
+  return [
+    `<section class="named-agents" data-testid="named-agents">`,
+    `<p class="canon-eyebrow">Агенты <em>${agents.length}</em></p>`,
+    `<p class="named-agents-note">Каждый агент показывает план до запуска и пишет квитанцию после. Необратимого без подтверждения не делает ни один.</p>`,
+    agents.map(agentCard).join(""),
+    `</section>`
+  ].join("");
+}
+
 export function renderAgentsFlows(ctx) {
   const agentRuns = ctx.agentRuns || [];
   const flowRuns = ctx.flowRuns || [];
   const runs = agentRuns.length ? agentRuns : flowRuns;
   const body = [
+    renderNamedAgents(ctx),
     `<div class="agents-flow-layout" data-testid="agent-panel">`,
     `<section class="agent-command">`,
     `<h3>Агент-проверка</h3>`,
