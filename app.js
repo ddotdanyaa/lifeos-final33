@@ -5798,7 +5798,15 @@ const RU_CAPTURE_STOPWORDS = new Set([
   "может", "можно", "стоит", "пора", "почему", "зачем", "какой", "какая", "сколько", "это",
   "этот", "эта", "мне", "меня", "мой", "моя", "мои", "там", "тут", "здесь", "очень", "просто",
   "тоже", "ещё", "еще", "уже", "весь", "вся", "все", "всё", "они", "она", "оно", "как", "что",
-  "чтобы", "пока", "весной", "летом", "осенью", "зимой", "деньги", "смета", "счёт", "счет"
+  "чтобы", "пока", "весной", "летом", "осенью", "зимой", "деньги", "смета", "счёт", "счет",
+  // Частые ЗАЧИНЫ захвата — нарицательные с большой буквы в начале фразы. Правило «заглавное
+  // слово не в начале предложения — почти наверняка имя» на первом слове не работает вовсе,
+  // и «Ремонт кухни аванс подрядчику» давало человека по имени Ремонт. Словарь узкий и только
+  // для этого класса: это предметы записей владельца, людьми они не бывают никогда.
+  "ремонт", "кухня", "кухни", "квартира", "машина", "аванс", "оплата", "покупка", "продажа",
+  "доход", "расход", "зарплата", "бензин", "продукты", "подписка", "договор", "документы",
+  "отчёт", "отчет", "письмо", "звонок", "поездка", "билет", "аптека", "врач", "спорт",
+  "английский", "немецкий", "испанский", "французский", "вода", "еда", "сон", "здоровье"
 ]);
 
 function extractEntitiesFromText(text) {
@@ -5814,8 +5822,16 @@ function extractEntitiesFromText(text) {
     [/Испани[а-яё]*/gi, "Испания"], [/Итали[а-яё]*/gi, "Италия"], [/Греци[а-яё]*/gi, "Греция"],
     [/Япони[а-яё]*/gi, "Япония"], [/Кита[йея-яё]*/gi, "Китай"], [/Инди[йея-яё]*/gi, "Индия"], [/США/g, "США"]
   ];
+  // Прилагательное — не место. «Английский снова откладываю» давало место «Англия», потому что
+  // основа `Англи` совпадает с началом слова «Английский»; так же читались бы «испанский» и
+  // «китайский». Название языка или прилагательное отсекаем по суффиксу, а не по словарю: если
+  // совпавшее слово продолжается на -ск-/-йск-, это признак, а не страна.
+  // Суффикс именно прилагательного, а не любое «ск» внутри слова: «Москве» тоже содержит «ск»,
+  // и по грубому правилу столица пропадала бы из мест вместе с «английским».
+  const PLACE_ADJECTIVE_TAIL = /ск(ий|ая|ое|ие|ого|ому|ом|ую|ой|их|им|ими)$/i;
   for (const [re, canonical] of placeDict) {
-    if (re.test(text)) entities.places.push(canonical);
+    const match = text.match(re);
+    if (match && !match.every((word) => PLACE_ADJECTIVE_TAIL.test(word))) entities.places.push(canonical);
   }
   // Place-keyword + a Capitalized following word ("озеро Севан", "город Тбилиси").
   const placeKeywordRe = /(?:озер[оа]|рек[аи]|город[еа]?|деревн[еяю]|остров[еа]?|гор[аеы]|мор[еяю]|залив[еа]?)\s+([А-ЯЁ][а-яё]+)/gi;
@@ -5845,10 +5861,13 @@ function extractEntitiesFromText(text) {
   const personRe = /(?<![А-Яа-яЁё])(?:с|со|у|от|встретил[аи]?|звонил[аи]?|говорил[аи]?|писал[аи]?)\s+([А-ЯЁ][а-яё]+(?:\s*(?:,|(?<![А-Яа-яЁё])и(?![А-Яа-яЁё]))\s*[А-ЯЁ][а-яё]+)*)/gi;
   const placeSet = new Set(entities.places);
   const projectSet = new Set(entities.projects);
+  // Название проекта из нескольких слов («Новая Платформа») в projectSet лежит целиком, а
+  // заглавные слова проверяются по одному — и «Новая» с «Платформой» уезжали в люди по отдельности.
+  const projectWordSet = new Set([...projectSet].flatMap((name) => String(name).split(/\s+/)).filter(Boolean));
   for (let m; (m = personRe.exec(text)) !== null; ) {
     for (const raw of m[1].split(/\s*(?:,|\sи\s)\s*/)) {
       const name = raw.trim();
-      if (name && !placeSet.has(name) && !projectSet.has(name)) entities.people.push(name);
+      if (name && !placeSet.has(name) && !projectWordSet.has(name)) entities.people.push(name);
     }
   }
 
@@ -5869,7 +5888,7 @@ function extractEntitiesFromText(text) {
       const word = words[index].replace(/^[^А-ЯЁа-яё]+|[^А-ЯЁа-яё]+$/g, "");
       if (!/^[А-ЯЁ][а-яё]{2,}$/.test(word)) continue;
       const lower = word.toLocaleLowerCase("ru-RU");
-      if (placeSet.has(word) || projectSet.has(word)) continue;
+      if (placeSet.has(word) || projectWordSet.has(word)) continue;
       // Место в косвенном падеже («Москву») в placeSet не попадает — сверяем по основе.
       if ([...placeSet].some((place) => lower.startsWith(place.toLocaleLowerCase("ru-RU").slice(0, 4)))) continue;
       if (RU_CAPTURE_STOPWORDS.has(lower)) continue;
@@ -7446,6 +7465,18 @@ function addReminderForReviewItem(state, reviewId) {
   return reminderId;
 }
 
+// Машинерия конвейера, распознаваемая по типу и по точному служебному названию. Тип `control` —
+// это всегда шаг «записать связи и контроль»; «Сохранить источник в библиотеку» приходит типом
+// `knowledge`, поэтому одного типа мало. Названия сравниваем целиком, чтобы настоящая заметка со
+// словом «источник» под правило не попала.
+const MACHINERY_PROPOSAL_TITLE = /^(сохранить источник в библиотеку|записать связи и контроль)$/i;
+
+function isMachineryProposal(proposal) {
+  if (!proposal) return false;
+  if (proposal.type === "control") return true;
+  return MACHINERY_PROPOSAL_TITLE.test(cleanLine(proposal.title || ""));
+}
+
 function applyProposal(state, proposalId) {
   const proposal = state.proposals[proposalId];
   if (!proposal || proposal.status !== "open") return;
@@ -7458,6 +7489,18 @@ function applyProposal(state, proposalId) {
     });
     proposal.updatedAt = now();
     addAudit(state, "proposal.needs-owner-choice", "Proposal needs owner choice: " + proposal.title, proposal.noteId);
+    return;
+  }
+  // Служебный шаг самого разбора — не знание владельца. «Сохранить источник в библиотеку» и
+  // «Записать связи и контроль» описывают, что делает СИСТЕМА; применение такого предложения
+  // заводило объект-инсайт ровно с этим названием. На прогоне вечернего дампа из 60 «инсайтов»
+  // 44 были именно такими: коллекция знаний состояла из машинерии платформы. Шаг отмечается
+  // выполненным (запись и связи уже созданы при захвате), но объекта после себя не оставляет.
+  if (isMachineryProposal(proposal)) {
+    proposal.appliedObjectId = "";
+    proposal.status = "applied";
+    proposal.updatedAt = now();
+    addAudit(state, "proposal.apply", "Служебный шаг разбора отмечен выполненным: «" + proposal.title + "» — объект не создавался", proposal.noteId);
     return;
   }
   const schedule = {
@@ -7632,6 +7675,27 @@ function applyProposal(state, proposalId) {
     const names = Array.isArray(fields.names) ? fields.names : [];
     const typeLabel = { person: "Человек", project: "Проект", place: "Место", date: "Дата" }[entityType] || "Сущность";
     const typeIcon = { person: "👤", project: "📋", place: "🗺️", date: "📅" }[entityType] || "🏷️";
+    // Закон №4 внутри самого извлечения. У человека УЖЕ есть объект — карточка `person:<имя>`,
+    // собранная из упоминаний; материализация заводила рядом второй объект «👤 Дмитрию», и один
+    // и тот же человек находился в поиске дважды. Дата объектом не является вовсе: «📅 август» —
+    // это признак записи, а не то, о чём владелец думает. Признание таких сущностей фиксируем
+    // чеком, указывающим на существующий объект, а не новой записью.
+    if (entityType === "person" || entityType === "date") {
+      const listed = names.map((name) => cleanLine(name)).filter(Boolean);
+      if (listed.length) {
+        addAudit(state, "entity.extract", "Распознаны " + typeLabel.toLocaleLowerCase("ru-RU") + ": " + listed.join(", ") + " — второй объект не создавался", proposal.noteId);
+        addReceipt(state, "reinforce", entityType === "person" ? personNodeId(state, listed[0]) : "",
+          typeLabel + ": " + listed.join(", ") + " — " + (entityType === "person"
+            ? "упоминания привязаны к существующей карточке человека, дубликат не создавался."
+            : "дата осталась признаком записи, отдельным объектом не заводится."),
+          { noteId: proposal.noteId || "", sourceId: proposal.sourceId || "" });
+      }
+      proposal.appliedObjectId = "";
+      proposal.status = "applied";
+      proposal.updatedAt = now();
+      rebuildIndexes(state);
+      return;
+    }
     for (const name of names) {
       const cleanName = cleanLine(name);
       if (!cleanName) continue;

@@ -75,17 +75,20 @@ test("I3 proposes typed entities before write (§7 signal), and accepting one ma
     const entityProps = Object.values(s.proposals || {}).filter((p) => p.type === "entity-extract" && p.status === "open");
     return {
       titles: entityProps.map((p) => p.title),
-      firstId: entityProps.map((p) => p.id)[0] || "",
+      // Человек и дата — сущности, у которых объект УЖЕ есть (карточка `person:<имя>` и сама
+      // дата записи), поэтому материализацию проверяем на проекте/месте: у них другого дома нет.
+      placeId: (entityProps.find((p) => (p.fields || {}).entityType === "place" || (p.fields || {}).entityType === "project") || {}).id || "",
+      personId: (entityProps.find((p) => (p.fields || {}).entityType === "person") || {}).id || "",
       // No typed knowledge node exists yet - nothing was written before confirm.
       entityNodes: Object.values(s.insights || {}).filter((i) => i.entityKind).length
     };
   });
   expect(before.titles.some((t) => /👤|📋|🗺️|📅/.test(t)), "typed entity proposals must be surfaced").toBe(true);
-  expect(before.firstId, "at least one entity proposal id").toBeTruthy();
+  expect(before.placeId, "at least one place/project entity proposal id").toBeTruthy();
   expect(before.entityNodes, "nothing typed is written before the owner confirms").toBe(0);
 
   // Owner confirms one entity proposal (same store path as the UI "Принять" button).
-  await page.evaluate((id) => window.__lifeosKnowledgeBase.applyProposalForTest(id), before.firstId);
+  await page.evaluate((id) => window.__lifeosKnowledgeBase.applyProposalForTest(id), before.placeId);
 
   // Now real typed knowledge nodes exist (entityKind set) AND an honest audit receipt was written.
   const after = await page.evaluate(() => {
@@ -97,4 +100,21 @@ test("I3 proposes typed entities before write (§7 signal), and accepting one ma
   });
   expect(after.entityNodes, "accepting materializes typed nodes").toBeGreaterThan(0);
   expect(after.hasReceipt, "the write leaves an entity.extract receipt").toBe(true);
+
+  // Изменение контракта I3, сделанное намеренно: человек ОБЪЕКТОМ УЖЕ ЯВЛЯЕТСЯ — карточка
+  // `person:<имя>` собирается из упоминаний. Материализация заводила рядом второй объект
+  // «👤 Анной», и один человек находился в поиске дважды (нарушение закона №4). Теперь признание
+  // людей фиксируется чеком, указывающим на существующую карточку, а не новой записью.
+  await page.evaluate((id) => window.__lifeosKnowledgeBase.applyProposalForTest(id), before.personId);
+  const afterPerson = await page.evaluate(() => {
+    const s = window.__lifeosKnowledgeBase.getStateSnapshot();
+    return {
+      personNodes: Object.values(s.insights || {}).filter((i) => i.entityKind === "person").length,
+      people: window.__lifeosKnowledgeBase.resolvePeopleForTest().length,
+      receipt: (s.control.receipts || []).some((r) => /дубликат не создавался/i.test(r.summary || ""))
+    };
+  });
+  expect(afterPerson.personNodes, "a person never gets a second object - the person card already is one").toBe(0);
+  expect(afterPerson.people, "the person card itself still exists").toBeGreaterThan(0);
+  expect(afterPerson.receipt, "recognizing people leaves an honest receipt instead of a duplicate").toBe(true);
 });
