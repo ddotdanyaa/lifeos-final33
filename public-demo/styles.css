@@ -11382,3 +11382,19 @@ audio {
 .behavior-pattern p { margin: 0; font-size: var(--text-sm); line-height: 1.55; color: var(--muted); max-width: 620px; }
 .behavior-pattern em { font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--muted); }
 .behavior-pattern .ui-btn { justify-self: start; margin-top: var(--space-1); }
+
+/* Инспектируемый конвейер ответа (донор Haystack): стадии поиска и причина места цитаты. */
+.grounded-pipeline {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.grounded-citation-rank {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.85;
+}

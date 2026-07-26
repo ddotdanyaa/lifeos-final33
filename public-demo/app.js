@@ -14086,9 +14086,10 @@ function rerankByGraphDistance(state, rows) {
       queue.push(next);
     }
   }
+  for (const row of rows) row.distance = distance.has(row.id) ? distance.get(row.id) : 99;
   const rest = rows.slice(1).sort((a, b) => {
-    const da = distance.has(a.id) ? distance.get(a.id) : 99;
-    const db = distance.has(b.id) ? distance.get(b.id) : 99;
+    const da = a.distance === null ? 99 : a.distance;
+    const db = b.distance === null ? 99 : b.distance;
     return da - db || String(b.day).localeCompare(String(a.day));
   });
   return [anchor].concat(rest);
@@ -14098,12 +14099,17 @@ async function buildGroundedAnswer(state, question) {
   const terms = answerQueryTerms(question);
   const candidates = [];
   const seen = new Set();
+  // Сколько слов запроса реально встретилось в цитате — это и есть «почему нашлось».
+  const matchedTerms = (quote) => {
+    const lower = normalizeRuText(quote);
+    return terms.filter((term) => lower.includes(term)).length;
+  };
   const pushCitation = (id, kind, title, text, at) => {
     if (!id || seen.has(id)) return;
     const quote = answerQuoteFor(text, terms);
     if (!quote) return;
     seen.add(id);
-    candidates.push({ id, kind, title: shorten(title || "запись", 70), quote, at: formatObjectStamp(at), day: String(at || "").slice(0, 10) });
+    candidates.push({ id, kind, title: shorten(title || "запись", 70), quote, at: formatObjectStamp(at), day: String(at || "").slice(0, 10), matched: matchedTerms(quote) });
   };
 
   // Ранжирование отдаём minisearch (тот же движок, что панель «Память»), чтобы поиск в системе
@@ -14158,9 +14164,30 @@ async function buildGroundedAnswer(state, question) {
   const span = days.length > 1 && days[0] !== days[days.length - 1]
     ? " Первое упоминание " + formatObjectDay(days[0]) + ", последнее " + formatObjectDay(days[days.length - 1]) + "."
     : "";
+  // Haystack-паттерн «инспектируемый конвейер»: у каждой цитаты видно, ПОЧЕМУ она здесь и
+  // почему именно на этом месте. Реранк без объяснения — это просто другой порядок.
+  const totalTerms = Math.max(1, terms.length);
+  for (let index = 0; index < cited.length; index += 1) {
+    const row = cited[index];
+    const parts = [];
+    parts.push("совпало " + row.matched + " из " + totalTerms + " " + pluralRu(totalTerms, "слова", "слов", "слов") + " запроса");
+    if (index === 0) parts.push("самое сильное совпадение");
+    // Реранк по графу включается только когда цитат хотя бы три — на двух переставлять нечего.
+    // Поэтому расстояние может быть не посчитано, и врать про «связь не найдена» здесь нельзя.
+    else if (typeof row.distance !== "number") parts.push("порядок по дате: связей для перестановки мало");
+    else if (row.distance === 1) parts.push("напрямую связано с первым");
+    else if (row.distance >= 99) parts.push("связь с первым не найдена");
+    else parts.push("в " + row.distance + " " + pluralRu(row.distance, "шаге", "шагах", "шагах") + " от первого в графе");
+    row.rankWhy = parts.join(" · ");
+  }
+  const pipeline = [
+    "нашлось " + candidates.length + " " + pluralRu(candidates.length, "запись", "записи", "записей"),
+    "после склейки проекций осталось " + cited.length,
+    "порядок — по силе совпадения и близости в графе"
+  ];
   const answer = "По твоим записям тема встречается " + cited.length + " " + pluralRu(cited.length, "раз", "раза", "раз") + "." + span
     + " Ниже — что именно записано, дословно и со ссылкой на источник. Вывод из этого делаешь ты: я показываю только то, что есть.";
-  return { question: cleanLine(question), answer, citations: cited, createdNothing: true, createdAt: now() };
+  return { question: cleanLine(question), answer, citations: cited, pipeline, createdNothing: true, createdAt: now() };
 }
 
 function storeGroundedAnswer(state, answer) {
@@ -14193,6 +14220,7 @@ function computeAnswerView(state) {
     answer: answer.answer,
     at: formatObjectStamp(answer.createdAt),
     citations: (answer.citations || []).map((row) => Object.assign({}, row)),
+    pipeline: Array.isArray(answer.pipeline) ? answer.pipeline : [],
     // Явная строка канона: система сообщает, что ничего не записала.
     nothingCreatedLine: "Ничего не создано: это был вопрос, а не задача. Запись самого вопроса сохранена в потоке."
   };

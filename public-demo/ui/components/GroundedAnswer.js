@@ -11,12 +11,18 @@ export function renderGroundedAnswer(ctx) {
     `<p class="canon-eyebrow">Ответ · ${escapeHtml(view.at)}</p>`,
     `<h3 class="grounded-question" data-testid="grounded-question">${escapeHtml(view.question)}</h3>`,
     `<p class="grounded-text" data-testid="grounded-answer-text">${escapeHtml(view.answer)}</p>`,
+    // Донор Haystack: конвейер инспектируемый — видно, что нашлось, что склеилось и чем задан
+    // порядок. Иначе реранк выглядит как произвольная перестановка.
+    view.pipeline && view.pipeline.length
+      ? `<p class="grounded-pipeline" data-testid="grounded-pipeline">${view.pipeline.map((stage) => escapeHtml(stage)).join(" → ")}</p>`
+      : "",
     view.citations.length ? [
       `<div class="grounded-citations" data-testid="grounded-citations">`,
       view.citations.map((row) => [
         `<button class="grounded-citation" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="grounded-citation">`,
         `<span class="grounded-citation-head"><strong>${escapeHtml(row.title)}</strong><time>${escapeHtml(row.at)}</time></span>`,
         `<em data-testid="grounded-citation-quote">«${escapeHtml(row.quote)}»</em>`,
+        row.rankWhy ? `<span class="grounded-citation-rank" data-testid="grounded-citation-rank">${escapeHtml(row.rankWhy)}</span>` : "",
         `</button>`
       ].join("")).join(""),
       `</div>`

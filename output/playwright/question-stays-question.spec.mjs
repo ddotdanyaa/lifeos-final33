@@ -99,3 +99,27 @@ test("цитата открывает объект-источник", async ({ p
   await expect(page.getByTestId("workspace-object")).toBeVisible({ timeout: 15000 });
   await expect(page.getByTestId("object-verdict")).not.toBeEmpty();
 });
+
+// Q4 (донор Haystack): конвейер ответа инспектируемый — видно, что нашлось, что склеилось
+// и чем задан порядок. Реранк без объяснения — это просто другая перестановка.
+test("ответ: видно стадии поиска и почему цитата на своём месте", async ({ page }) => {
+  await reset(page);
+  await capture(page, "Хочу купить машину до августа");
+  await capture(page, "Марина против кредита на машину");
+  await capture(page, "Посчитать свободные деньги на машину");
+  await capture(page, "Почему я до сих пор не купил машину?");
+
+  await expect(page.getByTestId("grounded-pipeline")).toBeVisible();
+  const pipeline = await page.getByTestId("grounded-pipeline").textContent();
+  expect(pipeline).toContain("нашлось");
+  expect(pipeline).toContain("склейки");
+  expect(pipeline).toContain("порядок");
+
+  // У каждой цитаты сказано, сколько слов совпало и почему она на этом месте.
+  const ranks = await page.getByTestId("grounded-citation-rank").allTextContents();
+  expect(ranks.length).toBeGreaterThan(0);
+  expect(ranks.every((line) => /совпало \d+ из \d+/.test(line))).toBe(true);
+  expect(ranks[0]).toContain("самое сильное совпадение");
+  // Ни в одной строке не должно быть undefined — это признак непосчитанного значения.
+  expect(ranks.every((line) => !line.includes("undefined"))).toBe(true);
+});
