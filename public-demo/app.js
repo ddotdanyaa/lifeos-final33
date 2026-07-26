@@ -276,23 +276,35 @@ function parseDateFromTextHumanSafe(text) {
     const year = dotted[3] ? Number(dotted[3].length === 2 ? "20" + dotted[3] : dotted[3]) : currentYear;
     return String(year).padStart(4, "0") + "-" + String(Number(dotted[2])).padStart(2, "0") + "-" + String(Number(dotted[1])).padStart(2, "0");
   }
-  const weekdays = [
-    ["воскресенье", "sunday"],
-    ["понедельник", "monday"],
-    ["вторник", "tuesday"],
-    ["среда", "wednesday"],
-    ["четверг", "thursday"],
-    ["пятница", "friday"],
-    ["суббота", "saturday"]
-  ];
   const today = new Date(todayKey() + "T00:00:00");
-  for (let index = 0; index < weekdays.length; index += 1) {
-    if (!weekdays[index].some((word) => lower.includes(word))) continue;
+  // День недели почти никогда не звучит в именительном: «до среды», «в пятницу», «к субботе».
+  // Сравнение по точному слову ловило только «вторник» и «четверг» — те два дня, у которых
+  // винительный совпадает с именительным. Всё остальное молча уезжало на сегодня.
+  for (let index = 0; index < RU_WEEKDAY_PATTERNS.length; index += 1) {
+    if (!RU_WEEKDAY_PATTERNS[index].test(lower)) continue;
     const offset = (index - today.getUTCDay() + 7) % 7 || 7;
+    return dateKeyFromOffset(offset);
+  }
+  // «В выходные» — ближайшая суббота: это то, что владелец имеет в виду, говоря так в будни.
+  if (/(?<![А-Яа-яЁё])выходн[ыои][ехм][а-яё]*(?![А-Яа-яЁё])/i.test(lower)) {
+    const offset = (6 - today.getUTCDay() + 7) % 7 || 7;
     return dateKeyFromOffset(offset);
   }
   return "";
 }
+
+// Основы дней недели с явными кириллическими границами (JS \b по кириллице не работает).
+// Индекс = день недели по getUTCDay, поэтому порядок начинается с воскресенья.
+// «сред[аыуе]» не задевает «среди» и «средство»: там после основы стоит другая буква.
+const RU_WEEKDAY_PATTERNS = [
+  /(?<![А-Яа-яЁё])(воскресень[еяю]|sunday)(?![А-Яа-яЁё])/i,
+  /(?<![А-Яа-яЁё])(понедельник[аиу]?|monday)(?![А-Яа-яЁё])/i,
+  /(?<![А-Яа-яЁё])(вторник[аиу]?|tuesday)(?![А-Яа-яЁё])/i,
+  /(?<![А-Яа-яЁё])(сред[аыуе]|wednesday)(?![А-Яа-яЁё])/i,
+  /(?<![А-Яа-яЁё])(четверг[аиу]?|thursday)(?![А-Яа-яЁё])/i,
+  /(?<![А-Яа-яЁё])(пятниц[аыуе]|friday)(?![А-Яа-яЁё])/i,
+  /(?<![А-Яа-яЁё])(суббот[аыуе]|saturday)(?![А-Яа-яЁё])/i
+];
 
 function hasRuWord(text, word) {
   return new RegExp("(^|[^0-9a-z\\u0430-\\u044f\\u0451])" + word + "(?=$|[^0-9a-z\\u0430-\\u044f\\u0451])", "iu").test(text);
