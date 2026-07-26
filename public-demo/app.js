@@ -4531,6 +4531,43 @@ function extractMerchantHuman(text) {
   return row ? row[1] : "";
 }
 
+// Срок из слов владельца: «до августа», «к декабрю», «в сентябре». Разбор дат работает по
+// конкретным дням, и цель «Хочу купить машину до августа» оставалась вообще без срока — а без
+// срока не считается ни прогноз, ни вероятность. Месяц называют в записи чаще, чем число.
+const RU_MONTH_STEMS = [
+  "январ", "феврал", "март", "апрел", "ма[йяе]", "июн", "июл", "август",
+  "сентябр", "октябр", "ноябр", "декабр"
+];
+
+function monthEndDay(year, monthIndex) {
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+
+// «до августа» — успеть ДО начала месяца, значит 1-е число. «в августе» / «к августу» — внутри
+// месяца, значит его последний день. Разница смысловая, и придумывать середину месяца нельзя.
+function parseGoalDeadline(text) {
+  const source = normalizeRuText(String(text || ""));
+  for (let index = 0; index < RU_MONTH_STEMS.length; index += 1) {
+    const pattern = new RegExp("(до|к|ко|в|во)\\s+(" + RU_MONTH_STEMS[index] + "[а-яё]*)", "i");
+    const match = source.match(pattern);
+    if (!match) continue;
+    const preposition = match[1].toLocaleLowerCase("ru-RU");
+    const today = new Date(todayKey() + "T00:00:00Z");
+    let year = today.getUTCFullYear();
+    // Названный месяц — всегда ближайший будущий: «до августа», сказанное в сентябре, значит
+    // август следующего года, а не прошедший.
+    if (index < today.getUTCMonth() || (index === today.getUTCMonth() && preposition === "до")) year += 1;
+    const beforeMonth = preposition === "до";
+    const day = beforeMonth ? 1 : monthEndDay(year, index);
+    return {
+      day: year + "-" + String(index + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0"),
+      why: "срок распознан из слов «" + match[0] + "»: "
+        + (beforeMonth ? "успеть до начала месяца" : "успеть внутри месяца, взят его последний день")
+    };
+  }
+  return null;
+}
+
 function extractGoalAmount(text) {
   const source = String(text || "");
   const goalMatch = source.match(/(?:накопить|цель|хочу|target|goal)[^\d]{0,80}(\d{3,9})/i);
@@ -5207,10 +5244,14 @@ function analyzeArtifactInput(input, fileMeta) {
     }, 0.84));
   }
   if (isGoal) {
+    // Конкретный день сильнее месяца: «до 5 августа» уже разобран как дата, месячный срок нужен
+    // только когда числа не назвали.
+    const monthDeadline = day ? null : parseGoalDeadline(text);
     addDraftOnce(drafts, draft("goal-main", "goal", stripCommandNoise(text) || "Цель", "goals", "Найдено желание, целевое значение или срок", quote, {
       title: stripCommandNoise(text) || "Цель",
       targetAmount: extractGoalAmount(text),
-      targetDate: day || ""
+      targetDate: day || (monthDeadline ? monthDeadline.day : ""),
+      targetDateWhy: day ? "" : (monthDeadline ? monthDeadline.why : "")
     }, 0.84));
   }
   if (isBook || entities.headings.length || entities.wikiLinks.length || /\b(идея|исследование|решение|вопрос|decision|research)\b/i.test(lower)) {
@@ -7669,7 +7710,10 @@ function applyProposal(state, proposalId) {
       const newAmount = Number(fields.targetAmount || fields.amount || 0);
       const newDate = cleanLine(fields.targetDate || fields.day || "");
       if (newAmount > 0 && !existingGoal.targetAmount) existingGoal.targetAmount = newAmount;
-      if (newDate && !existingGoal.targetDate) existingGoal.targetDate = newDate;
+      if (newDate && !existingGoal.targetDate) {
+        existingGoal.targetDate = newDate;
+        existingGoal.targetDateWhy = cleanLine(fields.targetDateWhy || "");
+      }
       if (proposal.sourceId && !existingGoal.sourceId) existingGoal.sourceId = proposal.sourceId;
       existingGoal.updatedAt = now();
       addAudit(state, "goal.reinforce", "Цель уже существует — усилена, не создана вторая: «" + (existingGoal.title || "") + "»", existingGoal.noteId || "");
@@ -7678,6 +7722,7 @@ function applyProposal(state, proposalId) {
       objectId = addGoal(state, fields.title || proposal.title, {
         targetAmount: fields.targetAmount || fields.amount || 0,
         targetDate: fields.targetDate || fields.day || "",
+        targetDateWhy: fields.targetDateWhy || "",
         sourceId: proposal.sourceId,
         noteId: proposal.noteId
       });
@@ -9027,7 +9072,10 @@ function addGoal(state, title, options) {
     // Повтор не только не плодит копию, но и ДОПОЛНЯЕТ: если в первый раз суммы или срока
     // не было, а теперь они названы — цель становится полнее.
     if (amount > 0 && !duplicate.targetAmount) duplicate.targetAmount = amount;
-    if (date && !duplicate.targetDate) duplicate.targetDate = date;
+    if (date && !duplicate.targetDate) {
+      duplicate.targetDate = date;
+      duplicate.targetDateWhy = cleanLine((options && options.targetDateWhy) || "");
+    }
     return reinforceExisting(state, duplicate, "цель", options && options.sourceId);
   }
   const id = makeId("goal");
@@ -9039,6 +9087,9 @@ function addGoal(state, title, options) {
     sourceId: options && options.sourceId ? options.sourceId : "",
     targetAmount: Number.isFinite(Number(options && options.targetAmount)) ? Number(options.targetAmount) : 0,
     targetDate: cleanLine(options && options.targetDate ? options.targetDate : ""),
+    // Закон №5: у срока, выведенного из слов, видно происхождение. Срок, введённый руками,
+    // объяснения не требует — там пусто, и карточка это честно покажет.
+    targetDateWhy: cleanLine(options && options.targetDateWhy ? options.targetDateWhy : ""),
     progress: 0,
     status: "active",
     deleted: false,
@@ -13839,7 +13890,9 @@ function objectFacts(state, id, kind, object) {
     if (Number(object.targetAmount) > 0) facts.push({ value: formatObjectMoney(object.targetAmount), label: "цель", source: provenance });
     const have = objectGoalProgress(state, object);
     if (have > 0) facts.push({ value: formatObjectMoney(have), label: "уже собрано", source: Number(object.progress) > 0 ? "проставлено вручную" : "посчитано по доходам, привязанным к цели" });
-    if (object.targetDate) facts.push({ value: formatObjectDay(object.targetDate), label: "срок", source: provenance });
+    // Закон №5: если срок выведен из слов («до августа»), у него виден не общий провенанс
+    // объекта, а точная фраза и то, как она прочитана.
+    if (object.targetDate) facts.push({ value: formatObjectDay(object.targetDate), label: "срок", source: cleanLine(object.targetDateWhy || "") || provenance });
     const tasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.goalId === id);
     if (tasks.length) facts.push({ value: tasks.filter((task) => task.status === "done").length + " / " + tasks.length, label: "шагов сделано", source: "по задачам, привязанным к цели" });
   } else if (kind === "task") {
