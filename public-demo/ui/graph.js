@@ -23,7 +23,9 @@ function personRow(person) {
 function personMergeRow(suggestion) {
   return [
     `<div class="person-merge" data-testid="person-merge-suggestion" data-pair="${escapeHtml(suggestion.pairId)}">`,
-    `<span class="person-merge-text">«${escapeHtml(suggestion.alias)}» и «${escapeHtml(suggestion.target)}» — один человек? <em>(уверенность: ${escapeHtml(suggestion.confidence)})</em></span>`,
+    // Закон №5: предложение называет, на чём оно держится — совпавшее начало имени и величину
+    // расхождения, а не одну лишь метку уверенности.
+    `<span class="person-merge-text">«${escapeHtml(suggestion.alias)}» и «${escapeHtml(suggestion.target)}» — один человек? <em data-testid="person-merge-why">${escapeHtml(suggestion.why || "")} · уверенность: ${escapeHtml(suggestion.confidence)}</em></span>`,
     `<span class="person-merge-actions">`,
     button("merge-person", "Объединить", { id: suggestion.pairId, kind: "primary", testId: "person-merge-apply" }),
     button("dismiss-person-merge", "Нет", { id: suggestion.pairId, kind: "ghost", testId: "person-merge-dismiss" }),

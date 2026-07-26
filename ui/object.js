@@ -44,9 +44,54 @@ function renderTabs(tabs) {
   ].join("");
 }
 
+// P0-1: разрешение личности показано в карточке самого человека и отсюда же отменяется.
+// Сведение «Дмитрий»/«Дмитрию» — правило языка, и на «Дана»/«Даня» оно ошибается: основа у них
+// общая, а люди разные. Раньше это молча решала система, теперь последнее слово за владельцем.
+function renderPeopleReview(review) {
+  if (!review) return "";
+  const forms = review.forms || [];
+  return [
+    `<div class="object-people" data-testid="object-people">`,
+    `<p class="canon-eyebrow">Кто это${review.split ? " · закреплено отдельно" : ""}</p>`,
+    `<p class="object-people-rule" data-testid="object-people-rule">${escapeHtml(review.rule)}</p>`,
+    forms.length ? [
+      `<div class="object-people-forms" data-testid="object-people-forms">`,
+      forms.map((row) => [
+        `<span class="object-people-form" data-testid="object-people-form">`,
+        `<em>${escapeHtml(row.form)}</em>`,
+        // Отделять есть смысл только когда написаний больше одного.
+        review.splittable
+          ? button("split-person-form", "Это другой человек", { id: row.form, kind: "ghost", testId: "object-people-split" })
+          : "",
+        `</span>`
+      ].join("")).join(""),
+      `</div>`
+    ].join("") : "",
+    review.split
+      ? `<div class="object-people-line" data-testid="object-people-split-note"><span>Написание закреплено отдельно от общей основы имени.</span>${button("unsplit-person-form", "Вернуть сведение", { id: forms.length ? forms[0].form : "", kind: "ghost", testId: "object-people-unsplit" })}</div>`
+      : "",
+    (review.merged || []).map((row) => [
+      `<div class="object-people-line" data-testid="object-people-merged">`,
+      `<span>«${escapeHtml(row.form)}» объединён с этим человеком вручную.</span>`,
+      button("unmerge-person", "Разъединить", { id: row.form, kind: "ghost", testId: "object-people-unmerge" }),
+      `</div>`
+    ].join("")).join(""),
+    (review.candidates || []).map((row) => [
+      `<div class="object-people-line" data-testid="object-people-candidate">`,
+      // Закон №5: рядом с предложением видно, на чём оно держится, а не только «уверенность».
+      `<span>«${escapeHtml(row.alias)}» и «${escapeHtml(row.target)}» — один человек? <em>${escapeHtml(row.why)} · уверенность ${escapeHtml(row.confidence)}</em></span>`,
+      button("merge-person", "Объединить", { id: row.pairId, kind: "primary", testId: "object-people-merge" }),
+      button("dismiss-person-merge", "Нет", { id: row.pairId, kind: "ghost", testId: "object-people-merge-dismiss" }),
+      `</div>`
+    ].join("")).join(""),
+    `</div>`
+  ].join("");
+}
+
 function renderEssence(inspector) {
   return [
     `<div class="object-panel" data-testid="object-panel-sut">`,
+    renderPeopleReview(inspector.peopleReview),
     `<p class="object-next" data-testid="object-next">${escapeHtml(inspector.next.text)}</p>`,
     `<p class="object-next-why" data-testid="object-next-why">${escapeHtml(inspector.next.why)}</p>`,
     inspector.next.tab ? button("set-object-tab", "Посмотреть варианты", { id: inspector.next.tab, kind: "primary", testId: "object-next-open" }) : "",

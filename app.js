@@ -1084,6 +1084,7 @@ function createInitialState() {
     habits: {},
     entityAliases: {},
     dismissedPersonMerges: [],
+    personSplits: [],
     financeAccounts: {},
     financeTransactions: {},
     budgets: {},
@@ -2526,6 +2527,10 @@ function normalizeState(input) {
     habits: base.habits || {},
     entityAliases: base.entityAliases && typeof base.entityAliases === "object" ? base.entityAliases : {},
     dismissedPersonMerges: Array.isArray(base.dismissedPersonMerges) ? base.dismissedPersonMerges : [],
+    // Формы имён, про которые владелец сказал «это разные люди»: сведение по основе для них
+    // отключено. Без этого поля состояние пересобиралось бы белым списком и разделение молча
+    // терялось при следующей загрузке.
+    personSplits: Array.isArray(base.personSplits) ? base.personSplits : [],
     financeAccounts: base.financeAccounts || {},
     financeTransactions: base.financeTransactions || {},
     budgets: base.budgets || {},
@@ -3747,7 +3752,7 @@ function searchEverything(state, query, commands) {
   }
   for (const person of resolvePeople(state)) {
     // У человека нет своего артефакта — ведём в Граф, где он и живёт как узел.
-    add("person", PERSON_OBJECT_PREFIX + personStemKey(person.name), person.name, person.mentions + " " + pluralRu(person.mentions, "упоминание", "упоминания", "упоминаний") + (person.aliases.length ? " · также: " + person.aliases.join(", ") : ""), omniScore(term, person.name + " " + person.aliases.join(" "), ""));
+    add("person", person.objectId, person.name, person.mentions + " " + pluralRu(person.mentions, "упоминание", "упоминания", "упоминаний") + (person.aliases.length ? " · также: " + person.aliases.join(", ") : ""), omniScore(term, person.name + " " + person.aliases.join(" "), ""));
   }
   for (const source of Object.values(state.sources || {})) {
     if (source.deleted) continue;
@@ -4703,17 +4708,29 @@ function collectPersonMentions(state) {
   }
   return [...mentions.values()];
 }
+// Сведение по основе имени — правило языка, а не факт: «Дмитрий»/«Дмитрию» это один человек,
+// но «Дана»/«Даня» дают ту же основу «дан» и одним человеком НЕ являются. Владелец может сказать
+// «это разные люди» — форма попадает в state.personSplits и дальше живёт своим узлом.
+function personSplitSet(state) {
+  return new Set((state.personSplits || []).map((form) => personKey(form)).filter(Boolean));
+}
+
 function resolvePeople(state) {
   const aliases = state.entityAliases || {};
+  const splits = personSplitSet(state);
   const canon = new Map();
   for (const mention of collectPersonMentions(state)) {
-    const canonical = canonicalPersonName(mention.display, aliases);
+    // Закреплённая форма не проходит ни словарь уменьшительных, ни сведение по основе: владелец
+    // сказал «это другой человек», и его слово сильнее обоих автоматических правил.
+    const pinned = splits.has(mention.key);
+    const canonical = pinned ? String(mention.display).trim() : canonicalPersonName(mention.display, aliases);
     // Группируем по основе имени, а не по точному написанию: падежи одного человека — один узел.
-    const ck = personStemKey(canonical);
-    if (!canon.has(ck)) canon.set(ck, { name: canonical, aliases: new Set(), count: 0, sourceIds: new Set(), forms: new Set() });
+    const ck = pinned ? mention.key : personStemKey(canonical);
+    if (!canon.has(ck)) canon.set(ck, { key: ck, name: canonical, aliases: new Set(), count: 0, sourceIds: new Set(), forms: new Set(), raw: new Set(), pinned });
     const entry = canon.get(ck);
     entry.count += mention.count;
     entry.forms.add(canonical);
+    entry.raw.add(String(mention.display).trim());
     for (const sid of mention.sourceIds) entry.sourceIds.add(sid);
     // Именительный падеж обычно самая короткая форма («Марина» против «Мариной»), её и
     // показываем; остальные встреченные написания остаются как псевдонимы.
@@ -4722,7 +4739,20 @@ function resolvePeople(state) {
     entry.aliases = new Set([...entry.forms].filter((form) => form !== shortest));
   }
   return [...canon.values()]
-    .map((entry) => ({ name: entry.name, aliases: [...entry.aliases], mentions: entry.count, sourceIds: [...entry.sourceIds], objectId: PERSON_OBJECT_PREFIX + personStemKey(entry.name) }))
+    // id узла — ключ группы, а не основа показанного имени: после разделения «Дана» и «Даня»
+    // дают одну основу, и по основе обе карточки открывали бы один и тот же объект.
+    .map((entry) => ({
+      key: entry.key,
+      name: entry.name,
+      aliases: [...entry.aliases],
+      forms: [...entry.forms],
+      // Написания как они встретились в записях — по ним владелец и разделяет людей.
+      raw: [...entry.raw],
+      mentions: entry.count,
+      sourceIds: [...entry.sourceIds],
+      split: entry.pinned,
+      objectId: PERSON_OBJECT_PREFIX + entry.key
+    }))
     .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
 }
 function personEditDistance(a, b) {
@@ -4740,6 +4770,21 @@ function personEditDistance(a, b) {
   }
   return row[n];
 }
+// Сколько первых букв у двух имён совпадает. В русском одно имя расходится в ХВОСТЕ (падеж,
+// уменьшительное), а не в начале: Марина/Мариной, Наталья/Наталия. Расхождение с первой буквы —
+// это разные имена, сколь угодно близкие по редакционному расстоянию.
+function personCommonPrefix(a, b) {
+  let index = 0;
+  while (index < a.length && index < b.length && a[index] === b[index]) index += 1;
+  return index;
+}
+
+// Донор Graphiti (dedup_helpers.py): нечёткому сравнению имён можно доверять только когда имя
+// достаточно своеобразно, иначе короткие имена схлопываются друг в друга. Голое расстояние
+// Левенштейна ≤ 1 предлагало слить «Оля» с «Колей» и «Машу» с «Дашей» — разные люди с одной
+// правкой между именами. Порог общего начала закрывает ровно этот класс ошибок.
+const PERSON_MIN_SHARED_PREFIX = 3;
+
 function personMergeSuggestions(state) {
   const people = resolvePeople(state);
   const dismissed = new Set((state.dismissedPersonMerges || []).map(String));
@@ -4749,19 +4794,116 @@ function personMergeSuggestions(state) {
       const aName = personKey(people[i].name);
       const bName = personKey(people[j].name);
       if (aName === bName) continue;
+      // Разделённые владельцем формы больше не предлагаем слить обратно — он уже ответил.
+      if (people[i].split || people[j].split) continue;
       const shorter = aName.length <= bName.length ? aName : bName;
       const longer = aName.length <= bName.length ? bName : aName;
-      const prefix = shorter.length >= 3 && longer.startsWith(shorter);
-      const close = Math.abs(aName.length - bName.length) <= 2 && personEditDistance(aName, bName) <= Math.max(1, Math.floor(Math.min(aName.length, bName.length) * 0.34));
+      const shared = personCommonPrefix(aName, bName);
+      const prefix = shorter.length >= PERSON_MIN_SHARED_PREFIX && longer.startsWith(shorter);
+      const distance = personEditDistance(aName, bName);
+      const close = shared >= PERSON_MIN_SHARED_PREFIX
+        && Math.abs(aName.length - bName.length) <= 2
+        && distance <= Math.max(1, Math.floor(Math.min(aName.length, bName.length) * 0.34));
       if (!prefix && !close) continue;
       const target = people[i].mentions >= people[j].mentions ? people[i] : people[j];
       const alias = people[i].mentions >= people[j].mentions ? people[j] : people[i];
       const pairId = alias.name + "=>" + target.name;
       if (dismissed.has(pairId)) continue;
-      out.push({ pairId, alias: alias.name, target: target.name, confidence: prefix ? "средняя" : "низкая" });
+      // Совпадение 3-граммами (тот же донор) — вторая независимая проверка. Одно правило может
+      // ошибиться, два согласных между собой правила дают право написать «средняя».
+      const overlap = jaccardSimilarity(nameShingles(aName), nameShingles(bName));
+      out.push({
+        pairId,
+        alias: alias.name,
+        target: target.name,
+        confidence: prefix || overlap >= 0.5 ? "средняя" : "низкая",
+        // Закон №5: у предложения виден не только вердикт, но и на чём он держится.
+        why: prefix
+          ? "«" + alias.name + "» — это начало имени «" + target.name + "»"
+          : "совпали первые " + shared + " " + pluralRu(shared, "буква", "буквы", "букв")
+            + ", различие в " + distance + " " + pluralRu(distance, "букве", "буквах", "буквах")
+            + ", общих трёхбуквенных кусков " + Math.round(overlap * 100) + "%"
+      });
     }
   }
   return out.slice(0, 6);
+}
+
+// P0-1: люди идут ТЕМ ЖЕ путём усиления, что задачи, цели и привычки (закон №4). Раньше слияние
+// оставляло только аудит: в журнале Контроля его не было видно, и откатить из интерфейса было
+// нечем — единственный способ разъединить людей был правкой состояния руками.
+function personNodeId(state, name) {
+  const wanted = personKey(name);
+  const person = resolvePeople(state).find((row) => row.forms.some((form) => personKey(form) === wanted) || personKey(row.name) === wanted);
+  return person ? person.objectId : PERSON_OBJECT_PREFIX + personStemKey(name);
+}
+
+function mergePersonInto(state, aliasName, targetName) {
+  const alias = cleanLine(aliasName);
+  const target = cleanLine(targetName);
+  const key = personKey(alias);
+  if (!alias || !target || !key || key === personKey(target)) return false;
+  state.entityAliases = Object.assign({}, state.entityAliases, { [key]: target });
+  // Разделение и слияние — противоположные ответы на один вопрос: новое слово владельца снимает
+  // прежнее, иначе форма осталась бы одновременно и слитой, и закреплённой отдельно.
+  state.personSplits = (state.personSplits || []).filter((form) => personKey(form) !== key);
+  addAudit(state, "entity.merge", "Объединил людей: «" + alias + "» → «" + target + "»", state.activeNoteId);
+  addReceipt(state, "reinforce", personNodeId(state, target),
+    "«" + alias + "» и «" + target + "» — один человек: упоминания сведены в существующего, второй объект не создавался.",
+    { surface: "object" });
+  return true;
+}
+
+function unmergePerson(state, aliasName) {
+  const alias = cleanLine(aliasName);
+  const key = personKey(alias);
+  if (!key) return false;
+  const previous = (state.entityAliases || {})[key] || "";
+  const aliases = Object.assign({}, state.entityAliases);
+  delete aliases[key];
+  state.entityAliases = aliases;
+  // Словарь уменьшительных свёл бы форму обратно уже на следующем чтении, поэтому откат слияния
+  // ещё и закрепляет форму: «Дима» после разъединения остаётся «Димой», а не снова «Дмитрием».
+  const splits = (state.personSplits || []).filter((form) => personKey(form) !== key);
+  splits.push(alias);
+  state.personSplits = splits;
+  addAudit(state, "entity.unmerge", "Разъединил людей: «" + alias + "»" + (previous ? " больше не «" + previous + "»" : ""), state.activeNoteId);
+  addReceipt(state, "decision", personNodeId(state, alias),
+    "«" + alias + "» отделён обратно" + (previous ? " от «" + previous + "»" : "") + ": упоминания снова считаются отдельным человеком.",
+    { surface: "object" });
+  return true;
+}
+
+function splitPersonForm(state, formName) {
+  const form = cleanLine(formName);
+  const key = personKey(form);
+  if (!key) return false;
+  if ((state.personSplits || []).some((item) => personKey(item) === key)) return false;
+  const wasPartOf = resolvePeople(state).find((row) => row.raw.some((item) => personKey(item) === key));
+  state.personSplits = (state.personSplits || []).concat([form]);
+  const aliases = Object.assign({}, state.entityAliases);
+  if (aliases[key]) delete aliases[key];
+  state.entityAliases = aliases;
+  addAudit(state, "entity.split", "Разделил людей: «" + form + "» — отдельный человек", state.activeNoteId);
+  addReceipt(state, "decision", PERSON_OBJECT_PREFIX + key,
+    "«" + form + "» отмечен как отдельный человек" + (wasPartOf && personKey(wasPartOf.name) !== key ? ", раньше считался тем же, что «" + wasPartOf.name + "»" : "")
+      + ". Сведение по основе имени для этой формы отключено.",
+    { surface: "object" });
+  return true;
+}
+
+function unsplitPersonForm(state, formName) {
+  const form = cleanLine(formName);
+  const key = personKey(form);
+  if (!key) return false;
+  const before = (state.personSplits || []).length;
+  state.personSplits = (state.personSplits || []).filter((item) => personKey(item) !== key);
+  if (state.personSplits.length === before) return false;
+  addAudit(state, "entity.unsplit", "Разделение снято: «" + form + "» снова сводится к общему человеку", state.activeNoteId);
+  addReceipt(state, "decision", personNodeId(state, form),
+    "Разделение «" + form + "» снято: форма снова сводится к общему человеку по основе имени.",
+    { surface: "object" });
+  return true;
 }
 
 // Срез 3 (v1.4): смена одной фразой - "отработал 12 часов, заработал 8700, бензин 1900".
@@ -4834,6 +4976,15 @@ function analyzeArtifactInput(input, fileMeta) {
   const isExpense = amount > 0 && (hasAnyText(lower, ["купить", "оплатить", "потратил", "потратила", "списалось", "кофе", "продукт", "пятерочка", "протеин", "такси", "аптека", "расход"]) || /\bexpense\b/i.test(lower) || isBareMoneyEntry);
   const isHabit = isRecurring || hasAnyText(lower, ["привычка", "вода", "сон", "тренировка", "читать", "медитация", "routine", "habit"]);
   const isGoal = hasAnyText(lower, ["цель", "хочу", "накопить", "достичь"]) || /до\s+\d{1,2}\s+[а-я]+|\b(goal|target)\b/i.test(lower);
+  // Наблюдение о себе — НЕ дело. «После тренировки закрываю больше задач» попадало в список дел
+  // как задача (слово «задач» включало isTask), а «Английский снова откладываю» не попадало
+  // никуда и терялось как непонятый захват. И то и другое — описание собственного поведения:
+  // выполнить его нельзя, закрыть нечем, но это самый ценный вид записи для второго мозга.
+  // Признак — форма высказывания, а не словарь глаголов: сравнение или регулярность при
+  // отсутствии обязательства. Границы слов заданы явно (JS \b по кириллице не работает), иначе
+  // «на основании» читалось бы как «снова».
+  const OBSERVATION_RE = /(?<![А-Яа-яЁё])(больше|меньше|лучше|хуже|чаще|реже|быстрее|медленнее|продуктивнее|легче|тяжелее|снова|опять|постоянно|вечно|обычно|каждый раз|все время|почему-то)(?![А-Яа-яЁё])/i;
+  const OBLIGATION_RE = /(?<![А-Яа-яЁё])(надо|нужно|должен|должна|стоит|забыть|запланируй|добавь|поставь|сделать|сделай|купить|купи|позвонить|позвони|написать|напиши|проверить|проверь|подготовить|отправить|починить|оплатить|оплати|записаться|заказать|напомни)(?![А-Яа-яЁё])/i;
   const isProject = hasAnyText(lower, ["проект"]) || /\bproject\b/i.test(lower);
   const isIdea = hasAnyText(lower, ["идея"]) || /\bidea\b/i.test(lower);
   const isEmail = hasAnyText(lower, ["from:", "to:", "subject:", "тема:", "кому:", "от:"]) || entities.emails.length > 0;
@@ -4925,7 +5076,21 @@ function analyzeArtifactInput(input, fileMeta) {
   // finance transaction AND an unwanted duplicate task titled "Расход: бензин").
   // Срез 3 фикс: фраза смены ("отработал 12 часов, ... обед 400") не должна ещё и порождать
   // задачу - слово вроде "обед" триггерит isFood, но shift-черновик уже покрывает весь разбор.
-  if (!shift && (isTask || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea)) {
+  // Наблюдение забирает запись у задачи и календаря: у него нет срока, поэтому дату/время
+  // намеренно не проверяем — при их наличии наблюдением запись не считается вовсе (закон №6:
+  // при сомнении не решаем за владельца, а оставляем обычный разбор).
+  const isSelfObservation = !shift && !hasDateOrTime && amount <= 0
+    && OBSERVATION_RE.test(lower) && !OBLIGATION_RE.test(lower);
+  if (isSelfObservation) {
+    const observationTitle = shorten(cleanLine(text), 90);
+    addDraftOnce(drafts, draft("observation-main", "insight", observationTitle, "knowledge",
+      "Наблюдение о себе, а не дело: есть сравнение или регулярность и нет обязательства",
+      sourceQuote(text), {
+        title: observationTitle,
+        reason: "Владелец сказал это о себе сам — источником служат его собственные слова, ничего не досчитано"
+      }, 0.7));
+  }
+  if (!shift && !isSelfObservation && (isTask || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea)) {
     const actionReason = isProject || isIdea
       ? "Идея или проект требует owner-visible следующего шага"
       : "Найден глагол действия или предмет покупки/дела";
@@ -5561,6 +5726,9 @@ function createActionProposalsForSource(state, sourceId) {
   // из 11 задач 5 были такими. Сама запись не теряется (у неё есть источник, заметка и
   // предложение «сохранить в базу»), а о непонятых захватах честно сообщает разбор дня.
   if (!hasDirectProjection) source.parsedIntent = "not-understood";
+  // Наблюдение о себе помечено отдельно: это не «не понял» и не дело, и разбор дня считает
+  // такие записи своей строкой, а не молчит о них.
+  if ((analysis.drafts || []).some((item) => item.draftId === "observation-main")) source.parsedIntent = "observation";
   for (const line of analysis.actionLines.slice(0, 3)) {
     if (hasTaskDraft) continue;
     proposals.push(addProposal(state, "task", "Сделать: " + line, source.id, source.noteId));
@@ -13652,7 +13820,7 @@ const PERSON_OBJECT_PREFIX = "person:";
 
 function computePersonInspector(state, personId, tab) {
   const stem = personId.slice(PERSON_OBJECT_PREFIX.length);
-  const person = resolvePeople(state).find((row) => personStemKey(row.name) === stem);
+  const person = resolvePeople(state).find((row) => row.key === stem);
   if (!person) {
     return { hasObject: false, tab, emptyHint: "Этот человек больше не встречается в записях — упоминания удалены или переписаны." };
   }
@@ -13688,10 +13856,33 @@ function computePersonInspector(state, personId, tab) {
   const months = [...monthBuckets.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-6).map(([, row]) => row);
   const maxBar = Math.max(1, ...months.map((row) => Math.max(row.talk, row.act)));
 
+  // P0-1: разрешение человека живёт в его же карточке, а не только отдельным списком в Графе.
+  // Здесь видно всё, что система сделала с именем, и здесь же это можно отменить — иначе
+  // «Дана» и «Даня» навсегда остаются одним человеком, потому что основа имени у них общая.
+  const selfKey = personKey(person.name);
+  const mergedIn = Object.entries(state.entityAliases || {})
+    .filter(([, target]) => personKey(target) === selfKey)
+    .map(([key]) => ({ key, form: person.raw.find((item) => personKey(item) === key) || key }));
+  const peopleReview = {
+    split: person.split,
+    // Форма имени — это написание, встреченное в записях. Разделять есть смысл, только когда
+    // их больше одного: одну форму отделять не от чего.
+    forms: person.raw.map((form) => ({ form, primary: personKey(form) === selfKey })),
+    splittable: person.raw.length > 1,
+    merged: mergedIn,
+    candidates: personMergeSuggestions(state).filter((row) => personKey(row.alias) === selfKey || personKey(row.target) === selfKey),
+    rule: person.split
+      ? "Владелец закрепил это написание отдельно: словарь уменьшительных и сведение по основе к нему не применяются."
+      : person.raw.length > 1
+        ? "Написания сведены по основе имени — правилу языка, а не факту. Если это разные люди, скажи об этом."
+        : "Встречено одно написание — сводить пока нечего."
+  };
+
   return {
     hasObject: true,
     id: personId,
     kind: "person",
+    peopleReview,
     kindLabel: "человек",
     tab,
     title: person.name,
@@ -14333,6 +14524,7 @@ function runDayDigest(state) {
   const files = sources.filter((source) => source.kind !== "audio" && source.kind !== "text").length;
   const texts = sources.filter((source) => source.kind === "text").length;
   const notUnderstood = sources.filter((source) => source.parsedIntent === "not-understood").length;
+  const observed = sources.filter((source) => source.parsedIntent === "observation").length;
   const entityProposals = proposals.filter((item) => item.type === "entity-extract");
   const entityNames = new Set();
   for (const item of entityProposals) {
@@ -14351,6 +14543,9 @@ function runDayDigest(state) {
       detail: sources.length
         ? [voices ? voices + " голосовых" : "", files ? files + " файлов" : "", texts ? texts + " текстовых" : ""].filter(Boolean).join(" · ")
           + (notUnderstood ? ". Из них " + notUnderstood + " " + pluralRu(notUnderstood, "захват не разобран", "захвата не разобраны", "захватов не разобрано") + " — они сохранены как записи, но задач из них не выдумано." : "")
+          // Наблюдение о себе — не «не понял» и не дело. Отдельная строка, иначе такие записи
+          // либо молча числились непонятыми, либо оседали в списке дел невыполнимой задачей.
+          + (observed ? " " + observed + " " + pluralRu(observed, "запись — наблюдение", "записи — наблюдения", "записей — наблюдения") + " о себе: в дела не пойдут, но и не потеряются." : "")
         : "За сегодня захватов не было."
     },
     {
@@ -21644,10 +21839,29 @@ async function handleAction(action, id) {
     const [alias, target] = String(id || "").split("=>");
     if (alias && target) {
       await store.commit("Люди объединены", (state) => {
-        state.entityAliases = Object.assign({}, state.entityAliases, { [personKey(alias)]: cleanLine(target) });
-        addAudit(state, "entity.merge", "Объединил людей: «" + cleanLine(alias) + "» → «" + cleanLine(target) + "»", state.activeNoteId);
+        mergePersonInto(state, alias, target);
       });
     }
+    return;
+  }
+  // P0-1: слияние обратимо из интерфейса. Без этого ошибочно слитые люди оставались слитыми
+  // навсегда — отменить решение было нечем.
+  if (action === "unmerge-person") {
+    await store.commit("Люди разъединены", (state) => {
+      unmergePerson(state, id);
+    });
+    return;
+  }
+  if (action === "split-person-form") {
+    await store.commit("Написание отмечено отдельным человеком", (state) => {
+      splitPersonForm(state, id);
+    });
+    return;
+  }
+  if (action === "unsplit-person-form") {
+    await store.commit("Разделение снято", (state) => {
+      unsplitPersonForm(state, id);
+    });
     return;
   }
   if (action === "pin-insight") {
@@ -24388,6 +24602,21 @@ window.__lifeosKnowledgeBase = {
   },
   getArchitectureSnapshot() {
     return buildArchitectureSnapshot(store ? store.state : {});
+  },
+  // P0-1: разрешение людей проверяется на проекции, а не через разметку экрана — иначе спек
+  // проверял бы вёрстку панели, а не правило, по которому имена сводятся.
+  resolvePeopleForTest() {
+    return store ? resolvePeople(store.state) : [];
+  },
+  personMergeSuggestionsForTest() {
+    return store ? personMergeSuggestions(store.state) : [];
+  },
+  openObjectForTest(objectId) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Test object opened", (state) => {
+      state.objectView = { id: cleanLine(objectId || ""), tab: "sut", from: state.activeSurface || "" };
+      state.activeSurface = "object";
+    }).then(() => true);
   },
   setSurfaceForTest(surface) {
     if (!store) return Promise.resolve(false);
