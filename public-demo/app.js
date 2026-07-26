@@ -3745,7 +3745,7 @@ function searchEverything(state, query, commands) {
   }
   for (const person of resolvePeople(state)) {
     // У человека нет своего артефакта — ведём в Граф, где он и живёт как узел.
-    add("person", "graph", person.name, person.mentions + " " + pluralRu(person.mentions, "упоминание", "упоминания", "упоминаний") + (person.aliases.length ? " · также: " + person.aliases.join(", ") : ""), omniScore(term, person.name + " " + person.aliases.join(" "), ""), "set-surface");
+    add("person", PERSON_OBJECT_PREFIX + personStemKey(person.name), person.name, person.mentions + " " + pluralRu(person.mentions, "упоминание", "упоминания", "упоминаний") + (person.aliases.length ? " · также: " + person.aliases.join(", ") : ""), omniScore(term, person.name + " " + person.aliases.join(" "), ""));
   }
   for (const source of Object.values(state.sources || {})) {
     if (source.deleted) continue;
@@ -4720,7 +4720,7 @@ function resolvePeople(state) {
     entry.aliases = new Set([...entry.forms].filter((form) => form !== shortest));
   }
   return [...canon.values()]
-    .map((entry) => ({ name: entry.name, aliases: [...entry.aliases], mentions: entry.count, sourceIds: [...entry.sourceIds] }))
+    .map((entry) => ({ name: entry.name, aliases: [...entry.aliases], mentions: entry.count, sourceIds: [...entry.sourceIds], objectId: PERSON_OBJECT_PREFIX + personStemKey(entry.name) }))
     .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
 }
 function personEditDistance(a, b) {
@@ -13539,6 +13539,132 @@ function objectNextStep(state, id, kind, object, conflicts) {
   return { text: "Противоречий нет — объект сходится сам с собой.", why: "Следующий шаг появится, когда данные разойдутся: срок против потока, задача против цели.", tab: "" };
 }
 
+// Человек — тоже объект, хотя своей коллекции у него нет: он ЖИВЁТ в упоминаниях. Раньше клик
+// по человеку вёл в Граф, то есть в никуда, и канонный контракт объекта на людей не
+// распространялся. Здесь человек собирается проекцией по тому же контракту (вердикт, источники,
+// связи, хронология) — новой сущности не заводим, id синтетический: `person:<основа имени>`.
+const PERSON_OBJECT_PREFIX = "person:";
+
+function computePersonInspector(state, personId, tab) {
+  const stem = personId.slice(PERSON_OBJECT_PREFIX.length);
+  const person = resolvePeople(state).find((row) => personStemKey(row.name) === stem);
+  if (!person) {
+    return { hasObject: false, tab, emptyHint: "Этот человек больше не встречается в записях — упоминания удалены или переписаны." };
+  }
+  const sources = Object.values(state.sources || {})
+    .filter((source) => !source.deleted && person.sourceIds.includes(source.id))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const days = sources.map((source) => String(source.createdAt || "").slice(0, 10)).filter(Boolean).sort();
+  const forms = [person.name].concat(person.aliases);
+  const mentionsText = (record) => forms.some((form) => normalizeRuText(String(record.title || "") + " " + String(record.body || "")).includes(normalizeRuText(form).slice(0, 5)));
+  // Связи человека — артефакты, где он реально упомянут: задачи, цели и заметки, а не всё подряд.
+  const related = []
+    .concat(Object.values(state.tasks || {}).filter((task) => !task.deleted && mentionsText(task)).map((task) => ({ id: task.id, kind: "task", title: task.title, why: "упомянут в задаче" })))
+    .concat(Object.values(state.goals || {}).filter((goal) => !goal.deleted && mentionsText(goal)).map((goal) => ({ id: goal.id, kind: "goal", title: goal.title, why: "упомянут в цели" })))
+    .concat(Object.values(state.notes || {}).filter((note) => !note.deleted && note.systemType !== "product_brain" && mentionsText(note)).map((note) => ({ id: note.id, kind: "note", title: note.title, why: "упомянут в записи" })));
+
+  const monthBuckets = new Map();
+  for (const source of sources) {
+    const date = new Date(source.createdAt);
+    if (isNaN(date.getTime())) continue;
+    const key = date.getFullYear() + "-" + String(date.getMonth()).padStart(2, "0");
+    if (!monthBuckets.has(key)) monthBuckets.set(key, { month: date.getMonth(), talk: 0, act: 0 });
+    monthBuckets.get(key).talk += 1;
+  }
+  for (const row of related) {
+    const record = state.tasks[row.id] || state.goals[row.id];
+    if (!record || (record.status !== "done" && !record.day)) continue;
+    const date = new Date(record.updatedAt || record.createdAt);
+    if (isNaN(date.getTime())) continue;
+    const key = date.getFullYear() + "-" + String(date.getMonth()).padStart(2, "0");
+    if (!monthBuckets.has(key)) monthBuckets.set(key, { month: date.getMonth(), talk: 0, act: 0 });
+    monthBuckets.get(key).act += 1;
+  }
+  const months = [...monthBuckets.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-6).map(([, row]) => row);
+  const maxBar = Math.max(1, ...months.map((row) => Math.max(row.talk, row.act)));
+
+  return {
+    hasObject: true,
+    id: personId,
+    kind: "person",
+    kindLabel: "человек",
+    tab,
+    title: person.name,
+    origin: person.aliases.length ? "встречается также как: " + person.aliases.join(", ") : "имя распознано из твоих записей",
+    verdict: person.mentions >= 2
+      ? person.name + " встречается в " + person.mentions + " " + pluralRu(person.mentions, "записи", "записях", "записях")
+        + (days.length ? (days[0] === days[days.length - 1] ? ", все " + formatObjectDay(days[0]) : ", с " + formatObjectDay(days[0]) + " по " + formatObjectDay(days[days.length - 1])) : "") + ". "
+        // Род имени системе неизвестен, поэтому «связан/связана» не пишем вовсе.
+        + (related.length ? "Связей с объектами системы: " + related.length + "." : "Пока только упоминания — ни задач, ни целей с этим человеком не связано.")
+      : person.name + " встретился один раз" + (days.length ? " " + formatObjectDay(days[0]) : "") + ". Для выводов этого мало.",
+    scale: null,
+    facts: [
+      { value: String(person.mentions), label: pluralRu(person.mentions, "упоминание", "упоминания", "упоминаний"), source: "посчитано по захватам, вручную не вводилось" },
+      days.length ? { value: formatObjectDay(days[days.length - 1]), label: "последний раз", source: "по дате захвата" } : null,
+      person.aliases.length ? { value: String(person.aliases.length + 1), label: "написаний имени", source: "падежи сведены по основе имени" } : null,
+      related.length ? { value: String(related.length), label: "связанных объектов", source: "по упоминанию имени в тексте" } : null
+    ].filter(Boolean).slice(0, 4),
+    tabs: OBJECT_TABS.map((row) => ({
+      id: row[0],
+      label: row[1],
+      count: row[0] === "src" ? sources.length : row[0] === "rel" ? related.length : 0,
+      active: row[0] === tab
+    })),
+    next: related.length
+      // Имя в родительном падеже мы не строим (склонять не умеем и врать не будем) — фраза
+      // составлена так, чтобы имя стояло в именительном.
+      ? { text: "Объектов, где встречается «" + person.name + "»: " + related.length + " — смотри вкладку «Связи».", why: "Связь считается по упоминанию имени в тексте объекта, а не по ручной привязке.", tab: "" }
+      : { text: "Пока это только имя в записях.", why: "Задачи и цели свяжутся с человеком сами, когда его имя встретится в их тексте.", tab: "" },
+    knows: [{
+      title: "Это один человек, а не " + (person.aliases.length + 1) + " разных",
+      detail: person.aliases.length ? "Падежи «" + [person.name].concat(person.aliases).join("», «") + "» сведены по основе имени." : "Другие написания имени пока не встречались.",
+      confidence: person.aliases.length ? "по правилу языка" : "факт"
+    }],
+    sourceGroups: (() => {
+      const groups = [];
+      for (const source of sources) {
+        const date = new Date(source.createdAt);
+        const key = isNaN(date.getTime()) ? "без-даты" : date.getFullYear() + "-" + date.getMonth();
+        const label = isNaN(date.getTime()) ? "Без даты" : OBJECT_MONTH_FULL[date.getMonth()] + " " + date.getFullYear();
+        let group = groups.find((row) => row.key === key);
+        if (!group) {
+          group = { key, label, items: [] };
+          groups.push(group);
+        }
+        group.items.push({
+          id: source.id,
+          kindLabel: streamKindLabel(source).toLocaleUpperCase("ru-RU"),
+          date: formatObjectDay(source.createdAt),
+          title: shorten(source.name || "", 90),
+          gave: "Здесь встречается имя «" + person.name + "»"
+        });
+      }
+      return groups;
+    })(),
+    relations: related.slice(0, 12).map((row) => ({
+      id: row.id,
+      type: "влияет",
+      tone: "accent",
+      kindLabel: OBJECT_KIND_LABELS[row.kind] || row.kind,
+      title: shorten(row.title || "", 70),
+      why: row.why,
+      strength: Math.min(95, 50 + person.mentions * 6),
+      since: ""
+    })),
+    months: months.map((row) => ({
+      label: OBJECT_MONTH_FULL[row.month],
+      talk: row.talk,
+      act: row.act,
+      counts: row.talk + " / " + row.act,
+      talkPercent: Math.round((row.talk / maxBar) * 100),
+      actPercent: Math.round((row.act / maxBar) * 100)
+    })),
+    history: [],
+    conflicts: [],
+    decision: null
+  };
+}
+
 function computeObjectInspector(state) {
   const view = state.objectView || { id: "", tab: "sut" };
   const id = cleanLine(view.id || "");
@@ -13546,6 +13672,7 @@ function computeObjectInspector(state) {
   if (!id) {
     return { hasObject: false, tab, emptyHint: "Открой любую карточку — заметку, задачу, цель, захват — и она раскроется здесь: вердикт, источники, связи, хронология, противоречия." };
   }
+  if (id.startsWith(PERSON_OBJECT_PREFIX)) return computePersonInspector(state, id, tab);
   const resolved = graphNodeObject(state, id);
   if (!resolved || !resolved.object || resolved.object.deleted) {
     return { hasObject: false, tab, emptyHint: "Этот объект больше не существует: он удалён или был частью другого хранилища. Вернись в Граф или Базу и открой другой." };
@@ -20697,8 +20824,10 @@ async function handleAction(action, id) {
       state.activeSurface = "object";
       state.commandPaletteOpen = false;
       // Граф и редактор смотрят на тот же объект: экраны не расходятся между собой.
-      state.graphView.selectedNodeId = cleanLine(id || "");
-      if (state.notes[id] && !state.notes[id].deleted) state.activeNoteId = id;
+      if (!String(id || "").startsWith(PERSON_OBJECT_PREFIX)) {
+        state.graphView.selectedNodeId = cleanLine(id || "");
+        if (state.notes[id] && !state.notes[id].deleted) state.activeNoteId = id;
+      }
     });
     requestAnimationFrame(() => window.scrollTo(0, 0));
     return;

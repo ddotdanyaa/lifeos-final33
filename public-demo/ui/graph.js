@@ -6,15 +6,17 @@ import { button, escapeHtml, safeList } from "./components/shared.js";
 // Срез 10: разрешение сущностей-людей. Канонические люди (алиасы слиты) + предложения слить
 // неоднозначные пары (owner-gated). Проекции приходят из app.js (resolvePeople,
 // personMergeSuggestions). Живёт в Графе, т.к. люди - это узлы связей.
+// Человек кликабелен: у него теперь своя карточка объекта (упоминания, источники, связи,
+// хронология) — раньше клик по человеку вёл в Граф, то есть в никуда.
 function personRow(person) {
   const aliasChips = person.aliases.length
     ? `<span class="person-aliases">${person.aliases.map((alias) => `<span class="person-alias-chip">${escapeHtml(alias)}</span>`).join("")}</span>`
     : "";
   return [
-    `<div class="person-row" data-testid="person-row" data-person="${escapeHtml(person.name)}">`,
+    `<button class="person-row" data-action="open-object" data-id="${escapeHtml(person.objectId || "")}" data-testid="person-row" data-person="${escapeHtml(person.name)}">`,
     `<div class="person-main"><strong>${escapeHtml(person.name)}</strong>${aliasChips}</div>`,
     `<span class="person-count">${person.mentions} упом.</span>`,
-    `</div>`
+    `</button>`
   ].join("");
 }
 

@@ -90,3 +90,34 @@ test("люди: падежи одного имени сводятся в одн�
   expect(marina[0]).toContain("2");
   expect(dmitry[0]).toContain("2");
 });
+
+// E4: человек — полноценный объект. Раньше клик по человеку вёл в Граф, то есть в никуда;
+// теперь у него тот же контракт: вердикт, источники, связи, хронология.
+test("люди: человек открывается карточкой объекта с источниками и связями", async ({ page }) => {
+  await reset(page);
+  for (const line of ["Марина против кредита на машину", "Позвонить Марине завтра", "Марина согласна на август"]) {
+    await page.fill('[data-testid="capture-input"]', line);
+    await page.click('[data-testid="capture-text"]');
+    await page.waitForTimeout(250);
+  }
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("graph"));
+  await page.getByTestId("person-row").first().click();
+
+  await expect(page.getByTestId("workspace-object")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId("object-title")).toHaveText("Марина");
+  await expect(page.getByTestId("object-kind")).toContainText("человек");
+  // Вердикт опирается на посчитанные упоминания, а не на общие слова.
+  await expect(page.getByTestId("object-verdict")).toContainText("3");
+  // Род имени системе неизвестен — «связан/связана» писать нельзя.
+  const verdict = await page.getByTestId("object-verdict").textContent();
+  expect(verdict).not.toMatch(/Связан[аы]?\s/);
+
+  // Источники — реальные захваты, где встретилось имя.
+  await page.getByTestId("object-tab-src").click();
+  expect(await page.getByTestId("object-source-row").count()).toBeGreaterThanOrEqual(3);
+
+  // Связи — объекты, в тексте которых человек упомянут.
+  await page.getByTestId("object-tab-rel").click();
+  expect(await page.getByTestId("object-relation").count()).toBeGreaterThan(0);
+  await expect(page.getByTestId("object-relation-why").first()).toContainText("упомянут");
+});
