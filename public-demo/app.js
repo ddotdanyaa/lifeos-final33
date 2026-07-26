@@ -4568,6 +4568,44 @@ function parseGoalDeadline(text) {
   return null;
 }
 
+// Позиция человека — это УСЛОВИЕ, а не потерянная запись. «Марина согласна на август если без
+// кредита» — из целевого сценария владельца — уходила в «не разобрано»: имя есть, срок есть, а
+// смысла записи (чужая позиция и её условие) система не видела. При этом именно условие решает,
+// выполнима цель или нет.
+const PERSON_STANCE_RE = /(?<![А-Яа-яЁё])(соглас[а-яё]+|против|не\s+хочет|не\s+хочу|не\s+готов[а-яё]*|готов[а-яё]*|просит|требует|настаивает|поддерживает|возражает|сомневается|отказал[а-яё]*|разрешил[а-яё]*|запретил[а-яё]*)(?![А-Яа-яЁё])/i;
+// Условие произносится через «если» или «только». Без него позиция остаётся позицией — это
+// тоже факт, просто без ограничения.
+const STANCE_CONDITION_RE = /(?<![А-Яа-яЁё])(?:если|при условии|только)\s+([^,.!?;]{2,60})/i;
+
+function detectPersonStance(text, people) {
+  const source = String(text || "");
+  const stance = source.match(PERSON_STANCE_RE);
+  if (!stance) return null;
+  const names = Array.isArray(people) ? people.filter(Boolean) : [];
+  if (!names.length) return null;
+  // Берём имя, которое стоит ближе всего ПЕРЕД позицией: «Марина согласна», а не «согласна с Мариной».
+  const stanceAt = source.indexOf(stance[0]);
+  let person = "";
+  let bestAt = -1;
+  for (const name of names) {
+    const at = source.indexOf(name);
+    // Имя должно стоять СТРОГО перед позицией. Иначе само слово позиции, попавшее в имена
+    // с большой буквы («Против кредита на машину»), становилось «человеком по имени Против».
+    if (at < 0 || at >= stanceAt) continue;
+    if (at > bestAt) {
+      bestAt = at;
+      person = name;
+    }
+  }
+  if (!person) return null;
+  const condition = source.match(STANCE_CONDITION_RE);
+  return {
+    person: cleanLine(person),
+    stance: cleanLine(stance[0]).toLocaleLowerCase("ru-RU"),
+    condition: condition ? cleanLine(condition[1]) : ""
+  };
+}
+
 function extractGoalAmount(text) {
   const source = String(text || "");
   const goalMatch = source.match(/(?:накопить|цель|хочу|target|goal)[^\d]{0,80}(\d{3,9})/i);
@@ -5243,6 +5281,25 @@ function analyzeArtifactInput(input, fileMeta) {
       frequency: isRecurring ? "daily" : "manual"
     }, 0.84));
   }
+  // Чужая позиция — самостоятельный смысл записи, поэтому черновик заводится независимо от того,
+  // распознались ли в этой же фразе цель или срок.
+  const personStance = detectPersonStance(text, entities.people);
+  if (personStance) {
+    const stanceTitle = shorten(cleanLine(text), 90);
+    addDraftOnce(drafts, draft("person-stance", "claim", stanceTitle, "knowledge",
+      personStance.condition
+        ? "Названа позиция человека и условие, при котором она держится"
+        : "Названа позиция человека",
+      sourceQuote(text), {
+        title: stanceTitle,
+        person: personStance.person,
+        stance: personStance.stance,
+        condition: personStance.condition,
+        body: personStance.person + " — " + personStance.stance
+          + (personStance.condition ? ". Условие: " + personStance.condition : "")
+          + ". Записано со слов владельца, не выведено."
+      }, 0.8));
+  }
   if (isGoal) {
     // Конкретный день сильнее месяца: «до 5 августа» уже разобран как дата, месячный срок нужен
     // только когда числа не назвали.
@@ -5800,7 +5857,10 @@ function createActionProposalsForSource(state, sourceId) {
     proposals.push(addProposal(state, item.type, item.title, source.id, source.noteId, item));
   }
   const draftTypes = new Set((analysis.drafts || []).map((item) => item.type));
-  const directTypes = new Set(["shift", "task", "calendar", "reminder", "finance_expense", "finance_income", "balance", "budget", "subscription", "bill", "habit", "routine", "goal", "money_goal", "insight", "parser", "transcript"]);
+  const directTypes = new Set(["shift", "task", "calendar", "reminder", "finance_expense", "finance_income", "balance", "budget", "subscription", "bill", "habit", "routine", "goal", "money_goal", "insight", "parser", "transcript",
+    // Чужая позиция — тоже разобранный смысл: «Марина согласна если без кредита» больше не
+    // числится непонятым захватом.
+    "claim"]);
   const hasDirectProjection = (analysis.drafts || []).some((item) => directTypes.has(item.type));
   const hasTaskDraft = draftTypes.has("task");
   const hasCalendarDraft = draftTypes.has("calendar") || draftTypes.has("reminder");
@@ -5890,7 +5950,9 @@ const RU_CAPTURE_STOPWORDS = new Set([
   "ремонт", "кухня", "кухни", "квартира", "машина", "аванс", "оплата", "покупка", "продажа",
   "доход", "расход", "зарплата", "бензин", "продукты", "подписка", "договор", "документы",
   "отчёт", "отчет", "письмо", "звонок", "поездка", "билет", "аптека", "врач", "спорт",
-  "английский", "немецкий", "испанский", "французский", "вода", "еда", "сон", "здоровье"
+  "английский", "немецкий", "испанский", "французский", "вода", "еда", "сон", "здоровье",
+  // Слова чужой позиции: они и так разбираются отдельным правилом, а человеком не бывают.
+  "против", "согласен", "согласна", "готов", "готова", "просит", "требует", "настаивает"
 ]);
 
 function extractEntitiesFromText(text) {
@@ -7162,6 +7224,11 @@ function addClaim(state, title, body, options) {
     title: cleanTitle,
     body: String(body || ""),
     quote: String(opts.quote || ""),
+    // Кто это сказал, какова позиция и при каком условии она держится. Пусто — значит
+    // утверждение пришло не из чужой позиции, и карточка это честно покажет.
+    person: cleanLine(opts.person || ""),
+    stance: cleanLine(opts.stance || ""),
+    condition: cleanLine(opts.condition || ""),
     sourceId: opts.sourceId && state.sources[opts.sourceId] && !state.sources[opts.sourceId].deleted ? opts.sourceId : "",
     noteId: opts.noteId && state.notes[opts.noteId] && !state.notes[opts.noteId].deleted ? opts.noteId : state.activeNoteId || "",
     status: "open",
@@ -7731,7 +7798,12 @@ function applyProposal(state, proposalId) {
     objectId = addClaim(state, fields.title || proposal.title, fields.body || proposal.reason, {
       sourceId: proposal.sourceId,
       noteId: proposal.noteId,
-      quote: proposal.quote
+      quote: proposal.quote,
+      // Позиция человека и её условие живут на самой записи: без них утверждение снова
+      // становится просто текстом, и связать его с целью нечем.
+      person: fields.person || "",
+      stance: fields.stance || "",
+      condition: fields.condition || ""
     });
   } else if (proposal.type === "question") {
     objectId = addQuestion(state, fields.title || proposal.title, fields.body || proposal.reason, {
@@ -9057,6 +9129,16 @@ function contentWordsForMatch(normalizedTitle) {
   return new Set(String(normalizedTitle || "")
     .split(/\s+/)
     .filter((word) => word.length >= 4 && !MATCH_STOPWORDS.has(word)));
+}
+
+// Общий предмет разговора у двух названий. Сравниваем ОСНОВЫ предметных слов (те же 5 букв, что
+// и в темах графа): русский склоняет, и «машину» в условии не совпало бы с «машина» в цели.
+function sharesSubjectWord(a, b) {
+  const stems = (title) => new Set([...contentWordsForMatch(normalizeTitle(String(title || "")))].map((word) => lifeTermStem(word)));
+  const first = stems(a);
+  if (!first.size) return false;
+  for (const stem of stems(b)) if (first.has(stem)) return true;
+  return false;
 }
 
 function addGoal(state, title, options) {
@@ -13612,6 +13694,7 @@ function objectRelationType(state, id, kind, neighbour) {
 }
 
 const OBJECT_RELATION_TONES = {
+  "ограничивает": "warn",
   "блокирует": "danger",
   "противоречит": "warn",
   "конкурирует": "warn",
@@ -13657,7 +13740,27 @@ function objectRelations(state, id, kind, object) {
       });
     }
   }
-  const order = ["блокирует", "противоречит", "конкурирует", "двигает", "влияет", "следствие", "питает"];
+  // Условие, названное человеком, — ограничение цели, а не запись в стороне. «Марина согласна
+  // на август если без кредита» решает, выполнима цель или нет, поэтому стоит на её карточке.
+  if (kind === "goal") {
+    for (const claim of Object.values(state.claims || {})) {
+      if (claim.deleted || !claim.person || !claim.condition) continue;
+      if (relations.some((row) => row.id === claim.id)) continue;
+      if (!looksLikeSameObject(claim.title, object.title) && !sharesSubjectWord(claim.title, object.title)) continue;
+      relations.push({
+        id: claim.id,
+        type: "ограничивает",
+        tone: "warn",
+        kindLabel: OBJECT_KIND_LABELS.claim || "утверждение",
+        title: shorten(claim.title || "", 80),
+        // Закон №5: условие названо дословно и подписано тем, кто его назвал.
+        why: claim.person + " — " + claim.stance + ". Условие: " + claim.condition + ". Записано со слов владельца.",
+        strength: 90,
+        since: formatGraphEdgeSince(claim.createdAt || claim.updatedAt)
+      });
+    }
+  }
+  const order = ["блокирует", "ограничивает", "противоречит", "конкурирует", "двигает", "влияет", "следствие", "питает"];
   return relations.sort((a, b) => {
     const byType = order.indexOf(a.type) - order.indexOf(b.type);
     return byType !== 0 ? byType : b.strength - a.strength;
@@ -14023,7 +14126,21 @@ function computePersonInspector(state, personId, tab) {
   const mergedIn = Object.entries(state.entityAliases || {})
     .filter(([, target]) => personKey(target) === selfKey)
     .map(([key]) => ({ key, form: person.raw.find((item) => personKey(item) === key) || key }));
+  // Позиции, названные этим человеком: «согласна, если без кредита» — это то, что владелец о нём
+  // знает, и оно должно стоять в его карточке, а не только на цели.
+  const stances = Object.values(state.claims || {})
+    .filter((claim) => !claim.deleted && claim.person && forms.some((form) => personKey(claim.person) === personKey(form)))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 6)
+    .map((claim) => ({
+      id: claim.id,
+      stance: claim.stance,
+      condition: claim.condition,
+      at: formatObjectDay(claim.createdAt),
+      quote: claim.title
+    }));
   const peopleReview = {
+    stances,
     split: person.split,
     // Форма имени — это написание, встреченное в записях. Разделять есть смысл, только когда
     // их больше одного: одну форму отделять не от чего.

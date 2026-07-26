@@ -54,6 +54,14 @@ function renderPeopleReview(review) {
     `<div class="object-people" data-testid="object-people">`,
     `<p class="canon-eyebrow">Кто это${review.split ? " · закреплено отдельно" : ""}</p>`,
     `<p class="object-people-rule" data-testid="object-people-rule">${escapeHtml(review.rule)}</p>`,
+    // Позиция человека и её условие — то, что владелец о нём знает. Клик ведёт в само
+    // утверждение, чтобы было видно, из какой записи это взято.
+    (review.stances || []).map((row) => [
+      `<button class="object-people-line object-people-stance" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="object-people-stance">`,
+      `<span>${escapeHtml(row.stance)}${row.condition ? ` — при условии: <strong>${escapeHtml(row.condition)}</strong>` : ""}</span>`,
+      `<em>${escapeHtml(row.at)} · «${escapeHtml(row.quote)}»</em>`,
+      `</button>`
+    ].join("")).join(""),
     forms.length ? [
       `<div class="object-people-forms" data-testid="object-people-forms">`,
       forms.map((row) => [
