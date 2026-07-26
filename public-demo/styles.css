@@ -11270,3 +11270,48 @@ audio {
   line-height: 1.55;
   color: var(--muted);
 }
+
+/* ============================================================
+   ПОШАГОВЫЙ ПРОГОН АГЕНТА (донор LangGraph interrupt/checkpoint)
+   Видно, на каком шаге агент сейчас и какой шаг необратим. Перед
+   необратимым — остановка и вопрос, а не «выполнено» постфактум.
+   ============================================================ */
+
+.agent-run-live {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.agent-run-live > strong { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--muted); }
+
+.agent-run-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+
+.agent-run-step { display: grid; gap: 1px; padding-left: var(--space-4); position: relative; font-size: var(--text-sm); color: var(--muted); }
+.agent-run-step::before { content: "○"; position: absolute; left: 0; }
+.agent-run-step.state-done::before { content: "✓"; color: var(--green); }
+.agent-run-step.state-current::before { content: "▸"; color: var(--accent); }
+/* Шаг, на котором агент ждёт владельца, выделен: это не «зависло», а остановка по закону №9. */
+.agent-run-step.state-waiting::before { content: "⏸"; color: var(--amber); }
+.agent-run-step.state-done span { color: var(--ink); }
+.agent-run-step em { font-style: normal; font-size: var(--text-xs); color: var(--muted); }
+
+.agent-step-irreversible {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+.agent-run-question {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--amber);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--ink);
+}

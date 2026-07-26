@@ -2637,6 +2637,8 @@ function normalizeState(input) {
       lastAnswer: null,
       agentPlan: null,
       agentReport: null,
+      agentRun: null,
+      agentFindings: [],
       packInstallPreview: null,
       privacyZones: {
         local: "active",
@@ -14518,43 +14520,171 @@ function computeAgentPlan(state, agentId) {
   };
 }
 
-// Исполнение: агент делает ровно то, что было в плане, и отдаёт отчёт. Отчёт — факты со
-// счётчиками, а не «готово». Квитанция пишется всегда, даже когда агент ничего не нашёл.
-function runAgent(state, agentId) {
+// ----------------------------------------------------------------------------
+// Пошаговое исполнение агента с паузой на необратимом шаге (донор LangGraph)
+// ----------------------------------------------------------------------------
+// Донор: LangGraph (MIT) — `libs/langgraph/langgraph/types.py:interrupt` и checkpointer.
+// Их модель: узлы выполняются над типизированным состоянием, узел может ПРЕРВАТЬ выполнение и
+// показать вопрос, состояние сохраняется чекпоинтом, владелец возобновляет с ответом.
+// У нас чекпоинт — это обычный commit в IndexedDB (он уже есть), а «узлы» — шаги агента.
+// Зачем: закон №9 канона требует, чтобы необратимое НЕ происходило без подтверждения. Раньше
+// агент отрабатывал одним махом; теперь он останавливается ровно перед изменением расписания.
+
+const AGENT_STEP_PLANS = {
+  "evening-digest": [
+    { id: "read", label: "Читаю захваты за сегодня" },
+    { id: "entities", label: "Извлекаю сущности и сверяю с графом" },
+    { id: "propose", label: "Собираю предложения и вопросы" }
+  ],
+  "goal-watcher": [
+    { id: "flow", label: "Пересчитываю свободный поток по счетам" },
+    { id: "compare", label: "Сверяю цели между собой" },
+    { id: "report", label: "Собираю расхождения" }
+  ],
+  "quiet-secretary": [
+    { id: "scan", label: "Собираю блоки дня со временем" },
+    { id: "detect", label: "Ищу пересечения и считаю свободное окно" },
+    // Единственный необратимый шаг во всём наборе: он реально двигает время в расписании,
+    // поэтому агент здесь ОСТАНАВЛИВАЕТСЯ и спрашивает (донор-принцип interrupt).
+    { id: "apply-move", label: "Переношу конфликтующий блок", irreversible: true }
+  ]
+};
+
+function startAgentRun(state, agentId) {
   const agent = agentById(agentId);
   const plan = state.control.agentPlan;
-  if (!agent || !plan || plan.agentId !== agentId) return;
-  let findings = [];
-  let summary = "";
-  if (agent.id === "evening-digest") {
+  if (!agent || !plan || plan.agentId !== agentId || !plan.canRun) return;
+  state.control.agentRun = {
+    agentId,
+    name: agent.name,
+    startedAt: now(),
+    status: "running",
+    cursor: 0,
+    question: "",
+    steps: (AGENT_STEP_PLANS[agentId] || []).map((step) => ({ id: step.id, label: step.label, irreversible: Boolean(step.irreversible), status: "pending", detail: "" }))
+  };
+  state.control.agentReport = null;
+  addAudit(state, "agent.run.start", "Агент «" + agent.name + "» начал работу по подтверждённому плану", "");
+}
+
+// Один шаг = один узел. Возвращаемся сразу после него: владелец видит прогресс, а не «крутилку».
+function advanceAgentRun(state) {
+  const run = state.control.agentRun;
+  if (!run || run.status === "done") return;
+  const step = run.steps[run.cursor];
+  if (!step) {
+    finishAgentRun(state);
+    return;
+  }
+  if (step.irreversible && run.status !== "resuming") {
+    // Прерывание: состояние сохранено (это обычный commit), вопрос показан, ждём владельца.
+    run.status = "paused";
+    run.question = agentStepQuestion(state, run.agentId, step);
+    step.status = "waiting";
+    return;
+  }
+  const outcome = runAgentStep(state, run.agentId, step);
+  step.status = "done";
+  step.detail = outcome;
+  run.status = "running";
+  run.cursor += 1;
+  if (run.cursor >= run.steps.length) finishAgentRun(state);
+}
+
+function agentStepQuestion(state, agentId, step) {
+  if (agentId === "quiet-secretary") {
+    const conflict = computeTodayPlan(state).blocks.find((block) => block.conflict);
+    if (!conflict) return "Пересечений не осталось — переносить нечего. Можно завершить.";
+    const option = conflict.conflict.options.find((row) => row.apply) || conflict.conflict.options[0];
+    return "Перенести «" + conflict.title + "» (" + conflict.time + ")? " + option.label + " — " + option.cost + ".";
+  }
+  return "Шаг «" + step.label + "» меняет данные. Подтвердить?";
+}
+
+function runAgentStep(state, agentId, step) {
+  if (agentId === "evening-digest") {
+    if (step.id === "read") return digestSourcesForDay(state, todayKey()).length + " захватов прочитано";
+    if (step.id === "entities") return "сущности извлечены, совпадения с графом посчитаны";
     runDayDigest(state);
     const digest = state.control.dayDigest;
-    const counts = (digest && digest.counts) || { sources: 0, proposals: 0, matches: 0, asks: 0 };
-    summary = "Разобрано " + counts.sources + " " + pluralRu(counts.sources, "захват", "захвата", "захватов") + ": " + counts.proposals + " " + pluralRu(counts.proposals, "предложение", "предложения", "предложений") + ", " + counts.matches + " " + pluralRu(counts.matches, "совпадение", "совпадения", "совпадений") + " с существующим, " + counts.asks + " " + pluralRu(counts.asks, "вопрос", "вопроса", "вопросов") + ". Ничего не записано.";
-    findings = (digest ? digest.stages : []).map((stage) => stage.label + ": " + stage.value);
-  } else if (agent.id === "goal-watcher") {
-    const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
-    for (const goal of goals) {
-      for (const conflict of objectConflicts(state, goal.id, "goal", goal)) {
-        findings.push("«" + shorten(goal.title || "цель", 40) + "» — " + conflict.title + ": " + conflict.summary);
-      }
-    }
-    summary = findings.length
-      ? "Проверено " + goals.length + " " + pluralRu(goals.length, "цель", "цели", "целей") + ", найдено " + findings.length + " " + pluralRu(findings.length, "расхождение", "расхождения", "расхождений") + ". Цели не изменены — решение за тобой в объекте цели."
-      : "Проверено " + goals.length + " " + pluralRu(goals.length, "цель", "цели", "целей") + ": расхождений нет, сроки и суммы сходятся с потоком.";
-  } else {
-    const plan2 = computeTodayPlan(state);
-    for (const block of plan2.blocks.filter((row) => row.conflict)) {
-      findings.push(block.time + " «" + shorten(block.title, 40) + "» — " + block.conflict.explanation + " Варианты: " + block.conflict.options.map((option) => option.label).join(", ") + ".");
-    }
-    summary = findings.length
-      ? "Найдено " + findings.length + " " + pluralRu(findings.length, "пересечение", "пересечения", "пересечений") + " в сегодняшнем дне. Время не двигал — варианты переноса ждут на экране Сегодня."
-      : "Пересечений в сегодняшнем дне нет — расписание сходится.";
+    const counts = (digest && digest.counts) || { proposals: 0, asks: 0 };
+    // Находки отчёта — счётчики стадий разбора: отчёт должен говорить, что нашла каждая стадия.
+    state.control.agentFindings = (digest ? digest.stages : []).map((stage) => stage.label + ": " + stage.value);
+    return counts.proposals + " предложений, " + counts.asks + " вопросов — ничего не записано";
   }
-  state.control.agentReport = { agentId, name: agent.name, summary, findings: findings.slice(0, 8), createdAt: now() };
+  if (agentId === "goal-watcher") {
+    if (step.id === "flow") {
+      const flow = objectMonthlyFreeFlow(state);
+      return flow.known ? "поток " + formatObjectMoney(flow.perMonth) + " в месяц" : "движения по счетам нет";
+    }
+    if (step.id === "compare") {
+      const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+      return goals.length + " " + pluralRu(goals.length, "цель сверена", "цели сверены", "целей сверено");
+    }
+    const findings = [];
+    for (const goal of Object.values(state.goals || {}).filter((item) => !item.deleted && item.status !== "done")) {
+      for (const conflict of objectConflicts(state, goal.id, "goal", goal)) findings.push("«" + shorten(goal.title || "цель", 36) + "» — " + conflict.title);
+    }
+    state.control.agentFindings = findings.slice(0, 8);
+    return findings.length ? findings.length + " расхождений" : "расхождений нет";
+  }
+  const plan = computeTodayPlan(state);
+  if (step.id === "scan") return plan.blocks.length + " блоков со временем";
+  if (step.id === "detect") {
+    const conflicts = plan.blocks.filter((block) => block.conflict);
+    state.control.agentFindings = conflicts.map((block) => block.time + " «" + shorten(block.title, 36) + "» — " + block.conflict.explanation);
+    return conflicts.length ? conflicts.length + " пересечений" : "пересечений нет";
+  }
+  // Необратимый шаг выполняется только после подтверждения — сюда попадаем уже с согласия.
+  const conflict = plan.blocks.find((block) => block.conflict);
+  if (!conflict) return "переносить нечего";
+  const option = conflict.conflict.options.find((row) => row.apply) || conflict.conflict.options[0];
+  resolveTodayConflict(state, conflict.id + "::" + option.id);
+  return "перенесено: " + option.label;
+}
+
+function finishAgentRun(state) {
+  const run = state.control.agentRun;
+  if (!run) return;
+  run.status = "done";
+  run.question = "";
+  const done = run.steps.filter((step) => step.status === "done").length;
+  const summary = "Шагов выполнено: " + done + " из " + run.steps.length + ". " + run.steps.filter((step) => step.detail).map((step) => step.detail).join("; ") + ".";
+  state.control.agentReport = { agentId: run.agentId, name: run.name, summary, findings: (state.control.agentFindings || []).slice(0, 8), createdAt: now() };
   state.control.agentPlan = null;
-  addAudit(state, "agent.run", "Агент «" + agent.name + "»: " + summary, "");
-  addReceipt(state, "agent", agentId, "Агент «" + agent.name + "» отработал по подтверждённому плану. " + summary, { surface: "agents" });
+  state.control.agentFindings = [];
+  addAudit(state, "agent.run", "Агент «" + run.name + "»: " + summary, "");
+  addReceipt(state, "agent", run.agentId, "Агент «" + run.name + "» отработал по шагам. " + summary, { surface: "agents" });
+}
+
+function cancelAgentRun(state) {
+  const run = state.control.agentRun;
+  if (!run) return;
+  const done = run.steps.filter((step) => step.status === "done").length;
+  addAudit(state, "agent.run.cancel", "Агент «" + run.name + "» остановлен владельцем на шаге " + (run.cursor + 1), "");
+  addReceipt(state, "agent", run.agentId, "Агент «" + run.name + "» остановлен до необратимого шага. Выполнено шагов: " + done + " из " + run.steps.length + ". Расписание не тронуто.", { surface: "agents" });
+  state.control.agentRun = null;
+  state.control.agentPlan = null;
+  state.control.agentFindings = [];
+}
+
+function computeAgentRunView(state) {
+  const run = state.control.agentRun;
+  if (!run) return null;
+  return {
+    agentId: run.agentId,
+    name: run.name,
+    status: run.status,
+    question: run.question,
+    cursor: run.cursor,
+    total: run.steps.length,
+    steps: run.steps.map((step, index) => ({
+      label: step.label,
+      detail: step.detail,
+      irreversible: step.irreversible,
+      state: step.status === "done" ? "done" : index === run.cursor ? (run.status === "paused" ? "waiting" : "current") : "pending"
+    }))
+  };
 }
 
 function computeAgentsView(state) {
@@ -14571,6 +14701,7 @@ function computeAgentsView(state) {
       // Журнал агента — его собственные чеки из Контроля, а не отдельная история.
       journal: receipts.filter((receipt) => receipt.objectId === agent.id).slice(-4).reverse()
         .map((receipt) => ({ at: formatObjectStamp(receipt.createdAt), summary: shorten(receipt.summary, 120) })),
+      run: state.control.agentRun && state.control.agentRun.agentId === agent.id ? computeAgentRunView(state) : null,
       planned: Boolean(plan && plan.agentId === agent.id),
       plan: plan && plan.agentId === agent.id ? plan : null,
       report: report && report.agentId === agent.id ? Object.assign({}, report, { at: formatObjectStamp(report.createdAt) }) : null
@@ -20974,7 +21105,27 @@ async function handleAction(action, id) {
     return;
   }
   if (action === "confirm-agent-plan") {
-    await store.commit("Агент отработал", (state) => runAgent(state, id));
+    // Донор LangGraph: подтверждение запускает прогон, а шаги идут по одному — владелец видит
+    // прогресс и успевает остановить агента до необратимого шага.
+    await store.commit("Агент запущен", (state) => {
+      startAgentRun(state, id);
+      advanceAgentRun(state);
+    });
+    return;
+  }
+  if (action === "advance-agent-run") {
+    await store.commit("Шаг агента выполнен", (state) => advanceAgentRun(state));
+    return;
+  }
+  if (action === "resume-agent-run") {
+    await store.commit("Необратимый шаг подтверждён", (state) => {
+      if (state.control.agentRun) state.control.agentRun.status = "resuming";
+      advanceAgentRun(state);
+    });
+    return;
+  }
+  if (action === "cancel-agent-run") {
+    await store.commit("Агент остановлен", (state) => cancelAgentRun(state));
     return;
   }
   if (action === "run-day-digest") {

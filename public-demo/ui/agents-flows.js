@@ -48,6 +48,33 @@ function agentCard(agent) {
     `<ul class="agent-card-rights" data-testid="agent-rights">`,
     agent.rights.map((right) => `<li class="${right.allowed ? "can" : "cannot"}" data-testid="agent-right"><span aria-hidden="true">${right.allowed ? "+" : "−"}</span>${escapeHtml(right.label)}</li>`).join(""),
     `</ul>`,
+    // Донор LangGraph: прогон идёт по шагам и останавливается перед необратимым — владелец
+    // видит, где агент сейчас, и может прервать его до изменения данных (закон №9).
+    agent.run ? [
+      `<div class="agent-run-live" data-testid="agent-run-live" data-status="${escapeHtml(agent.run.status)}">`,
+      `<strong>Идёт по шагам · ${agent.run.cursor}/${agent.run.total}</strong>`,
+      `<ol class="agent-run-steps">`,
+      agent.run.steps.map((step) => [
+        `<li class="agent-run-step state-${escapeHtml(step.state)}" data-testid="agent-run-step" data-state="${escapeHtml(step.state)}">`,
+        `<span>${escapeHtml(step.label)}${step.irreversible ? ` <em class="agent-step-irreversible" data-testid="agent-step-irreversible">необратимый</em>` : ""}</span>`,
+        step.detail ? `<em>${escapeHtml(step.detail)}</em>` : "",
+        `</li>`
+      ].join("")).join(""),
+      `</ol>`,
+      agent.run.status === "paused" ? [
+        `<p class="agent-run-question" data-testid="agent-run-question">${escapeHtml(agent.run.question)}</p>`,
+        `<div class="agent-plan-actions">`,
+        button("resume-agent-run", "Подтвердить шаг", { id: agent.id, kind: "primary", testId: "resume-agent-run" }),
+        button("cancel-agent-run", "Остановить агента", { kind: "ghost", testId: "cancel-agent-run" }),
+        `</div>`
+      ].join("") : agent.run.status === "done" ? "" : [
+        `<div class="agent-plan-actions">`,
+        button("advance-agent-run", "Следующий шаг", { id: agent.id, kind: "primary", testId: "advance-agent-run" }),
+        button("cancel-agent-run", "Остановить", { kind: "ghost", testId: "cancel-agent-run" }),
+        `</div>`
+      ].join(""),
+      `</div>`
+    ].join("") : "",
     agent.plan ? [
       `<div class="agent-plan" data-testid="agent-plan">`,
       `<strong>План</strong>`,

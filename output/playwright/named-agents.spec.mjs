@@ -53,8 +53,15 @@ test("агент: план, подтверждение, отчёт и квита
   await card.getByTestId("plan-agent").click();
   await expect(card.getByTestId("agent-plan-summary")).toContainText("захват");
 
+  // Донор LangGraph: подтверждение запускает прогон ПО ШАГАМ, а не разом. Прокликиваем до конца.
   await card.getByTestId("confirm-agent-plan").click();
-  await expect(card.getByTestId("agent-report-summary")).toContainText("Разобрано");
+  await expect(card.getByTestId("agent-run-step").first()).toBeVisible();
+  for (let step = 0; step < 4; step += 1) {
+    const next = card.getByTestId("advance-agent-run");
+    if (!(await next.count())) break;
+    await next.click();
+  }
+  await expect(card.getByTestId("agent-report-summary")).toContainText("Шагов выполнено");
   expect(await card.getByTestId("agent-report-finding").count()).toBeGreaterThan(0);
   await expect(card.getByTestId("agent-journal-row").first()).toBeVisible();
 
@@ -100,11 +107,90 @@ test("наблюдатель целей: находит расхождение, 
   const card = page.locator('[data-testid="agent-card"][data-agent="goal-watcher"]');
   await card.getByTestId("plan-agent").click();
   await card.getByTestId("confirm-agent-plan").click();
-  await expect(card.getByTestId("agent-report-summary")).toContainText("Проверено");
+  for (let step = 0; step < 4; step += 1) {
+    const next = card.getByTestId("advance-agent-run");
+    if (!(await next.count())) break;
+    await next.click();
+  }
+  await expect(card.getByTestId("agent-report-summary")).toContainText("Шагов выполнено");
   expect(await card.getByTestId("agent-report-finding").count()).toBeGreaterThan(0);
 
   const goal = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().goals).find((item) => item.title === "Купить машину"));
   expect(goal.targetAmount).toBe(1150000);
   expect(goal.targetDate).toBeTruthy();
   expect(goal.decision).toBeUndefined();
+});
+
+// A4 (донор LangGraph interrupt): необратимый шаг помечен и агент ОСТАНАВЛИВАЕТСЯ перед ним.
+// Пока владелец не подтвердил — расписание не тронуто (закон №9).
+test("агент: останавливается перед необратимым шагом и не трогает данные до подтверждения", async ({ page }) => {
+  await reset(page);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("today"));
+  await page.waitForSelector('[data-testid="task-input"]');
+  await page.fill('[data-testid="task-input"]', "Ответить Дмитрию");
+  await page.fill('[data-testid="task-time-input"]', "14:00");
+  await page.click('[data-testid="add-task"]');
+  await page.fill('[data-testid="plan-input"]', "Созвон с подрядчиком");
+  await page.fill('[data-testid="plan-time-input"]', "14:15");
+  await page.click('[data-testid="add-plan-block"]');
+
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("agents"));
+  const card = page.locator('[data-testid="agent-card"][data-agent="quiet-secretary"]');
+  await card.getByTestId("plan-agent").click();
+  await card.getByTestId("confirm-agent-plan").click();
+  for (let step = 0; step < 3; step += 1) {
+    const next = card.getByTestId("advance-agent-run");
+    if (!(await next.count())) break;
+    await next.click();
+  }
+
+  // Агент стоит на паузе, шаг помечен необратимым, задан конкретный вопрос.
+  await expect(card.getByTestId("agent-step-irreversible")).toBeVisible();
+  await expect(card.getByTestId("agent-run-question")).toContainText("Перенести");
+  await expect(card.locator('[data-testid="agent-run-step"][data-state="waiting"]')).toBeVisible();
+
+  // Данные ещё не тронуты.
+  const before = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().tasks)
+    .find((task) => task.title.includes("Дмитрию")).startTime);
+  expect(before).toBe("14:00");
+
+  await card.getByTestId("resume-agent-run").click();
+  const after = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().tasks)
+    .find((task) => task.title.includes("Дмитрию")).startTime);
+  expect(after).not.toBe("14:00");
+  await expect(card.getByTestId("agent-report-summary")).toContainText("Шагов выполнено");
+});
+
+// A5: остановка владельцем на паузе оставляет данные нетронутыми и пишет честный чек.
+test("агент: остановка до необратимого шага ничего не меняет", async ({ page }) => {
+  await reset(page);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("today"));
+  await page.waitForSelector('[data-testid="task-input"]');
+  await page.fill('[data-testid="task-input"]', "Ответить Дмитрию");
+  await page.fill('[data-testid="task-time-input"]', "14:00");
+  await page.click('[data-testid="add-task"]');
+  await page.fill('[data-testid="plan-input"]', "Созвон с подрядчиком");
+  await page.fill('[data-testid="plan-time-input"]', "14:15");
+  await page.click('[data-testid="add-plan-block"]');
+
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("agents"));
+  const card = page.locator('[data-testid="agent-card"][data-agent="quiet-secretary"]');
+  await card.getByTestId("plan-agent").click();
+  await card.getByTestId("confirm-agent-plan").click();
+  for (let step = 0; step < 3; step += 1) {
+    const next = card.getByTestId("advance-agent-run");
+    if (!(await next.count())) break;
+    await next.click();
+  }
+  await card.getByTestId("cancel-agent-run").click();
+
+  const state = await page.evaluate(() => {
+    const snapshot = window.__lifeosKnowledgeBase.getStateSnapshot();
+    return {
+      time: Object.values(snapshot.tasks).find((task) => task.title.includes("Дмитрию")).startTime,
+      receipt: (snapshot.control.receipts || []).filter((row) => row.kind === "agent").pop()
+    };
+  });
+  expect(state.time).toBe("14:00");
+  expect(state.receipt.summary).toContain("Расписание не тронуто");
 });
