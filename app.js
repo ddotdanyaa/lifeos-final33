@@ -1055,6 +1055,8 @@ function createInitialState() {
     // Объект (канон design-system/Artifact Inspector.dc.html): куда «провалились» из карточки и
     // какая вкладка открыта. Не новая сущность — только указатель на существующий артефакт.
     objectView: { id: "", tab: "sut", from: "" },
+    // «Как связаны A и B»: два выбранных узла для поиска пути. Указатели, не артефакты.
+    graphPathQuery: { from: "", to: "" },
     dashboardLayout: { order: [], hidden: [] },
     ownerInstructions: [],
     // F1.3: правила авто-категорий (донор-идея actual transaction-rules) - плоский список
@@ -2486,6 +2488,10 @@ function normalizeState(input) {
       id: cleanLine((base.objectView && base.objectView.id) || ""),
       tab: OBJECT_TABS.some((row) => row[0] === (base.objectView && base.objectView.tab)) ? base.objectView.tab : "sut",
       from: cleanLine((base.objectView && base.objectView.from) || "")
+    },
+    graphPathQuery: {
+      from: cleanLine((base.graphPathQuery && base.graphPathQuery.from) || ""),
+      to: cleanLine((base.graphPathQuery && base.graphPathQuery.to) || "")
     },
     dashboardLayout: {
       order: Array.isArray(base.dashboardLayout && base.dashboardLayout.order) ? base.dashboardLayout.order.filter((key) => typeof key === "string") : [],
@@ -7208,13 +7214,24 @@ function applyProposal(state, proposalId) {
       if (schedule && schedule.startTime && !existingTask.startTime) existingTask.startTime = schedule.startTime;
       existingTask.updatedAt = now();
       addAudit(state, "task.reinforce", "Такая задача уже есть — усилена, не создана вторая: «" + (existingTask.title || "") + "»", existingTask.noteId || "");
+      addReceipt(state, "reinforce", existingTask.id, "Повторное упоминание усилило существующий объект «" + shorten(existingTask.title || "задача", 60) + "» (задача). Дубликат не создавался.", { noteId: existingTask.noteId || "", sourceId: proposal.sourceId || "" });
     } else {
       objectId = addTask(state, fields.title || proposal.title, schedule);
     }
   } else if (proposal.type === "calendar" || proposal.type === "plan" || proposal.type === "book") {
-    objectId = addPlanBlock(state, fields.title || proposal.title, schedule);
+    // Закон №4 для календаря: то же название в тот же день — то же событие, а не второе.
+    const wantedDay = (schedule && schedule.day) || fields.day || "";
+    const existingBlock = Object.values(state.planBlocks || {}).find((block) => !block.deleted
+      && (block.day || "") === wantedDay
+      && normalizeTitle(block.title || "") === normalizeTitle(fields.title || proposal.title || ""));
+    objectId = existingBlock
+      ? reinforceExisting(state, existingBlock, "блок дня", proposal.sourceId)
+      : addPlanBlock(state, fields.title || proposal.title, schedule);
   } else if (proposal.type === "reminder") {
-    objectId = addReminder(state, fields.title || proposal.title, {
+    const existingReminder = findExistingByTitle(state.reminders, fields.title || proposal.title);
+    if (existingReminder && existingReminder.status !== "done") {
+      objectId = reinforceExisting(state, existingReminder, "напоминание", proposal.sourceId);
+    } else objectId = addReminder(state, fields.title || proposal.title, {
       day: fields.day || schedule.day,
       time: fields.time || schedule.startTime,
       sourceId: proposal.sourceId,
@@ -7283,11 +7300,17 @@ function applyProposal(state, proposalId) {
       noteId: proposal.noteId
     });
   } else if (proposal.type === "habit" || proposal.type === "routine") {
-    objectId = addHabit(state, fields.title || proposal.title, {
-      frequency: fields.frequency || "daily",
-      sourceId: proposal.sourceId,
-      noteId: proposal.noteId
-    });
+    // Закон №4 для привычек: «снова про тренировки» усиливает существующую, а не заводит вторую.
+    const existingHabit = findExistingByTitle(state.habits, fields.title || proposal.title);
+    if (existingHabit) {
+      objectId = reinforceExisting(state, existingHabit, "привычка", proposal.sourceId);
+    } else {
+      objectId = addHabit(state, fields.title || proposal.title, {
+        frequency: fields.frequency || "daily",
+        sourceId: proposal.sourceId,
+        noteId: proposal.noteId
+      });
+    }
   } else if (proposal.type === "goal" || proposal.type === "money_goal") {
     // P0-1 (закон №4): если такая цель уже есть — усиливаем её, а не создаём вторую.
     const existingGoal = findExistingByTitle(state.goals, fields.title || proposal.title);
@@ -7300,6 +7323,7 @@ function applyProposal(state, proposalId) {
       if (proposal.sourceId && !existingGoal.sourceId) existingGoal.sourceId = proposal.sourceId;
       existingGoal.updatedAt = now();
       addAudit(state, "goal.reinforce", "Цель уже существует — усилена, не создана вторая: «" + (existingGoal.title || "") + "»", existingGoal.noteId || "");
+      addReceipt(state, "reinforce", existingGoal.id, "Повторное упоминание усилило существующий объект «" + shorten(existingGoal.title || "цель", 60) + "» (цель). Дубликат не создавался.", { noteId: existingGoal.noteId || "", sourceId: proposal.sourceId || "" });
     } else {
       objectId = addGoal(state, fields.title || proposal.title, {
         targetAmount: fields.targetAmount || fields.amount || 0,
@@ -8505,6 +8529,19 @@ async function stopAudioRecording() {
 // entity-resolution): повторное упоминание УСИЛИВАЕТ существующий объект, а не плодит второй.
 // Сверка идёт ДО создания: нормализованное совпадение заголовка, затем нечёткое (vendored
 // AFFiNE fuzzy), затем пересечение различающих слов. Возвращает существующий объект или null.
+// P0-1 (закон №4): «уже есть такое — усиливаю, а не создаю второе» должно быть ВИДНО.
+// Раньше усиление писало только строку в журнал изменений, и владелец не мог отличить
+// «не создал дубль» от «ничего не сделал». Теперь у каждого усиления есть чек в Контроле.
+function reinforceExisting(state, record, kindLabel, sourceId) {
+  if (!record) return "";
+  if (sourceId && !record.sourceId) record.sourceId = sourceId;
+  record.updatedAt = now();
+  const title = shorten(record.title || kindLabel, 60);
+  addAudit(state, "artifact.reinforce", "Уже есть " + kindLabel + " «" + title + "» — усилена, вторая не создана", record.noteId || "");
+  addReceipt(state, "reinforce", record.id, "Повторное упоминание усилило существующий объект «" + title + "» (" + kindLabel + "). Дубликат не создавался.", { noteId: record.noteId || "", sourceId: sourceId || "" });
+  return record.id;
+}
+
 function findExistingByTitle(collection, title) {
   const wanted = normalizeTitle(String(title || ""));
   if (!wanted || wanted.length < 3) return null;
@@ -8840,6 +8877,14 @@ function addPlanBlock(state, title, scheduleOptions) {
   if (!cleanTitle) return "";
   const options = scheduleOptions && typeof scheduleOptions === "object" ? scheduleOptions : {};
   const schedule = parseTaskSchedule(cleanTitle, options.dateHint || "", options);
+  // Закон №4 в самой точке создания: тот же блок в тот же день и час — это тот же блок.
+  // Проверка стоит здесь, а не только в applyProposal, потому что форма «Сегодня» зовёт
+  // addPlanBlock напрямую — и раньше повторное нажатие набивало календарь копиями.
+  const duplicate = Object.values(state.planBlocks || {}).find((block) => !block.deleted
+    && (block.day || "") === schedule.day
+    && (block.startTime || "") === (schedule.startTime || "")
+    && normalizeTitle(block.title || "") === normalizeTitle(cleanTitle));
+  if (duplicate) return reinforceExisting(state, duplicate, "блок дня", options.sourceId || "");
   const noteId = options.noteId && state.notes[options.noteId] && !state.notes[options.noteId].deleted ? options.noteId : state.activeNoteId || "";
   const activeSource = options.sourceId && state.sources[options.sourceId] && !state.sources[options.sourceId].deleted
     ? state.sources[options.sourceId]
@@ -11837,6 +11882,15 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     dayStream: computeDayStream(state),
     lifeSpaces: LIFE_SPACES.map((row) => ({ id: row[0], label: row[1], active: (state.activeSpace || "all") === row[0] })),
     graphAnswers: computeGraphAnswers(state),
+    topicClusters: computeTopicClusters(state),
+    bridgeNodes: computeBridgeNodes(state),
+    surprisingLinks: computeSurprisingLinks(state),
+    graphReport: computeGraphReport(state),
+    memoryImportance: computeMemoryImportance(state),
+    forgottenImportant: computeForgottenImportant(state),
+    graphPath: state.graphPathQuery && state.graphPathQuery.from && state.graphPathQuery.to
+      ? findGraphPath(state, state.graphPathQuery.from, state.graphPathQuery.to)
+      : null,
     objectInspector: computeObjectInspector(state),
     todayPlan: computeTodayPlan(state),
     dayDigest: computeDayDigestView(state),
@@ -14363,6 +14417,650 @@ function computeBuilderContract(state) {
   });
 }
 
+// ============================================================================
+// Разум графа: сообщества, мосты, пути, неожиданные связи
+// ============================================================================
+// Донор: Graphify (MIT, Python) — `graphify/cluster.py` и `graphify/analyze.py`. Их код у нас не
+// запускается (Python + networkx + graspologic), поэтому взяты АЛГОРИТМЫ и написаны нативно:
+// Louvain-разбиение, именование сообщества по хабу (без LLM), cohesion как доля рёбер внутри,
+// дробление раздутых сообществ, детерминированные id, оценка «неожиданности» связи.
+// Плюс Neo4j GDS (только формулы): betweenness как «мосты» и кратчайший путь как ответ
+// «как связаны A и B». Всё считается на нашей проекции артефактов, лениво и без новой БД.
+
+// ----------------------------------------------------------------------------
+// Граф ЖИЗНИ (а не проводки коллекций)
+// ----------------------------------------------------------------------------
+// Один захват порождает заметку, источник `.md`, цитату и reading-item с ОДНИМ И ТЕМ ЖЕ текстом,
+// а разбор добавляет ещё задачу с тем же названием. На техническом графе это пять узлов, плотно
+// связанных между собой, — и кластеризация честно находила их как «тему», хотя это одна запись
+// в пяти представлениях. Здесь эти представления схлопываются в ОДИН объект жизни (ровно принцип
+// продукта: один артефакт — много представлений), а темы образуются настоящими связями:
+// провенансом между РАЗНЫМИ объектами и общими редкими терминами (detectConceptConnections).
+const LIFE_GRAPH_KIND_RANK = { note: 0, goal: 1, project: 2, task: 3, habit: 4, finance: 5, insight: 6, source: 7 };
+
+// В граф жизни попадают только объекты жизни. Предложения, прогоны агентов, сохранённые поиски,
+// модели и устройства — машинерия платформы: если пустить их сюда, самой «большой темой» станет
+// «Сохранить источник в библиотеку», как и случилось на первом прогоне.
+const LIFE_GRAPH_KINDS = new Set([
+  "note", "goal", "project", "task", "plan", "reminder", "habit", "finance", "insight",
+  "source", "highlight", "reading", "claim", "question", "transcript-segment", "player-note",
+  "audio-checkpoint", "budget", "subscription", "ghost"
+]);
+
+// Служебные заголовки самого разбора и голые выжимки сущностей («📅 Даты: август») — это
+// подробности конвейера, а не объекты, о которых владелец думает.
+const LIFE_GRAPH_NOISE_TITLE = /^(разобрать |вытащить задачи из |поставить в календарь|добавить транскрипт|собрать оглавление|подключить локальный парсер|запустить локального организатора|проверить ссылки|сохранить источник|записать связи|открыть контекст|👤|📋|🗺️|📅)/i;
+
+let lifeGraphCache = new WeakMap();
+// Louvain и Брандес — не бесплатные. За один рендер темы спрашивают и отчёт графа, и панель
+// «Неожиданное», а мосты — отчёт и своя секция. Кэшируем по объекту графа жизни (тот же приём,
+// что graphDisplayCache): пересчёт происходит ровно когда граф действительно изменился.
+const topicClusterCache = new WeakMap();
+const bridgeNodeCache = new WeakMap();
+const memoryImportanceCache = new WeakMap();
+
+// Русский язык склоняет: «на машину», «продажу машины», «купить машина» — для человека это одно
+// слово, для строкового сравнения три разных. Режем до 5-буквенной основы: «машин». Это не
+// морфология, а честная эвристика — зато «машину» и «машины» наконец встречаются в одной теме.
+function lifeTermStem(term) {
+  const clean = String(term || "");
+  return clean.length >= 6 ? clean.slice(0, 5) : clean;
+}
+
+// Тематические рёбра для графа жизни. detectConceptConnections намеренно строгий (двух общих
+// редких терминов или df==2) — он кормит панель инсайтов, где шум недопустим. Короткие захваты
+// («Марина против кредита на машину») делят ровно ОДИН значимый термин и потому не связывались
+// вообще. Здесь порог мягче — одна общая основа с df 2..6 — и этого достаточно, чтобы тема
+// сложилась; при этом подпись ребра называет саму основу, так что связь проверяема.
+function lifeTopicEdges(state) {
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
+  if (notes.length < 2) return [];
+  const stemToNotes = new Map();
+  for (const note of notes) {
+    const stems = new Set();
+    for (const term of artifactDistinctiveTerms(note)) stems.add(lifeTermStem(term));
+    for (const stem of stems) {
+      if (!stemToNotes.has(stem)) stemToNotes.set(stem, []);
+      stemToNotes.get(stem).push(note.id);
+    }
+  }
+  const pairs = new Map();
+  for (const [stem, ids] of stemToNotes) {
+    if (ids.length < 2 || ids.length > 6) continue;
+    for (let i = 0; i < ids.length; i += 1) {
+      for (let j = i + 1; j < ids.length; j += 1) {
+        const key = ids[i] < ids[j] ? ids[i] + "|" + ids[j] : ids[j] + "|" + ids[i];
+        if (!pairs.has(key)) pairs.set(key, { a: key.split("|")[0], b: key.split("|")[1], stems: [] });
+        pairs.get(key).stems.push(stem);
+      }
+    }
+  }
+  return [...pairs.values()]
+    .sort((x, y) => y.stems.length - x.stems.length)
+    .slice(0, 240)
+    .map((pair) => ({ a: pair.a, b: pair.b, label: "общая тема: " + [...new Set(pair.stems)].slice(0, 2).join(", ") }));
+}
+
+function buildLifeGraph(state) {
+  const base = graphForDisplay(state);
+  const cached = lifeGraphCache.get(base);
+  if (cached) return cached;
+  const groups = new Map();
+  const canonicalOf = new Map();
+  for (const node of base.nodes) {
+    const resolved = graphNodeObject(state, node.id);
+    const kind = resolved ? resolved.kind : "note";
+    if (!LIFE_GRAPH_KINDS.has(kind)) continue;
+    if (LIFE_GRAPH_NOISE_TITLE.test(String(node.label || "").trim())) continue;
+    // Ключ — нормализованный заголовок без расширения файла: «Оценить продажу.md» и задача
+    // «Оценить продажу» — один и тот же объект жизни в разных проекциях.
+    const key = normalizeTitle(String(node.label || node.id).replace(/\.[a-z0-9]{1,5}$/i, "").replace(/^highlight:\s*/i, "")) || node.id;
+    if (!groups.has(key)) groups.set(key, { key, ids: [], label: node.label || node.id, kinds: new Set(), rank: 99, primaryId: node.id });
+    const group = groups.get(key);
+    group.ids.push(node.id);
+    group.kinds.add(kind);
+    const rank = LIFE_GRAPH_KIND_RANK[kind] === undefined ? 90 : LIFE_GRAPH_KIND_RANK[kind];
+    if (rank < group.rank) {
+      group.rank = rank;
+      group.primaryId = node.id;
+      group.label = node.label || node.id;
+    }
+    canonicalOf.set(node.id, key);
+  }
+  const nodes = [...groups.values()].map((group) => ({
+    id: group.primaryId,
+    key: group.key,
+    label: group.label,
+    kinds: [...group.kinds],
+    projections: group.ids.length
+  }));
+  const byKey = new Map(nodes.map((node) => [node.key, node]));
+  const links = [];
+  const seen = new Set();
+  const addLifeEdge = (fromKey, toKey, label, since) => {
+    if (!fromKey || !toKey || fromKey === toKey) return;
+    if (!byKey.has(fromKey) || !byKey.has(toKey)) return;
+    const pair = fromKey < toKey ? fromKey + "|" + toKey : toKey + "|" + fromKey;
+    if (seen.has(pair)) return;
+    seen.add(pair);
+    links.push({ source: byKey.get(fromKey).id, target: byKey.get(toKey).id, label, since: since || "" });
+  };
+  for (const link of base.links) {
+    addLifeEdge(canonicalOf.get(link.source), canonicalOf.get(link.target), link.label, link.since);
+  }
+  // Смысловые связи: общие редкие термины между записями (донор-идея Logseq unlinked references,
+  // у нас уже реализована как detectConceptConnections). Именно они и делают тему темой.
+  for (const edge of lifeTopicEdges(state)) {
+    addLifeEdge(canonicalOf.get(edge.a), canonicalOf.get(edge.b), edge.label);
+  }
+  const graph = { nodes, links };
+  lifeGraphCache.set(base, graph);
+  return graph;
+}
+
+// Неориентированный список смежности над видимым графом. Строится один раз на вызов и
+// переиспользуется всеми алгоритмами ниже — иначе каждый заново обходил бы все рёбра.
+function buildUndirectedAdjacency(graph) {
+  const adjacency = new Map();
+  const nodeById = new Map();
+  for (const node of graph.nodes) {
+    adjacency.set(node.id, new Set());
+    nodeById.set(node.id, node);
+  }
+  const edges = [];
+  for (const link of graph.links) {
+    if (!adjacency.has(link.source) || !adjacency.has(link.target) || link.source === link.target) continue;
+    adjacency.get(link.source).add(link.target);
+    adjacency.get(link.target).add(link.source);
+    edges.push(link);
+  }
+  return { adjacency, nodeById, edges, ids: [...adjacency.keys()].sort() };
+}
+
+// Louvain, первая фаза + агрегация (донор-алгоритм из cluster.py, там он вызывается через
+// networkx/graspologic). Прирост модулярности при переносе узла i в сообщество C:
+// ΔQ = k_i,in / m − Σtot · k_i / (2m²). Узлы обходим в отсортированном порядке, ничьи решаем
+// по id — иначе разбиение «плавает» от прогона к прогону и выглядит как churn сообществ.
+function louvainPartition(ids, adjacency) {
+  let nodes = ids.slice();
+  let neighbours = new Map(nodes.map((id) => [id, new Map([...adjacency.get(id)].map((other) => [other, 1]))]));
+  let membership = new Map(nodes.map((id) => [id, id]));
+  const rootOf = new Map(nodes.map((id) => [id, [id]]));
+
+  for (let level = 0; level < 6; level += 1) {
+    const degree = new Map(nodes.map((id) => [id, [...neighbours.get(id).values()].reduce((sum, weight) => sum + weight, 0)]));
+    const totalWeight = [...degree.values()].reduce((sum, value) => sum + value, 0) / 2;
+    if (!totalWeight) break;
+    const community = new Map(nodes.map((id) => [id, id]));
+    const communityTotal = new Map(nodes.map((id) => [id, degree.get(id)]));
+    let moved = false;
+    for (let pass = 0; pass < 8; pass += 1) {
+      let passMoved = false;
+      for (const id of nodes) {
+        const current = community.get(id);
+        const own = degree.get(id);
+        communityTotal.set(current, communityTotal.get(current) - own);
+        const weightTo = new Map();
+        for (const [other, weight] of neighbours.get(id)) {
+          if (other === id) continue;
+          const target = community.get(other);
+          weightTo.set(target, (weightTo.get(target) || 0) + weight);
+        }
+        let best = current;
+        let bestGain = (weightTo.get(current) || 0) - (communityTotal.get(current) * own) / (2 * totalWeight);
+        for (const [target, weight] of [...weightTo.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
+          const gain = weight - (communityTotal.get(target) * own) / (2 * totalWeight);
+          if (gain > bestGain + 1e-9) {
+            bestGain = gain;
+            best = target;
+          }
+        }
+        communityTotal.set(best, communityTotal.get(best) + own);
+        if (best !== current) {
+          community.set(id, best);
+          passMoved = true;
+          moved = true;
+        }
+      }
+      if (!passMoved) break;
+    }
+    for (const id of ids) {
+      const leaf = membership.get(id);
+      membership.set(id, community.get(leaf) !== undefined ? community.get(leaf) : leaf);
+    }
+    if (!moved) break;
+    // Агрегация: каждое сообщество становится узлом следующего уровня.
+    const groups = new Map();
+    for (const id of nodes) {
+      const cid = community.get(id);
+      if (!groups.has(cid)) groups.set(cid, []);
+      groups.get(cid).push(id);
+    }
+    const nextNodes = [...groups.keys()].sort();
+    const nextNeighbours = new Map(nextNodes.map((cid) => [cid, new Map()]));
+    for (const id of nodes) {
+      const from = community.get(id);
+      for (const [other, weight] of neighbours.get(id)) {
+        const to = community.get(other);
+        const bucket = nextNeighbours.get(from);
+        bucket.set(to, (bucket.get(to) || 0) + weight);
+      }
+    }
+    for (const [cid, members] of groups) {
+      rootOf.set(cid, members.flatMap((member) => rootOf.get(member) || [member]));
+    }
+    if (nextNodes.length === nodes.length) break;
+    nodes = nextNodes;
+    neighbours = nextNeighbours;
+  }
+  return membership;
+}
+
+// Доля реально существующих рёбер внутри сообщества от максимально возможных (cluster.py).
+function communityCohesion(members, adjacency) {
+  if (members.length <= 1) return 1;
+  const inside = new Set(members);
+  let edges = 0;
+  for (const id of members) {
+    for (const other of adjacency.get(id) || []) {
+      if (inside.has(other) && String(id) < String(other)) edges += 1;
+    }
+  }
+  const possible = (members.length * (members.length - 1)) / 2;
+  return possible ? edges / possible : 0;
+}
+
+const COMMUNITY_MAX_FRACTION = 0.25;
+const COMMUNITY_MIN_SPLIT = 10;
+
+// Сообщества тем с ИМЕНАМИ. Имя — заголовок самого связанного участника (label_communities_by_hub
+// из донора): отчёт читается как «Покупка машины», а не «Сообщество 7». Без LLM и без сети.
+function computeTopicClusters(state) {
+  const graph = buildLifeGraph(state);
+  const cached = topicClusterCache.get(graph);
+  if (cached) return cached;
+  const { adjacency, nodeById, ids } = buildUndirectedAdjacency(graph);
+  if (ids.length < 4) {
+    topicClusterCache.set(graph, []);
+    return [];
+  }
+  const membership = louvainPartition(ids, adjacency);
+  const groups = new Map();
+  for (const id of ids) {
+    const cid = String(membership.get(id));
+    if (!groups.has(cid)) groups.set(cid, []);
+    groups.get(cid).push(id);
+  }
+  // Раздутые сообщества дробим вторым проходом по подграфу — иначе «одно сообщество на всё»
+  // выглядит как кластеризация, но ничего не объясняет.
+  const maxSize = Math.max(COMMUNITY_MIN_SPLIT, Math.round(ids.length * COMMUNITY_MAX_FRACTION));
+  const finals = [];
+  for (const members of groups.values()) {
+    if (members.length <= maxSize) {
+      finals.push(members);
+      continue;
+    }
+    const inside = new Set(members);
+    const subAdjacency = new Map(members.map((id) => [id, new Set([...adjacency.get(id)].filter((other) => inside.has(other)))]));
+    const subMembership = louvainPartition(members.slice().sort(), subAdjacency);
+    const subGroups = new Map();
+    for (const id of members) {
+      const cid = String(subMembership.get(id));
+      if (!subGroups.has(cid)) subGroups.set(cid, []);
+      subGroups.get(cid).push(id);
+    }
+    if (subGroups.size <= 1) finals.push(members);
+    else for (const sub of subGroups.values()) finals.push(sub);
+  }
+  // Порядок детерминированный: по размеру, при равенстве — по составу. Иначе одинаковое
+  // разбиение получало бы разные номера от прогона к прогону.
+  finals.sort((a, b) => b.length - a.length || a.slice().sort().join().localeCompare(b.slice().sort().join()));
+  const clusters = finals
+    .filter((members) => members.length >= 2)
+    .slice(0, 8)
+    .map((members, index) => {
+      const hub = members.slice().sort((a, b) => (adjacency.get(b).size - adjacency.get(a).size) || String(a).localeCompare(String(b)))[0];
+      const hubNode = nodeById.get(hub);
+      const cohesion = communityCohesion(members, adjacency);
+      return {
+        id: "cluster-" + index,
+        name: shorten((hubNode && hubNode.label) || "Тема", 50),
+        hubId: hub,
+        size: members.length,
+        cohesion: Math.round(cohesion * 100),
+        members: members
+          .slice()
+          .sort((a, b) => (adjacency.get(b).size - adjacency.get(a).size) || String(a).localeCompare(String(b)))
+          .slice(0, 6)
+          .map((id) => ({ id, label: shorten((nodeById.get(id) || {}).label || id, 44) }))
+      };
+    });
+  topicClusterCache.set(graph, clusters);
+  return clusters;
+}
+
+// Betweenness по Брандесу (формула Neo4j GDS): узел-мост стоит на многих кратчайших путях.
+// Считаем на невзвешенном графе; при больших графах ограничиваем число источников, чтобы
+// экран не подвисал — это честная аппроксимация, о чём и написано в объяснении.
+function computeBetweenness(ids, adjacency, sampleLimit = 120) {
+  const score = new Map(ids.map((id) => [id, 0]));
+  const sources = ids.length > sampleLimit ? ids.filter((_, index) => index % Math.ceil(ids.length / sampleLimit) === 0) : ids;
+  for (const source of sources) {
+    const stack = [];
+    const predecessors = new Map(ids.map((id) => [id, []]));
+    const sigma = new Map(ids.map((id) => [id, 0]));
+    const distance = new Map(ids.map((id) => [id, -1]));
+    sigma.set(source, 1);
+    distance.set(source, 0);
+    const queue = [source];
+    while (queue.length) {
+      const current = queue.shift();
+      stack.push(current);
+      for (const neighbour of adjacency.get(current) || []) {
+        if (distance.get(neighbour) < 0) {
+          distance.set(neighbour, distance.get(current) + 1);
+          queue.push(neighbour);
+        }
+        if (distance.get(neighbour) === distance.get(current) + 1) {
+          sigma.set(neighbour, sigma.get(neighbour) + sigma.get(current));
+          predecessors.get(neighbour).push(current);
+        }
+      }
+    }
+    const delta = new Map(ids.map((id) => [id, 0]));
+    while (stack.length) {
+      const node = stack.pop();
+      for (const predecessor of predecessors.get(node)) {
+        delta.set(predecessor, delta.get(predecessor) + (sigma.get(predecessor) / sigma.get(node)) * (1 + delta.get(node)));
+      }
+      if (node !== source) score.set(node, score.get(node) + delta.get(node));
+    }
+  }
+  return score;
+}
+
+// «Что рассыплется без этого узла» — не метрика, а прямой ответ: убираем узел и смотрим,
+// сколько его соседей теряют связь с остальной системой.
+function computeBridgeNodes(state, limit = 3) {
+  const graph = buildLifeGraph(state);
+  const cached = bridgeNodeCache.get(graph);
+  if (cached) return cached;
+  const { adjacency, nodeById, ids } = buildUndirectedAdjacency(graph);
+  if (ids.length < 6) {
+    bridgeNodeCache.set(graph, []);
+    return [];
+  }
+  const betweenness = computeBetweenness(ids, adjacency);
+  const ranked = ids
+    .filter((id) => (adjacency.get(id) || new Set()).size >= 2)
+    .sort((a, b) => (betweenness.get(b) - betweenness.get(a)) || String(a).localeCompare(String(b)))
+    .slice(0, limit);
+  const bridges = ranked.map((id) => {
+    const neighbours = [...adjacency.get(id)];
+    const remaining = new Set(ids.filter((other) => other !== id));
+    // Обход без удалённого узла: кто из соседей остаётся достижим друг для друга.
+    const seen = new Set();
+    let isolated = 0;
+    for (const start of neighbours) {
+      if (seen.has(start)) continue;
+      const queue = [start];
+      const component = new Set([start]);
+      seen.add(start);
+      while (queue.length) {
+        const current = queue.shift();
+        for (const next of adjacency.get(current) || []) {
+          if (next === id || !remaining.has(next) || component.has(next)) continue;
+          component.add(next);
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+      if (component.size <= 2) isolated += 1;
+    }
+    const node = nodeById.get(id) || {};
+    return {
+      id,
+      label: shorten(node.label || id, 50),
+      degree: neighbours.length,
+      score: Math.round(betweenness.get(id)),
+      isolated,
+      why: isolated
+        ? "Без него " + isolated + " " + pluralRu(isolated, "ветка теряет", "ветки теряют", "веток теряют") + " связь с остальной системой."
+        : "Стоит на многих коротких путях: через него проходит связность, но ничего не рассыплется."
+    };
+  });
+  bridgeNodeCache.set(graph, bridges);
+  return bridges;
+}
+
+// «Как связаны A и B» — кратчайший путь обходом в ширину, с объяснением каждого шага.
+// Это ответ, а не подсветка: видно цепочку и почему каждое звено существует.
+function findGraphPath(state, fromId, toId) {
+  const graph = buildLifeGraph(state);
+  const { adjacency, nodeById, ids } = buildUndirectedAdjacency(graph);
+  if (!adjacency.has(fromId) || !adjacency.has(toId) || fromId === toId) return null;
+  const previous = new Map();
+  const seen = new Set([fromId]);
+  const queue = [fromId];
+  while (queue.length) {
+    const current = queue.shift();
+    if (current === toId) break;
+    for (const next of [...adjacency.get(current)].sort()) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      previous.set(next, current);
+      queue.push(next);
+    }
+  }
+  if (!seen.has(toId)) return { found: false, from: fromId, to: toId, steps: [] };
+  const chain = [toId];
+  while (chain[0] !== fromId) chain.unshift(previous.get(chain[0]));
+  const reasonFor = (a, b) => {
+    const link = graph.links.find((row) => (row.source === a && row.target === b) || (row.source === b && row.target === a));
+    return link ? graphEdgeReasonLabel(link.label) || "связаны" : "связаны";
+  };
+  const steps = [];
+  for (let index = 0; index < chain.length - 1; index += 1) {
+    steps.push({
+      fromId: chain[index],
+      from: shorten((nodeById.get(chain[index]) || {}).label || chain[index], 46),
+      toId: chain[index + 1],
+      to: shorten((nodeById.get(chain[index + 1]) || {}).label || chain[index + 1], 46),
+      why: reasonFor(chain[index], chain[index + 1])
+    });
+  }
+  return { found: true, from: fromId, to: toId, length: steps.length, steps, total: ids.length };
+}
+
+// Неожиданные связи (донор-функция surprising_connections + _surprise_score). Балл собирается
+// из объяснимых признаков: связь мостит разные сообщества, периферийный узел дотягивается до
+// хаба, у связи есть время появления. Каждое очко превращается в строку «почему это заметно».
+function computeSurprisingLinks(state, limit = 4) {
+  const graph = buildLifeGraph(state);
+  const { adjacency, nodeById, ids } = buildUndirectedAdjacency(graph);
+  if (ids.length < 6) return [];
+  const clusters = computeTopicClusters(state);
+  const clusterOf = new Map();
+  for (const cluster of clusters) {
+    for (const member of cluster.members) clusterOf.set(member.id, cluster.id);
+  }
+  const scored = [];
+  for (const link of graph.links) {
+    if (!adjacency.has(link.source) || !adjacency.has(link.target)) continue;
+    // Граф жизни уже очищен от проводки коллекций, поэтому фильтровать метки второй раз не нужно:
+    // связь между двумя РАЗНЫМИ объектами жизни имеет право оказаться неожиданной.
+    const from = nodeById.get(link.source);
+    const to = nodeById.get(link.target);
+    if (!from || !to || normalizeTitle(from.label) === normalizeTitle(to.label)) continue;
+    const reasons = [];
+    let score = 1;
+    const clusterFrom = clusterOf.get(link.source);
+    const clusterTo = clusterOf.get(link.target);
+    if (clusterFrom && clusterTo && clusterFrom !== clusterTo) {
+      score += 2;
+      reasons.push("соединяет разные темы");
+    }
+    const degreeFrom = adjacency.get(link.source).size;
+    const degreeTo = adjacency.get(link.target).size;
+    if (Math.min(degreeFrom, degreeTo) <= 2 && Math.max(degreeFrom, degreeTo) >= 5) {
+      score += 1;
+      reasons.push("одинокая запись дотянулась до хаба «" + shorten((degreeFrom >= 5 ? from.label : to.label) || "", 30) + "»");
+    }
+    if (link.since) {
+      score += 1;
+      reasons.push("связь появилась " + formatGraphEdgeSince(link.since));
+    }
+    if (!reasons.length) continue;
+    scored.push({
+      id: link.source,
+      targetId: link.target,
+      from: shorten(from.label, 44),
+      to: shorten(to.label, 44),
+      why: graphEdgeReasonLabel(link.label) || "связаны",
+      score,
+      reasons
+    });
+  }
+  return scored.sort((a, b) => b.score - a.score || a.from.localeCompare(b.from)).slice(0, limit);
+}
+
+// ============================================================================
+// Долговременная память: скоринг важности (P0-4)
+// ============================================================================
+// Донор: Mem0 (Apache-2.0, Python) — `mem0/memory/main.py`: важность факта складывается из
+// свежести, частоты обращения и связности, а забывание — это ВЕС, а не удаление. Их пайплайн
+// (векторная БД + серверный рантайм) нам не подходит, поэтому взята формула и реализована как
+// слой ранжирования НАД существующими артефактами: новой коллекции памяти нет.
+// Зачем: после вечернего дампа из 20–30 записей важное тонет в свежем шуме.
+
+const MEMORY_HALF_LIFE_DAYS = 30;
+
+// Свежесть с периодом полураспада: месяц назад — половина веса, два месяца — четверть.
+// Ноль не достигается никогда: старое приглушается, но не исчезает (ADD-only, §7).
+function memoryFreshness(iso, nowMs) {
+  const age = Math.max(0, ageInDays(iso, nowMs));
+  return Math.pow(0.5, age / MEMORY_HALF_LIFE_DAYS);
+}
+
+function computeMemoryImportance(state, limit = 6) {
+  const graph = buildLifeGraph(state);
+  const cached = memoryImportanceCache.get(graph);
+  if (cached) return cached.slice(0, limit);
+  const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && note.systemType !== "product_brain");
+  if (notes.length < 3) {
+    memoryImportanceCache.set(graph, []);
+    return [];
+  }
+  const { adjacency } = buildUndirectedAdjacency(graph);
+  const nowMs = Date.now();
+  const backlinks = state.backlinks || {};
+  const receipts = state.control.receipts || [];
+  const maxDegree = Math.max(1, ...notes.map((note) => (adjacency.get(note.id) || new Set()).size));
+  // Счётчик обращений собирается ОДНИМ проходом по чекам, задачам и тратам. Раньше каждый из
+  // них фильтровался заново для каждой заметки — на хранилище в 600 записей это давало сотни
+  // тысяч лишних сравнений и заметно тормозило экран Графа.
+  const touchCount = new Map();
+  const bump = (noteId) => {
+    if (!noteId) return;
+    touchCount.set(noteId, (touchCount.get(noteId) || 0) + 1);
+  };
+  for (const receipt of receipts) {
+    bump(receipt.noteId);
+    if (receipt.objectId && receipt.objectId !== receipt.noteId) bump(receipt.objectId);
+  }
+  for (const task of Object.values(state.tasks || {})) if (!task.deleted) bump(task.noteId);
+  for (const tx of Object.values(state.financeTransactions || {})) if (!tx.deleted) bump(tx.noteId);
+  const touchesOf = (note) => (Array.isArray(backlinks[note.id]) ? backlinks[note.id].length : 0) + (touchCount.get(note.id) || 0);
+  const maxTouches = Math.max(1, ...notes.map(touchesOf));
+
+  const scored = notes.map((note) => {
+    const freshness = memoryFreshness(note.updatedAt || note.createdAt, nowMs);
+    // Частота: сколько раз система реально возвращалась к этому артефакту — обратные ссылки,
+    // чеки и связанные действия. Это наблюдение, а не оценка владельца.
+    const touches = touchesOf(note);
+    // Логарифм от корпусного максимума: 1 - 0.7^n упиралось в единицу уже на пятом касании,
+    // и весь список получал одинаковые 100 — ранжировать было нечем.
+    const frequency = Math.log1p(touches) / Math.log1p(maxTouches);
+    const connectivity = (adjacency.get(note.id) || new Set()).size / maxDegree;
+    // Веса донора: связность важнее свежести — то, что вплетено в систему, не должно тонуть
+    // под сегодняшним шумом, ради чего скоринг и вводился.
+    const score = freshness * 0.3 + frequency * 0.3 + connectivity * 0.4;
+    const parts = [];
+    if (connectivity > 0.4) parts.push("вплетено в систему (" + (adjacency.get(note.id) || new Set()).size + " связей)");
+    if (touches >= 2) parts.push("возвращались " + touches + " " + pluralRu(touches, "раз", "раза", "раз"));
+    if (freshness > 0.7) parts.push("свежее");
+    else if (freshness < 0.25) parts.push("старое, но вес сохранён");
+    return {
+      id: note.id,
+      title: shorten(note.title || "Заметка", 60),
+      score: Math.round(score * 100),
+      freshness: Math.round(freshness * 100),
+      frequency: Math.round(frequency * 100),
+      connectivity: Math.round(connectivity * 100),
+      why: parts.length ? parts.join(" · ") : "мало сигналов: ни связей, ни обращений"
+    };
+  });
+  const ranked = scored.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+  memoryImportanceCache.set(graph, ranked);
+  return ranked.slice(0, limit);
+}
+
+// «Забытое, но важное»: высокая связность при старой дате. Ровно тот случай, ради которого
+// в доноре и придуман decay-как-вес — иначе такие артефакты просто исчезают из виду.
+function computeForgottenImportant(state, limit = 3) {
+  return computeMemoryImportance(state, 40)
+    .filter((row) => row.connectivity >= 40 && row.freshness <= 40)
+    .slice(0, limit);
+}
+
+// ============================================================================
+// Текстовый отчёт графа (донор-идея Graphify GRAPH_REPORT.md)
+// ============================================================================
+// Лучший паттерн донора: граф отдаёт ТЕКСТ, а не только картинку. Отчёт собирается из уже
+// посчитанного — темы, мосты, неожиданные связи, важное в памяти — и читается как абзац о
+// состоянии системы. Ничего нового не считает и ничего не записывает.
+function computeGraphReport(state) {
+  const graph = buildLifeGraph(state);
+  const clusters = computeTopicClusters(state);
+  const bridges = computeBridgeNodes(state);
+  const surprises = computeSurprisingLinks(state);
+  const forgotten = computeForgottenImportant(state);
+  if (!graph.nodes.length) {
+    return { hasReport: false, headline: "Граф пустой: связывать пока нечего.", lines: [] };
+  }
+  const lines = [];
+  lines.push({
+    key: "size",
+    text: "В графе " + graph.nodes.length + " " + pluralRu(graph.nodes.length, "объект", "объекта", "объектов") + " и " + graph.links.length + " " + pluralRu(graph.links.length, "связь", "связи", "связей") + "."
+  });
+  if (clusters.length) {
+    lines.push({
+      key: "clusters",
+      text: "Темы, вокруг которых всё крутится: " + clusters.slice(0, 4).map((cluster) => "«" + cluster.name + "» (" + cluster.size + ")").join(", ")
+        + ". Название темы — самый связанный объект внутри неё, а не выдуманный ярлык."
+    });
+  }
+  if (bridges.length) {
+    lines.push({ key: "bridges", text: "Держит связность «" + bridges[0].label + "»: " + bridges[0].why.toLocaleLowerCase("ru-RU") });
+  }
+  if (surprises.length) {
+    lines.push({ key: "surprise", text: "Неожиданное: «" + surprises[0].from + "» ↔ «" + surprises[0].to + "» — " + surprises[0].reasons.join(", ") + "." });
+  }
+  if (forgotten.length) {
+    lines.push({ key: "forgotten", text: "Забыто, но важно: «" + forgotten[0].title + "» — " + forgotten[0].why + "." });
+  }
+  if (lines.length === 1) {
+    lines.push({ key: "thin", text: "Для выводов пока мало связей. Они появятся сами, когда объекты начнут встречаться друг с другом в записях." });
+  }
+  return {
+    hasReport: true,
+    headline: clusters.length
+      ? clusters.length + " " + pluralRu(clusters.length, "тема", "темы", "тем") + " держат " + graph.nodes.length + " " + pluralRu(graph.nodes.length, "объект", "объекта", "объектов") + "."
+      : "Связи есть, но тем пока не сложилось.",
+    lines
+  };
+}
+
 function objectReturnSurface(state) {
   const from = cleanLine((state.objectView && state.objectView.from) || "");
   if (from && from !== "object") return from;
@@ -14613,7 +15311,9 @@ function buildConceptTermIndex(notes) {
   return { termToNotes, termsByNote };
 }
 
-function detectConceptConnections(state) {
+// options.limit — сколько связей вернуть. По умолчанию спокойный кап для панели инсайтов;
+// граф жизни просит больше, потому что из этих связей и складываются темы.
+function detectConceptConnections(state, options = {}) {
   const notes = Object.values(state.notes || {}).filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType));
   if (notes.length < 2) return [];
   const { termToNotes } = buildConceptTermIndex(notes);
@@ -14659,7 +15359,9 @@ function detectConceptConnections(state) {
   // Масштаб под объём: при дампе 20+ заметок фиксированные 3 связи мало (запрос владельца —
   // «система должна строить ВСЕ эти связи»). Растём с числом заметок, но с потолком, чтобы
   // панель инсайтов оставалась спокойной.
-  const connectionCap = Math.max(3, Math.min(8, Math.round(notes.length / 4)));
+  const connectionCap = Number.isFinite(Number(options.limit))
+    ? Math.max(0, Number(options.limit))
+    : Math.max(3, Math.min(8, Math.round(notes.length / 4)));
   return candidates.slice(0, connectionCap).map((c) => {
     const pairKey = [c.a.id, c.b.id].sort().join("-");
     return {
@@ -19701,6 +20403,21 @@ async function handleAction(action, id) {
     });
     return;
   }
+  // «Как связаны A и B»: первый клик ставит начало, второй — конец, третий начинает заново.
+  if (action === "pick-path-node") {
+    await store.commit("Узел выбран для пути", (state) => {
+      const query = state.graphPathQuery || { from: "", to: "" };
+      if (!query.from || (query.from && query.to)) state.graphPathQuery = { from: cleanLine(id || ""), to: "" };
+      else state.graphPathQuery = { from: query.from, to: cleanLine(id || "") };
+    });
+    return;
+  }
+  if (action === "clear-path-query") {
+    await store.commit("Путь сброшен", (state) => {
+      state.graphPathQuery = { from: "", to: "" };
+    });
+    return;
+  }
   if (action === "plan-agent") {
     await store.commit("План агента собран", (state) => {
       state.control.agentPlan = computeAgentPlan(state, id);
@@ -22587,6 +23304,29 @@ window.__lifeosKnowledgeBase = {
   },
   computeGraphAnswersForTest() {
     return store ? computeGraphAnswers(store.state) : [];
+  },
+  // Разум графа считает несколько тяжёлых алгоритмов (Louvain, Брандес, скоринг памяти).
+  // Хук меряет их по отдельности, чтобы регресс производительности было видно числом,
+  // а не «кажется, подтормаживает». Read-only, ничего не мутирует.
+  graphBrainTimingForTest() {
+    if (!store) return {};
+    const state = store.state;
+    const measure = (label, fn) => {
+      const started = performance.now();
+      const value = fn();
+      return { label, ms: Math.round(performance.now() - started), size: Array.isArray(value) ? value.length : 1 };
+    };
+    graphDisplayCache = new WeakMap();
+    lifeGraphCache = new WeakMap();
+    return {
+      display: measure("graphForDisplay", () => graphForDisplay(state).nodes),
+      life: measure("buildLifeGraph", () => buildLifeGraph(state).nodes),
+      topics: measure("lifeTopicEdges", () => lifeTopicEdges(state)),
+      clusters: measure("computeTopicClusters", () => computeTopicClusters(state)),
+      bridges: measure("computeBridgeNodes", () => computeBridgeNodes(state)),
+      memory: measure("computeMemoryImportance", () => computeMemoryImportance(state, 6)),
+      surprises: measure("computeSurprisingLinks", () => computeSurprisingLinks(state))
+    };
   },
   detectProjectClustersForTest() {
     return store ? detectProjectClusters(store.state) : [];

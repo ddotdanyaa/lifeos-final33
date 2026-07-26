@@ -80,7 +80,133 @@ function renderGraphAnswers(ctx) {
   ].join("");
 }
 
+// P0-5 (донор Graphify cluster.py, MIT — алгоритм перенесён нативно): темы графа с ИМЕНАМИ.
+// Имя темы — самый связанный объект внутри неё, а не «Сообщество 7». Без кластеров граф после
+// вечернего дампа превращается в клубок, в котором ничего не читается.
+function renderTopicClusters(ctx) {
+  const clusters = ctx.topicClusters || [];
+  if (!clusters.length) return "";
+  return [
+    `<section class="topic-clusters" data-testid="topic-clusters">`,
+    `<div class="graph-answers-head"><span>Темы</span><em>посчитано по связям, имя — самый связанный объект темы</em></div>`,
+    clusters.map((cluster) => [
+      `<article class="topic-cluster" data-testid="topic-cluster" data-cluster="${escapeHtml(cluster.id)}">`,
+      `<header><strong>${escapeHtml(cluster.name)}</strong><span data-testid="topic-cluster-size">${cluster.size} ${cluster.size === 1 ? "объект" : "объектов"} · плотность ${cluster.cohesion}%</span></header>`,
+      `<div class="topic-cluster-members">${cluster.members.map((member) => `<span class="topic-member-wrap"><button class="topic-member" data-action="open-object" data-id="${escapeHtml(member.id)}" data-testid="topic-member">${escapeHtml(member.label)}</button>${button("pick-path-node", "Путь", { id: member.id, kind: "ghost", testId: "pick-path-node" })}</span>`).join("")}</div>`,
+      `</article>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
+// Текстовый отчёт графа (донор-паттерн Graphify GRAPH_REPORT.md): граф отдаёт абзац о состоянии
+// системы, а не только картинку. Собран из уже посчитанного, ничего не пишет.
+function renderGraphReport(ctx) {
+  const report = ctx.graphReport || { hasReport: false, lines: [] };
+  if (!report.hasReport) return "";
+  return [
+    `<section class="graph-report" data-testid="graph-report">`,
+    `<p class="canon-eyebrow">Отчёт графа</p>`,
+    `<h3 data-testid="graph-report-headline">${escapeHtml(report.headline)}</h3>`,
+    `<ul class="graph-report-lines">${report.lines.map((line) => `<li data-testid="graph-report-line" data-line="${escapeHtml(line.key)}">${escapeHtml(line.text)}</li>`).join("")}</ul>`,
+    `</section>`
+  ].join("");
+}
+
+// «Что рассыплется без этого узла» (Neo4j GDS betweenness + прямая проверка связности):
+// не метрика ради метрики, а ответ на вопрос владельца.
+function renderBridges(ctx) {
+  const bridges = ctx.bridgeNodes || [];
+  if (!bridges.length) return "";
+  return [
+    `<section class="graph-bridges" data-testid="graph-bridges">`,
+    `<div class="graph-answers-head"><span>Мосты</span><em>через них проходит связность</em></div>`,
+    bridges.map((bridge) => [
+      `<button class="graph-bridge" data-action="open-object" data-id="${escapeHtml(bridge.id)}" data-testid="graph-bridge">`,
+      `<strong>${escapeHtml(bridge.label)}</strong>`,
+      `<em data-testid="graph-bridge-why">${escapeHtml(bridge.why)}</em>`,
+      `<span>${bridge.degree} ${bridge.degree === 1 ? "связь" : "связей"}</span>`,
+      `</button>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
+// Неожиданные связи (донор Graphify surprising_connections): не «что связано», а «почему это
+// заметно» — каждый признак балла превращён в человеческую строку.
+function renderSurprisingLinks(ctx) {
+  const links = ctx.surprisingLinks || [];
+  if (!links.length) return "";
+  return [
+    `<section class="graph-surprises" data-testid="graph-surprises">`,
+    `<div class="graph-answers-head"><span>Неожиданное</span><em>связи, которые сам бы не искал</em></div>`,
+    links.map((link) => [
+      `<button class="graph-surprise" data-action="open-object" data-id="${escapeHtml(link.id)}" data-testid="graph-surprise">`,
+      `<strong>${escapeHtml(link.from)} ↔ ${escapeHtml(link.to)}</strong>`,
+      `<em data-testid="graph-surprise-why">${escapeHtml(link.reasons.join(" · "))}</em>`,
+      `<span>${escapeHtml(link.why)}</span>`,
+      `</button>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
+// «Как связаны A и B» — кратчайший путь как ОТВЕТ: цепочка с объяснением каждого звена.
+function renderGraphPath(ctx) {
+  const path = ctx.graphPath;
+  const query = ctx.graphPathQuery || { from: "", to: "" };
+  const picking = Boolean(query.from && !query.to);
+  return [
+    `<section class="graph-path" data-testid="graph-path">`,
+    `<div class="graph-answers-head"><span>Как связаны</span><em>${picking ? "выбери второй объект" : "выбери два объекта в темах или мостах"}</em></div>`,
+    path && path.found ? [
+      `<p class="graph-path-summary" data-testid="graph-path-summary">Цепочка из ${path.length} ${path.length === 1 ? "шага" : "шагов"}:</p>`,
+      `<ol class="graph-path-steps">${path.steps.map((step) => `<li data-testid="graph-path-step"><strong>${escapeHtml(step.from)} → ${escapeHtml(step.to)}</strong><em>${escapeHtml(step.why)}</em></li>`).join("")}</ol>`,
+      button("clear-path-query", "Сбросить", { kind: "ghost", testId: "clear-path-query" })
+    ].join("") : path && !path.found ? [
+      `<p class="empty-inline" data-testid="graph-path-none">Между этими объектами пути нет: они живут в разных частях системы и пока ничем не связаны.</p>`,
+      button("clear-path-query", "Сбросить", { kind: "ghost", testId: "clear-path-query" })
+    ].join("") : `<p class="empty-inline" data-testid="graph-path-hint">Нажми «Путь» у двух объектов ниже — покажу цепочку связей между ними и объясню каждое звено.</p>`,
+    `</section>`
+  ].join("");
+}
+
+// P0-4 (донор Mem0): важное не тонет под свежим шумом. Вес = свежесть + частота + связность,
+// забывание — вес, а не удаление, поэтому старое с сильными связями остаётся видимым.
+function renderMemoryImportance(ctx) {
+  const rows = ctx.memoryImportance || [];
+  const forgotten = ctx.forgottenImportant || [];
+  if (!rows.length) return "";
+  return [
+    `<section class="memory-importance" data-testid="memory-importance">`,
+    `<div class="graph-answers-head"><span>Важное в памяти</span><em>свежесть + частота + связность</em></div>`,
+    rows.map((row) => [
+      `<div class="memory-weight-row" data-testid="memory-weight-row">`,
+      `<button class="memory-weight-title" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="memory-weight-open">${escapeHtml(row.title)}</button>`,
+      `<span class="memory-weight-bar"><i style="width:${Math.max(3, Math.min(100, row.score))}%"></i></span>`,
+      `<span class="memory-weight-score" data-testid="memory-weight-score">${row.score}</span>`,
+      `<em class="memory-weight-why" data-testid="memory-weight-why">${escapeHtml(row.why)}</em>`,
+      `<span class="memory-path-pick">${button("pick-path-node", "Путь", { id: row.id, kind: "ghost", testId: "pick-path-node" })}</span>`,
+      `</div>`
+    ].join("")).join(""),
+    forgotten.length
+      ? `<p class="memory-forgotten" data-testid="memory-forgotten">Забыто, но важно: ${forgotten.map((row) => escapeHtml(row.title)).join(" · ")}. Старое приглушается весом, но не исчезает.</p>`
+      : "",
+    `</section>`
+  ].join("");
+}
+
 export function renderGraph(ctx) {
-  const body = `<div class="graph-workspace-split">${renderGraphCanvas(ctx)}${renderInspectorDrawer(ctx)}</div>${renderGraphAnswers(ctx)}${renderPeoplePanel(ctx)}`;
+  const body = [
+    renderGraphReport(ctx),
+    `<div class="graph-workspace-split">${renderGraphCanvas(ctx)}${renderInspectorDrawer(ctx)}</div>`,
+    renderGraphAnswers(ctx),
+    renderTopicClusters(ctx),
+    renderBridges(ctx),
+    renderGraphPath(ctx),
+    renderSurprisingLinks(ctx),
+    renderMemoryImportance(ctx),
+    renderPeoplePanel(ctx)
+  ].join("");
   return renderWorkspaceLayout("graph", "Граф связей", "Большой canvas: локальный и глобальный граф, фильтры, поиск, inspector и причины связей.", body, { testId: "workspace-graph", kicker: "Связи" });
 }
