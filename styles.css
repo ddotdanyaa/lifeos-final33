@@ -11315,3 +11315,38 @@ audio {
   line-height: 1.55;
   color: var(--ink);
 }
+
+/* ============================================================
+   ПРОТИВОРЕЧИЯ МЕЖДУ АРТЕФАКТАМИ (канон Universal Capture)
+   Расхождения, которые владелец сам не сводил. У каждого — числа,
+   на которых оно держится, и вход в объект для разбора.
+   ============================================================ */
+
+.contradictions { display: grid; gap: var(--space-2); margin-top: var(--space-6); }
+.contradictions .canon-eyebrow em { font-style: normal; margin-left: var(--space-2); color: var(--amber); }
+.contradictions-note { margin: 0; font-size: var(--text-sm); line-height: 1.55; color: var(--muted); max-width: 640px; }
+
+.contradiction {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.contradiction h4 {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.4;
+  letter-spacing: -0.018em;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.contradiction p { margin: 0; font-size: var(--text-sm); line-height: 1.55; color: var(--muted); max-width: 640px; }
+
+.contradiction-foot { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between; }
+/* Основание противоречия — на чём именно оно держится: без него это просто тревога. */
+.contradiction-foot em { font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--muted); }
+

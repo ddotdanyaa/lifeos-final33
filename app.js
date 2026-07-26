@@ -12026,6 +12026,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     linkPredictions: computeLinkPredictions(state),
     graphReport: computeGraphReport(state),
     goalForecast: computeGoalForecast(state),
+    contradictions: computeContradictions(state),
     memoryImportance: computeMemoryImportance(state),
     forgottenImportant: computeForgottenImportant(state),
     graphPath: state.graphPathQuery && state.graphPathQuery.from && state.graphPathQuery.to
@@ -15547,6 +15548,115 @@ function objectHistoryRows(record) {
     to: humanValue(row.field, row.to) || "снято",
     reason: row.reason
   }));
+}
+
+// ============================================================================
+// Противоречия между артефактами — «то, что ты не видел сам»
+// ============================================================================
+// Канон (Universal Capture.dc.html, блок «Противоречия»): система показывает расхождения,
+// которые владелец сам не сводил, потому что они живут в РАЗНЫХ объектах и никогда не
+// сверялись между собой. До сих пор противоречия считались только внутри одного объекта
+// (срок цели против её же потока). Здесь — перекрёстные, и каждое опирается на числа.
+// Ни одно противоречие не выводится «на ощущение»: если посчитать не из чего, его нет.
+
+// Слова сомнения: ими владелец сам ставит под вопрос собственное намерение. Ловим только
+// явные формы — иначе «не забыть купить» превратится в отказ от покупки.
+const DOUBT_MARKERS = [
+  "вообще без", "может не", "может, не", "не уверен", "не уверена", "сомнева",
+  "передумал", "передумала", "не нужен", "не нужна", "не нужно", "отказ", "зря",
+  "может обойтись", "обойтись без", "не стоит"
+];
+
+function looksLikeDoubt(text) {
+  const lower = normalizeRuText(String(text || ""));
+  return DOUBT_MARKERS.some((marker) => lower.includes(marker));
+}
+
+function computeContradictions(state) {
+  const rows = [];
+  const flow = objectMonthlyFreeFlow(state);
+  const today = todayKey();
+  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+
+  // 1. Две денежные цели тянут один поток. Считаем требуемый месячный взнос каждой и сравниваем
+  //    с реальным свободным потоком — это ровно тот случай из канона «накопления против августа».
+  const moneyGoals = goals.filter((goal) => Number(goal.targetAmount) > 0 && goal.targetDate);
+  if (moneyGoals.length >= 2 && flow.known && flow.perMonth > 0) {
+    const needs = moneyGoals.map((goal) => {
+      const gap = Math.max(0, Number(goal.targetAmount) - objectGoalProgress(state, goal));
+      const monthsLeft = Math.max(0.1, (new Date(goal.targetDate + "T00:00:00").getTime() - Date.now()) / (86400000 * 30.4));
+      return { goal, perMonth: Math.ceil(gap / monthsLeft), gap };
+    }).sort((a, b) => b.perMonth - a.perMonth);
+    const total = needs.reduce((sum, row) => sum + row.perMonth, 0);
+    if (total > flow.perMonth) {
+      rows.push({
+        id: "contradiction-flow",
+        title: "«" + shorten(needs[0].goal.title || "цель", 34) + "» против «" + shorten(needs[1].goal.title || "цель", 34) + "»",
+        summary: "Вместе эти цели требуют " + formatObjectMoney(total) + " в месяц, а свободного потока по счетам — "
+          + formatObjectMoney(flow.perMonth) + ". Не хватает " + formatObjectMoney(total - flow.perMonth)
+          + " каждый месяц. Обе цели заданы в разное время и между собой никогда не сверялись.",
+        evidence: "Посчитано по " + flow.count + " " + pluralRu(flow.count, "транзакции", "транзакциям", "транзакциям") + " за 90 дней",
+        objectId: needs[0].goal.id
+      });
+    }
+  }
+
+  // 2. Обещанный срок цели против сроков её собственных задач: обещал одно, а шаги стоят дальше.
+  for (const goal of goals) {
+    if (!goal.targetDate) continue;
+    const linked = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && task.goalId === goal.id && task.day);
+    const latest = linked.map((task) => task.day).sort().pop();
+    if (latest && latest > goal.targetDate) {
+      rows.push({
+        id: "contradiction-dates-" + goal.id,
+        title: "Срок цели «" + shorten(goal.title || "цель", 34) + "» раньше её же задач",
+        summary: "Цель обещана на " + formatObjectDay(goal.targetDate) + ", а последняя задача по ней стоит на "
+          + formatObjectDay(latest) + ". Либо срок не настоящий, либо задача лишняя.",
+        evidence: linked.length + " " + pluralRu(linked.length, "задача привязана", "задачи привязаны", "задач привязано") + " к цели",
+        objectId: goal.id
+      });
+    }
+  }
+
+  // 3. Сомнение против намерения: запись, где владелец сам усомнился, и живая цель на ту же тему.
+  //    Канон требует, чтобы сомнение НЕ удалялось, а было видно рядом с целью.
+  const doubts = Object.values(state.sources || {})
+    .filter((source) => !source.deleted && looksLikeDoubt(source.text || source.name))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  for (const doubt of doubts.slice(0, 6)) {
+    const doubtStems = new Set([...artifactDistinctiveTerms({ title: doubt.name || "", body: doubt.text || "" })].map(lifeTermStem));
+    for (const goal of goals) {
+      const goalStems = new Set([...artifactDistinctiveTerms({ title: goal.title || "", body: "" })].map(lifeTermStem));
+      const shared = [...goalStems].filter((stem) => doubtStems.has(stem));
+      if (!shared.length) continue;
+      rows.push({
+        id: "contradiction-doubt-" + goal.id,
+        title: "Сомнение против цели «" + shorten(goal.title || "цель", 34) + "»",
+        summary: "В записи от " + formatObjectStamp(doubt.createdAt) + " ты сам поставил это под вопрос: «"
+          + shorten(cleanLine(doubt.text || doubt.name), 90) + "». Цель при этом активна. Сомнение не удалено — решай ты.",
+        evidence: "Общая тема: " + shared.slice(0, 2).join(", "),
+        objectId: doubt.id
+      });
+      break;
+    }
+  }
+
+  // 4. Просроченные задачи против активной цели: цель считается живой, а её шаги стоят.
+  for (const goal of goals) {
+    const overdue = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && task.goalId === goal.id && task.day && task.day < today);
+    if (overdue.length >= 2) {
+      rows.push({
+        id: "contradiction-stalled-" + goal.id,
+        title: "Цель «" + shorten(goal.title || "цель", 34) + "» числится активной, но стоит",
+        summary: overdue.length + " " + pluralRu(overdue.length, "её задача просрочена", "её задачи просрочены", "её задач просрочено")
+          + ", самая старая с " + formatObjectDay(overdue.map((task) => task.day).sort()[0]) + ". Активная цель без движения — это не цель, а намерение.",
+        evidence: "Считано по задачам, привязанным к цели",
+        objectId: goal.id
+      });
+    }
+  }
+
+  return rows.slice(0, 5);
 }
 
 // ============================================================================

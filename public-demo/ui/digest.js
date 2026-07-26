@@ -44,6 +44,29 @@ function renderQuestions(digest) {
   ].join("");
 }
 
+// Канон (Universal Capture, блок «Противоречия»): расхождения, которые владелец сам не сводил,
+// потому что они живут в РАЗНЫХ объектах. У каждого — числа и объект, в который можно провалиться.
+function renderContradictions(ctx) {
+  const rows = ctx.contradictions || [];
+  if (!rows.length) return "";
+  return [
+    `<section class="contradictions" data-testid="contradictions">`,
+    `<p class="canon-eyebrow">Противоречия <em>${rows.length}</em></p>`,
+    `<p class="contradictions-note">То, что ты не видел сам: эти объекты заданы в разное время и между собой никогда не сверялись.</p>`,
+    rows.map((row) => [
+      `<article class="contradiction" data-testid="contradiction" data-contradiction="${escapeHtml(row.id)}">`,
+      `<h4>${escapeHtml(row.title)}</h4>`,
+      `<p data-testid="contradiction-summary">${escapeHtml(row.summary)}</p>`,
+      `<div class="contradiction-foot">`,
+      `<em data-testid="contradiction-evidence">${escapeHtml(row.evidence)}</em>`,
+      button("open-object", "Открыть объект", { id: row.objectId, kind: "ghost", testId: "contradiction-open" }),
+      `</div>`,
+      `</article>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
 export function renderDayDigest(ctx) {
   const digest = ctx.dayDigest || { stages: [], questions: [], hasReport: false, sourceCount: 0, hint: "" };
   const runLabel = digest.hasReport ? "Разобрать заново" : "Разобрать день";
@@ -58,6 +81,7 @@ export function renderDayDigest(ctx) {
       ? `<p class="digest-ran" data-testid="digest-ran">Разобрано ${escapeHtml(digest.ranAt)} · ${digest.readyCount} ${plural(digest.readyCount, "предложение ждёт", "предложения ждут", "предложений ждут")} решения на Доме${digest.questions.length ? ` · ${digest.questions.length} ${plural(digest.questions.length, "вопрос", "вопроса", "вопросов")} ниже` : ""}</p>`
       : "",
     renderStages(digest),
+    renderContradictions(ctx),
     renderQuestions(digest),
     `</section>`
   ].join("");
