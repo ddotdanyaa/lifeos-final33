@@ -11208,3 +11208,21 @@ audio {
 }
 
 .person-row:hover { background: var(--surface-soft); }
+
+/* Второй мозг на Доме: те же проекции, что на Графе, но там, где владелец бывает каждый день. */
+.second-brain { display: grid; gap: var(--space-2); }
+
+.second-brain-headline {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.4;
+  letter-spacing: -0.018em;
+  font-weight: 500;
+  color: var(--ink);
+  max-width: 620px;
+}
+
+.second-brain-themes,
+.second-brain-forgotten { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
+.second-brain-forgotten > span { font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.second-brain-themes .topic-member em { font-style: normal; opacity: 0.6; }

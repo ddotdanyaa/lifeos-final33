@@ -13999,6 +13999,32 @@ function answerQuoteFor(text, terms) {
   return shorten(hit || sentences[0] || "", 160);
 }
 
+// Реранк по расстоянию в графе жизни: первый (самый сильный лексически) остаётся первым,
+// остальные упорядочиваются по числу шагов до него. Недостижимые уходят в конец — они про другое.
+function rerankByGraphDistance(state, rows) {
+  if (rows.length < 3) return rows;
+  const graph = buildLifeGraph(state);
+  const { adjacency } = buildUndirectedAdjacency(graph);
+  const anchor = rows[0];
+  if (!adjacency.has(anchor.id)) return rows;
+  const distance = new Map([[anchor.id, 0]]);
+  const queue = [anchor.id];
+  while (queue.length) {
+    const current = queue.shift();
+    for (const next of adjacency.get(current) || []) {
+      if (distance.has(next)) continue;
+      distance.set(next, distance.get(current) + 1);
+      queue.push(next);
+    }
+  }
+  const rest = rows.slice(1).sort((a, b) => {
+    const da = distance.has(a.id) ? distance.get(a.id) : 99;
+    const db = distance.has(b.id) ? distance.get(b.id) : 99;
+    return da - db || String(b.day).localeCompare(String(a.day));
+  });
+  return [anchor].concat(rest);
+}
+
 async function buildGroundedAnswer(state, question) {
   const terms = answerQueryTerms(question);
   const candidates = [];
@@ -14041,7 +14067,11 @@ async function buildGroundedAnswer(state, question) {
     const previous = byQuote.get(key);
     if (!previous || (previous.kind !== "source" && row.kind === "source")) byQuote.set(key, row);
   }
-  const cited = [...byQuote.values()].sort((a, b) => String(b.day).localeCompare(String(a.day)));
+  let cited = [...byQuote.values()].sort((a, b) => String(b.day).localeCompare(String(a.day)));
+  // P1-3, донор Graphiti: «реранк соседей по расстоянию в графе». Лексический поиск не знает,
+  // что записи связаны между собой; после него самый сильный ответ ставим первым, а остальные
+  // сортируем по близости к нему в графе жизни. Так цитаты идут одной темой, а не вперемешку.
+  cited = rerankByGraphDistance(state, cited);
 
   if (!cited.length) {
     return {
@@ -16092,6 +16122,7 @@ const DASHBOARD_WIDGETS = [
   { key: "morning", label: "Утренняя сводка" },
   { key: "insights", label: "Инсайты" },
   { key: "forecast", label: "Прогноз по целям" },
+  { key: "secondbrain", label: "Второй мозг" },
   { key: "usermodel", label: "О тебе" },
   { key: "reflection", label: "Подвести день" },
   { key: "myday", label: "Мой день" },

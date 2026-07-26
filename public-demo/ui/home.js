@@ -152,6 +152,31 @@ function renderUserModelPanel(ctx) {
   ].join("");
 }
 
+// Второй мозг на первом экране: отчёт графа одной фразой + забытое, но важное. Это не новая
+// логика — те же проекции, что на Графе (computeGraphReport / computeForgottenImportant),
+// вынесенные туда, где владелец бывает каждый день.
+function renderSecondBrain(ctx) {
+  const report = ctx.graphReport || { hasReport: false, lines: [] };
+  const forgotten = ctx.forgottenImportant || [];
+  const clusters = ctx.topicClusters || [];
+  if (!report.hasReport && !forgotten.length) return "";
+  return [
+    `<section class="second-brain" data-testid="second-brain">`,
+    `<div class="insights-head"><span>Второй мозг</span><em>что система знает о твоей системе</em></div>`,
+    report.hasReport ? `<p class="second-brain-headline" data-testid="second-brain-headline">${escapeHtml(report.headline)}</p>` : "",
+    clusters.length
+      ? `<div class="second-brain-themes" data-testid="second-brain-themes">${clusters.slice(0, 4).map((cluster) => `<button class="topic-member" data-action="open-object" data-id="${escapeHtml(cluster.hubId)}" data-testid="second-brain-theme">${escapeHtml(cluster.name)} <em>${cluster.size}</em></button>`).join("")}</div>`
+      : "",
+    // «Забыто, но важно» — ровно то, ради чего в памяти вес, а не удаление: старое с сильными
+    // связями не должно исчезать под свежим шумом.
+    forgotten.length
+      ? `<div class="second-brain-forgotten" data-testid="second-brain-forgotten"><span>Забыто, но важно:</span>${forgotten.map((row) => `<button class="topic-member" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="second-brain-forgotten-item">${escapeHtml(row.title)}</button>`).join("")}</div>`
+      : "",
+    button("set-surface", "Открыть граф", { id: "graph", kind: "ghost", testId: "second-brain-open-graph" }),
+    `</section>`
+  ].join("");
+}
+
 // P1-6: прогноз по целям. Вероятность считается из потока по счетам, «было» берётся из истории
 // поля (P1-2), а не из скрытого снимка — поэтому дельта честная и ничего не пишется молча.
 function renderGoalForecast(ctx) {
@@ -210,7 +235,8 @@ const DASHBOARD_WIDGET_RENDERERS = {
   reflection: renderEveningReflection,
   myday: renderMyDay,
   reading: renderContinueReadingCard,
-  forecast: renderGoalForecast
+  forecast: renderGoalForecast,
+  secondbrain: renderSecondBrain
 };
 function renderDashboardWidgets(ctx) {
   const layout = ctx.dashboardLayout || { order: [], hiddenKeys: [] };

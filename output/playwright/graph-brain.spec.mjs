@@ -134,3 +134,19 @@ test("граф: мосты объясняют, что держится на уз
   const why = await page.getByTestId("graph-bridge-why").allTextContents();
   expect(why.every((line) => line.trim().length > 10)).toBe(true);
 });
+
+// G6: второй мозг на первом экране — те же проекции, что на Графе, там, где владелец бывает
+// каждый день. Темы кликабельны и ведут в объект.
+test("дом: второй мозг показывает темы графа и ведёт в объект", async ({ page }) => {
+  await reset(page);
+  await seedDump(page);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("inbox"));
+
+  await expect(page.getByTestId("second-brain")).toBeVisible();
+  await expect(page.getByTestId("second-brain-headline")).toContainText("тем");
+  const themes = page.getByTestId("second-brain-theme");
+  expect(await themes.count()).toBeGreaterThan(0);
+
+  await themes.first().click();
+  await expect(page.getByTestId("workspace-object")).toBeVisible({ timeout: 15000 });
+});
