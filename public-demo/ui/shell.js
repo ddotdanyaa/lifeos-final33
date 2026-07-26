@@ -7,6 +7,7 @@ import { renderFinance } from "./finance.js";
 import { renderGraph } from "./graph.js";
 import { renderHabitsGoals } from "./habits-goals.js";
 import { renderLibrary } from "./library.js";
+import { renderObject } from "./object.js";
 import { renderPlayer } from "./player.js";
 import { renderProviders } from "./providers.js";
 import { renderReader } from "./reader.js";
@@ -169,6 +170,9 @@ function renderSurface(ctx) {
       return renderTwin(ctx);
     case "graph":
       return renderGraph(ctx);
+    // Объект — не пункт меню, а место, куда «проваливается» карточка с любого экрана.
+    case "object":
+      return renderObject(ctx);
     case "control":
       return renderControl(ctx);
     case "providers":

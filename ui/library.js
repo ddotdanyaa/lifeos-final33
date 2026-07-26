@@ -138,6 +138,9 @@ export function renderLibrary(ctx) {
   const noteHeader = active ? [
     `<div class="note-header">`,
     `<div><label for="note-title">Название</label><input id="note-title" data-testid="note-title" value="${escapeHtml(active.title || "")}" autocomplete="off"></div>`,
+    // Объект (канон): заметка — это не только текст. «Открыть объект» показывает её вердикт,
+    // источники, связи, хронологию и противоречия.
+    button("open-object", "Открыть объект", { id: active.id, kind: "ghost", testId: "library-open-object" }),
     button("delete-note", "Удалить", { id: active.id, kind: "danger", testId: "delete-note" }),
     `</div>`
   ].join("") : "";

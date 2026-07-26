@@ -10190,3 +10190,352 @@ audio {
   border-radius: var(--radius-md);
   background: var(--surface-soft);
 }
+
+/* ============================================================
+   ОБЪЕКТ (канон design-system/Artifact Inspector.dc.html)
+   Экран, в который «проваливается» карточка: вердикт крупно, числа с
+   источником, вкладки Суть/Источники/Связи/Хронология/Противоречия.
+   Ритм и типографика — те же токены канона, что на Доме и в Потоке.
+   ============================================================ */
+
+.object-screen {
+  display: grid;
+  gap: var(--space-4);
+  padding-bottom: var(--space-8);
+}
+
+.object-back { display: flex; gap: var(--space-2); }
+
+.object-screen h1 {
+  margin: var(--space-1) 0 0;
+  font-size: 29px;
+  line-height: 1.28;
+  letter-spacing: -0.028em;
+  font-weight: 500;
+  color: var(--ink);
+  max-width: 700px;
+  text-wrap: pretty;
+}
+
+/* Вердикт — одно предложение о состоянии, читается как абзац, а не как подпись. */
+.object-verdict {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.55;
+  letter-spacing: -0.014em;
+  color: var(--muted);
+  max-width: 680px;
+  text-wrap: pretty;
+}
+
+.object-scale { display: grid; gap: var(--space-2); margin-top: var(--space-3); max-width: 680px; }
+
+.object-scale-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.object-scale-head em { font-style: normal; color: var(--ink); }
+
+.object-scale-bar {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.object-scale-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+}
+
+.object-scale-foot {
+  display: flex;
+  justify-content: space-between;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.object-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.object-fact { display: grid; gap: 2px; }
+.object-fact strong { font-size: var(--text-lg); font-weight: 500; letter-spacing: -0.018em; color: var(--ink); }
+.object-fact span { font-size: var(--text-xs); color: var(--muted); }
+/* Закон №5: строка происхождения всегда рядом с числом, а не в подсказке. */
+.object-fact em { font-style: normal; font-size: var(--text-xs); color: var(--muted); opacity: 0.75; }
+
+.object-tabs {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--line);
+  margin-top: var(--space-2);
+}
+
+.object-tabs::-webkit-scrollbar { display: none; }
+
+.object-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-size: var(--text-sm);
+  letter-spacing: -0.01em;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.object-tab:hover { color: var(--ink); }
+.object-tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+.object-tab-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.object-panel { display: grid; gap: var(--space-3); padding-top: var(--space-4); }
+
+.object-next {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.45;
+  letter-spacing: -0.018em;
+  font-weight: 500;
+  color: var(--ink);
+  max-width: 640px;
+}
+
+.object-next-why {
+  margin: 0;
+  border-left: 2px solid var(--line);
+  padding-left: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 620px;
+}
+
+.object-knows { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+
+.object-know {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.object-know strong { font-size: var(--text-base); font-weight: 500; letter-spacing: -0.012em; color: var(--ink); }
+.object-know span { font-size: var(--text-sm); line-height: 1.5; color: var(--muted); }
+.object-know em {
+  font-style: normal;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.object-source-group { display: grid; gap: var(--space-1); margin-bottom: var(--space-5); }
+
+.object-source-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.object-source-row:hover { background: var(--surface-soft); }
+
+.object-source-kind {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.object-source-body strong { display: block; font-size: var(--text-base); font-weight: 500; letter-spacing: -0.012em; color: var(--ink); }
+/* «Что дал источник» — то же объяснение, что у ребра в графе, а не второй текст про то же. */
+.object-source-body em { font-style: normal; font-size: var(--text-sm); color: var(--muted); }
+
+.object-source-date {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.object-relation {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.object-relation:hover { background: var(--surface-soft); }
+
+/* Закон №8: тип связи — первое, что видно; он же несёт семантический цвет. */
+.object-relation-type {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.object-relation.tone-danger .object-relation-type { color: var(--red); }
+.object-relation.tone-warn .object-relation-type { color: var(--amber); }
+.object-relation.tone-ok .object-relation-type { color: var(--green); }
+.object-relation.tone-accent .object-relation-type { color: var(--accent); }
+
+.object-relation-body strong { display: block; font-size: var(--text-base); font-weight: 500; letter-spacing: -0.012em; color: var(--ink); }
+.object-relation-body em { font-style: normal; font-size: var(--text-sm); line-height: 1.5; color: var(--muted); }
+
+.object-relation-strength {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.object-timeline-legend { margin: 0; font-size: var(--text-sm); line-height: 1.55; color: var(--muted); max-width: 620px; }
+
+.object-months { display: grid; gap: var(--space-3); margin-top: var(--space-3); max-width: 680px; }
+
+.object-month {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 56px;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.object-month-name { font-size: var(--text-sm); color: var(--muted); }
+
+.object-month-bars { display: grid; gap: 3px; }
+.object-month-bars i { display: block; height: 4px; border-radius: 3px; min-width: 4px; }
+/* Разговоры — приглушённо, действия — акцентом: контраст и есть смысл этой шкалы. */
+.object-bar-talk { background: var(--surface-soft); }
+.object-bar-act { background: var(--accent); }
+
+.object-month-counts {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  text-align: right;
+}
+
+.object-conflict { display: grid; gap: var(--space-2); margin-bottom: var(--space-6); }
+
+.object-conflict h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: 1.32;
+  letter-spacing: -0.022em;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.object-conflict p { margin: 0; font-size: var(--text-base); line-height: 1.55; color: var(--muted); max-width: 640px; }
+
+.object-fixes { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+
+.object-fix {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.object-fix:hover { border-color: var(--accent); }
+.object-fix.chosen { border-color: var(--accent); background: var(--surface-soft); }
+
+.object-fix-dot {
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+
+.object-fix.chosen .object-fix-dot { border-color: var(--accent); background: var(--accent); }
+
+.object-fix-body { display: grid; gap: 3px; }
+.object-fix-body strong { font-size: var(--text-base); font-weight: 500; letter-spacing: -0.012em; color: var(--ink); }
+.object-fix-body em { font-style: normal; font-size: var(--text-sm); line-height: 1.5; color: var(--muted); }
+
+/* Цена варианта считается из тех же чисел, что и противоречие, — поэтому она рядом, не в сноске. */
+.object-fix-cost {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.object-fix.tone-danger .object-fix-cost { color: var(--red); }
+.object-fix.tone-warn .object-fix-cost { color: var(--amber); }
+.object-fix.tone-ok .object-fix-cost { color: var(--green); }
+
+.object-decision {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .object-screen h1 { font-size: 23px; }
+  .object-verdict { font-size: var(--text-base); }
+  .object-source-row,
+  .object-relation { grid-template-columns: 84px minmax(0, 1fr); }
+  .object-source-date,
+  .object-relation-strength { grid-column: 2; }
+  .object-month { grid-template-columns: 72px minmax(0, 1fr) 48px; }
+}
+
+/* Вопрос вместо предложения (закон №6): низкая уверенность — спокойная строка и один
+   честный шаг «дать данные», а не список вариантов из выдуманных чисел. */
+.object-conflict-ask { display: flex; gap: var(--space-2); margin-top: var(--space-1); }

@@ -266,6 +266,8 @@ function renderLifeFocus(ctx) {
     `<p>${escapeHtml(best.summary)}</p>`,
     `<p class="life-focus-why" data-testid="life-focus-why">Почему это: ${escapeHtml(best.why)}</p>`,
     button("set-surface", "Открыть", { id: best.surface, kind: "primary", testId: "life-focus-open" }),
+    // Объект (канон): у задачи/цели есть свой разбор — почему она важна, что её блокирует.
+    best.kind === "task" || best.kind === "goal" ? button("open-object", "Разобрать объект", { id: best.id, kind: "ghost", testId: "life-focus-object" }) : "",
     `</article>`,
     focus.others && focus.others.length ? [
       `<details class="life-focus-others" data-testid="life-focus-others">`,

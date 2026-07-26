@@ -1052,6 +1052,9 @@ function createInitialState() {
     // (донор-идея tui.calendar month-view).
     calendarView: "day",
     timelineDay: "",
+    // Объект (канон design-system/Artifact Inspector.dc.html): куда «провалились» из карточки и
+    // какая вкладка открыта. Не новая сущность — только указатель на существующий артефакт.
+    objectView: { id: "", tab: "sut", from: "" },
     dashboardLayout: { order: [], hidden: [] },
     ownerInstructions: [],
     // F1.3: правила авто-категорий (донор-идея actual transaction-rules) - плоский список
@@ -2479,6 +2482,11 @@ function normalizeState(input) {
     graphSettingsOpen: Boolean(base.graphSettingsOpen),
     calendarView: base.calendarView === "month" ? "month" : "day",
     timelineDay: cleanLine(base.timelineDay || ""),
+    objectView: {
+      id: cleanLine((base.objectView && base.objectView.id) || ""),
+      tab: OBJECT_TABS.some((row) => row[0] === (base.objectView && base.objectView.tab)) ? base.objectView.tab : "sut",
+      from: cleanLine((base.objectView && base.objectView.from) || "")
+    },
     dashboardLayout: {
       order: Array.isArray(base.dashboardLayout && base.dashboardLayout.order) ? base.dashboardLayout.order.filter((key) => typeof key === "string") : [],
       hidden: Array.isArray(base.dashboardLayout && base.dashboardLayout.hidden) ? base.dashboardLayout.hidden.filter((key) => typeof key === "string") : []
@@ -11695,6 +11703,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     dayStream: computeDayStream(state),
     lifeSpaces: LIFE_SPACES.map((row) => ({ id: row[0], label: row[1], active: (state.activeSpace || "all") === row[0] })),
     graphAnswers: computeGraphAnswers(state),
+    objectInspector: computeObjectInspector(state),
     eveningReflection: eveningReflection(state),
     userModel: computeUserModel(state),
     workDecision: workDecisionSupport(state),
@@ -12678,6 +12687,706 @@ function computeLifeFocus(state) {
     hasFocus: Boolean(best),
     stateLine: stateParts.length ? stateParts.join(" · ") + "." : "Пока пусто — запиши мысль, расход или задачу, и здесь появится главное."
   };
+}
+
+// ============================================================================
+// Объект (канон design-system/Artifact Inspector.dc.html)
+// ============================================================================
+// «Проваливание в карточку»: любой артефакт раскрывается в экран с вердиктом, источниками,
+// связями, хронологией и противоречиями. Это ПРОЕКЦИЯ над уже существующими коллекциями
+// (как memoryLayers/timelineDays/computeLifeFocus), а не новая сущность: id приходит из графа,
+// ленты, базы или Дома, всё остальное пересчитывается из state на каждом рендере.
+// Законы канона, зашитые сюда: №5 (у каждого утверждения источник и уверенность),
+// №8 (у связи тип, сила, объяснение и время появления), №3 (выбор варианта — с чеком).
+
+const OBJECT_TABS = [
+  ["sut", "Суть"],
+  ["src", "Источники"],
+  ["rel", "Связи"],
+  ["time", "Хронология"],
+  ["conf", "Противоречия"]
+];
+
+const OBJECT_KIND_LABELS = {
+  note: "заметка",
+  ghost: "будущая заметка",
+  source: "захват",
+  task: "задача",
+  plan: "блок дня",
+  reminder: "напоминание",
+  habit: "привычка",
+  goal: "цель",
+  project: "проект",
+  "finance-account": "счёт",
+  finance: "деньги",
+  budget: "бюджет",
+  subscription: "подписка",
+  insight: "инсайт",
+  claim: "вывод",
+  question: "вопрос",
+  review: "повторение",
+  reading: "чтение",
+  highlight: "цитата",
+  "transcript-segment": "фрагмент расшифровки",
+  "audio-checkpoint": "метка аудио",
+  "player-note": "заметка на аудио",
+  "saved-search": "сохранённый поиск",
+  "chat-message": "сообщение чата",
+  proposal: "предложение",
+  agent: "сценарий",
+  system: "система",
+  "system-record": "запись системы",
+  database: "таблица",
+  "database-row": "строка таблицы",
+  channel: "канал"
+};
+
+// Вид сырого захвата человеческим словом — та же логика, что в Потоке (streamKindLabel),
+// но заглавными, как в каноне («ГОЛОС», «ФОТО», «PDF»).
+function objectSourceKindLabel(state, kind, object) {
+  if (kind === "source") return streamKindLabel(object).toLocaleUpperCase("ru-RU");
+  if (kind === "transcript-segment") return "РАСШИФРОВКА";
+  if (kind === "chat-message") return "ЧАТ";
+  if (kind === "highlight") return "ЦИТАТА";
+  if (kind === "note") return "ЗАМЕТКА";
+  if (kind === "finance") return "ЧЕК";
+  if (kind === "insight") return "ИНСАЙТ";
+  return String(OBJECT_KIND_LABELS[kind] || kind).toLocaleUpperCase("ru-RU");
+}
+
+function objectRecordDate(object) {
+  return String((object && (object.createdAt || object.updatedAt)) || "");
+}
+
+// «Из голосового 21 июл 21:20» — короткий провенанс артефакта (закон №5). Честно говорит
+// «введено вручную», если исходного захвата нет: выдумывать источник нельзя.
+function objectProvenanceLine(state, object) {
+  if (!object) return "";
+  const source = object.sourceId ? (state.sources || {})[object.sourceId] : null;
+  if (source && !source.deleted) {
+    return "из «" + shorten(source.name || streamKindLabel(source), 40) + "» " + formatObjectStamp(source.createdAt || source.updatedAt);
+  }
+  const note = object.noteId ? (state.notes || {})[object.noteId] : null;
+  if (note && !note.deleted) return "из заметки «" + shorten(note.title || "без названия", 40) + "»";
+  return "введено вручную " + formatObjectStamp(objectRecordDate(object));
+}
+
+const OBJECT_MONTH_NAMES = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const OBJECT_MONTH_FULL = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+
+function formatObjectStamp(iso) {
+  const date = new Date(iso);
+  if (!iso || isNaN(date.getTime())) return "без даты";
+  const day = date.getDate() + " " + OBJECT_MONTH_NAMES[date.getMonth()];
+  const time = String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
+  return day + " " + time;
+}
+
+// Год показываем всегда, когда он не текущий: «24 авг» для даты 2028 года — это обман,
+// на нём легко принять решение, которого не принимал бы, увидев настоящий срок.
+function formatObjectDay(iso) {
+  const date = new Date(iso);
+  if (!iso || isNaN(date.getTime())) return "—";
+  const head = date.getDate() + " " + OBJECT_MONTH_NAMES[date.getMonth()];
+  return date.getFullYear() === new Date().getFullYear() ? head : head + " " + date.getFullYear();
+}
+
+function formatObjectMoney(amount) {
+  return Math.round(Number(amount) || 0).toLocaleString("ru-RU") + " ₽";
+}
+
+// Свободный поток: сколько реально остаётся в месяц по движению за 90 дней. Считаем по фактам
+// (донор-идея Mem0: важность из наблюдений, а не из оценки владельца), иначе «нет данных».
+function objectMonthlyFreeFlow(state) {
+  const cutoff = dateKeyFromOffset(-90);
+  const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted && String(tx.day || "") >= cutoff);
+  if (!txs.length) return { known: false, perMonth: 0, income: 0, expense: 0, count: 0 };
+  const income = txs.filter((tx) => tx.kind === "income").reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  const expense = txs.filter((tx) => tx.kind === "expense").reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+  return { known: true, perMonth: Math.round((income - expense) / 3), income, expense, count: txs.length };
+}
+
+function objectGoalProgress(state, goal) {
+  const direct = Number(goal.progress) || 0;
+  if (direct > 0) return direct;
+  // Если прогресс не проставлен вручную — считаем по транзакциям, привязанным к заметке цели.
+  if (!goal.noteId) return 0;
+  return Object.values(state.financeTransactions || {})
+    .filter((tx) => !tx.deleted && tx.kind === "income" && tx.noteId === goal.noteId)
+    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+}
+
+// Соседи артефакта в графе с уже разрешёнными объектами и направлением ребра.
+function objectNeighbours(state, id) {
+  const graph = graphForDisplay(state);
+  const rows = [];
+  const seen = new Set();
+  for (const link of graph.links) {
+    if (link.source !== id && link.target !== id) continue;
+    const otherId = link.source === id ? link.target : link.source;
+    if (otherId === id) continue;
+    const key = otherId + ":" + link.label;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const resolved = graphNodeObject(state, otherId);
+    if (!resolved || !resolved.object || resolved.object.deleted) continue;
+    rows.push({
+      id: otherId,
+      kind: resolved.kind,
+      object: resolved.object,
+      label: link.label,
+      since: link.since || "",
+      incoming: link.target === id
+    });
+  }
+  return rows;
+}
+
+const OBJECT_RAW_KINDS = new Set(["source", "transcript-segment", "chat-message", "highlight", "note", "audio-checkpoint", "player-note"]);
+
+// Что этот источник дал объекту — берём из уже существующего словаря причин рёбер, чтобы
+// объяснение было одно и то же и в графе, и здесь (не два разных текста про одну связь).
+function objectSourceGave(state, neighbour, targetKindLabel) {
+  const reason = graphEdgeReasonLabel(neighbour.label);
+  if (reason) return reason;
+  return "Дал материал для этого объекта (" + targetKindLabel + ")";
+}
+
+function objectSourceGroups(state, id, kindLabel) {
+  const items = objectNeighbours(state, id)
+    .filter((row) => OBJECT_RAW_KINDS.has(row.kind))
+    .map((row) => ({
+      id: row.id,
+      kind: row.kind,
+      kindLabel: objectSourceKindLabel(state, row.kind, row.object),
+      date: formatObjectDay(objectRecordDate(row.object)),
+      at: objectRecordDate(row.object),
+      title: shorten(graphNodeTitle(row.kind, row.object, row.id), 90),
+      gave: objectSourceGave(state, row, kindLabel)
+    }))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const groups = [];
+  for (const item of items) {
+    const date = new Date(item.at);
+    const key = isNaN(date.getTime()) ? "без-даты" : date.getFullYear() + "-" + date.getMonth();
+    const label = isNaN(date.getTime()) ? "Без даты" : OBJECT_MONTH_FULL[date.getMonth()] + " " + date.getFullYear();
+    let group = groups.find((row) => row.key === key);
+    if (!group) {
+      group = { key, label, items: [] };
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  return groups;
+}
+
+// Закон №8: у связи есть тип, сила, объяснение и время появления. Тип выводим из реального
+// положения дел (просроченная задача = «блокирует»), а не из декларации в данных.
+function objectRelationType(state, id, kind, neighbour) {
+  const today = todayKey();
+  const other = neighbour.object;
+  if (neighbour.kind === "task" && other.status !== "done") {
+    const overdue = other.day && other.day < today;
+    if (kind === "goal" && other.goalId === id) return overdue ? "блокирует" : "двигает";
+    if (overdue) return "блокирует";
+  }
+  if (OBJECT_RAW_KINDS.has(neighbour.kind) && neighbour.kind !== "note") return "питает";
+  if (neighbour.kind === "note") return neighbour.incoming ? "питает" : "следствие";
+  if (neighbour.kind === "insight") return "питает";
+  if (neighbour.kind === "finance" || neighbour.kind === "subscription" || neighbour.kind === "budget") return "влияет";
+  if (neighbour.kind === "goal") return "влияет";
+  return neighbour.incoming ? "следствие" : "влияет";
+}
+
+const OBJECT_RELATION_TONES = {
+  "блокирует": "danger",
+  "противоречит": "warn",
+  "конкурирует": "warn",
+  "двигает": "ok",
+  "следствие": "ok",
+  "питает": "muted",
+  "влияет": "accent"
+};
+
+function objectRelations(state, id, kind, object) {
+  const relations = objectNeighbours(state, id).map((neighbour) => {
+    const type = objectRelationType(state, id, kind, neighbour);
+    const why = graphEdgeReasonLabel(neighbour.label) || "Связаны в графе";
+    // Сила связи = насколько сосед вообще связан с остальной системой: одинокий сосед слабее
+    // хаба (донор-идея Neo4j degree-centrality, уже используется в detectGraphHubs).
+    const degree = objectNeighbours(state, neighbour.id).length;
+    const strength = Math.max(40, Math.min(96, 45 + degree * 7));
+    return {
+      id: neighbour.id,
+      type,
+      tone: OBJECT_RELATION_TONES[type] || "muted",
+      kindLabel: OBJECT_KIND_LABELS[neighbour.kind] || neighbour.kind,
+      title: shorten(graphNodeTitle(neighbour.kind, neighbour.object, neighbour.id), 80),
+      why,
+      strength,
+      since: neighbour.since ? formatGraphEdgeSince(neighbour.since) : ""
+    };
+  });
+  // Противоречие целей считается, а не берётся из ребра: два денежных обязательства на один поток.
+  if (kind === "goal" && Number(object.targetAmount) > 0) {
+    for (const other of Object.values(state.goals || {})) {
+      if (other.deleted || other.id === id || other.status === "done") continue;
+      if (!(Number(other.targetAmount) > 0)) continue;
+      relations.push({
+        id: other.id,
+        type: "противоречит",
+        tone: "warn",
+        kindLabel: "цель",
+        title: shorten(other.title || "Цель", 80),
+        why: "Две денежные цели тянут один поток: вместе нужно " + formatObjectMoney(Number(object.targetAmount) + Number(other.targetAmount)) + ".",
+        strength: 88,
+        since: formatGraphEdgeSince(other.createdAt || other.updatedAt)
+      });
+    }
+  }
+  const order = ["блокирует", "противоречит", "конкурирует", "двигает", "влияет", "следствие", "питает"];
+  return relations.sort((a, b) => {
+    const byType = order.indexOf(a.type) - order.indexOf(b.type);
+    return byType !== 0 ? byType : b.strength - a.strength;
+  });
+}
+
+// Хронология канона: разговоры против действий по месяцам. Разговор — сырой захват, заметка,
+// сообщение; действие — закрытая задача, деньги, отметка привычки, чек. Считается по фактам,
+// поэтому «6 разговоров и 0 действий» — это не оценка, а измерение.
+const OBJECT_TALK_KINDS = new Set(["source", "note", "chat-message", "transcript-segment", "highlight", "question", "claim"]);
+const OBJECT_ACT_KINDS = new Set(["finance", "plan", "habit", "subscription", "budget", "reminder"]);
+
+function objectTimelineMonths(state, id, kind, object) {
+  const events = [];
+  const push = (at, isAct) => {
+    const date = new Date(at);
+    if (!at || isNaN(date.getTime())) return;
+    events.push({ year: date.getFullYear(), month: date.getMonth(), isAct });
+  };
+  push(objectRecordDate(object), false);
+  for (const neighbour of objectNeighbours(state, id)) {
+    const at = objectRecordDate(neighbour.object);
+    if (neighbour.kind === "task") {
+      push(neighbour.object.status === "done" ? neighbour.object.updatedAt || at : at, neighbour.object.status === "done");
+      continue;
+    }
+    if (OBJECT_ACT_KINDS.has(neighbour.kind)) {
+      push(at, true);
+      continue;
+    }
+    if (OBJECT_TALK_KINDS.has(neighbour.kind)) push(at, false);
+  }
+  for (const receipt of (state.control.receipts || []).filter((row) => row.objectId === id)) push(receipt.createdAt, true);
+  if (!events.length) return [];
+  const buckets = new Map();
+  for (const event of events) {
+    const key = event.year + "-" + String(event.month).padStart(2, "0");
+    if (!buckets.has(key)) buckets.set(key, { key, year: event.year, month: event.month, talk: 0, act: 0 });
+    const bucket = buckets.get(key);
+    if (event.isAct) bucket.act += 1;
+    else bucket.talk += 1;
+  }
+  const months = [...buckets.values()].sort((a, b) => a.key.localeCompare(b.key)).slice(-6);
+  const max = Math.max(1, ...months.map((row) => Math.max(row.talk, row.act)));
+  return months.map((row) => ({
+    label: OBJECT_MONTH_FULL[row.month],
+    talk: row.talk,
+    act: row.act,
+    counts: row.talk + " / " + row.act,
+    talkPercent: Math.round((row.talk / max) * 100),
+    actPercent: Math.round((row.act / max) * 100)
+  }));
+}
+
+// Противоречия: где объект не сходится сам с собой. Каждый вариант решения РЕАЛЬНО применяется
+// (меняет срок/сумму цели) и пишет чек — иначе это театр кнопок. Цена варианта считается из
+// тех же чисел, что и само противоречие.
+function objectConflicts(state, id, kind, object) {
+  const conflicts = [];
+  const today = todayKey();
+  if (kind === "goal" && object.status !== "done") {
+    const target = Number(object.targetAmount) || 0;
+    const have = objectGoalProgress(state, object);
+    const gap = Math.max(0, target - have);
+    const flow = objectMonthlyFreeFlow(state);
+    if (target > 0 && gap > 0 && object.targetDate) {
+      const daysLeft = Math.round((new Date(object.targetDate + "T00:00:00").getTime() - Date.now()) / 86400000);
+      const monthsLeft = daysLeft / 30.4;
+      const needPerMonth = monthsLeft > 0 ? Math.ceil(gap / monthsLeft) : gap;
+      const canPerMonth = flow.known ? flow.perMonth : 0;
+      const keepOption = {
+        id: "keep",
+        title: "Оставить как есть",
+        summary: "Срок и сумма не меняются, но система будет считать срок пожеланием, а не планом.",
+        cost: "цена: разрыв " + formatObjectMoney(gap) + " остаётся открытым",
+        tone: "muted",
+        apply: null
+      };
+      if (!flow.known) {
+        // Закон №6: уверенности нет — значит это вопрос, а не меню вариантов. Предлагать
+        // «сдвинуть срок» и «снизить цель», не зная потока, было бы выдумыванием чисел.
+        conflicts.push({
+          id: "goal-noflow-" + id,
+          title: "Срок стоит, а потока не видно",
+          summary: "Срок «" + formatObjectDay(object.targetDate) + "» назначен, но за 90 дней по счетам нет ни одной записи — посчитать, успеваешь ли ты, не из чего. Это не противоречие, это нехватка данных.",
+          question: true,
+          action: { label: "Открыть Деньги", surface: "finance" },
+          options: []
+        });
+      } else if (canPerMonth <= 0) {
+        conflicts.push({
+          id: "goal-noflow-" + id,
+          title: "Свободного потока нет",
+          summary: "За 90 дней расходы съели доход: " + formatObjectMoney(flow.income) + " пришло, " + formatObjectMoney(flow.expense) + " ушло. Пока поток отрицательный, разрыв " + formatObjectMoney(gap) + " не закроется сам ни к какому сроку.",
+          question: true,
+          action: { label: "Разобрать расходы", surface: "finance" },
+          options: []
+        });
+      } else if (needPerMonth > canPerMonth) {
+        const monthsReal = Math.ceil(gap / canPerMonth);
+        const realDateKey = new Date(Date.now() + monthsReal * 30.4 * 86400000).toISOString().slice(0, 10);
+        const reachableAmount = monthsLeft > 0 ? Math.floor(have + canPerMonth * monthsLeft) : have;
+        conflicts.push({
+          id: "goal-pace-" + id,
+          title: "Срок не сходится с потоком",
+          summary: "К сроку нужно откладывать " + formatObjectMoney(needPerMonth) + " в месяц, а свободного потока по счетам — " + formatObjectMoney(canPerMonth) + ". Пока вариант не выбран, срок «" + formatObjectDay(object.targetDate) + "» не настоящий.",
+          options: [
+            {
+              id: "shift",
+              title: "Сдвинуть срок на " + formatObjectDay(realDateKey),
+              summary: "При текущем потоке " + formatObjectMoney(canPerMonth) + " в месяц разрыв " + formatObjectMoney(gap) + " закрывается за " + monthsReal + " " + pluralRu(monthsReal, "месяц", "месяца", "месяцев") + ".",
+              cost: "цена: +" + Math.max(1, monthsReal - Math.max(0, Math.round(monthsLeft))) + " мес ожидания · обещанный срок сдвигается",
+              tone: "warn",
+              apply: { field: "targetDate", value: realDateKey }
+            },
+            // Вариант «снизить цель» показываем только если он вообще что-то даёт: снижать
+            // до нуля или до уже собранного — не решение, а обнуление цели.
+            reachableAmount > have && reachableAmount < target ? {
+              id: "lower",
+              title: "Снизить цель до " + formatObjectMoney(reachableAmount),
+              summary: "Столько реально накопится к " + formatObjectDay(object.targetDate) + " при потоке " + formatObjectMoney(canPerMonth) + " в месяц.",
+              cost: "цена: минус " + formatObjectMoney(target - reachableAmount) + " от задуманного",
+              tone: "danger",
+              apply: { field: "targetAmount", value: reachableAmount }
+            } : null,
+            keepOption
+          ].filter(Boolean)
+        });
+      }
+    }
+    const overdue = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && task.goalId === id && task.day && task.day < today);
+    if (overdue.length) {
+      const first = overdue[0];
+      conflicts.push({
+        id: "goal-overdue-" + id,
+        title: overdue.length === 1 ? "Просроченная задача держит цель" : overdue.length + " просроченных задач держат цель",
+        summary: "«" + shorten(first.title || "Задача", 60) + "» стоит с " + formatObjectDay(first.day) + ". Пока она открыта, цель не двигается — остальные шаги ждут её.",
+        options: [
+          { id: "today", title: "Перенести на сегодня", summary: "Задача становится сегодняшней и попадает в план дня.", cost: "цена: день занят этой задачей", tone: "ok", apply: { field: "taskDay", value: today, taskId: first.id } },
+          { id: "detach", title: "Снять задачу с цели", summary: "Задача остаётся, но перестаёт считаться шагом этой цели.", cost: "цена: у цели снова нет следующего шага", tone: "warn", apply: { field: "taskGoal", value: "", taskId: first.id } },
+          { id: "keep", title: "Оставить как есть", summary: "Ничего не меняется, противоречие остаётся видимым.", cost: "цена: цель продолжает стоять", tone: "muted", apply: null }
+        ]
+      });
+    }
+  }
+  if (kind === "task" && object.status !== "done" && object.day && object.day < today) {
+    const days = Math.max(1, Math.round(ageInDays(object.day + "T00:00:00", Date.now())));
+    conflicts.push({
+      id: "task-overdue-" + id,
+      title: "Задача просрочена на " + days + " " + pluralRu(days, "день", "дня", "дней"),
+      summary: "Дата стоит " + formatObjectDay(object.day) + ", а задача открыта. Дальше она только дорожает — или её нужно сделать, или честно перенести.",
+      options: [
+        { id: "today", title: "Сделать сегодня", summary: "Дата задачи становится сегодняшней.", cost: "цена: день занят этой задачей", tone: "ok", apply: { field: "taskDay", value: today, taskId: id } },
+        { id: "done", title: "Отметить выполненной", summary: "Если задача уже сделана, а отметка не поставлена.", cost: "цена: необратимо без отката из Контроля", tone: "warn", apply: { field: "taskDone", value: "done", taskId: id } },
+        { id: "keep", title: "Оставить как есть", summary: "Просрочка остаётся видимой в Сегодня и на Доме.", cost: "цена: задача продолжает стареть", tone: "muted", apply: null }
+      ]
+    });
+  }
+  return conflicts;
+}
+
+// Вердикт — одно предложение о состоянии объекта. Только по реальным числам; если чисел нет,
+// вердикт честно говорит, чего не хватает, а не выдумывает уверенность.
+function objectVerdict(state, id, kind, object) {
+  const today = todayKey();
+  if (kind === "goal") {
+    if (object.status === "done") return "Цель закрыта " + formatObjectDay(object.updatedAt) + ". Дальше по ней ничего не считается.";
+    const target = Number(object.targetAmount) || 0;
+    const have = objectGoalProgress(state, object);
+    const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && task.goalId === id);
+    if (target > 0) {
+      const gap = Math.max(0, target - have);
+      const flow = objectMonthlyFreeFlow(state);
+      if (!gap) return "Сумма собрана: " + formatObjectMoney(have) + " из " + formatObjectMoney(target) + ". Осталось закрыть цель.";
+      if (!flow.known) return "Нужно " + formatObjectMoney(target) + ", есть " + formatObjectMoney(have) + ". Разрыв " + formatObjectMoney(gap) + ", но движения по счетам за 90 дней нет — срок посчитать не из чего.";
+      if (flow.perMonth <= 0) return "Нужно " + formatObjectMoney(target) + ", есть " + formatObjectMoney(have) + ". Свободного потока нет: за 90 дней расходы съели доход, разрыв " + formatObjectMoney(gap) + " не закрывается сам.";
+      const months = Math.ceil(gap / flow.perMonth);
+      const reach = new Date(Date.now() + months * 30.4 * 86400000);
+      const reachKey = reach.toISOString().slice(0, 10);
+      const head = "Нужно " + formatObjectMoney(target) + ", есть " + formatObjectMoney(have) + ". Разрыв " + formatObjectMoney(gap) + " закрывается к " + formatObjectDay(reachKey) + " при потоке " + formatObjectMoney(flow.perMonth) + " в месяц";
+      if (!object.targetDate) return head + ".";
+      // «А обещано» звучит только когда срок действительно не сходится: после того как владелец
+      // сдвинул дату, повторять упрёк — врать про состояние объекта.
+      return reachKey > object.targetDate
+        ? head + " — а обещано " + formatObjectDay(object.targetDate) + "."
+        : head + ", срок " + formatObjectDay(object.targetDate) + " держится.";
+    }
+    if (!openTasks.length) return "У цели нет ни одной открытой задачи — она не двигается. Суммы тоже нет, поэтому прогресс измерить нечем.";
+    const overdue = openTasks.filter((task) => task.day && task.day < today).length;
+    return "У цели " + openTasks.length + " " + pluralRu(openTasks.length, "открытая задача", "открытые задачи", "открытых задач")
+      + (overdue ? ", из них " + overdue + " " + pluralRu(overdue, "просрочена", "просрочены", "просрочено") + " — цель стоит." : " и всё в срок.");
+  }
+  if (kind === "task") {
+    if (object.status === "done") return "Задача выполнена " + formatObjectDay(object.updatedAt) + ".";
+    const goal = object.goalId ? (state.goals || {})[object.goalId] : null;
+    const overdueDays = object.day && object.day < today ? Math.max(1, Math.round(ageInDays(object.day + "T00:00:00", Date.now()))) : 0;
+    const head = overdueDays
+      ? "Задача просрочена на " + overdueDays + " " + pluralRu(overdueDays, "день", "дня", "дней") + "."
+      : object.day === today ? "Задача на сегодня." : object.day ? "Задача назначена на " + formatObjectDay(object.day) + "." : "У задачи нет даты — она не попадает ни в один день.";
+    return head + (goal && !goal.deleted ? " Двигает цель «" + shorten(goal.title || "цель", 50) + "»." : " Ни к одной цели не привязана — её вес системе неизвестен.");
+  }
+  if (kind === "note") {
+    const sources = objectSourceGroups(state, id, "заметка").reduce((sum, group) => sum + group.items.length, 0);
+    const relations = objectNeighbours(state, id).length;
+    if (!relations) return "Заметка ни с чем не связана: пока это отдельный текст, а не часть системы.";
+    return "Заметка собрана из " + sources + " " + pluralRu(sources, "источника", "источников", "источников") + " и держит " + relations + " " + pluralRu(relations, "связь", "связи", "связей") + " — она уже часть системы, а не отдельный файл.";
+  }
+  if (kind === "source") {
+    const derived = objectNeighbours(state, id).filter((row) => !OBJECT_RAW_KINDS.has(row.kind));
+    if (!derived.length) return "Захват сохранён, но из него пока ничего не выведено — он ждёт разбора.";
+    const kinds = [...new Set(derived.map((row) => OBJECT_KIND_LABELS[row.kind] || row.kind))].slice(0, 4).join(", ");
+    return "Из этого захвата система вывела " + derived.length + " " + pluralRu(derived.length, "объект", "объекта", "объектов") + ": " + kinds + ".";
+  }
+  if (kind === "habit") {
+    const checkins = Object.keys(object.checkins || {}).length;
+    return checkins ? "Отметок: " + checkins + ". Сегодня " + (object.checkins && object.checkins[today] ? "отмечена." : "ещё нет.") : "Привычка заведена, отметок пока нет — считать серию не из чего.";
+  }
+  if (kind === "finance") {
+    return (object.kind === "income" ? "Доход " : "Расход ") + formatObjectMoney(object.amount) + " от " + (object.day || formatObjectDay(objectRecordDate(object))) + " · " + (object.category || "без категории") + ".";
+  }
+  const relations = objectNeighbours(state, id).length;
+  return "Объект вида «" + (OBJECT_KIND_LABELS[kind] || kind) + "», " + relations + " " + pluralRu(relations, "связь", "связи", "связей") + " в графе. Создан " + formatObjectStamp(objectRecordDate(object)) + ".";
+}
+
+// Числа с провенансом: у каждого — откуда взято (закон №5). Пустых плиток не рисуем.
+function objectFacts(state, id, kind, object) {
+  const facts = [];
+  const provenance = objectProvenanceLine(state, object);
+  if (kind === "goal") {
+    if (Number(object.targetAmount) > 0) facts.push({ value: formatObjectMoney(object.targetAmount), label: "цель", source: provenance });
+    const have = objectGoalProgress(state, object);
+    if (have > 0) facts.push({ value: formatObjectMoney(have), label: "уже собрано", source: Number(object.progress) > 0 ? "проставлено вручную" : "посчитано по доходам, привязанным к цели" });
+    if (object.targetDate) facts.push({ value: formatObjectDay(object.targetDate), label: "срок", source: provenance });
+    const tasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.goalId === id);
+    if (tasks.length) facts.push({ value: tasks.filter((task) => task.status === "done").length + " / " + tasks.length, label: "шагов сделано", source: "по задачам, привязанным к цели" });
+  } else if (kind === "task") {
+    if (object.day) facts.push({ value: formatObjectDay(object.day), label: "дата", source: provenance });
+    if (object.startTime) facts.push({ value: object.startTime, label: "время", source: provenance });
+    facts.push({ value: object.status === "done" ? "выполнена" : "открыта", label: "состояние", source: "обновлено " + formatObjectStamp(object.updatedAt) });
+  } else if (kind === "finance") {
+    facts.push({ value: formatObjectMoney(object.amount), label: object.kind === "income" ? "доход" : "расход", source: provenance });
+    if (object.category) facts.push({ value: object.category, label: "категория", source: "определено при разборе" });
+  } else if (kind === "source") {
+    facts.push({ value: streamKindLabel(object), label: "вид захвата", source: "определено системой при захвате" });
+    facts.push({ value: formatObjectStamp(objectRecordDate(object)), label: "когда пришёл", source: object.origin ? "источник: " + object.origin : "локальный захват" });
+  }
+  const relations = objectNeighbours(state, id).length;
+  if (relations) facts.push({ value: String(relations), label: relations === 1 ? "связь в графе" : "связей в графе", source: "посчитано по графу, не проставлено руками" });
+  return facts.slice(0, 4);
+}
+
+// «Что система знает» — утверждения с уверенностью. Уверенность считается из объёма
+// подтверждений (донор-идея Mem0: свежесть + частота + связность), а не назначается.
+function objectKnows(state, id, kind, object) {
+  const rows = [];
+  const neighbours = objectNeighbours(state, id);
+  const raw = neighbours.filter((row) => OBJECT_RAW_KINDS.has(row.kind));
+  if (raw.length >= 2) {
+    rows.push({
+      title: "Это один объект, а не " + raw.length + " " + pluralRu(raw.length, "запись", "записи", "записей"),
+      detail: "Захваты сведены по совпадению сущностей — не по папке и не по тегу.",
+      confidence: Math.min(95, 55 + raw.length * 8) + "%"
+    });
+  }
+  const derived = neighbours.filter((row) => !OBJECT_RAW_KINDS.has(row.kind));
+  if (derived.length) {
+    rows.push({
+      title: "Из объекта выведено " + derived.length + " " + pluralRu(derived.length, "следствие", "следствия", "следствий"),
+      detail: [...new Set(derived.map((row) => OBJECT_KIND_LABELS[row.kind] || row.kind))].slice(0, 5).join(", ") + ".",
+      confidence: Math.min(94, 50 + derived.length * 9) + "%"
+    });
+  }
+  if (kind === "goal" && Number(object.targetAmount) > 0) {
+    const flow = objectMonthlyFreeFlow(state);
+    rows.push({
+      title: flow.known ? "Реальный поток — " + formatObjectMoney(flow.perMonth) + " в месяц" : "Реального потока пока не видно",
+      detail: flow.known
+        ? "Считано по " + flow.count + " " + pluralRu(flow.count, "транзакции", "транзакциям", "транзакциям") + " за 90 дней, а не по оценке на глаз."
+        : "За 90 дней движения по счетам нет — прогноз по цели строить не на чем.",
+      confidence: flow.known ? Math.min(92, 45 + flow.count * 3) + "%" : "нет данных"
+    });
+  }
+  const age = Math.round(ageInDays(objectRecordDate(object), Date.now()));
+  rows.push({
+    title: age >= 1 ? "Объект живёт " + age + " " + pluralRu(age, "день", "дня", "дней") : "Объект появился сегодня",
+    detail: "Создан " + formatObjectStamp(objectRecordDate(object)) + ", обновлён " + formatObjectStamp(object.updatedAt || objectRecordDate(object)) + ".",
+    confidence: "факт"
+  });
+  return rows;
+}
+
+function objectNextStep(state, id, kind, object, conflicts) {
+  if (conflicts.length) {
+    return {
+      text: "Сначала закрыть противоречие: " + conflicts[0].title.toLocaleLowerCase("ru-RU") + ".",
+      why: "Система не предлагает список задач. Она предлагает одно, от чего зависит остальное — и показывает варианты с ценой каждого.",
+      tab: "conf"
+    };
+  }
+  if (kind === "goal" && object.status !== "done") {
+    const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done" && task.goalId === id);
+    if (!openTasks.length) return { text: "Дать цели первый шаг — сейчас у неё нет ни одной открытой задачи.", why: "Цель без задачи не двигается: считать по ней нечего.", tab: "" };
+    const next = openTasks.slice().sort((a, b) => String(a.day || "9999").localeCompare(String(b.day || "9999")))[0];
+    return { text: "Следующий шаг: «" + shorten(next.title || "задача", 60) + "»" + (next.day ? " (" + next.day + ")" : "") + ".", why: "Выбран как ближайший по дате среди задач, привязанных к цели.", tab: "" };
+  }
+  if (kind === "source") {
+    const derived = objectNeighbours(state, id).filter((row) => !OBJECT_RAW_KINDS.has(row.kind));
+    if (!derived.length) return { text: "Разобрать захват — из него пока ничего не выведено.", why: "Пока захват не разобран, он не участвует ни в целях, ни в деньгах.", tab: "" };
+  }
+  return { text: "Противоречий нет — объект сходится сам с собой.", why: "Следующий шаг появится, когда данные разойдутся: срок против потока, задача против цели.", tab: "" };
+}
+
+function computeObjectInspector(state) {
+  const view = state.objectView || { id: "", tab: "sut" };
+  const id = cleanLine(view.id || "");
+  const tab = OBJECT_TABS.some((row) => row[0] === view.tab) ? view.tab : "sut";
+  if (!id) {
+    return { hasObject: false, tab, emptyHint: "Открой любую карточку — заметку, задачу, цель, захват — и она раскроется здесь: вердикт, источники, связи, хронология, противоречия." };
+  }
+  const resolved = graphNodeObject(state, id);
+  if (!resolved || !resolved.object || resolved.object.deleted) {
+    return { hasObject: false, tab, emptyHint: "Этот объект больше не существует: он удалён или был частью другого хранилища. Вернись в Граф или Базу и открой другой." };
+  }
+  const kind = resolved.kind;
+  const object = resolved.object;
+  const kindLabel = OBJECT_KIND_LABELS[kind] || kind;
+  const conflicts = objectConflicts(state, id, kind, object);
+  const relations = objectRelations(state, id, kind, object);
+  const sourceGroups = objectSourceGroups(state, id, kindLabel);
+  const sourceCount = sourceGroups.reduce((sum, group) => sum + group.items.length, 0);
+  const decision = object.decision && object.decision.conflictId ? object.decision : null;
+  const target = Number(object.targetAmount) || 0;
+  const have = kind === "goal" ? objectGoalProgress(state, object) : 0;
+  const counts = { sut: 0, src: sourceCount, rel: relations.length, time: 0, conf: conflicts.length };
+  return {
+    hasObject: true,
+    id,
+    kind,
+    kindLabel,
+    tab,
+    title: graphNodeTitle(kind, object, id),
+    origin: objectProvenanceLine(state, object),
+    verdict: objectVerdict(state, id, kind, object),
+    scale: kind === "goal" && target > 0 ? {
+      have,
+      need: target,
+      haveLabel: formatObjectMoney(have) + " есть",
+      needLabel: formatObjectMoney(target) + " нужно",
+      gapLabel: have >= target ? "разрыв закрыт" : "разрыв " + formatObjectMoney(target - have),
+      havePercent: Math.max(2, Math.min(100, Math.round((have / target) * 100)))
+    } : null,
+    facts: objectFacts(state, id, kind, object),
+    tabs: OBJECT_TABS.map((row) => ({ id: row[0], label: row[1], count: counts[row[0]] || 0, active: row[0] === tab })),
+    next: objectNextStep(state, id, kind, object, conflicts),
+    knows: objectKnows(state, id, kind, object),
+    sourceGroups,
+    relations,
+    months: objectTimelineMonths(state, id, kind, object),
+    conflicts: conflicts.map((conflict) => Object.assign({}, conflict, {
+      options: conflict.options.map((option) => Object.assign({}, option, {
+        chosen: Boolean(decision && decision.conflictId === conflict.id && decision.optionId === option.id)
+      }))
+    })),
+    decision: decision ? {
+      title: decision.title,
+      at: formatObjectStamp(decision.createdAt),
+      revertible: Boolean(decision.field && decision.previous !== undefined)
+    } : null
+  };
+}
+
+function objectReturnSurface(state) {
+  const from = cleanLine((state.objectView && state.objectView.from) || "");
+  if (from && from !== "object") return from;
+  return "library";
+}
+
+// Выбор варианта в противоречии — настоящая правка артефакта (срок цели, сумма, дата задачи),
+// а не пометка в интерфейсе. Поэтому: предыдущее значение сохраняется для отката, пишется чек
+// (§7 preview → apply → receipt), вердикт пересчитывается на следующем же рендере.
+function resolveObjectConflict(state, compositeId) {
+  const raw = String(compositeId || "");
+  const separator = raw.lastIndexOf("::");
+  if (separator < 0) return;
+  const conflictId = raw.slice(0, separator);
+  const optionId = raw.slice(separator + 2);
+  const objectId = cleanLine((state.objectView && state.objectView.id) || "");
+  const resolved = graphNodeObject(state, objectId);
+  if (!resolved || !resolved.object) return;
+  const conflict = objectConflicts(state, objectId, resolved.kind, resolved.object).find((row) => row.id === conflictId);
+  if (!conflict) return;
+  const option = conflict.options.find((row) => row.id === optionId);
+  if (!option) return;
+  const record = resolved.object;
+  const decision = { conflictId, optionId, title: option.title, createdAt: now() };
+  const apply = option.apply;
+  if (apply && (apply.field === "targetDate" || apply.field === "targetAmount")) {
+    decision.field = apply.field;
+    decision.previous = record[apply.field];
+    record[apply.field] = apply.value;
+    record.updatedAt = now();
+  } else if (apply && apply.taskId && state.tasks[apply.taskId]) {
+    const task = state.tasks[apply.taskId];
+    decision.taskId = apply.taskId;
+    if (apply.field === "taskDay") {
+      decision.field = "day";
+      decision.previous = task.day;
+      task.day = apply.value;
+    } else if (apply.field === "taskGoal") {
+      decision.field = "goalId";
+      decision.previous = task.goalId;
+      task.goalId = apply.value;
+    } else if (apply.field === "taskDone") {
+      decision.field = "status";
+      decision.previous = task.status;
+      task.status = "done";
+    }
+    task.updatedAt = now();
+  }
+  record.decision = decision;
+  record.updatedAt = now();
+  addAudit(state, "object.conflict.resolve", "Решение по объекту: «" + option.title + "»", record.noteId || (resolved.kind === "note" ? record.id : ""));
+  addReceipt(state, "decision", objectId, "Противоречие «" + conflict.title + "» закрыто вариантом «" + option.title + "». " + option.cost, { surface: "object", noteId: record.noteId || "" });
+  rebuildIndexes(state);
+}
+
+function revertObjectDecision(state) {
+  const objectId = cleanLine((state.objectView && state.objectView.id) || "");
+  const resolved = graphNodeObject(state, objectId);
+  if (!resolved || !resolved.object || !resolved.object.decision) return;
+  const record = resolved.object;
+  const decision = record.decision;
+  if (decision.field && decision.previous !== undefined) {
+    const target = decision.taskId && state.tasks[decision.taskId] ? state.tasks[decision.taskId] : record;
+    target[decision.field] = decision.previous;
+    target.updatedAt = now();
+  }
+  delete record.decision;
+  record.updatedAt = now();
+  addAudit(state, "object.conflict.revert", "Решение по объекту отменено: «" + decision.title + "»", record.noteId || "");
+  addReceipt(state, "decision", objectId, "Решение «" + decision.title + "» откачено, значение вернулось к прежнему.", { surface: "object", noteId: record.noteId || "" });
+  rebuildIndexes(state);
 }
 
 // Поток (канон design-system/Universal Capture.dc.html): сырые объекты дня, сгруппированные по
@@ -17915,6 +18624,42 @@ async function handleAction(action, id) {
       window.scrollTo(0, 0);
       setTimeout(() => window.scrollTo(0, 0), 0);
     });
+    return;
+  }
+  // Объект (канон design-system/Artifact Inspector.dc.html): «проваливание в карточку».
+  // Открывается с любого экрана по id уже существующего артефакта — новых сущностей не заводит.
+  if (action === "open-object") {
+    await store.commit("Объект открыт", (state) => {
+      const from = state.activeSurface === "object" ? state.objectView.from : state.activeSurface;
+      state.objectView = { id: cleanLine(id || ""), tab: "sut", from: cleanLine(from || "") };
+      state.activeSurface = "object";
+      state.commandPaletteOpen = false;
+      // Граф и редактор смотрят на тот же объект: экраны не расходятся между собой.
+      state.graphView.selectedNodeId = cleanLine(id || "");
+      if (state.notes[id] && !state.notes[id].deleted) state.activeNoteId = id;
+    });
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+    return;
+  }
+  if (action === "set-object-tab") {
+    await store.commit("Вкладка объекта открыта", (state) => {
+      state.objectView = Object.assign({}, state.objectView, { tab: OBJECT_TABS.some((row) => row[0] === id) ? id : "sut" });
+    });
+    return;
+  }
+  if (action === "close-object") {
+    await store.commit("Объект закрыт", (state) => {
+      state.activeSurface = objectReturnSurface(state);
+      state.objectView = { id: "", tab: "sut", from: "" };
+    });
+    return;
+  }
+  if (action === "resolve-object-conflict") {
+    await store.commit("Противоречие закрыто", (state) => resolveObjectConflict(state, id));
+    return;
+  }
+  if (action === "revert-object-decision") {
+    await store.commit("Решение отменено", (state) => revertObjectDecision(state));
     return;
   }
   if (action === "create-system") {

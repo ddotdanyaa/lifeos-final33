@@ -48,6 +48,9 @@ export function renderInspectorDrawer(ctx) {
     `<section class="inspector-section" data-testid="inspector-relations-section"><h4>Связи</h4>${relationRows(record, selected.edgeReasons || [])}</section>`,
     `<section class="inspector-section" data-testid="inspector-receipts-section"><h4>Квитанции</h4>${receiptRows(selected.receipts || [])}</section>`,
     `<section class="inspector-actions" data-testid="inspector-actions">`,
+    // Объект (канон design-system/Artifact Inspector.dc.html): из технической карточки графа
+    // можно провалиться в полный разбор — вердикт, источники, связи, хронология, противоречия.
+    button("open-object", "Открыть объект", { id: selected.id || record.id, kind: "primary", testId: "inspector-open-object" }),
     button("export-selected-artifact", "Экспорт", { kind: "ghost", testId: "inspector-export" }),
     button("create-rollback-snapshot", "Снимок отката", { kind: "ghost", testId: "inspector-rollback" }),
     `</section>`,
