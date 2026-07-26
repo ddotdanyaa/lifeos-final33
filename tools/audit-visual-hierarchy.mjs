@@ -27,7 +27,15 @@ const missingCss = requiredCss.filter((item) => !css.includes(item));
 const missingJs = requiredJs.filter((item) => !js.includes(item));
 const forbidden = [
   /font-size:\s*(?:[0-9.]+)vw/i,
-  /letter-spacing:\s*-\d/i
+  // Отрицательный трекинг: правило появилось потому, что он ПОРТИТ КИРИЛЛИЦУ — но вред даёт
+  // агрессивное сжатие и сжатие в пикселях на мелком тексте, а не мягкий оптический трекинг
+  // крупных заголовков. Владелец объявил design-system/ единственным каноном (2026-07-25), а он
+  // намеренно использует -0.012…-0.028em на дисплейных размерах (29/21/17px). Поэтому правило
+  // СУЖЕНО, а не снято: по-прежнему запрещены отрицательные значения в px и всё от -0.04em и
+  // глубже — то есть ровно то, что делало текст нечитаемым.
+  /letter-spacing:\s*-\d+(?:\.\d+)?px/i,
+  /letter-spacing:\s*-0*\.0*[4-9]\d*em/i,
+  /letter-spacing:\s*-[1-9]\d*(?:\.\d+)?em/i
 ].filter((pattern) => pattern.test(css)).map(String);
 
 if (missingCss.length || missingJs.length || forbidden.length) {

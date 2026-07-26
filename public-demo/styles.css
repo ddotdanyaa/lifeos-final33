@@ -10038,3 +10038,66 @@ audio {
 .graph-answer strong { font-size: 21px; line-height: 1.32; letter-spacing: -0.022em; font-weight: 500; }
 .graph-answer { padding: var(--space-5); border-radius: 14px; }
 .graph-answers { gap: var(--space-4); margin-top: var(--space-6); }
+
+/* Поток (канон Universal Capture): крупный двухтоновый заголовок + строки по времени суток. */
+.day-stream { margin-top: var(--space-8); display: grid; gap: var(--space-4); }
+
+.day-stream-headline {
+  margin: var(--space-2) 0 0;
+  font-size: 29px;
+  line-height: 1.28;
+  letter-spacing: -0.028em;
+  font-weight: 500;
+  color: var(--ink);
+  max-width: 700px;
+}
+
+.day-stream-headline span { display: block; color: var(--muted); }
+
+.day-stream-summary,
+.day-stream-pending {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 640px;
+}
+
+.stream-group { display: grid; gap: var(--space-2); margin-top: var(--space-5); }
+
+.stream-group-head em { font-style: normal; opacity: 0.6; margin-left: var(--space-2); }
+
+.stream-list { list-style: none; margin: 0; padding: 0; display: grid; }
+
+.stream-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.stream-kind {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stream-body strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.012em;
+}
+
+.stream-body em { font-style: normal; font-size: 13px; color: var(--muted); }
+
+.stream-time {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}

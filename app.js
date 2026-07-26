@@ -11692,6 +11692,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     personMergeSuggestions: personMergeSuggestions(state),
     computedInsights: computeInsights(state),
     lifeFocus: computeLifeFocus(state),
+    dayStream: computeDayStream(state),
     lifeSpaces: LIFE_SPACES.map((row) => ({ id: row[0], label: row[1], active: (state.activeSpace || "all") === row[0] })),
     graphAnswers: computeGraphAnswers(state),
     eveningReflection: eveningReflection(state),
@@ -12676,6 +12677,63 @@ function computeLifeFocus(state) {
     confidence,
     hasFocus: Boolean(best),
     stateLine: stateParts.length ? stateParts.join(" · ") + "." : "Пока пусто — запиши мысль, расход или задачу, и здесь появится главное."
+  };
+}
+
+// Поток (канон design-system/Universal Capture.dc.html): сырые объекты дня, сгруппированные по
+// времени суток, у каждого — вид, время, превью. Ничего не сортируется руками, тип уже определён
+// системой при захвате (закон №2). Read-only проекция над state.sources.
+const STREAM_GROUPS = [
+  ["morning", "Утро", 0, 12],
+  ["day", "День", 12, 18],
+  ["evening", "Вечер", 18, 24]
+];
+
+function streamKindLabel(source) {
+  const kind = String(source.kind || "");
+  const name = String(source.name || "");
+  if (kind === "audio" || /\.(m4a|mp3|wav|ogg|opus)$/i.test(name)) return "Голос";
+  if (kind === "image" || /\.(png|jpe?g|webp|gif)$/i.test(name)) return "Фото";
+  if (/\.pdf$/i.test(name)) return "PDF";
+  if (kind === "book" || /\.(epub|fb2)$/i.test(name)) return "Книга";
+  if (/^https?:\/\//i.test(String(source.text || "").trim())) return "Ссылка";
+  if (kind === "file") return "Файл";
+  return "Мысль";
+}
+
+function computeDayStream(state) {
+  const today = todayKey();
+  const sources = Object.values(state.sources || {})
+    .filter((item) => !item.deleted && String(item.createdAt || "").slice(0, 10) === today);
+  const groups = STREAM_GROUPS.map((row) => ({ id: row[0], label: row[1], items: [] }));
+  for (const source of sources) {
+    const date = new Date(source.createdAt);
+    const hour = isNaN(date.getTime()) ? 12 : date.getHours();
+    const row = STREAM_GROUPS.findIndex((group) => hour >= group[2] && hour < group[3]);
+    const target = groups[row < 0 ? 1 : row];
+    target.items.push({
+      id: source.id,
+      kind: streamKindLabel(source),
+      time: isNaN(date.getTime()) ? "" : String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0"),
+      title: cleanLine(shorten(source.name || source.text || "Объект", 90)),
+      meta: cleanLine(source.transcript ? "расшифровано" : source.text ? shorten(source.text, 40) : ""),
+      noteId: source.noteId || ""
+    });
+  }
+  for (const group of groups) group.items.sort((a, b) => a.time.localeCompare(b.time));
+  const total = sources.length;
+  const openProposals = Object.values(state.proposals || {}).filter((item) => item.status === "open").length;
+  return {
+    groups: groups.filter((group) => group.items.length),
+    total,
+    openProposals,
+    headline: total ? "Ты выгрузил день." : "Поток пуст.",
+    subline: total
+      ? "Ничего не нужно раскладывать руками."
+      : "Скинь голосовое, файл или мысль — тип определит система.",
+    summary: total
+      ? total + " " + pluralRu(total, "объект", "объекта", "объектов") + " за сегодня. Ни один не отсортирован вручную — это нормально."
+      : ""
   };
 }
 

@@ -89,6 +89,38 @@ function renderMobileNav(ctx) {
   ].join("");
 }
 
+// Поток (канон design-system/Universal Capture.dc.html): сырые объекты дня по времени суток.
+// Каждая строка — вид слева, суть по центру, время справа. Разбор — существующим механизмом
+// предложений (§7), поэтому кнопка ведёт к нему, а не имитирует новый пайплайн.
+function renderDayStream(ctx) {
+  const stream = ctx.dayStream || {};
+  const groups = stream.groups || [];
+  return [
+    `<section class="day-stream" data-testid="inbox-review-board">`,
+    `<p class="canon-eyebrow">Сегодняшний поток</p>`,
+    `<h2 class="day-stream-headline" data-testid="day-stream-headline">${escapeHtml(stream.headline || "")}<span>${escapeHtml(stream.subline || "")}</span></h2>`,
+    stream.summary ? `<p class="day-stream-summary" data-testid="day-stream-summary">${escapeHtml(stream.summary)}</p>` : "",
+    stream.openProposals
+      ? `<p class="day-stream-pending" data-testid="day-stream-pending">${stream.openProposals} ${stream.openProposals === 1 ? "предложение ждёт" : "предложений ждут"} твоего решения — они появляются на Доме после разбора.</p>`
+      : "",
+    groups.map((group) => [
+      `<div class="stream-group" data-testid="stream-group">`,
+      `<p class="canon-eyebrow stream-group-head">${escapeHtml(group.label)} <em>${group.items.length} ${group.items.length === 1 ? "объект" : "объекта"}</em></p>`,
+      `<ul class="stream-list">`,
+      group.items.map((item) => [
+        `<li class="stream-row" data-testid="stream-row">`,
+        `<span class="stream-kind">${escapeHtml(item.kind)}</span>`,
+        `<span class="stream-body"><strong>${escapeHtml(item.title)}</strong>${item.meta ? `<em>${escapeHtml(item.meta)}</em>` : ""}</span>`,
+        `<span class="stream-time">${escapeHtml(item.time)}</span>`,
+        `</li>`
+      ].join("")).join(""),
+      `</ul>`,
+      `</div>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
 function renderSurface(ctx) {
   switch (ctx.activeSurface) {
     case "feed":
@@ -142,7 +174,7 @@ function renderSurface(ctx) {
     case "providers":
       return renderProviders(ctx);
     case "capture":
-      return `<section class="workspace-v2 capture-workspace" data-testid="workspace-capture">${renderAssistantHome(ctx)}<div class="inbox-review-board" data-testid="inbox-review-board"><h2>Вечерний разбор</h2><p>Новые источники и голосовые заметки собираются здесь перед применением.</p></div></section>`;
+      return `<section class="workspace-v2 capture-workspace" data-testid="workspace-capture">${renderAssistantHome(ctx)}${renderDayStream(ctx)}</section>`;
     case "inbox":
     default:
       return renderAssistantHome(ctx);
