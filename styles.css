@@ -10101,3 +10101,92 @@ audio {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* ============================================================
+   V3-CANON SHELL: сайдбар и шапка приводятся к канону.
+   Канон: сайдбар — плоская колонка на всю высоту без рамки и своего скролла,
+   пункты — точка + подпись, активный подсвечен фоном, а не синим боксом.
+   Шапка — только линзы слева и подпись справа; сервисные кнопки приглушены.
+   ============================================================ */
+.lifeos-nav-v2 {
+  border: none;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 var(--space-4) var(--space-4) 0;
+  gap: var(--space-2);
+  overflow: visible;
+  height: auto;
+  top: var(--space-4);
+}
+
+.lifeos-nav-v2 .nav-item {
+  position: relative;
+  min-height: 34px;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 7px 10px 7px 22px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+  text-align: left;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+/* Точка-маркер канона слева от каждого пункта. */
+.lifeos-nav-v2 .nav-item::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
+}
+
+.lifeos-nav-v2 .nav-item:hover {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.lifeos-nav-v2 .nav-item.active {
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.lifeos-nav-v2 .nav-item.active::before {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.nav-brand { padding: 0 10px var(--space-2); }
+
+/* Шапка: сервисные элементы уводим на второй план, чтобы линзы читались главными. */
+.lifeos-header-v3 .header-actions-v2 .top-capture-v2 {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.lifeos-header-v3 .header-actions-v2 .top-capture-v2:hover {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.lifeos-header-v3 .save-status-v2,
+.lifeos-header-v3 .build-version-v2 {
+  opacity: 0.45;
+  font-size: 11px;
+}
+
+.lifeos-header-v3 .global-search-v2 {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
