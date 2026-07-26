@@ -12027,6 +12027,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     graphReport: computeGraphReport(state),
     goalForecast: computeGoalForecast(state),
     contradictions: computeContradictions(state),
+    behaviorPatterns: computeBehaviorPatterns(state),
     memoryImportance: computeMemoryImportance(state),
     forgottenImportant: computeForgottenImportant(state),
     graphPath: state.graphPathQuery && state.graphPathQuery.from && state.graphPathQuery.to
@@ -15548,6 +15549,148 @@ function objectHistoryRows(record) {
     to: humanValue(row.field, row.to) || "снято",
     reason: row.reason
   }));
+}
+
+// ============================================================================
+// Паттерны поведения за период — «ради этого стоит открывать LifeOS»
+// ============================================================================
+// Канон (Universal Capture, блок «Инсайты»): «в дни с тренировкой ты закрываешь на 40% больше
+// задач», «про машину говоришь полгода, а действия начались 11 дней назад». Это не мотивационные
+// фразы, а СРАВНЕНИЕ двух выборок по собственным данным владельца.
+// Железное правило здесь: у паттерна должен быть размер выборки, и он показывается вместе с
+// выводом. Если дней слишком мало — паттерна нет, а не «пока недостаточно уверенно».
+
+const PATTERN_MIN_DAYS_PER_SIDE = 3;
+
+function daysInRange(fromOffset, toOffset) {
+  const days = [];
+  for (let offset = fromOffset; offset <= toOffset; offset += 1) days.push(dateKeyFromOffset(offset));
+  return days;
+}
+
+// Сравнение двух выборок дней по метрике. Возвращает null, если данных мало — тогда честнее
+// промолчать, чем показать «закономерность» из двух дней.
+function comparedDayGroups(withDays, withoutDays, metricByDay) {
+  if (withDays.length < PATTERN_MIN_DAYS_PER_SIDE || withoutDays.length < PATTERN_MIN_DAYS_PER_SIDE) return null;
+  const average = (days) => days.reduce((sum, day) => sum + (metricByDay.get(day) || 0), 0) / days.length;
+  const withValue = average(withDays);
+  const withoutValue = average(withoutDays);
+  if (withoutValue <= 0 && withValue <= 0) return null;
+  const percent = withoutValue > 0 ? Math.round(((withValue - withoutValue) / withoutValue) * 100) : 100;
+  return { withValue, withoutValue, percent, withDays: withDays.length, withoutDays: withoutDays.length };
+}
+
+function computeBehaviorPatterns(state) {
+  const patterns = [];
+  const window = daysInRange(-89, 0);
+  const windowSet = new Set(window);
+
+  // Закрытые задачи по дням и траты по дням — общие метрики для сравнений ниже.
+  const doneByDay = new Map();
+  for (const task of Object.values(state.tasks || {})) {
+    if (task.deleted || task.status !== "done") continue;
+    const day = String(task.updatedAt || "").slice(0, 10);
+    if (!windowSet.has(day)) continue;
+    doneByDay.set(day, (doneByDay.get(day) || 0) + 1);
+  }
+  const spendByDay = new Map();
+  for (const tx of Object.values(state.financeTransactions || {})) {
+    if (tx.deleted || tx.kind !== "expense" || !windowSet.has(tx.day)) continue;
+    spendByDay.set(tx.day, (spendByDay.get(tx.day) || 0) + (Number(tx.amount) || 0));
+  }
+
+  // 1. Привычка против продуктивности и трат: дни с отметкой против дней без неё.
+  for (const habit of Object.values(state.habits || {}).filter((item) => !item.deleted)) {
+    const checkins = Object.keys(habit.checkins || {}).filter((day) => windowSet.has(day));
+    if (checkins.length < PATTERN_MIN_DAYS_PER_SIDE) continue;
+    const withDays = checkins;
+    const withoutDays = window.filter((day) => !habit.checkins || !habit.checkins[day]);
+    const tasks = comparedDayGroups(withDays, withoutDays, doneByDay);
+    if (tasks && Math.abs(tasks.percent) >= 20) {
+      patterns.push({
+        id: "pattern-habit-tasks-" + habit.id,
+        title: "В дни с «" + shorten(habit.title || "привычка", 34) + "» ты закрываешь "
+          + (tasks.percent > 0 ? "на " + tasks.percent + "% больше" : "на " + Math.abs(tasks.percent) + "% меньше") + " задач",
+        detail: "В среднем " + tasks.withValue.toFixed(1) + " против " + tasks.withoutValue.toFixed(1) + " задач в день.",
+        evidence: "Сравнение " + tasks.withDays + " дней с отметкой и " + tasks.withoutDays + " дней без неё за 90 дней",
+        objectId: habit.id
+      });
+    }
+    const spend = comparedDayGroups(withDays, withoutDays, spendByDay);
+    if (spend && Math.abs(spend.percent) >= 25 && spend.withoutValue > 0) {
+      patterns.push({
+        id: "pattern-habit-spend-" + habit.id,
+        title: "В дни с «" + shorten(habit.title || "привычка", 34) + "» ты тратишь "
+          + (spend.percent > 0 ? "на " + spend.percent + "% больше" : "на " + Math.abs(spend.percent) + "% меньше"),
+        detail: "В среднем " + formatObjectMoney(spend.withValue) + " против " + formatObjectMoney(spend.withoutValue) + " в день.",
+        evidence: "Сравнение " + spend.withDays + " и " + spend.withoutDays + " дней за 90 дней",
+        objectId: habit.id
+      });
+    }
+  }
+
+  // 2. Разговоры против действий по теме: сколько раз тема упоминалась и сколько раз что-то
+  //    реально произошло. Ровно канонное «про машину говоришь полгода, действий семь».
+  for (const cluster of computeTopicClusters(state).slice(0, 3)) {
+    const memberIds = new Set(cluster.members.map((member) => member.id));
+    let talk = 0;
+    let act = 0;
+    for (const source of Object.values(state.sources || {})) {
+      if (source.deleted) continue;
+      if (memberIds.has(source.id) || memberIds.has(source.noteId)) talk += 1;
+    }
+    for (const task of Object.values(state.tasks || {})) {
+      if (task.deleted || task.status !== "done") continue;
+      if (memberIds.has(task.id) || memberIds.has(task.noteId)) act += 1;
+    }
+    for (const tx of Object.values(state.financeTransactions || {})) {
+      if (tx.deleted) continue;
+      if (memberIds.has(tx.id) || memberIds.has(tx.noteId)) act += 1;
+    }
+    if (talk >= 4 && talk >= act * 3) {
+      patterns.push({
+        id: "pattern-talk-act-" + cluster.id,
+        title: "Про «" + cluster.name + "» ты говоришь чаще, чем делаешь",
+        detail: talk + " " + pluralRu(talk, "упоминание", "упоминания", "упоминаний") + " против " + act + " "
+          + pluralRu(act, "действия", "действий", "действий") + ". Тема живая, но пока в разговорах.",
+        evidence: "Посчитано по теме из " + cluster.size + " объектов",
+        objectId: cluster.hubId
+      });
+    }
+  }
+
+  // 3. Возврат к теме: сколько раз владелец возвращался к одному и тому же за 90 дней.
+  //    Это не упрёк, а факт: повторяющаяся тема без объекта — кандидат в цель или проект.
+  const stemDays = new Map();
+  for (const source of Object.values(state.sources || {})) {
+    if (source.deleted) continue;
+    const day = String(source.createdAt || "").slice(0, 10);
+    if (!windowSet.has(day)) continue;
+    const stems = new Set([...artifactDistinctiveTerms({ title: source.name || "", body: source.text || "" })].map(lifeTermStem));
+    for (const stem of stems) {
+      if (!stemDays.has(stem)) stemDays.set(stem, new Set());
+      stemDays.get(stem).add(day);
+    }
+  }
+  const goalStems = new Set();
+  for (const goal of Object.values(state.goals || {}).filter((item) => !item.deleted)) {
+    for (const term of artifactDistinctiveTerms({ title: goal.title || "", body: "" })) goalStems.add(lifeTermStem(term));
+  }
+  const returning = [...stemDays.entries()]
+    .filter(([stem, days]) => days.size >= 4 && !goalStems.has(stem))
+    .sort((a, b) => b[1].size - a[1].size);
+  if (returning.length) {
+    const [stem, days] = returning[0];
+    patterns.push({
+      id: "pattern-returning-" + stem,
+      title: "Ты возвращаешься к «" + stem + "» в " + days.size + " разных " + pluralRu(days.size, "день", "дня", "дней"),
+      detail: "Тема повторяется, но цели или проекта с таким названием нет — возможно, ей пора стать объектом.",
+      evidence: "Считано по датам захватов за 90 дней",
+      objectId: ""
+    });
+  }
+
+  return patterns.slice(0, 5);
 }
 
 // ============================================================================
@@ -24136,6 +24279,42 @@ window.__lifeosKnowledgeBase = {
     return store ? detectProjectClusters(store.state) : [];
   },
   // I4/I6: read-only проекция всех инсайтов для e2e (хабы/темы поверх базовых категорий).
+  // Паттерны сравнивают выборки дней, поэтому для e2e нужен «прошлое»: привычка с отметками
+  // в части дней и закрытые задачи в те же дни. Через UI такую историю не набрать — в интерфейсе
+  // нельзя отметить привычку задним числом, и это правильно.
+  seedHabitPatternForTest() {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Habit pattern test seed", (state) => {
+      const habitId = addHabit(state, "Тренировка", { frequency: "daily" });
+      const habit = state.habits[habitId];
+      habit.checkins = {};
+      for (let offset = -20; offset <= -1; offset += 1) {
+        const day = dateKeyFromOffset(offset);
+        const active = offset % 2 === 0;
+        if (active) habit.checkins[day] = true;
+        // В дни с отметкой закрываем по две задачи, в дни без неё — ни одной.
+        const count = active ? 2 : 0;
+        for (let index = 0; index < count; index += 1) {
+          const taskId = makeId("task");
+          state.tasks[taskId] = {
+            id: taskId,
+            title: "Дело " + day + "-" + index,
+            noteId: "",
+            sourceId: "",
+            goalId: "",
+            day,
+            startTime: "",
+            status: "done",
+            deleted: false,
+            createdAt: day + "T09:00:00.000Z",
+            updatedAt: day + "T18:00:00.000Z"
+          };
+        }
+      }
+      addAudit(state, "test.seed", "Habit pattern seeded for e2e", "");
+      rebuildIndexes(state);
+    }).then(() => true);
+  },
   computeInsightsForTest() {
     return store ? computeInsights(store.state) : [];
   },

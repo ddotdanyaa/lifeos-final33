@@ -67,6 +67,27 @@ function renderContradictions(ctx) {
   ].join("");
 }
 
+// Канон (Universal Capture, блок «Инсайты»): паттерн — это СРАВНЕНИЕ двух выборок по своим же
+// данным, а не мотивационная фраза. Поэтому рядом с выводом всегда стоит размер выборки.
+function renderBehaviorPatterns(ctx) {
+  const rows = ctx.behaviorPatterns || [];
+  if (!rows.length) return "";
+  return [
+    `<section class="behavior-patterns" data-testid="behavior-patterns">`,
+    `<p class="canon-eyebrow">Паттерны <em>${rows.length}</em></p>`,
+    rows.map((row) => [
+      `<article class="behavior-pattern" data-testid="behavior-pattern" data-pattern="${escapeHtml(row.id)}">`,
+      `<h4>${escapeHtml(row.title)}</h4>`,
+      `<p data-testid="behavior-pattern-detail">${escapeHtml(row.detail)}</p>`,
+      // Размер выборки — обязательная часть вывода: без него это гадание.
+      `<em data-testid="behavior-pattern-evidence">${escapeHtml(row.evidence)}</em>`,
+      row.objectId ? button("open-object", "Открыть объект", { id: row.objectId, kind: "ghost", testId: "behavior-pattern-open" }) : "",
+      `</article>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
 export function renderDayDigest(ctx) {
   const digest = ctx.dayDigest || { stages: [], questions: [], hasReport: false, sourceCount: 0, hint: "" };
   const runLabel = digest.hasReport ? "Разобрать заново" : "Разобрать день";
@@ -82,6 +103,7 @@ export function renderDayDigest(ctx) {
       : "",
     renderStages(digest),
     renderContradictions(ctx),
+    renderBehaviorPatterns(ctx),
     renderQuestions(digest),
     `</section>`
   ].join("");

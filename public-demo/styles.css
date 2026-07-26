@@ -11350,3 +11350,35 @@ audio {
 /* Основание противоречия — на чём именно оно держится: без него это просто тревога. */
 .contradiction-foot em { font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--muted); }
 
+
+/* ============================================================
+   ПАТТЕРНЫ ПОВЕДЕНИЯ (канон Universal Capture, блок «Инсайты»)
+   Вывод всегда идёт вместе с размером выборки: без него это гадание,
+   а не закономерность из собственных данных владельца.
+   ============================================================ */
+
+.behavior-patterns { display: grid; gap: var(--space-2); margin-top: var(--space-6); }
+.behavior-patterns .canon-eyebrow em { font-style: normal; margin-left: var(--space-2); opacity: 0.6; }
+
+.behavior-pattern {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.behavior-pattern h4 {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.4;
+  letter-spacing: -0.018em;
+  font-weight: 500;
+  color: var(--ink);
+  max-width: 640px;
+}
+
+.behavior-pattern p { margin: 0; font-size: var(--text-sm); line-height: 1.55; color: var(--muted); max-width: 620px; }
+.behavior-pattern em { font-style: normal; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--muted); }
+.behavior-pattern .ui-btn { justify-self: start; margin-top: var(--space-1); }
