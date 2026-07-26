@@ -11176,3 +11176,19 @@ audio {
 @media (max-width: 720px) {
   .object-history-row { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Кандидаты связей (Adamic-Adar): предложение, а не связь — пока не подтвердишь, ребра нет. */
+.link-predictions { display: grid; gap: var(--space-2); margin-top: var(--space-6); }
+
+.link-prediction {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.link-prediction strong { font-size: var(--text-base); font-weight: 500; letter-spacing: -0.012em; color: var(--ink); }
+.link-prediction em { font-style: normal; font-size: var(--text-sm); line-height: 1.5; color: var(--muted); }
+.link-prediction-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-1); }

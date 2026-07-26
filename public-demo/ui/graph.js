@@ -151,6 +151,28 @@ function renderSurprisingLinks(ctx) {
   ].join("");
 }
 
+// P2-2 (формула Adamic-Adar из Neo4j GDS): связи, которых ЕЩЁ НЕТ, но которые напрашиваются.
+// Это предложение: пока владелец не подтвердил, ребра не создаётся (§7).
+function renderLinkPredictions(ctx) {
+  const rows = ctx.linkPredictions || [];
+  if (!rows.length) return "";
+  return [
+    `<section class="link-predictions" data-testid="link-predictions">`,
+    `<div class="graph-answers-head"><span>Возможно, связано</span><em>связи ещё нет — система предлагает, решаешь ты</em></div>`,
+    rows.map((row) => [
+      `<article class="link-prediction" data-testid="link-prediction" data-prediction="${escapeHtml(row.id)}">`,
+      `<strong>${escapeHtml(row.a)} ↔ ${escapeHtml(row.b)}</strong>`,
+      `<em data-testid="link-prediction-why">${escapeHtml(row.why)} Уверенность ${row.confidence}%.</em>`,
+      `<div class="link-prediction-actions">`,
+      button("answer-link-prediction", "Связать", { id: row.id + "::link", kind: "primary", testId: "link-prediction-apply" }),
+      button("answer-link-prediction", "Не связано", { id: row.id + "::no", kind: "ghost", testId: "link-prediction-dismiss" }),
+      `</div>`,
+      `</article>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
 // «Как связаны A и B» — кратчайший путь как ОТВЕТ: цепочка с объяснением каждого звена.
 function renderGraphPath(ctx) {
   const path = ctx.graphPath;
@@ -205,6 +227,7 @@ export function renderGraph(ctx) {
     renderBridges(ctx),
     renderGraphPath(ctx),
     renderSurprisingLinks(ctx),
+    renderLinkPredictions(ctx),
     renderMemoryImportance(ctx),
     renderPeoplePanel(ctx)
   ].join("");

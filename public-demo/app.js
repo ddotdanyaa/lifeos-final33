@@ -11885,6 +11885,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     topicClusters: computeTopicClusters(state),
     bridgeNodes: computeBridgeNodes(state),
     surprisingLinks: computeSurprisingLinks(state),
+    linkPredictions: computeLinkPredictions(state),
     graphReport: computeGraphReport(state),
     goalForecast: computeGoalForecast(state),
     memoryImportance: computeMemoryImportance(state),
@@ -15215,6 +15216,85 @@ function computeUnderestimated(state) {
     rows.push({ kind: "нагрузка", text: overdue.length + " " + pluralRu(overdue.length, "задача просрочена", "задачи просрочены", "задач просрочено") + " — столько дел на день не помещается." });
   }
   return rows.slice(0, 4);
+}
+
+// ============================================================================
+// Предсказание связей: Adamic-Adar (P2-2)
+// ============================================================================
+// Донор: Neo4j GDS link prediction (GPL — берём только ФОРМУЛУ, кода не касаемся).
+// Идея: чем реже общий сосед, тем весомее его свидетельство. score = Σ 1/ln(degree(w))
+// по общим соседям w двух ещё НЕ связанных узлов. Редкий общий знакомый значит больше, чем
+// хаб, к которому подключено всё. Считаем на графе жизни: на техническом это давало бы
+// «связь» между заметкой и её же цитатой.
+// Это ПРЕДЛОЖЕНИЕ, а не связь: пока владелец не подтвердил, ребра не появляется (§7).
+function computeLinkPredictions(state, limit = 4) {
+  const graph = buildLifeGraph(state);
+  const { adjacency, nodeById, ids } = buildUndirectedAdjacency(graph);
+  if (ids.length < 5) return [];
+  const notes = state.notes || {};
+  const candidates = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      const a = ids[i];
+      const b = ids[j];
+      if (adjacency.get(a).has(b)) continue;
+      // Предлагать имеет смысл только то, что владелец сможет связать: живые заметки.
+      if (!notes[a] || notes[a].deleted || !notes[b] || notes[b].deleted) continue;
+      const shared = [...adjacency.get(a)].filter((node) => adjacency.get(b).has(node));
+      if (!shared.length) continue;
+      let score = 0;
+      for (const node of shared) {
+        const degree = adjacency.get(node).size;
+        // ln(1) = 0 — сосед со степенью 1 дал бы деление на ноль; такой сосед и не свидетель.
+        if (degree > 1) score += 1 / Math.log(degree);
+      }
+      if (score <= 0) continue;
+      candidates.push({
+        id: "predict-" + a + "-" + b,
+        aId: a,
+        bId: b,
+        a: shorten((nodeById.get(a) || {}).label || a, 44),
+        b: shorten((nodeById.get(b) || {}).label || b, 44),
+        score,
+        shared: shared.slice(0, 3).map((node) => shorten((nodeById.get(node) || {}).label || node, 36)),
+        why: "Общих соседей: " + shared.length + " (" + shared.slice(0, 2).map((node) => "«" + shorten((nodeById.get(node) || {}).label || node, 26) + "»").join(", ")
+          + "). Чем реже общий сосед, тем весомее совпадение — прямой связи между этими двумя пока нет."
+      });
+    }
+  }
+  return candidates
+    .sort((x, y) => y.score - x.score || x.a.localeCompare(y.a))
+    .slice(0, limit)
+    .map((row) => Object.assign({}, row, { confidence: Math.min(95, Math.round(40 + row.score * 30)) }));
+}
+
+// Подтверждение кандидата создаёт НАСТОЯЩУЮ вики-связь между заметками — тем же способом,
+// каким владелец связал бы их руками, плюс чек. Отказ ничего не создаёт и тоже оставляет след.
+function applyLinkPrediction(state, compositeId) {
+  const raw = String(compositeId || "");
+  const separator = raw.lastIndexOf("::");
+  if (separator < 0) return;
+  const predictionId = raw.slice(0, separator);
+  const answer = raw.slice(separator + 2);
+  const prediction = computeLinkPredictions(state, 40).find((row) => row.id === predictionId);
+  if (!prediction) return;
+  const a = state.notes[prediction.aId];
+  const b = state.notes[prediction.bId];
+  if (!a || a.deleted || !b || !b.title) return;
+  if (answer !== "link") {
+    if (!Array.isArray(state.dismissedPersonMerges)) state.dismissedPersonMerges = [];
+    addAudit(state, "link.predict.dismiss", "Кандидат связи отклонён: «" + prediction.a + "» ↔ «" + prediction.b + "»", a.id);
+    addReceipt(state, "decision", a.id, "Кандидат связи «" + prediction.a + "» ↔ «" + prediction.b + "» отклонён — связь не создавалась.", { noteId: a.id });
+    return;
+  }
+  const marker = "[[" + b.title + "]]";
+  if (!String(a.body || "").includes(marker)) {
+    a.body = String(a.body || "") + "\n\nСвязано: " + marker + "\n";
+    a.updatedAt = now();
+  }
+  addAudit(state, "link.predict.apply", "Связь создана по предложению: «" + prediction.a + "» → «" + prediction.b + "»", a.id);
+  addReceipt(state, "link", a.id, "Создана связь «" + prediction.a + "» → «" + prediction.b + "» по предложению системы (" + prediction.why + ")", { noteId: a.id });
+  rebuildIndexes(state);
 }
 
 function objectReturnSurface(state) {
@@ -20566,6 +20646,10 @@ async function handleAction(action, id) {
     return;
   }
   // «Как связаны A и B»: первый клик ставит начало, второй — конец, третий начинает заново.
+  if (action === "answer-link-prediction") {
+    await store.commit("Кандидат связи закрыт", (state) => applyLinkPrediction(state, id));
+    return;
+  }
   if (action === "pick-path-node") {
     await store.commit("Узел выбран для пути", (state) => {
       const query = state.graphPathQuery || { from: "", to: "" };
