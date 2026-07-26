@@ -5507,6 +5507,12 @@ function addProposal(state, type, title, sourceId, noteId, details) {
   return id;
 }
 
+// Типы, которые сильнее задачи: если запись уже стала одним из них, задача-двойник не нужна.
+const STRONGER_THAN_TASK_TYPES = new Set([
+  "finance_expense", "finance_income", "shift", "balance",
+  "goal", "money_goal", "habit", "routine"
+]);
+
 function createActionProposalsForSource(state, sourceId) {
   const source = state.sources[sourceId];
   if (!source || source.deleted) return [];
@@ -5532,11 +5538,16 @@ function createActionProposalsForSource(state, sourceId) {
   // продукты Лента» — дело, которое уже сделано. Деньги здесь — настоящий смысл записи,
   // поэтому задачу-двойника не заводим. Другие пары типов не трогаем: разложение одного
   // захвата на смену + доход + задачу задумано и работает (RR-001).
-  const moneyTitles = new Set((analysis.drafts || [])
-    .filter((item) => item.type === "finance_expense" || item.type === "finance_income" || item.type === "shift")
-    .map((item) => normalizeTitle(item.title || "")));
+  // Сильные типы несут настоящий смысл записи: трата — это трата, «хочу купить машину до
+  // августа» — цель, «тренировка» — привычка. Анализатор к каждому такому смыслу добавляет ещё
+  // и задачу с тем же текстом, и после подтверждения владелец получает пару «цель + задача о
+  // том же» или «расход + дело, которое уже сделано». Двойника не заводим.
+  // Сравниваем не строкой, а через looksLikeSameObject (энтропия + 3-граммы): у цели заголовок
+  // «Хочу купить машину до августа», у задачи — «купить машину до августа», это один объект.
+  // Разложение захвата на РАЗНЫЕ смыслы (смена + доход + задача, RR-001) не трогаем.
+  const strongerDrafts = (analysis.drafts || []).filter((item) => STRONGER_THAN_TASK_TYPES.has(item.type));
   for (const item of analysis.drafts || []) {
-    if (item.type === "task" && moneyTitles.has(normalizeTitle(item.title || ""))) continue;
+    if (item.type === "task" && strongerDrafts.some((strong) => looksLikeSameObject(strong.title, item.title))) continue;
     proposals.push(addProposal(state, item.type, item.title, source.id, source.noteId, item));
   }
   const draftTypes = new Set((analysis.drafts || []).map((item) => item.type));
@@ -8731,6 +8742,19 @@ function contentWordsForMatch(normalizedTitle) {
 function addGoal(state, title, options) {
   const cleanTitle = cleanLine(title);
   if (!cleanTitle) return "";
+  // Закон №4 в самой точке создания. Путь предложений дедуп уже делал, а форма «Цели» — нет:
+  // повторный ввод той же цели заводил вторую. Нашлось сквозным прогоном вечернего дампа, где
+  // цель сначала создаёт разбор, а потом владелец задаёт ей сумму и срок тем же названием.
+  const duplicate = Object.values(state.goals || {}).find((goal) => !goal.deleted && looksLikeSameObject(goal.title, cleanTitle));
+  if (duplicate) {
+    const amount = Number(options && (options.targetAmount || options.amount)) || 0;
+    const date = cleanLine((options && (options.targetDate || options.day)) || "");
+    // Повтор не только не плодит копию, но и ДОПОЛНЯЕТ: если в первый раз суммы или срока
+    // не было, а теперь они названы — цель становится полнее.
+    if (amount > 0 && !duplicate.targetAmount) duplicate.targetAmount = amount;
+    if (date && !duplicate.targetDate) duplicate.targetDate = date;
+    return reinforceExisting(state, duplicate, "цель", options && options.sourceId);
+  }
   const id = makeId("goal");
   const createdAt = now();
   state.goals[id] = {

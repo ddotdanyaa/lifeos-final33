@@ -103,6 +103,7 @@ test("вечерний дамп: 22 записи проходят весь пу�
     return {
       tasks: live(state.tasks).map((item) => item.title),
       habits: live(state.habits).map((item) => item.title),
+      goals: live(state.goals).map((item) => item.title),
       money: live(state.financeTransactions).length,
       reinforce: (state.control.receipts || []).filter((row) => row.kind === "reinforce").length
     };
@@ -122,15 +123,23 @@ test("вечерний дамп: 22 записи проходят весь пу�
   expect(applied.tasks.filter((title) => /^(Потратил|Заработал)/i.test(title))).toEqual([]);
   // Задач должно быть заметно меньше, чем захватов: система сводит, а не плодит.
   expect(applied.tasks.length).toBeLessThan(EVENING_DUMP.length / 2);
+  // «Хочу купить машину до августа» — это ЦЕЛЬ со сроком, а не дело в списке задач.
+  expect(applied.goals.some((title) => /машин/i.test(title))).toBe(true);
+  expect(applied.tasks.filter((title) => /купить машину/i.test(title))).toEqual([]);
 
   // 4. Цель с суммой и сроком — и прогноз считается из реального потока по счетам.
+  // Цель уже создана разбором из «Хочу купить машину до августа» — задаём ей сумму и срок,
+  // как сделал бы владелец, а не заводим вторую (закон №4 проверяется тут же).
   await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("goals"));
   await page.waitForSelector('[data-testid="goal-title-entry"]');
-  await page.fill('[data-testid="goal-title-entry"]', "Купить машину");
+  await page.fill('[data-testid="goal-title-entry"]', "Хочу купить машину до августа");
   await page.fill('[data-testid="goal-target-amount"]', "1150000");
   await page.fill('[data-testid="goal-target-date"]', new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10));
   await page.click('[data-testid="add-goal-entry"]');
   await page.waitForTimeout(400);
+  const goalCount = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().goals)
+    .filter((item) => !item.deleted && /машин/i.test(item.title || "")).length);
+  expect(goalCount).toBe(1);
 
   await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("inbox"));
   await expect(page.getByTestId("forecast-row").first()).toBeVisible({ timeout: 20000 });
