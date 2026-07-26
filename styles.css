@@ -10969,3 +10969,41 @@ audio {
   .receipt-row { grid-template-columns: minmax(0, 1fr); }
   .receipt-actions { justify-content: flex-start; }
 }
+
+/* ============================================================
+   BUILDER: контракт объекта (канон design-system/Builder.dc.html)
+   Обещание «своя сущность сразу получает id, источник, связи, историю,
+   чеки и экспорт» показывается проверкой по фактам, а не галочкой авансом.
+   ============================================================ */
+
+.builder-contract-note { margin: 0 0 var(--space-3); font-size: var(--text-sm); line-height: 1.55; color: var(--muted); max-width: 640px; }
+
+.builder-contract-system {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.builder-contract-head { display: flex; justify-content: space-between; gap: var(--space-3); align-items: baseline; }
+.builder-contract-head strong { font-size: var(--text-base); font-weight: 500; color: var(--ink); }
+.builder-contract-head span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--muted); }
+
+.builder-contract-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.builder-contract-checks li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* Выполненный пункт контракта — акцентом; невыполненный остаётся тихим, без тревоги. */
+.builder-contract-checks li.ok { color: var(--green); border-color: var(--green); }
+.builder-contract-checks li em { font-style: normal; opacity: 0.8; }
+
+.builder-contract-records { display: flex; flex-wrap: wrap; gap: var(--space-2); }

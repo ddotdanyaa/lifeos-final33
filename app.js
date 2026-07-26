@@ -11842,6 +11842,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     dayDigest: computeDayDigestView(state),
     groundedAnswer: computeAnswerView(state),
     agentsView: computeAgentsView(state),
+    builderContract: computeBuilderContract(state),
     outboundRoutes: computeOutboundRoutes(state),
     receiptJournal: computeReceiptJournal(state),
     eveningReflection: eveningReflection(state),
@@ -14324,6 +14325,40 @@ function computeReceiptJournal(state) {
       surface: receipt.surface || "",
       openable: Boolean(record),
       revertible
+    };
+  });
+}
+
+// Builder (канон design-system/Builder.dc.html): обещание канона — своя сущность СРАЗУ получает
+// контракт объекта (id, источник, связи, история, уверенность, права, чеки, экспорт). Обещание
+// надо не декларировать, а показывать проверкой: для каждой системы считаем, что из контракта
+// у её записей есть на самом деле. Пустое — так и пишем, а не рисуем зелёную галочку авансом.
+function computeBuilderContract(state) {
+  const systems = Object.values(state.systemDefinitions || {}).filter((system) => !system.deleted);
+  const graph = graphForDisplay(state);
+  const receipts = state.control.receipts || [];
+  return systems.map((system) => {
+    const records = Object.values(state.systemRecords || {}).filter((record) => !record.deleted && record.systemId === system.id);
+    const ids = new Set(records.map((record) => record.id));
+    const edges = graph.links.filter((link) => ids.has(link.source) || ids.has(link.target)).length;
+    const withSource = records.filter((record) => record.sourceId || record.noteId).length;
+    const receiptCount = receipts.filter((receipt) => ids.has(receipt.objectId)).length;
+    const checks = [
+      { label: "id и тип", value: records.length ? "у всех " + records.length : "записей нет", ok: records.length > 0 },
+      { label: "источник", value: records.length ? withSource + " из " + records.length : "записей нет", ok: withSource > 0 },
+      { label: "связи в графе", value: edges + "", ok: edges > 0 },
+      { label: "история", value: records.length ? "createdAt/updatedAt у всех" : "записей нет", ok: records.length > 0 },
+      { label: "чеки", value: receiptCount + "", ok: receiptCount > 0 },
+      { label: "экспорт", value: "вместе со всем хранилищем", ok: true }
+    ];
+    return {
+      id: system.id,
+      title: system.title || "Система",
+      recordCount: records.length,
+      checks,
+      // Каждая запись открывается тем же экраном Объекта, что и любой другой артефакт —
+      // это и есть доказательство, что сущность не «вторая система», а часть одной модели.
+      records: records.slice(0, 5).map((record) => ({ id: record.id, title: shorten(record.title || "запись", 60) }))
     };
   });
 }
@@ -19703,9 +19738,12 @@ async function handleAction(action, id) {
   // владелец видит, что именно откатилось, а не «готово» без контекста.
   if (action === "revert-receipt") {
     await store.commit("Решение отменено из журнала", (state) => {
+      // revertObjectDecision работает по текущему objectView, поэтому наводим его на нужный
+      // объект и возвращаем как было: открытая владельцем карточка не должна закрыться.
+      const previous = state.objectView;
       state.objectView = { id: cleanLine(id || ""), tab: "conf", from: state.activeSurface };
       revertObjectDecision(state);
-      state.objectView = { id: "", tab: "sut", from: "" };
+      state.objectView = previous;
     });
     return;
   }

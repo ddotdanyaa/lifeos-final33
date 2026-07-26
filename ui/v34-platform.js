@@ -264,6 +264,32 @@ function installedPackRow(pack) {
   ].join("");
 }
 
+
+// Builder (канон design-system/Builder.dc.html): своя сущность сразу получает контракт объекта.
+// Панель не декларирует это, а показывает проверку по фактам (app.js computeBuilderContract) —
+// и даёт открыть любую запись тем же экраном Объекта, что и остальные артефакты.
+function renderBuilderContract(ctx) {
+  const systems = ctx.builderContract || [];
+  if (!systems.length) return "";
+  return [
+    `<section class="v34-panel builder-contract" data-testid="builder-contract">`,
+    `<header><h3>Контракт объекта</h3></header>`,
+    `<p class="builder-contract-note">Своя сущность не становится «второй системой»: она попадает в тот же граф, инсайты и экспорт. Ниже — проверка по фактам, а не обещание.</p>`,
+    systems.map((system) => [
+      `<div class="builder-contract-system" data-testid="builder-contract-system" data-system="${escapeHtml(system.id)}">`,
+      `<div class="builder-contract-head"><strong>${escapeHtml(system.title)}</strong><span>${system.recordCount} ${system.recordCount === 1 ? "запись" : "записей"}</span></div>`,
+      `<ul class="builder-contract-checks">`,
+      system.checks.map((check) => `<li class="${check.ok ? "ok" : "missing"}" data-testid="builder-contract-check"><span aria-hidden="true">${check.ok ? "✓" : "—"}</span>${escapeHtml(check.label)}: <em>${escapeHtml(check.value)}</em></li>`).join(""),
+      `</ul>`,
+      system.records.length
+        ? `<div class="builder-contract-records">${system.records.map((record) => button("open-object", record.title, { id: record.id, kind: "ghost", testId: "builder-open-record" })).join("")}</div>`
+        : `<div class="empty-inline" data-testid="builder-contract-empty">Записей ещё нет — добавь первую, и контракт станет проверяемым.</div>`,
+      `</div>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
 export function renderSystems(ctx, variant = "systems") {
   const systems = sortRecent(live(ctx.systemDefinitions));
   const installed = sortRecent(live(ctx.installedPacks));
@@ -294,6 +320,7 @@ export function renderSystems(ctx, variant = "systems") {
     safeList(installed, installedPackRow, `<div class="empty-inline">Установленные локальные пакеты будут видны здесь как receipts.</div>`),
     `</aside>`,
     `</div>`,
+    isBuilder ? renderBuilderContract(ctx) : "",
     isBuilder && focusedSystem ? [
       `<section class="v34-panel" data-testid="system-entity-fields-panel">`,
       `<header><h3>Типизированные поля: ${escapeHtml(focusedSystem.title)}</h3></header>`,
