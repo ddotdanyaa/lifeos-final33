@@ -43,6 +43,93 @@ function formatEstimate(minutes) {
   return rest ? `${hours}ч${rest}м` : `${hours}ч`;
 }
 
+// Сегодня (канон design-system/Today.dc.html): день начинается с одного предложения о том,
+// что сегодня решается, а не со списка. Данные — ctx.todayPlan (app.js computeTodayPlan).
+function renderDayBrief(ctx) {
+  const plan = ctx.todayPlan || {};
+  return [
+    `<section class="today-brief" data-testid="today-brief">`,
+    `<p class="canon-eyebrow">Сегодня</p>`,
+    `<h2 class="today-brief-line" data-testid="today-brief-line">${escapeHtml(plan.brief || "")}</h2>`,
+    plan.progressLine ? `<p class="today-progress" data-testid="today-progress">${escapeHtml(plan.progressLine)}</p>` : "",
+    `</section>`
+  ].join("");
+}
+
+// У каждого блока написано, ПОЧЕМУ он здесь. Пересечение — настоящий конфликт с вариантами,
+// у каждого варианта посчитанная цена; выбор реально двигает время или день (§7 + чек).
+function renderDayBlocks(ctx) {
+  const blocks = (ctx.todayPlan || {}).blocks || [];
+  if (!blocks.length) {
+    return `<section class="today-blocks" data-testid="today-blocks"><p class="canon-eyebrow">Блоки дня</p><p class="empty-inline" data-testid="today-blocks-empty">На сегодня нет ничего со временем. Поставь время задаче или блоку — и день соберётся сам.</p></section>`;
+  }
+  return [
+    `<section class="today-blocks" data-testid="today-blocks">`,
+    `<p class="canon-eyebrow">Блоки дня <em>${blocks.length}</em></p>`,
+    blocks.map((block) => [
+      `<article class="today-block tone-${escapeHtml(block.tone)}" data-testid="today-block" data-block="${escapeHtml(block.id)}">`,
+      `<time class="today-block-time">${escapeHtml(block.time)}</time>`,
+      `<div class="today-block-body">`,
+      `<div class="today-block-head"><strong>${escapeHtml(block.title)}</strong><span class="today-block-tag" data-testid="today-block-tag">${escapeHtml(block.tag)}</span></div>`,
+      `<p class="today-block-why" data-testid="today-block-why">${escapeHtml(block.why)}</p>`,
+      block.conflict ? [
+        `<p class="today-conflict-why" data-testid="today-conflict">${escapeHtml(block.conflict.explanation)}</p>`,
+        `<div class="today-conflict-fixes">`,
+        block.conflict.options.map((option) => [
+          `<button class="today-conflict-fix" data-action="resolve-today-conflict" data-id="${escapeHtml(block.id + "::" + option.id)}" data-testid="today-conflict-fix">`,
+          `<strong>${escapeHtml(option.label)}</strong><em>${escapeHtml(option.cost)}</em>`,
+          `</button>`
+        ].join("")).join(""),
+        `</div>`
+      ].join("") : "",
+      `</div>`,
+      button("open-object", "Объект", { id: block.id, kind: "ghost", testId: "today-block-object" }),
+      `</article>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
+// Задача без эффекта на цель — просто строчка в списке. Здесь у каждой написано, что именно
+// изменится, когда её закроешь, и честно сказано, когда посчитать эффект не из чего.
+function renderGoalEffectTasks(ctx) {
+  const tasks = (ctx.todayPlan || {}).tasks || [];
+  if (!tasks.length) return "";
+  return [
+    `<section class="today-effects" data-testid="today-effects">`,
+    `<p class="canon-eyebrow">Что двигают эти задачи</p>`,
+    tasks.map((task) => [
+      `<article class="today-effect tone-${escapeHtml(task.tone)}" data-testid="today-effect" data-task="${escapeHtml(task.id)}">`,
+      `<button class="round-check" data-action="toggle-task" data-id="${escapeHtml(task.id)}" data-testid="today-effect-toggle"></button>`,
+      `<div>`,
+      `<strong>${escapeHtml(task.title)}</strong>`,
+      `<span class="today-effect-goal" data-testid="today-effect-goal">${escapeHtml(task.goalLine)}</span>`,
+      `<em class="today-effect-text" data-testid="today-effect-text">${escapeHtml(task.effect)}</em>`,
+      `</div>`,
+      `<span class="today-effect-impact" data-testid="today-effect-impact">${escapeHtml(task.impact)}</span>`,
+      `</article>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
+// Отложенное системой видно вместе с причиной: «не сегодня» — это решение, а не пропажа.
+function renderDeferred(ctx) {
+  const deferred = (ctx.todayPlan || {}).deferred || [];
+  if (!deferred.length) return "";
+  return [
+    `<section class="today-deferred" data-testid="today-deferred">`,
+    `<p class="canon-eyebrow">Не сегодня <em>${deferred.length}</em></p>`,
+    deferred.map((item) => [
+      `<div class="today-deferred-row" data-testid="today-deferred-row">`,
+      `<strong>${escapeHtml(item.title)}</strong>`,
+      `<span data-testid="today-deferred-reason">${escapeHtml(item.reason)}</span>`,
+      `</div>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
 function planRow(ctx, block) {
   const done = block.status === "done";
   return [
@@ -70,6 +157,10 @@ export function renderToday(ctx) {
   const planBlocks = (ctx.planBlocks || []).filter((block) => !block.deleted && block.day === ctx.todayKey);
   const systemSchedule = (ctx.systemRecordSchedule || []).filter((entry) => entry.day === ctx.todayKey);
   const body = [
+    renderDayBrief(ctx),
+    renderDayBlocks(ctx),
+    renderGoalEffectTasks(ctx),
+    renderDeferred(ctx),
     `<div class="today-layout" data-testid="today-panel">`,
     `<section class="now-column">`,
     `<span>Что делать сейчас</span>`,

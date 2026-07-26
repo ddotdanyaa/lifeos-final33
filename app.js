@@ -2627,6 +2627,8 @@ function normalizeState(input) {
       semanticSearchReport: null,
       memorySearchReport: null,
       backupRestoreReport: null,
+      dayDigest: null,
+      lastAnswer: null,
       packInstallPreview: null,
       privacyZones: {
         local: "active",
@@ -8525,9 +8527,12 @@ function addTask(state, title, scheduleOptions) {
   const options = scheduleOptions && typeof scheduleOptions === "object" ? scheduleOptions : {};
   const schedule = parseTaskSchedule(cleanTitle, options.dateHint || "", options);
   const noteId = options.noteId && state.notes[options.noteId] && !state.notes[options.noteId].deleted ? options.noteId : state.activeNoteId || "";
+  // Привязка к цели только по настоящему признаку: явно переданная цель или цель той же
+  // заметки. Прежний фоллбэк «любая активная цель» вешал каждую новую задачу на случайную
+  // цель — а Сегодня теперь пишет «эта задача двигает цель X», и такая догадка была бы враньём
+  // с уверенностью (закон №5). Лучше честное «ни к одной цели не привязана».
   const activeGoal = options.goalId && state.goals[options.goalId] ? state.goals[options.goalId]
     : Object.values(state.goals).find((goal) => !goal.deleted && goal.status === "active" && goal.noteId === noteId)
-    || Object.values(state.goals).find((goal) => !goal.deleted && goal.status === "active")
     || null;
   const id = makeId("task");
   const createdAt = now();
@@ -11704,6 +11709,9 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     lifeSpaces: LIFE_SPACES.map((row) => ({ id: row[0], label: row[1], active: (state.activeSpace || "all") === row[0] })),
     graphAnswers: computeGraphAnswers(state),
     objectInspector: computeObjectInspector(state),
+    todayPlan: computeTodayPlan(state),
+    dayDigest: computeDayDigestView(state),
+    groundedAnswer: computeAnswerView(state),
     eveningReflection: eveningReflection(state),
     userModel: computeUserModel(state),
     workDecision: workDecisionSupport(state),
@@ -13314,6 +13322,594 @@ function computeObjectInspector(state) {
       revertible: Boolean(decision.field && decision.previous !== undefined)
     } : null
   };
+}
+
+// ============================================================================
+// Сегодня (канон design-system/Today.dc.html)
+// ============================================================================
+// День — не список задач, а ответ на «что сегодня решается». Три вещи, которых не было:
+// (1) у каждого блока времени написано, ПОЧЕМУ он здесь; (2) пересечения по времени —
+// настоящий конфликт с посчитанными вариантами переноса; (3) у задачи виден эффект на цель.
+// Проекция над теми же tasks/planBlocks/reminders/goals, новых коллекций нет.
+
+const TODAY_DEFAULT_BLOCK_MINUTES = 30;
+
+const TODAY_MINUTES_INVALID = 24 * 60;
+
+function minutesToTime(minutes) {
+  const total = Math.max(0, Math.min(24 * 60 - 1, Math.round(minutes)));
+  return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
+}
+
+// Отрезок блока в минутах: конец берём из endTime, а если его нет — полчаса по умолчанию.
+// Без длительности «пересечение» посчитать нельзя, а врать про точный конец мы не будем —
+// поэтому в объяснении конфликта прямо сказано, что длительность принята за 30 минут.
+function todayBlockSpan(item) {
+  // timeToMinutes уже есть в ядре: на нечитаемом времени она отдаёт значение больше суток.
+  const start = timeToMinutes(item.startTime || item.time);
+  if (start >= TODAY_MINUTES_INVALID) return null;
+  const end = timeToMinutes(item.endTime);
+  const assumed = end >= TODAY_MINUTES_INVALID || end <= start;
+  return { start, end: assumed ? start + TODAY_DEFAULT_BLOCK_MINUTES : end, assumed };
+}
+
+function todayGoalStepLine(state, goalId) {
+  const goal = goalId ? (state.goals || {})[goalId] : null;
+  if (!goal || goal.deleted) return null;
+  const linked = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.goalId === goal.id);
+  const done = linked.filter((task) => task.status === "done").length;
+  return { goal, done, total: linked.length };
+}
+
+// Почему блок стоит именно здесь. Каждая ветка опирается на реальное поле артефакта,
+// «предложено системой» без причины мы не пишем.
+function todayBlockReason(state, item) {
+  const today = todayKey();
+  if (item.kind === "reminder") return { tag: "напоминание", tone: "muted", why: "Напоминание на " + (item.startTime || item.time || "сегодня") + " — система только напомнит, ничего не сделает сама." };
+  const source = item.sourceId ? (state.sources || {})[item.sourceId] : null;
+  if (source && !source.deleted) {
+    return { tag: "из потока", tone: "accent", why: "Появился из захвата «" + shorten(source.name || streamKindLabel(source), 40) + "» " + formatObjectStamp(source.createdAt) + " — руками не заводился." };
+  }
+  const step = todayGoalStepLine(state, item.goalId);
+  if (step) {
+    const overdue = item.day && item.day < today;
+    return {
+      tag: overdue ? "дедлайн" : "шаг цели",
+      tone: overdue ? "warn" : "ok",
+      why: (overdue ? "Просрочен, а " : "") + "цель «" + shorten(step.goal.title || "цель", 40) + "»: сделано " + step.done + " из " + step.total + " шагов."
+        + (step.goal.targetDate ? " Срок цели — " + formatObjectDay(step.goal.targetDate) + "." : "")
+    };
+  }
+  if (item.kind === "plan" || item.type === "plan") return { tag: "блок плана", tone: "muted", why: "Блок дня, поставленный вручную. Ни к одной цели не привязан — его вес системе неизвестен." };
+  return { tag: "задача", tone: "muted", why: "Задача на сегодня без привязки к цели: система не может сказать, что изменится, когда ты её закроешь." };
+}
+
+// Свободные окна дня — по реальным занятым отрезкам, а не «через час».
+function todayFreeSlot(spans, durationMinutes, fromMinutes) {
+  const busy = spans.slice().sort((a, b) => a.start - b.start);
+  let cursor = Math.max(fromMinutes, 6 * 60);
+  for (const span of busy) {
+    if (span.start - cursor >= durationMinutes) return cursor;
+    cursor = Math.max(cursor, span.end);
+  }
+  return cursor + durationMinutes <= 23 * 60 ? cursor : -1;
+}
+
+function computeTodayPlan(state) {
+  const today = todayKey();
+  const tomorrow = dateKeyFromOffset(1);
+  const tasks = Object.values(state.tasks || {}).filter((task) => !task.deleted);
+  const openTasks = tasks.filter((task) => task.status !== "done");
+  const planBlocks = Object.values(state.planBlocks || {}).filter((block) => !block.deleted && block.day === today);
+  const reminders = Object.values(state.reminders || {}).filter((item) => !item.deleted && item.status !== "done" && item.day === today);
+
+  const scheduled = []
+    .concat(openTasks.filter((task) => task.day === today && task.startTime).map((task) => Object.assign({}, task, { kind: "task" })))
+    .concat(planBlocks.filter((block) => block.startTime).map((block) => Object.assign({}, block, { kind: "plan" })))
+    .concat(reminders.filter((item) => item.time).map((item) => Object.assign({}, item, { kind: "reminder", startTime: item.time })));
+
+  const withSpans = scheduled
+    .map((item) => ({ item, span: todayBlockSpan(item) }))
+    .filter((row) => row.span)
+    .sort((a, b) => a.span.start - b.span.start);
+
+  const spans = withSpans.map((row) => row.span);
+  const blocks = withSpans.map((row, index) => {
+    const reason = todayBlockReason(state, row.item);
+    const clash = withSpans.find((other, otherIndex) => otherIndex !== index && other.span.start < row.span.end && row.span.start < other.span.end);
+    const block = {
+      id: row.item.id,
+      kind: row.item.kind,
+      time: minutesToTime(row.span.start),
+      endTime: minutesToTime(row.span.end),
+      title: row.item.title || "Блок",
+      tag: reason.tag,
+      tone: reason.tone,
+      why: reason.why,
+      conflict: null
+    };
+    if (!clash) return block;
+    const duration = row.span.end - row.span.start;
+    const freeStart = todayFreeSlot(spans.filter((span) => span !== row.span), duration, row.span.start);
+    block.tag = "конфликт";
+    block.tone = "danger";
+    block.conflict = {
+      withTitle: clash.item.title || "другой блок",
+      withTime: minutesToTime(clash.span.start),
+      explanation: "Пересекается с «" + shorten(clash.item.title || "блок", 40) + "» в " + minutesToTime(clash.span.start) + "."
+        + (row.span.assumed || clash.span.assumed ? " У одного из блоков нет конца — длительность принята за 30 минут." : ""),
+      options: [
+        freeStart >= 0 && freeStart !== row.span.start
+          ? { id: "slot", label: "Перенести на " + minutesToTime(freeStart), cost: "первое свободное окно сегодня", apply: { field: "startTime", value: minutesToTime(freeStart) } }
+          : null,
+        { id: "tomorrow", label: "Перенести на завтра " + minutesToTime(row.span.start), cost: "день освобождается, но задача стареет на сутки", apply: { field: "day", value: tomorrow } },
+        { id: "keep", label: "Оставить пересечение", cost: "оба блока останутся в одном времени", apply: null }
+      ].filter(Boolean)
+    };
+    return block;
+  });
+
+  // Задачи с эффектом на цель: что именно изменится, когда ты её закроешь.
+  const todayTaskList = openTasks.filter((task) => task.day === today || (task.day && task.day < today));
+  const taskCards = todayTaskList
+    .sort((a, b) => taskUrgencyScore(b, today) - taskUrgencyScore(a, today))
+    .slice(0, 8)
+    .map((task) => {
+      const step = todayGoalStepLine(state, task.goalId);
+      const overdueDays = task.day && task.day < today ? Math.max(1, Math.round(ageInDays(task.day + "T00:00:00", Date.now()))) : 0;
+      const impact = step && overdueDays ? "высокий" : step ? "средний" : overdueDays ? "средний" : "низкий";
+      let effect;
+      if (step) {
+        const rest = step.total - step.done - 1;
+        effect = "Цель «" + shorten(step.goal.title || "цель", 40) + "»: станет " + (step.done + 1) + " из " + step.total + " шагов"
+          + (rest <= 0 ? " — открытых шагов не останется." : ", останется " + rest + " " + pluralRu(rest, "шаг", "шага", "шагов") + ".");
+      } else {
+        effect = "Ни к одной цели не привязана — система не может сказать, что изменится. Привяжи к цели, и эффект посчитается.";
+      }
+      return {
+        id: task.id,
+        title: task.title || "Задача",
+        goalLine: step ? "Цель «" + shorten(step.goal.title || "цель", 40) + "»" + (overdueDays ? " · просрочена на " + overdueDays + " " + pluralRu(overdueDays, "день", "дня", "дней") : "") : "Без цели",
+        impact,
+        tone: impact === "высокий" ? "danger" : impact === "средний" ? "warn" : "muted",
+        effect
+      };
+    });
+
+  // Отложено системой: почему задача НЕ в сегодняшнем плане. Причина настоящая, из полей.
+  const deferred = openTasks
+    .filter((task) => !task.day || task.day > today)
+    .slice(0, 6)
+    .map((task) => {
+      const step = todayGoalStepLine(state, task.goalId);
+      if (task.day && task.day > today) {
+        return { id: task.id, title: task.title || "Задача", reason: "Запланирована на " + formatObjectDay(task.day) + " — сегодня не мешает." };
+      }
+      if (step) return { id: task.id, title: task.title || "Задача", reason: "Двигает цель «" + shorten(step.goal.title || "цель", 40) + "», но без даты — поставь день, и она попадёт в план." };
+      return { id: task.id, title: task.title || "Задача", reason: "Без даты и без цели — на эту неделю не влияет, всплывёт, когда освободится время." };
+    });
+
+  const doneToday = tasks.filter((task) => task.status === "done" && task.day === today).length;
+  const totalToday = doneToday + todayTaskList.filter((task) => task.day === today).length;
+  const conflictBlocks = blocks.filter((block) => block.conflict);
+  const withGoal = taskCards.filter((card) => card.goalLine !== "Без цели").length;
+
+  let brief;
+  const topOverdue = taskCards.find((card) => card.impact === "высокий");
+  if (topOverdue) {
+    brief = "Сегодня решается «" + topOverdue.title + "»: пока она открыта, " + topOverdue.goalLine.toLocaleLowerCase("ru-RU") + " стоит.";
+  } else if (conflictBlocks.length) {
+    brief = "В расписании пересечение в " + conflictBlocks[0].time + " — пока не разведёшь, оба блока под вопросом.";
+  } else if (taskCards.length) {
+    brief = taskCards.length + " " + pluralRu(taskCards.length, "задача", "задачи", "задач") + " на сегодня, из них " + withGoal + " " + pluralRu(withGoal, "двигает", "двигают", "двигают") + " цели.";
+  } else {
+    brief = "На сегодня ничего не назначено. Это нормальный день, а не пустой экран: запиши мысль или задачу — она встанет в план сама.";
+  }
+
+  return {
+    brief,
+    progressLine: totalToday
+      ? doneToday + " из " + totalToday + " закрыто" + (doneToday ? " · цели пересчитаны" : "")
+      : deferred.length
+        ? deferred.length + " " + pluralRu(deferred.length, "задача отложена", "задачи отложены", "задач отложено") + " системой — ниже написано, почему"
+        : "",
+    blocks,
+    tasks: taskCards,
+    deferred,
+    conflictCount: conflictBlocks.length
+  };
+}
+
+// Та же формула срочности, что в ui/components/shared.js (obsidian-tasks Urgency): держим её
+// здесь, потому что проекция считается в app.js, а не в разметке.
+function taskUrgencyScore(task, today) {
+  if (!task || task.status === "done" || task.deleted) return 0;
+  let score = task.frog ? 100 : 0;
+  if (task.day) {
+    const gap = Math.round((Date.parse(task.day) - Date.parse(today)) / 86400000);
+    if (gap < 0) score += 12 + Math.min(12, -gap);
+    else if (gap === 0) score += 9;
+    else score += Math.max(0, 6 - gap);
+  }
+  if (task.goalId) score += 8;
+  if (task.startTime) score += 3;
+  return score;
+}
+
+// Перенос конфликтного блока — настоящая правка расписания с чеком, а не пометка «решено».
+function resolveTodayConflict(state, compositeId) {
+  const raw = String(compositeId || "");
+  const separator = raw.lastIndexOf("::");
+  if (separator < 0) return;
+  const blockId = raw.slice(0, separator);
+  const optionId = raw.slice(separator + 2);
+  const plan = computeTodayPlan(state);
+  const block = plan.blocks.find((row) => row.id === blockId && row.conflict);
+  if (!block) return;
+  const option = block.conflict.options.find((row) => row.id === optionId);
+  if (!option) return;
+  const record = state.tasks[blockId] || state.planBlocks[blockId] || state.reminders[blockId];
+  if (!record) return;
+  if (option.apply) {
+    const field = option.apply.field === "startTime" && state.reminders[blockId] ? "time" : option.apply.field;
+    record[field] = option.apply.value;
+    record.updatedAt = now();
+  }
+  addAudit(state, "today.conflict.resolve", "Пересечение в " + block.time + ": " + option.label, record.noteId || "");
+  addReceipt(state, "decision", blockId, "Пересечение «" + block.title + "» и «" + block.conflict.withTitle + "» закрыто: " + option.label + " (" + option.cost + ").", { surface: "today", noteId: record.noteId || "" });
+}
+
+// ============================================================================
+// Вопрос остаётся вопросом (закон №7 канона)
+// ============================================================================
+// Если владелец спрашивает — система ОТВЕЧАЕТ текстом с цитатами на свои же артефакты и явно
+// пишет, что ничего не создала. До этого вопрос уходил в общий разбор и превращался в задачу
+// «Вытащить задачи из „Почему я до сих пор не купил машину?“» — то есть в работу вместо ответа.
+// Ответ не выдумывается: это найденные предложения из записей владельца с датой и ссылкой.
+// Конвейер retrieve → rank → answer (донор-идея LlamaIndex/Haystack), реализован на minisearch.
+
+const ANSWER_STOPWORDS = new Set([
+  "почему", "что", "как", "когда", "сколько", "какой", "какая", "какие", "зачем", "где", "кто",
+  "я", "мне", "меня", "мой", "моя", "мои", "это", "того", "так", "уже", "ещё", "еще", "не", "ни",
+  "до", "сих", "пор", "при", "для", "или", "если", "чтобы", "быть", "был", "была", "было", "были"
+]);
+
+function answerQueryTerms(question) {
+  return normalizeRuText(String(question || ""))
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !ANSWER_STOPWORDS.has(word));
+}
+
+// Цитата — настоящее предложение из записи, а не пересказ. Берём то, где встретился термин.
+// Markdown-разметку снимаем: «# Хочу купить машину» — это заголовок файла, а не слова владельца.
+function answerQuoteFor(text, terms) {
+  const sentences = String(text || "")
+    .split(/(?<=[.!?…])\s+|\n+/)
+    .map((line) => line.replace(/^#{1,6}\s*/, "").replace(/^[-*>]\s+/, "").trim())
+    .filter(Boolean);
+  const hit = sentences.find((sentence) => {
+    const lower = normalizeRuText(sentence);
+    return terms.some((term) => lower.includes(term));
+  });
+  return shorten(hit || sentences[0] || "", 160);
+}
+
+async function buildGroundedAnswer(state, question) {
+  const terms = answerQueryTerms(question);
+  const candidates = [];
+  const seen = new Set();
+  const pushCitation = (id, kind, title, text, at) => {
+    if (!id || seen.has(id)) return;
+    const quote = answerQuoteFor(text, terms);
+    if (!quote) return;
+    seen.add(id);
+    candidates.push({ id, kind, title: shorten(title || "запись", 70), quote, at: formatObjectStamp(at), day: String(at || "").slice(0, 10) });
+  };
+
+  // Ранжирование отдаём minisearch (тот же движок, что панель «Память»), чтобы поиск в системе
+  // был один, а не второй, специально для ответов.
+  let hits = [];
+  try {
+    hits = await searchMemory(state, terms.join(" ") || cleanLine(question));
+  } catch (error) {
+    hits = [];
+  }
+  for (const hit of hits.slice(0, 5)) {
+    const note = (state.notes || {})[hit.noteId];
+    if (note && !note.deleted) pushCitation(note.id, "note", note.title, note.body, note.createdAt);
+  }
+  // Захваты минисёрчем не индексируются (индекс по заметкам) — добираем их прямым проходом,
+  // иначе ответ на вопрос о сегодняшнем дне остался бы без источников.
+  if (terms.length) {
+    const sources = Object.values(state.sources || {})
+      .filter((source) => !source.deleted && terms.some((term) => normalizeRuText(source.text || source.name || "").includes(term)))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    for (const source of sources.slice(0, 5)) pushCitation(source.id, "source", source.name, source.text, source.createdAt);
+  }
+
+  // Каждый захват порождает и источник, и заметку с тем же текстом. Считать это двумя
+  // упоминаниями — врать про частоту темы, поэтому дедуп по самой цитате, а из пары
+  // оставляем сырой захват: у него настоящее время и вид записи.
+  const byQuote = new Map();
+  for (const row of candidates) {
+    const key = normalizeRuText(row.quote);
+    const previous = byQuote.get(key);
+    if (!previous || (previous.kind !== "source" && row.kind === "source")) byQuote.set(key, row);
+  }
+  const cited = [...byQuote.values()].sort((a, b) => String(b.day).localeCompare(String(a.day)));
+
+  if (!cited.length) {
+    return {
+      question: cleanLine(question),
+      answer: "В твоих записях об этом ничего нет — отвечать не из чего. Я не буду придумывать ответ: запиши, что знаешь по теме, и спроси снова.",
+      citations: [],
+      createdNothing: true,
+      createdAt: now()
+    };
+  }
+
+  // Ответ собирается ТОЛЬКО из найденного: сколько раз тема встречается, когда впервые и
+  // последний раз, и что именно записано. Никаких выводов сверх данных.
+  const days = cited.map((row) => row.day).filter(Boolean).sort();
+  const span = days.length > 1 && days[0] !== days[days.length - 1]
+    ? " Первое упоминание " + formatObjectDay(days[0]) + ", последнее " + formatObjectDay(days[days.length - 1]) + "."
+    : "";
+  const answer = "По твоим записям тема встречается " + cited.length + " " + pluralRu(cited.length, "раз", "раза", "раз") + "." + span
+    + " Ниже — что именно записано, дословно и со ссылкой на источник. Вывод из этого делаешь ты: я показываю только то, что есть.";
+  return { question: cleanLine(question), answer, citations: cited, createdNothing: true, createdAt: now() };
+}
+
+function storeGroundedAnswer(state, answer) {
+  state.control.lastAnswer = answer;
+  state.captureDraft = "";
+  // Вопрос всё равно сохраняется как запись — ничего не теряется. Но это ЗАПИСЬ вопроса,
+  // а не задача: предложений из него не создаётся (в этом и есть закон №7).
+  const sourceId = addImportedSource(state, {
+    name: shorten(answer.question, 48) + ".md",
+    kind: "text",
+    mime: "text/markdown",
+    size: answer.question.length,
+    text: answer.question,
+    dataUrl: "",
+    parserStatus: "text-ready",
+    status: "text-ready"
+  });
+  const source = state.sources[sourceId];
+  if (source) source.isQuestion = true;
+  addAudit(state, "question.answer", "Вопрос отвечен с цитатами, ничего не создано: " + shorten(answer.question, 60), source ? source.noteId : "");
+  return sourceId;
+}
+
+function computeAnswerView(state) {
+  const answer = state.control.lastAnswer;
+  if (!answer || !answer.question) return { hasAnswer: false };
+  return {
+    hasAnswer: true,
+    question: answer.question,
+    answer: answer.answer,
+    at: formatObjectStamp(answer.createdAt),
+    citations: (answer.citations || []).map((row) => Object.assign({}, row)),
+    // Явная строка канона: система сообщает, что ничего не записала.
+    nothingCreatedLine: "Ничего не создано: это был вопрос, а не задача. Запись самого вопроса сохранена в потоке."
+  };
+}
+
+// ============================================================================
+// Разбор дня (канон design-system/Universal Capture.dc.html)
+// ============================================================================
+// Вечером приходит 20–30 голосовых, PDF и скриншотов. Разбор проходит по стадиям, и у каждой
+// стадии виден РЕАЛЬНЫЙ счётчик того, что она сделала: сколько захватов прочитано, сколько
+// сущностей извлечено, сколько совпало с существующим (закон №4: дубликаты не создаются),
+// сколько связей добавилось. Конвейер инспектируемый (донор-идея Haystack) — видно, что нашлось
+// и почему. Ничего не записывается: на выходе предложения, а низкая уверенность становится
+// ВОПРОСОМ, а не предложением (закон №6).
+
+// Ниже этого порога предложение не показывается как «принять/отклонить» — оно превращается в
+// вопрос. Порог один на всю систему, чтобы гейт уверенности везде значил одно и то же.
+const DIGEST_CONFIDENCE_GATE = 0.75;
+
+// Предложения делятся надвое. «Жизненные» — то, что появляется в целях, дне и деньгах: только
+// про них можно спрашивать владельца. Остальные (разобрать файл, запустить организатора,
+// открыть контекст в чате) — служебные шаги самого разбора; спрашивать «создать объект
+// „Запустить локального организатора“?» — это и есть театр кнопок, которого тут быть не должно.
+const DIGEST_LIFE_TYPES = new Set([
+  "task", "calendar", "plan", "reminder", "goal", "money_goal", "habit", "routine",
+  "finance_expense", "finance_income", "balance", "budget", "subscription", "bill", "shift"
+]);
+
+// Служебные заголовки-заглушки анализатора: сам тип жизненный, но объект — про разбор файла,
+// а не про жизнь. Их тоже не выносим в вопросы.
+const DIGEST_SCAFFOLD_TITLE = /^(разобрать |вытащить задачи из |поставить в календарь: |добавить транскрипт|собрать оглавление|подключить локальный парсер|запустить локального организатора|проверить ссылки)/i;
+
+function isDigestLifeProposal(proposal) {
+  return DIGEST_LIFE_TYPES.has(proposal.type) && !DIGEST_SCAFFOLD_TITLE.test(String(proposal.title || ""));
+}
+
+function digestSourcesForDay(state, day) {
+  return Object.values(state.sources || {})
+    .filter((source) => !source.deleted && String(source.createdAt || "").slice(0, 10) === day)
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+}
+
+// Совпадение с существующим артефактом: предложение усиливает то, что уже есть, а не заводит
+// вторую копию. Проверяем по тем же коллекциям, куда предложение и приземлилось бы.
+function digestProposalMatch(state, proposal) {
+  const collections = {
+    task: state.tasks,
+    plan: state.planBlocks,
+    calendar: state.planBlocks,
+    reminder: state.reminders,
+    goal: state.goals,
+    money_goal: state.goals,
+    habit: state.habits,
+    routine: state.habits,
+    subscription: state.subscriptions,
+    budget: state.budgets
+  };
+  const collection = collections[proposal.type];
+  if (!collection) return null;
+  return findExistingByTitle(collection, proposal.title);
+}
+
+function runDayDigest(state) {
+  const day = todayKey();
+  const sources = digestSourcesForDay(state, day);
+  const before = Object.values(state.proposals || {}).filter((item) => item.status === "open").length;
+  const edgesBefore = (graphForDisplay(state).links || []).length;
+
+  for (const source of sources) createActionProposalsForSource(state, source.id);
+
+  const proposals = Object.values(state.proposals || {}).filter((item) => item.status === "open" && sources.some((source) => source.id === item.sourceId));
+  const voices = sources.filter((source) => source.kind === "audio").length;
+  const transcribed = sources.filter((source) => source.kind === "audio" && (source.transcript || Object.values(state.transcriptSegments || {}).some((segment) => segment.sourceId === source.id))).length;
+  const files = sources.filter((source) => source.kind !== "audio" && source.kind !== "text").length;
+  const texts = sources.filter((source) => source.kind === "text").length;
+  const entityProposals = proposals.filter((item) => item.type === "entity-extract");
+  const entityNames = new Set();
+  for (const item of entityProposals) {
+    for (const name of (item.fields && item.fields.names) || []) entityNames.add(String(name).toLocaleLowerCase("ru-RU"));
+  }
+  const matches = proposals.filter((item) => Boolean(digestProposalMatch(state, item))).length;
+  const edgesAfter = (graphForDisplay(state).links || []).length;
+  const lifeProposals = proposals.filter(isDigestLifeProposal);
+  const asks = lifeProposals.filter((item) => item.confidence < DIGEST_CONFIDENCE_GATE || proposalNeedsOwnerChoice(item)).length;
+
+  const stages = [
+    {
+      id: "read",
+      label: "Читаю захваты за сегодня",
+      value: sources.length ? sources.length + " " + pluralRu(sources.length, "объект", "объекта", "объектов") : "нечего читать",
+      detail: sources.length ? [voices ? voices + " голосовых" : "", files ? files + " файлов" : "", texts ? texts + " текстовых" : ""].filter(Boolean).join(" · ") : "За сегодня захватов не было."
+    },
+    {
+      id: "transcribe",
+      label: "Расшифровываю голосовые",
+      value: voices ? transcribed + " из " + voices : "голосовых нет",
+      // Честно про провайдера: если расшифровки нет, не делаем вид, что она была (§7).
+      detail: !voices
+        ? "Голосовых за сегодня не было."
+        : transcribed === voices
+          ? "Все расшифрованы локально."
+          : (voices - transcribed) + " ждут расшифровки: локальная модель не запущена, текст из них ещё не читался."
+    },
+    {
+      id: "entities",
+      label: "Извлекаю сущности: люди, суммы, сроки, решения",
+      value: entityNames.size ? entityNames.size + " " + pluralRu(entityNames.size, "сущность", "сущности", "сущностей") : "сущностей не найдено",
+      detail: entityProposals.length ? "Из " + entityProposals.length + " " + pluralRu(entityProposals.length, "захвата", "захватов", "захватов") + " с распознанными именами и датами." : "В сегодняшних захватах не нашлось имён, дат и сумм."
+    },
+    {
+      id: "graph",
+      label: "Сверяю с графом — дубликаты не создаю",
+      value: matches + " " + pluralRu(matches, "совпадение", "совпадения", "совпадений"),
+      detail: matches
+        ? "Столько предложений усиливают уже существующие объекты, а не заводят вторые копии."
+        : "Совпадений с существующими объектами нет — всё сегодняшнее новое."
+    },
+    {
+      id: "links",
+      label: "Строю связи с целями и проектами",
+      value: Math.max(0, edgesAfter - edgesBefore) + " " + pluralRu(Math.max(0, edgesAfter - edgesBefore), "новая связь", "новые связи", "новых связей"),
+      detail: "Всего связей в графе: " + edgesAfter + "."
+    },
+    {
+      id: "patterns",
+      label: "Смотрю назад: повторы, противоречия, риски",
+      value: computeInsights(state).length + " " + pluralRu(computeInsights(state).length, "наблюдение", "наблюдения", "наблюдений"),
+      detail: "Считано по всем данным, а не только по сегодняшним."
+    },
+    {
+      id: "done",
+      label: "Собрал предложения. Ничего не записано без твоего согласия",
+      value: lifeProposals.length + " " + pluralRu(lifeProposals.length, "предложение", "предложения", "предложений"),
+      detail: (asks ? asks + " из них система не уверена — они внизу как вопросы, а не как предложения. " : "Все с достаточной уверенностью. ")
+        + "Плюс " + (proposals.length - lifeProposals.length) + " " + pluralRu(proposals.length - lifeProposals.length, "служебный шаг", "служебных шага", "служебных шагов") + " самого разбора — про них не спрашиваю."
+    }
+  ];
+
+  state.control.dayDigest = {
+    day,
+    ranAt: now(),
+    stages,
+    counts: { sources: sources.length, voices, entities: entityNames.size, matches, proposals: lifeProposals.length, service: proposals.length - lifeProposals.length, asks, newProposals: Math.max(0, proposals.length - before) }
+  };
+  addAudit(state, "digest.run", "Разбор дня: " + sources.length + " захватов, " + proposals.length + " предложений, ничего не записано", "");
+}
+
+// Низкая уверенность → вопрос с вариантами ответа, а не предложение с кнопкой «Принять».
+// Вопрос строится из того, что именно неясно, и несёт цитату-основание.
+function digestQuestion(state, proposal) {
+  const fields = proposal.fields && typeof proposal.fields === "object" ? proposal.fields : {};
+  const source = proposal.sourceId ? (state.sources || {})[proposal.sourceId] : null;
+  const from = source && !source.deleted ? "из «" + shorten(source.name || streamKindLabel(source), 40) + "» " + formatObjectStamp(source.createdAt) : "из сегодняшнего захвата";
+  const percent = Math.round((Number(proposal.confidence) || 0) * 100);
+  if (fields.timeAmbiguous || fields.needsOwnerChoice) {
+    return {
+      id: proposal.id,
+      question: "Во сколько это? «" + shorten(proposal.title, 60) + "»",
+      why: String(fields.ambiguityReason || fields.needsOwnerChoice || "Время в записи можно понять двумя способами.") + " " + from + ".",
+      quote: proposal.quote || "",
+      confidence: percent,
+      options: [
+        { id: "apply", label: "Уточнить и создать", hint: "откроет запись, чтобы поставить время руками" },
+        { id: "dismiss", label: "Не создавать", hint: "запись останется в потоке, ничего не заведётся" }
+      ]
+    };
+  }
+  const kindLabel = { task: "задачу", plan: "блок в календарь", calendar: "событие", reminder: "напоминание", goal: "цель", habit: "привычку", finance_expense: "расход", finance_income: "доход" }[proposal.type] || "объект";
+  return {
+    id: proposal.id,
+    question: "Создать " + kindLabel + " «" + shorten(proposal.title, 60) + "»?",
+    why: (proposal.reason || "Найдено в записи") + " " + from + ". Уверенность " + percent + "% — ниже порога, поэтому спрашиваю, а не предлагаю.",
+    quote: proposal.quote || "",
+    confidence: percent,
+    options: [
+      { id: "apply", label: "Да, создать", hint: "заведёт " + kindLabel + " и запишет чек" },
+      { id: "dismiss", label: "Нет, это просто мысль", hint: "останется в потоке как запись, объект не создаётся" }
+    ]
+  };
+}
+
+function computeDayDigestView(state) {
+  const day = todayKey();
+  const report = state.control.dayDigest && state.control.dayDigest.day === day ? state.control.dayDigest : null;
+  const sources = digestSourcesForDay(state, day);
+  const todaysProposals = Object.values(state.proposals || {})
+    .filter((item) => item.status === "open" && sources.some((source) => source.id === item.sourceId));
+  const lifeProposals = todaysProposals.filter(isDigestLifeProposal);
+  const asks = lifeProposals.filter((item) => item.confidence < DIGEST_CONFIDENCE_GATE || proposalNeedsOwnerChoice(item));
+  const ready = lifeProposals.filter((item) => !asks.includes(item));
+  return {
+    day,
+    hasReport: Boolean(report),
+    ranAt: report ? formatObjectStamp(report.ranAt) : "",
+    stages: report ? report.stages : [],
+    counts: report ? report.counts : null,
+    sourceCount: sources.length,
+    readyCount: ready.length,
+    // Живые вопросы, а не снимок отчёта: ответил на один — он сразу уходит из списка.
+    questions: asks.slice(0, 8).map((proposal) => digestQuestion(state, proposal)),
+    hint: sources.length
+      ? "Разбор читает только сегодняшние захваты и ничего не записывает — на выходе предложения и вопросы."
+      : "За сегодня захватов ещё не было. Запиши мысль, скинь файл или голосовое — и разбор будет из чего собрать."
+  };
+}
+
+function answerDigestQuestion(state, compositeId) {
+  const raw = String(compositeId || "");
+  const separator = raw.lastIndexOf("::");
+  if (separator < 0) return;
+  const proposalId = raw.slice(0, separator);
+  const answer = raw.slice(separator + 2);
+  const proposal = (state.proposals || {})[proposalId];
+  if (!proposal || proposal.status !== "open") return;
+  if (answer === "apply") {
+    applyProposal(state, proposalId);
+    return;
+  }
+  dismissProposal(state, proposalId);
+  addReceipt(state, "decision", proposalId, "Вопрос «" + shorten(proposal.title, 60) + "» закрыт ответом «нет» — объект не создавался.", { surface: "capture", noteId: proposal.noteId || "" });
 }
 
 function objectReturnSurface(state) {
@@ -18654,6 +19250,18 @@ async function handleAction(action, id) {
     });
     return;
   }
+  if (action === "run-day-digest") {
+    await store.commit("Разбор дня выполнен", (state) => runDayDigest(state));
+    return;
+  }
+  if (action === "answer-digest-question") {
+    await store.commit("Ответ на вопрос разбора", (state) => answerDigestQuestion(state, id));
+    return;
+  }
+  if (action === "resolve-today-conflict") {
+    await store.commit("Пересечение в расписании закрыто", (state) => resolveTodayConflict(state, id));
+    return;
+  }
   if (action === "resolve-object-conflict") {
     await store.commit("Противоречие закрыто", (state) => resolveObjectConflict(state, id));
     return;
@@ -19262,6 +19870,13 @@ async function handleAction(action, id) {
   if (action === "capture-text") {
     const input = document.querySelector("#capture-input");
     const text = input ? input.value : store.state.captureDraft;
+    // Закон №7: вопрос остаётся вопросом. Ответ собирается ДО commit (поиск асинхронный),
+    // а сам commit только сохраняет запись вопроса и ответ — ни одного предложения из него.
+    if (looksLikeQuestion(text)) {
+      const answer = await buildGroundedAnswer(store.state, text);
+      await store.commit("Ответ на вопрос", (state) => storeGroundedAnswer(state, answer));
+      return;
+    }
     await store.commit("Inbox captured", (state) => captureTextArtifact(state, text));
     return;
   }

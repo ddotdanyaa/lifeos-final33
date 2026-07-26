@@ -3,6 +3,7 @@ import { renderAssistantHome } from "./home.js";
 import { renderCalendar } from "./calendar.js";
 import { renderChat } from "./chat.js";
 import { renderControl } from "./control.js";
+import { renderDayDigest } from "./digest.js";
 import { renderFinance } from "./finance.js";
 import { renderGraph } from "./graph.js";
 import { renderHabitsGoals } from "./habits-goals.js";
@@ -178,7 +179,7 @@ function renderSurface(ctx) {
     case "providers":
       return renderProviders(ctx);
     case "capture":
-      return `<section class="workspace-v2 capture-workspace" data-testid="workspace-capture">${renderAssistantHome(ctx)}${renderDayStream(ctx)}</section>`;
+      return `<section class="workspace-v2 capture-workspace" data-testid="workspace-capture">${renderAssistantHome(ctx)}${renderDayStream(ctx)}${renderDayDigest(ctx)}</section>`;
     case "inbox":
     default:
       return renderAssistantHome(ctx);

@@ -1,4 +1,5 @@
 import { renderAssistantInput } from "./components/AssistantInput.js";
+import { renderGroundedAnswer } from "./components/GroundedAnswer.js";
 import { renderHumanAnswerCard } from "./components/HumanAnswerCard.js";
 import { renderRecordPanel } from "./components/PlayerSurface.js";
 import { renderTimeGrid } from "./components/TimeGrid.js";
@@ -293,6 +294,8 @@ export function renderAssistantHome(ctx) {
     renderLifeFocus(ctx),
     `<div class="assistant-home-grid">`,
     renderAssistantInput(ctx),
+    // Закон №7: если последним был вопрос — сначала ответ с цитатами, а не карточка разбора.
+    renderGroundedAnswer(ctx),
     renderHumanAnswerCard(ctx),
     // V3-DESIGN: плитки Сегодня/Деньги/Привычки — старый дашборд, в каноне их нет: первый
     // экран отвечает на «что сейчас важнее всего», а цифры живут в своих разделах. Свёрнуты
