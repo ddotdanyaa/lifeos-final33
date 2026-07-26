@@ -4632,17 +4632,13 @@ function hasAnyText(lower, words) {
 // пропускает начала предложений; entity resolution (Женя=Жека) - отдельный срез 10.
 const PEOPLE_STOPWORDS = new Set(["LifeOS", "Задача", "Расход", "Доход", "Мысль", "Смена", "Заметка", "Напомни", "Сегодня", "Завтра", "Вчера", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь", "Москва", "Ollama", "Whisper", "Vosk"]);
 
+// В системе было ДВА параллельных извлекателя людей: этот (по заглавным словам, только не с
+// начала предложения) и extractEntitiesFromText (по словам-подсказкам). Из-за этого «Марина
+// против кредита» не давала человека ни там, ни там: для одного слово стояло первым, для
+// другого не было подсказки. Теперь извлекатель один — здесь остаётся только его вызов,
+// чтобы analyzeArtifactInput и разбор захвата видели одних и тех же людей.
 function extractPeopleNames(text) {
-  const names = [];
-  const sentences = String(text || "").split(/[.!?\n]+/);
-  for (const sentence of sentences) {
-    const words = sentence.trim().split(/\s+/);
-    for (let index = 1; index < words.length; index += 1) {
-      const word = words[index].replace(/[^А-ЯЁа-яёA-Za-z-]/g, "");
-      if (/^[А-ЯЁ][а-яё]{2,}$/.test(word) && !PEOPLE_STOPWORDS.has(word)) names.push(word);
-    }
-  }
-  return uniqueCleanItems(names, 6);
+  return uniqueCleanItems(extractEntitiesFromText(String(text || "")).people, 6);
 }
 
 // Срез 10: разрешение сущностей-людей. Одно лицо в разных формах («Данил»/«Даня») - одна
@@ -4660,6 +4656,28 @@ const KNOWN_PERSON_ALIASES = {
 };
 function personKey(name) {
   return String(name || "").trim().toLocaleLowerCase().replace(/ё/g, "е");
+}
+
+// Русское имя в записи почти никогда не стоит в именительном: «позвонить Дмитрию», «с Мариной»,
+// «встретил Игоря». По голому lowercase это три разных человека, и панель «Люди» заполняется
+// падежами одного и того же. Снимаем падежное окончание — грубо, но по правилу языка:
+// Дмитрий/Дмитрию → дмитри, Марина/Мариной/Марине → марин, Игорь/Игорем → игор.
+const RU_NAME_ENDINGS_2 = ["ом", "ем", "ой", "ей", "ою", "ею", "ам", "ах", "ья", "ье"];
+const RU_NAME_ENDINGS_1 = ["а", "я", "ы", "и", "у", "ю", "е", "й", "ь", "о"];
+
+function personStemKey(name) {
+  let key = personKey(name);
+  if (key.length < 4) return key;
+  for (const ending of RU_NAME_ENDINGS_2) {
+    if (key.endsWith(ending) && key.length - ending.length >= 3) {
+      key = key.slice(0, -ending.length);
+      return key;
+    }
+  }
+  for (const ending of RU_NAME_ENDINGS_1) {
+    if (key.endsWith(ending) && key.length - 1 >= 3) return key.slice(0, -1);
+  }
+  return key;
 }
 function canonicalPersonName(name, aliases) {
   const key = personKey(name);
@@ -4688,12 +4706,18 @@ function resolvePeople(state) {
   const canon = new Map();
   for (const mention of collectPersonMentions(state)) {
     const canonical = canonicalPersonName(mention.display, aliases);
-    const ck = personKey(canonical);
-    if (!canon.has(ck)) canon.set(ck, { name: canonical, aliases: new Set(), count: 0, sourceIds: new Set() });
+    // Группируем по основе имени, а не по точному написанию: падежи одного человека — один узел.
+    const ck = personStemKey(canonical);
+    if (!canon.has(ck)) canon.set(ck, { name: canonical, aliases: new Set(), count: 0, sourceIds: new Set(), forms: new Set() });
     const entry = canon.get(ck);
     entry.count += mention.count;
+    entry.forms.add(canonical);
     for (const sid of mention.sourceIds) entry.sourceIds.add(sid);
-    if (personKey(mention.display) !== ck) entry.aliases.add(mention.display);
+    // Именительный падеж обычно самая короткая форма («Марина» против «Мариной»), её и
+    // показываем; остальные встреченные написания остаются как псевдонимы.
+    const shortest = [...entry.forms].sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+    entry.name = shortest;
+    entry.aliases = new Set([...entry.forms].filter((form) => form !== shortest));
   }
   return [...canon.values()]
     .map((entry) => ({ name: entry.name, aliases: [...entry.aliases], mentions: entry.count, sourceIds: [...entry.sourceIds] }))
@@ -5567,6 +5591,23 @@ function captureTextArtifact(state, text) {
 // never a wall of two-word junk. People are captured from person-cues ("с Анной", "встретил
 // Ивана"), places from a canonical stem dictionary (any case form -> canonical name), projects
 // from a project-keyword followed by consecutive Capitalized words, dates from months/ISO/relative.
+// Частые зачины захвата: с них владелец начинает фразу, и заглавная буква тут — знак начала
+// предложения, а не имени собственного. Без этого списка «Хочу купить машину» дало бы человека
+// по имени «Хочу». Список закрывает глаголы, местоимения, наречия времени и слова-типы записи.
+const RU_CAPTURE_STOPWORDS = new Set([
+  "хочу", "хотел", "надо", "нужно", "нужен", "нужна", "буду", "будет", "было", "если", "когда",
+  "потом", "сегодня", "завтра", "вчера", "утром", "днём", "днем", "вечером", "ночью", "потратил",
+  "потратила", "заработал", "заработала", "купил", "купила", "купить", "продать", "сделать",
+  "сделал", "позвонить", "позвонил", "написать", "написал", "ответить", "отвечу", "спросить",
+  "посчитать", "посчитал", "оценить", "оценил", "разобрать", "разобрал", "проверить", "проверил",
+  "встреча", "встретиться", "задача", "мысль", "идея", "заметка", "напоминание", "план", "цель",
+  "проект", "работа", "работать", "работаю", "тренировка", "тренировался", "после", "перед",
+  "может", "можно", "стоит", "пора", "почему", "зачем", "какой", "какая", "сколько", "это",
+  "этот", "эта", "мне", "меня", "мой", "моя", "мои", "там", "тут", "здесь", "очень", "просто",
+  "тоже", "ещё", "еще", "уже", "весь", "вся", "все", "всё", "они", "она", "оно", "как", "что",
+  "чтобы", "пока", "весной", "летом", "осенью", "зимой", "деньги", "смета", "счёт", "счет"
+]);
+
 function extractEntitiesFromText(text) {
   const empty = { people: [], projects: [], places: [], dates: [] };
   if (!text) return empty;
@@ -5615,6 +5656,36 @@ function extractEntitiesFromText(text) {
     for (const raw of m[1].split(/\s*(?:,|\sи\s)\s*/)) {
       const name = raw.trim();
       if (name && !placeSet.has(name) && !projectSet.has(name)) entities.people.push(name);
+    }
+  }
+
+  // Имена БЕЗ слова-подсказки. Реальные голосовые владельца звучат как «Марина против кредита»
+  // и «Дмитрий ждёт ответа» — подсказки («с», «звонил») там нет, и такие имена терялись целиком,
+  // из-за чего люди почти не появлялись в графе.
+  // Опора на правило языка, а не на словарь имён: русский НЕ пишет нарицательные с большой буквы
+  // в середине предложения, поэтому заглавное слово не в начале фразы — почти наверняка имя
+  // собственное. Для слова в начале фразы этого признака нет, поэтому там работает стоп-лист
+  // частых зачинов захвата; всё остальное считается кандидатом.
+  for (const sentence of String(text).split(/(?<=[.!?…\n])\s+/)) {
+    const words = sentence.trim().split(/\s+/);
+    // В записи про трату последнее заглавное слово — это почти всегда магазин, а не человек
+    // («Потратил 4380 продукты Лента»). Отличить организацию от имени без словаря нельзя,
+    // поэтому опираемся на форму самой записи, а не гадаем.
+    const looksLikeSpending = /\d/.test(sentence) && /потрат|купил|оплат|чек|расход|заработ/i.test(sentence);
+    for (let index = 0; index < words.length; index += 1) {
+      const word = words[index].replace(/^[^А-ЯЁа-яё]+|[^А-ЯЁа-яё]+$/g, "");
+      if (!/^[А-ЯЁ][а-яё]{2,}$/.test(word)) continue;
+      const lower = word.toLocaleLowerCase("ru-RU");
+      if (placeSet.has(word) || projectSet.has(word)) continue;
+      // Место в косвенном падеже («Москву») в placeSet не попадает — сверяем по основе.
+      if ([...placeSet].some((place) => lower.startsWith(place.toLocaleLowerCase("ru-RU").slice(0, 4)))) continue;
+      if (RU_CAPTURE_STOPWORDS.has(lower)) continue;
+      if (monthCanon.some((month) => lower.startsWith(month.slice(0, 4)))) continue;
+      // В начале предложения заглавная буква не значит ничего, поэтому глагольные окончания
+      // отсекаем именно там: «Съездили в Москву» — это не человек по имени Съездили.
+      if (index === 0 && /(ли|ло|ла|ть|лся|лись|ем|ет|ешь|ю)$/.test(lower)) continue;
+      if (looksLikeSpending && index === words.length - 1) continue;
+      entities.people.push(word);
     }
   }
 
@@ -23503,6 +23574,7 @@ window.__lifeosKnowledgeBase = {
   fileToSourcePayload,
   addImportedSource,
   analyzeArtifactInput,
+  extractEntitiesFromText,
   parseDateFromText,
   parseTimeFromText,
   parseTaskSchedule,
