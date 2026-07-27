@@ -11,7 +11,7 @@ Finance text capture creates expense, account/balance, subscription/bill, income
   "sources": 1,
   "notes": 1,
   "tasks": 1,
-  "calendarBlocks": 1,
+  "calendarBlocks": 0,
   "reminders": 0,
   "financeTransactions": 2,
   "accounts": 1,
@@ -19,7 +19,7 @@ Finance text capture creates expense, account/balance, subscription/bill, income
   "subscriptions": 1,
   "habits": 0,
   "goals": 0,
-  "insights": 1,
+  "insights": 0,
   "claims": 0,
   "questions": 0,
   "reviewItems": 3,
@@ -32,20 +32,20 @@ Finance text capture creates expense, account/balance, subscription/bill, income
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 0,
-  "proposalsApplied": 7,
-  "auditEvents": 21,
+  "proposalsOpen": 2,
+  "proposalsApplied": 6,
+  "auditEvents": 26,
   "graphNodes": 18,
-  "graphEdges": 37,
-  "graphEdgeReasons": 37
+  "graphEdges": 36,
+  "graphEdgeReasons": 36
 }
 ```
 
 ## Graph Edges
-After: 533 edges, 533 with visible reasons.
+After: 506 edges, 506 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: finance.transaction: Finance expense: Пятёрочка 1240 RUB | proposal.apply: Applied proposal: Пятёрочка | finance.transaction: Finance income: Доход 1240 RUB | proposal.apply: Applied proposal: Доход | finance.account: Finance account set: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка
+After: 299 audit events. Tail: finance.transaction: Finance expense: Пятёрочка 1240 RUB | proposal.apply: Applied proposal: Пятёрочка | finance.transaction: Finance income: Доход 1240 RUB | proposal.apply: Applied proposal: Доход | finance.account: Finance account set: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка
 
 ## Remaining Gated
 None for this local journey.

@@ -11,7 +11,7 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
   "sources": 1,
   "notes": 1,
   "tasks": 1,
-  "calendarBlocks": 1,
+  "calendarBlocks": 0,
   "reminders": 1,
   "financeTransactions": 1,
   "accounts": 1,
@@ -19,7 +19,7 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
   "subscriptions": 0,
   "habits": 1,
   "goals": 1,
-  "insights": 1,
+  "insights": 0,
   "claims": 0,
   "questions": 0,
   "reviewItems": 1,
@@ -32,20 +32,20 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 0,
-  "proposalsApplied": 7,
-  "auditEvents": 26,
-  "graphNodes": 15,
-  "graphEdges": 26,
-  "graphEdgeReasons": 26
+  "proposalsOpen": 1,
+  "proposalsApplied": 6,
+  "auditEvents": 23,
+  "graphNodes": 14,
+  "graphEdges": 24,
+  "graphEdgeReasons": 24
 }
 ```
 
 ## Graph Edges
-After: 66 edges, 66 with visible reasons.
+After: 62 edges, 62 with visible reasons.
 
 ## Data Control Events
-After: 65 audit events. Tail: proposal.apply: Applied proposal: Напомнить: зал купить протеин вода 2л до 1 июля накопить | finance.account: Finance account set: Основной счет | finance.transaction: Finance expense: Протеин 14 RUB | proposal.apply: Applied proposal: Протеин | habit.create: Habit created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | goal.create: Goal created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером
+After: 59 audit events. Tail: proposal.apply: Applied proposal: Напомнить: Зал купить протеин вода 2л до 1 июля накопить | finance.account: Finance account set: Основной счет | finance.transaction: Finance expense: Протеин 2500 RUB | proposal.apply: Applied proposal: Протеин | habit.create: Habit created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | goal.create: Goal created: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером
 
 ## Remaining Gated
 None for this local journey.

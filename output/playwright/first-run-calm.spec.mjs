@@ -99,6 +99,8 @@ test("first ten minutes: guided capture, one action flows through, no dead-end s
   await expect(page.getByTestId("graph-workbench")).toBeVisible();
 
   const afterFirstRun = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
-  const createdTask = Object.values(afterFirstRun.tasks).find((task) => (task.title || "").includes("позвонить маме"));
+  // Регистр заголовка намеренно изменён продуктом: снятое обстоятельство больше не оставляет
+  // строчную букву («сегодня в 18:00 позвонить маме» → «Позвонить маме»).
+  const createdTask = Object.values(afterFirstRun.tasks).find((task) => /позвонить маме/i.test(task.title || ""));
   expect(createdTask).toBeTruthy();
 });
