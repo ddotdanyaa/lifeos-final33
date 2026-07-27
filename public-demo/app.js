@@ -4706,6 +4706,10 @@ function capitalizeFirstLetter(text) {
 // Числительные и несколько существительных, которые по форме неотличимы от инфинитива
 // («опять», «двадцать», «почти»). Список короткий и закрытый: он покрывает ровно те слова,
 // которыми владелец реально начинает захват.
+// Глагол в инфинитиве где угодно во фразе. Та же примета, что и у правила «инфинитив в начале»:
+// гласная перед «-ть», потому что существительные на «-ть» идут через согласную.
+const INFINITIVE_ANYWHERE_RE = /(?<![А-Яа-яЁё])[а-яё]{2,}(?:[аяеиоуы]ть|ти|чь)(?:ся|сь)?(?![А-Яа-яЁё])/i;
+
 const NOT_INFINITIVE_START = new Set([
   "опять", "почти", "часть", "новость", "новости", "власть", "радость", "жалость",
   "одиннадцать", "двенадцать", "тринадцать", "четырнадцать", "пятнадцать", "шестнадцать",
@@ -5242,8 +5246,17 @@ function analyzeArtifactInput(input, fileMeta) {
   // заводились оба черновика, и один смысл давал два объекта с одним названием: задачу и блок
   // дня. Хуже того, они попадали в один и тот же таймлайн и объявлялись конфликтом друг с
   // другом — система находила «пересечение» объекта с его же двойником.
+  // Время само по себе НЕ делает запись событием: «заказать еду в 23:00» — это дело со временем,
+  // его можно выполнить, а блок дня выполнить нельзя. Разводит их ЯЗЫК ДЕЙСТВИЯ, и искать его
+  // надо во всей фразе, а не только в начале: «сегодня в 11 вечера заказать еду» начинается
+  // с обстоятельства, а глагол дела стоит в конце.
   const hasEventTime = Boolean(time.startTime);
-  if (!shift && !isSelfObservation && !hasEventTime && (isTask || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea)) {
+  const actionLanguage = isTask || INFINITIVE_ANYWHERE_RE.test(String(text || ""));
+  // Событием запись становится только когда время есть, а глагола дела нет вовсе.
+  const eventOnly = hasEventTime && !actionLanguage && !isWorkPlan;
+  // Голая дата без языка действия задачей не становится, если время уже отдало запись событию:
+  // иначе «завтра в 14:00 зал» снова давало бы пару «задача + блок».
+  if (!shift && !isSelfObservation && (isTask || isHome || isTravel || isFood || isProject || isIdea || (hasDateOrTime && !eventOnly))) {
     const actionReason = isProject || isIdea
       ? "Идея или проект требует owner-visible следующего шага"
       : "Найден глагол действия или предмет покупки/дела";
@@ -5256,7 +5269,7 @@ function analyzeArtifactInput(input, fileMeta) {
       ...timeChoiceFields
     }, 0.82));
   }
-  if (hasEventTime && !isWorkPlan) {
+  if (eventOnly) {
     addDraftOnce(drafts, draft("calendar-main", "calendar", actionTitle, "calendar", "Найдено время события", sourceQuote(text, /\b(сегодня|завтра|послезавтра|вечером|утром|днем|\d{1,2}[:.]\d{2}|в\s+\d{1,2})[^,.!?]*/i), {
       title: actionTitle,
       day: day || todayKey(),
@@ -5838,6 +5851,9 @@ function addProposal(state, type, title, sourceId, noteId, details) {
     destination: cleanLine(extra.destination || destinationForProposalType(type || "task")),
     reason: cleanLine(extra.reason || "Найдено в источнике"),
     quote: cleanLine(extra.quote || ""),
+    // Откуда предложение взялось. Служебные шаги разбора отличаются от осознанных действий
+    // владельца именно этим: у них есть draftId автоматического черновика.
+    draftId: cleanLine(extra.draftId || ""),
     confidence: Number.isFinite(Number(extra.confidence)) ? Math.max(0, Math.min(1, Number(extra.confidence))) : 0.72,
     fields: extra.fields && typeof extra.fields === "object" ? clone(extra.fields) : {},
     appliedObjectId: "",
@@ -7659,16 +7675,15 @@ function addReminderForReviewItem(state, reviewId) {
   return reminderId;
 }
 
-// Машинерия конвейера, распознаваемая по типу и по точному служебному названию. Тип `control` —
-// это всегда шаг «записать связи и контроль»; «Сохранить источник в библиотеку» приходит типом
-// `knowledge`, поэтому одного типа мало. Названия сравниваем целиком, чтобы настоящая заметка со
-// словом «источник» под правило не попала.
-const MACHINERY_PROPOSAL_TITLE = /^(сохранить источник в библиотеку|записать связи и контроль)$/i;
+// Машинерия конвейера — ровно два автоматических черновика самого разбора. Отличаем их по
+// draftId, а не по названию и типу: в чат-пути владелец САМ просит сохранить сообщение в базу,
+// и предложение там называется так же. Первая версия правила ловила по названию и обрывала это
+// осознанное действие — сломались ai-memory-gate и chat-actions, и правильно сломались.
+const MACHINERY_DRAFT_IDS = new Set(["knowledge-summary", "control-graph"]);
 
 function isMachineryProposal(proposal) {
   if (!proposal) return false;
-  if (proposal.type === "control") return true;
-  return MACHINERY_PROPOSAL_TITLE.test(cleanLine(proposal.title || ""));
+  return MACHINERY_DRAFT_IDS.has(cleanLine(proposal.draftId || ""));
 }
 
 function applyProposal(state, proposalId) {

@@ -58,7 +58,9 @@ test("owner chat-first capture creates real workspace objects @visual", async ({
   expect(Object.values(beforeApply.tasks).some((task) => String(task.title || "").includes("заказать еду"))).toBe(false);
   await page.getByTestId("human-primary-action").click();
   await page.getByTestId("surface-today").click();
-  await expect(page.getByTestId("workspace-today")).toContainText("заказать еду");
+  // Регистр заголовка намеренно изменён продуктом: снятая команда больше не оставляет строчную
+  // букву («надо заказать еду» → «Заказать еду»), поэтому сверка идёт без учёта регистра.
+  await expect(page.getByTestId("workspace-today")).toContainText(/заказать еду/i);
   await page.getByTestId("surface-calendar").click();
   await expect(page.getByTestId("workspace-calendar")).toContainText("23:00");
   await page.screenshot({ path: "output/playwright/owner-after-apply.png", fullPage: true });
@@ -66,7 +68,7 @@ test("owner chat-first capture creates real workspace objects @visual", async ({
   const todayTaskState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   expect(Object.values(todayTaskState.tasks).some((task) => {
     const time = task.startTime || task.time || "";
-    return String(task.title || "").includes("заказать еду") && time === "23:00";
+    return /заказать еду/i.test(String(task.title || "")) && time === "23:00";
   })).toBe(true);
   expect(Object.values(todayTaskState.auditLog || {}).some((event) => /task|proposal|apply/i.test(String(event.type || event.action || "")))).toBe(true);
 

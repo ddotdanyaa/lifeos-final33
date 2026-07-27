@@ -175,7 +175,9 @@ test("H08 Calendar shows a readable time grid, not a dense table", async ({ page
   // testid, not the ".calendar-grid" class - R2 renamed the class to "hourly-time-grid" to stop
   // colliding with a dead-code component's unrelated same-named class (see TimeGrid.js).
   await expect(page.getByTestId("calendar-grid")).toBeVisible();
-  await expect(page.getByTestId("calendar-agenda-strip")).toContainText("заказать еду");
+  // Регистр заголовка намеренно изменён продуктом: снятая команда больше не оставляет строчную
+  // букву («надо заказать еду» → «Заказать еду»), поэтому проверка идёт без учёта регистра.
+  await expect(page.getByTestId("calendar-agenda-strip")).toContainText(/заказать еду/i);
   await page.screenshot({ path: join(shotDir, "calendar.png"), fullPage: true });
 });
 
