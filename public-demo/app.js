@@ -4864,7 +4864,10 @@ function resolvePeople(state) {
     // показываем; остальные встреченные написания остаются как псевдонимы.
     const shortest = [...entry.forms].sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
     entry.name = shortest;
-    entry.aliases = new Set([...entry.forms].filter((form) => form !== shortest));
+    // Псевдонимы — это ВСЕ другие написания, включая исходные: «Даня» канонизируется в «Данил»
+    // ещё до группировки, и по одним каноническим формам след от «Дани» терялся. Панель обещает
+    // «„Данил“ и „Даня“ я узнаю как одного человека» — значит «Даня» должна быть видна.
+    entry.aliases = new Set([...entry.forms, ...entry.raw].filter((form) => form !== shortest));
   }
   return [...canon.values()]
     // id узла — ключ группы, а не основа показанного имени: после разделения «Дана» и «Даня»
