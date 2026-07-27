@@ -11711,3 +11711,110 @@ button.graph-growth-day.open i { outline: 2px solid var(--accent); outline-offse
 .graph-growth-item span { font-size: var(--text-xs); color: var(--muted); flex-shrink: 0; }
 .graph-growth-item strong { font-weight: 500; font-size: var(--text-sm); color: var(--ink); }
 .graph-growth-more { margin: 0; font-size: var(--text-xs); color: var(--muted); }
+
+/* Q1 СРЕЗЫ: конструктор представления над теми же артефактами. Строка условия должна читаться
+   как фраза («Задачи · статус · равно · открыта»), поэтому поля идут в ряд и переносятся
+   целиком, а не разрываются посередине условия. */
+.lens-panel { display: grid; gap: var(--space-3); }
+
+.lens-intro { margin: 0; font-size: var(--text-xs); color: var(--muted); }
+
+.lens-builder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+/* Условие читается как фраза, поэтому поля не растягиваются на всю ширину панели: «Откуда» и
+   «Поле» шириной в пол-экрана каждое разрывают фразу пополам. */
+.lens-field {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 150px;
+  max-width: 220px;
+}
+
+.lens-field span { font-size: var(--text-xs); color: var(--muted); }
+
+.lens-field select,
+.lens-field input {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.lens-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.lens-render-switch { display: flex; gap: var(--space-2); }
+
+.lens-count {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.lens-why { margin: 0; font-size: var(--text-xs); color: var(--muted); }
+
+.lens-list { display: grid; gap: var(--space-2); }
+
+.lens-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.lens-row span { font-size: var(--text-xs); color: var(--muted); flex-shrink: 0; }
+
+/* Таблица шире панели — прокручивается она сама, а не страница: горизонтальный скролл всего
+   экрана ломает чтение всех остальных панелей. */
+.lens-table-scroll { overflow-x: auto; }
+
+.lens-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.lens-table th,
+.lens-table td {
+  text-align: left;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.lens-table th { font-size: var(--text-xs); color: var(--muted); font-weight: 500; }
+.lens-table td { color: var(--ink); }
+
+.lens-saved { display: grid; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+
+.lens-saved-row { display: flex; align-items: center; gap: var(--space-2); }
+
+.lens-saved-open {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.lens-saved-open:hover { border-color: var(--accent); }
+.lens-saved-open strong { font-weight: 500; font-size: var(--text-sm); }
+.lens-saved-open span { font-size: var(--text-xs); color: var(--muted); }

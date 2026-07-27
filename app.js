@@ -1083,6 +1083,9 @@ function createInitialState() {
     commandPaletteQuery: "",
     commandPaletteRecents: [],
     savedSearches: {},
+    // Q1: черновик среза — что именно владелец сейчас настраивает в Базе. Один черновик на
+    // систему: срез либо строится, либо сохранён, третьего состояния нет.
+    lensDraft: { from: "tasks", where: { field: "", op: "", value: "" }, render: "list" },
     captureDraft: "",
     chatDraft: "",
     commandMessage: "Локальное хранилище готово",
@@ -2534,6 +2537,7 @@ function normalizeState(input) {
     commandPaletteQuery: cleanLine(base.commandPaletteQuery || ""),
     commandPaletteRecents: Array.isArray(base.commandPaletteRecents) ? base.commandPaletteRecents.filter((id) => typeof id === "string").slice(0, 6) : [],
     savedSearches: base.savedSearches && typeof base.savedSearches === "object" ? base.savedSearches : {},
+    lensDraft: normalizeLensDraft(base.lensDraft),
     captureDraft: String(base.captureDraft || ""),
     commandMessage: base.commandMessage || "Локальное хранилище готово",
     lastSavedAt: base.lastSavedAt || "",
@@ -3612,6 +3616,276 @@ function memoryLayers(state) {
     const items = buckets[def.key].sort((a, b) => a.ageDays - b.ageDays || b.degree - a.degree);
     return { key: def.key, label: def.label, hint: def.hint, count: items.length, notes: items };
   });
+}
+
+// Q1 (доноры Dataview + Tana live-searches): СРЕЗ — декларативное представление над теми же
+// артефактами. Канон продукта: «данные ≠ представление, один артефакт → много рендеров».
+// Произвольного JS нет намеренно: DataviewJS у донора — дыра в приватность и в предсказуемость,
+// а срез должен быть читаемым объектом, а не программой. Поэтому источник, поле, операция и
+// значение выбираются из закрытых списков.
+const LENS_SOURCES = [
+  ["tasks", "Задачи", [
+    ["title", "название", "text"],
+    ["status", "статус", "select", ["open", "done"], ["открыта", "готова"]],
+    ["day", "дата", "date"]
+  ]],
+  ["goals", "Цели", [
+    ["title", "название", "text"],
+    ["status", "статус", "select", ["active", "done"], ["активна", "закрыта"]],
+    ["targetAmount", "сумма", "number"],
+    ["targetDate", "срок", "date"]
+  ]],
+  ["habits", "Привычки", [
+    ["title", "название", "text"],
+    ["status", "статус", "select", ["active", "archived"], ["активна", "в архиве"]]
+  ]],
+  ["financeTransactions", "Деньги", [
+    ["title", "название", "text"],
+    ["amount", "сумма", "number"],
+    ["kind", "вид", "select", ["income", "expense"], ["доход", "расход"]],
+    ["day", "дата", "date"],
+    ["category", "категория", "text"]
+  ]],
+  ["insights", "Наблюдения", [
+    ["title", "название", "text"],
+    ["createdAt", "когда", "date"]
+  ]],
+  ["claims", "Утверждения", [
+    ["title", "название", "text"],
+    ["person", "человек", "text"],
+    ["condition", "условие", "text"]
+  ]],
+  ["sources", "Захваты", [
+    ["text", "текст", "text"],
+    ["parsedIntent", "разбор", "select", ["", "observation", "doubt", "fact", "not-understood"],
+      ["любой", "наблюдение", "сомнение", "факт", "не разобрано"]],
+    ["createdAt", "когда", "date"]
+  ]]
+];
+
+const LENS_ROW_LIMIT = 60;
+
+const LENS_OPS = {
+  text: [["contains", "содержит"], ["equals", "равно"], ["filled", "заполнено"]],
+  number: [["gt", "больше"], ["lt", "меньше"], ["equals", "равно"]],
+  date: [["after", "после"], ["before", "до"], ["equals", "в день"]],
+  select: [["equals", "равно"], ["not", "не равно"]]
+};
+
+function lensSource(sourceId) {
+  return LENS_SOURCES.find((row) => row[0] === sourceId) || null;
+}
+
+function lensField(sourceId, fieldId) {
+  const source = lensSource(sourceId);
+  if (!source) return null;
+  return source[2].find((row) => row[0] === fieldId) || null;
+}
+
+// Одна проверка условия. Пустое значение означает «условие не задано» — срез тогда показывает
+// всё, а не пустоту: молча отфильтровать всё по недописанному условию было бы враньём.
+function lensMatches(record, condition) {
+  if (!condition || !condition.field || !condition.op) return true;
+  const raw = record[condition.field];
+  const value = cleanLine(condition.value || "");
+  if (condition.op === "filled") return String(raw || "").trim().length > 0;
+  if (!value) return true;
+  if (condition.op === "contains") return normalizeRuText(String(raw || "")).includes(normalizeRuText(value));
+  if (condition.op === "equals") return String(raw || "").toLocaleLowerCase("ru-RU") === value.toLocaleLowerCase("ru-RU")
+    || Number(raw) === Number(value);
+  if (condition.op === "not") return String(raw || "").toLocaleLowerCase("ru-RU") !== value.toLocaleLowerCase("ru-RU");
+  if (condition.op === "gt") return Number(raw || 0) > Number(value);
+  if (condition.op === "lt") return Number(raw || 0) < Number(value);
+  if (condition.op === "after") return String(raw || "") > value;
+  if (condition.op === "before") return String(raw || "") !== "" && String(raw || "") < value;
+  return true;
+}
+
+function computeLensView(state, lens) {
+  const spec = lens && typeof lens === "object" ? lens : {};
+  const source = lensSource(spec.from) || LENS_SOURCES[0];
+  const [sourceId, sourceLabel, fields] = source;
+  const records = Object.values(state[sourceId] || {}).filter((item) => item && !item.deleted);
+  const where = spec.where && typeof spec.where === "object" ? spec.where : {};
+  // Условие считается заданным, только когда оно ПОЛНОЕ: поле, операция и значение. Найдено
+  // пробой: с выбранным «вид равно» и пустым значением экран писал «вид равно доход» (первый
+  // пункт списка) и при этом показывал ещё и расходы. Подпись обязана совпадать с тем, что
+  // реально применено. «Заполнено» — единственная операция без значения.
+  const complete = Boolean(where.field && where.op && (where.op === "filled" || cleanLine(where.value || "")));
+  const condition = complete ? where : null;
+  const matched = records
+    .filter((record) => lensMatches(record, condition))
+    .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")));
+  const rows = matched
+    .slice(0, LENS_ROW_LIMIT)
+    .map((record) => ({
+      id: record.id,
+      // Подпись строки — то же название, что и на других экранах: срез не переименовывает
+      // артефакт, он его только показывает под другим углом.
+      label: shorten(cleanLine(String(record.title || record.text || "без названия")), 70),
+      cells: fields.map(([fieldId, , type, values, labels]) => {
+        const raw = record[fieldId];
+        if (type === "select" && Array.isArray(values)) {
+          const index = values.indexOf(String(raw || ""));
+          return index >= 0 && labels ? labels[index] : String(raw || "");
+        }
+        if (type === "number") return Number(raw) ? formatObjectMoney(Number(raw)) : "";
+        if (type === "date") return raw ? formatObjectDay(String(raw)) : "";
+        return shorten(cleanLine(String(raw || "")), 70);
+      })
+    }));
+  return {
+    from: sourceId,
+    sourceLabel,
+    render: spec.render === "table" ? "table" : "list",
+    where: { field: where.field || "", op: where.op || "", value: where.value || "" },
+    sources: LENS_SOURCES.map(([id, label]) => ({ id, label })),
+    columns: fields.map((row) => row[1]),
+    fields: fields.map(([id, label, type, values, labels]) => ({ id, label, type, values: values || [], labels: labels || [] })),
+    ops: where.field && lensField(sourceId, where.field)
+      ? (LENS_OPS[lensField(sourceId, where.field)[2]] || []).map(([id, label]) => ({ id, label }))
+      : [],
+    rows,
+    complete,
+    total: records.length,
+    matched: matched.length,
+    shown: rows.length,
+    // Закон №5: под срезом сказано, что именно посчитано и по какому условию. И если список
+    // обрезан по длине — это сказано тоже: «20 из 200» и «20» означают разное.
+    why: (condition
+      ? "Из «" + sourceLabel + "»: " + records.length + " " + pluralRu(records.length, "запись", "записи", "записей")
+        + ", условию отвечают " + matched.length + "."
+      : (where.field
+          ? "Из «" + sourceLabel + "»: " + records.length + " " + pluralRu(records.length, "запись", "записи", "записей")
+            + ". Условие ещё не дописано — пока показаны все."
+          : "Из «" + sourceLabel + "» без условия: " + records.length + " " + pluralRu(records.length, "запись", "записи", "записей") + "."))
+      + (matched.length > rows.length ? " Показаны первые " + rows.length + " по свежести." : "")
+  };
+}
+
+// Черновик среза пересобирается по тем же закрытым спискам: чужое поле или выдуманная операция
+// из импортированного файла до проекции не доходят.
+function normalizeLensDraft(base) {
+  const draft = base && typeof base === "object" ? base : {};
+  const source = lensSource(cleanLine(draft.from || "")) || LENS_SOURCES[0];
+  const where = draft.where && typeof draft.where === "object" ? draft.where : {};
+  const field = lensField(source[0], cleanLine(where.field || "")) ? cleanLine(where.field) : "";
+  const type = field ? lensField(source[0], field)[2] : "text";
+  const op = field && (LENS_OPS[type] || []).some(([id]) => id === cleanLine(where.op || "")) ? cleanLine(where.op) : "";
+  return {
+    from: source[0],
+    where: { field, op, value: field && op ? cleanLine(where.value || "") : "" },
+    render: draft.render === "table" ? "table" : "list"
+  };
+}
+
+// Название среза человеческим языком. Оно же — и заголовок сохранённой карточки, и строка,
+// по которой срез находится обычным поиском: отдельного «языка запросов» учить не нужно.
+function lensDescription(lens) {
+  const spec = normalizeLensDraft(lens);
+  const source = lensSource(spec.from);
+  if (!source) return "Срез";
+  // Недобранное условие именем не притворяется: «Деньги — вид равно» ничего не значит.
+  if (!spec.where.field || !spec.where.op) return source[1] + " — все";
+  if (spec.where.op !== "filled" && !spec.where.value) return source[1] + " — все";
+  const field = lensField(spec.from, spec.where.field);
+  const opLabel = (LENS_OPS[field[2]] || []).find(([id]) => id === spec.where.op);
+  const valueLabel = field[2] === "select" && Array.isArray(field[3])
+    ? (field[4] || [])[field[3].indexOf(spec.where.value)] || spec.where.value
+    : spec.where.value;
+  const tail = spec.where.op === "filled" ? "" : " " + valueLabel;
+  return source[1] + " — " + field[1] + " " + (opLabel ? opLabel[1] : spec.where.op) + tail;
+}
+
+function setLensPart(state, part, value) {
+  const draft = normalizeLensDraft(state.lensDraft);
+  if (part === "from") {
+    // Смена источника обнуляет условие: поле «сумма» из Денег в Привычках не существует, и
+    // молча оставленное условие фильтровало бы по несуществующему полю.
+    state.lensDraft = normalizeLensDraft({ from: value, render: draft.render });
+    return;
+  }
+  if (part === "field") {
+    const field = lensField(draft.from, value);
+    const firstOp = field ? (LENS_OPS[field[2]] || [])[0] : null;
+    state.lensDraft = normalizeLensDraft({
+      from: draft.from,
+      where: { field: value, op: firstOp ? firstOp[0] : "", value: "" },
+      render: draft.render
+    });
+    return;
+  }
+  if (part === "op") {
+    state.lensDraft = normalizeLensDraft({ from: draft.from, where: { field: draft.where.field, op: value, value: draft.where.value }, render: draft.render });
+    return;
+  }
+  if (part === "value") {
+    state.lensDraft = normalizeLensDraft({ from: draft.from, where: { field: draft.where.field, op: draft.where.op, value }, render: draft.render });
+    return;
+  }
+  if (part === "render") state.lensDraft = normalizeLensDraft({ from: draft.from, where: draft.where, render: value });
+}
+
+function lensList(state) {
+  return Object.values(state.savedSearches || {})
+    .filter((search) => search && !search.deleted && search.lens)
+    .map((search) => ({ id: search.id, title: search.title, resultCount: search.resultCount || 0, updatedAt: search.updatedAt || "" }))
+    .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+}
+
+// Сохранение среза не заводит новой сущности: срез живёт в той же коллекции сохранённых
+// поисков, просто у него есть разобранное условие, а не только строка запроса.
+function saveLensView(state) {
+  const spec = normalizeLensDraft(state.lensDraft);
+  const title = lensDescription(spec);
+  const view = computeLensView(state, spec);
+  const existing = Object.values(state.savedSearches || {})
+    .find((search) => search && !search.deleted && search.lens && normalizeTitle(search.title) === normalizeTitle(title));
+  const updatedAt = now();
+  if (existing) {
+    // Закон №4: тот же срез не удваивается, а обновляется — и говорит об этом вслух.
+    existing.lens = spec;
+    existing.query = title;
+    existing.resultCount = view.shown;
+    existing.updatedAt = updatedAt;
+    addAudit(state, "lens.save", "Срез обновлён: " + title + " / " + view.shown, state.activeNoteId);
+    addReceipt(state, "lens", existing.id, "Срез обновлён: " + title);
+    return existing.id;
+  }
+  const id = makeId("search");
+  state.savedSearches[id] = {
+    id,
+    title,
+    query: title,
+    lens: spec,
+    surface: "library",
+    resultCount: view.shown,
+    noteId: "",
+    deleted: false,
+    createdAt: updatedAt,
+    updatedAt
+  };
+  addAudit(state, "lens.save", "Срез сохранён: " + title + " / " + view.shown, state.activeNoteId);
+  addReceipt(state, "lens", id, "Срез сохранён: " + title);
+  return id;
+}
+
+function openSavedLens(state, id) {
+  const search = state.savedSearches[id];
+  if (!search || search.deleted || !search.lens) return;
+  state.lensDraft = normalizeLensDraft(search.lens);
+  state.activeSurface = "library";
+  search.resultCount = computeLensView(state, state.lensDraft).shown;
+  search.updatedAt = now();
+  addAudit(state, "lens.open", "Срез открыт: " + search.title + " / " + search.resultCount, state.activeNoteId);
+}
+
+function deleteSavedLens(state, id) {
+  const search = state.savedSearches[id];
+  if (!search || search.deleted || !search.lens) return;
+  search.deleted = true;
+  search.updatedAt = now();
+  addAudit(state, "lens.delete", "Срез удалён: " + search.title, state.activeNoteId);
 }
 
 function savedSearchList(state) {
@@ -10512,8 +10786,13 @@ function computeGraphProjection(state) {
     incoming[search.id] = incoming[search.id] || 0;
     outgoing[search.id] = outgoing[search.id] || 0;
     if (search.noteId && state.notes[search.noteId] && !state.notes[search.noteId].deleted) addGraphEdge(search.id, search.noteId, "saved-search-anchor");
-    for (const note of searchNotes(state, search.query).slice(0, 6)) {
-      addGraphEdge(search.id, note.id, "saved-search-match");
+    // У среза запрос — человеческое НАЗВАНИЕ («Задачи — статус равно открыта»), а не строка
+    // поиска. Прогнать его через поиск по тексту значило бы связать срез со случайными
+    // заметками и объяснить связь тем, чего не было.
+    if (!search.lens) {
+      for (const note of searchNotes(state, search.query).slice(0, 6)) {
+        addGraphEdge(search.id, note.id, "saved-search-match");
+      }
     }
   }
   for (const segment of Object.values(state.transcriptSegments || {}).filter((item) => !item.deleted)) {
@@ -12604,6 +12883,10 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     reminders,
     receiptSources: sources.filter((source) => source.kind === "image").slice(0, 6),
     savedSearches: savedSearchList(state),
+    // Q1: срез — представление над теми же артефактами, поэтому в ctx он приходит уже
+    // посчитанным, как и любая другая проекция.
+    lensView: computeLensView(state, state.lensDraft),
+    savedLenses: lensList(state),
     scheduleItems,
     searchQuery: state.searchQuery || "",
     selectedGraph,
@@ -22313,6 +22596,38 @@ async function handleAction(action, id) {
     requestAnimationFrame(() => window.scrollTo(0, 0));
     return;
   }
+  // Q1: срез сохраняется, открывается и удаляется как обычный артефакт — с чеком в Контроле.
+  if (action === "save-lens") {
+    await store.commit("Срез сохранён", (state) => {
+      saveLensView(state);
+    });
+    return;
+  }
+  if (action === "open-lens") {
+    await store.commit("Срез открыт", (state) => {
+      openSavedLens(state, cleanLine(id || ""));
+    });
+    return;
+  }
+  if (action === "delete-lens") {
+    await store.commit("Срез удалён", (state) => {
+      deleteSavedLens(state, cleanLine(id || ""));
+    });
+    return;
+  }
+  if (action === "set-lens-render") {
+    await store.commit("Вид среза изменён", (state) => {
+      setLensPart(state, "render", cleanLine(id || "list"));
+    });
+    return;
+  }
+  if (action === "clear-lens-condition") {
+    await store.commit("Условие среза снято", (state) => {
+      const draft = normalizeLensDraft(state.lensDraft);
+      state.lensDraft = normalizeLensDraft({ from: draft.from, render: draft.render });
+    });
+    return;
+  }
   if (action === "set-object-tab") {
     await store.commit("Вкладка объекта открыта", (state) => {
       state.objectView = Object.assign({}, state.objectView, { tab: OBJECT_TABS.some((row) => row[0] === id) ? id : "sut" });
@@ -24769,6 +25084,17 @@ async function handleChange(event) {
     });
     return;
   }
+  // Q1: срез перестраивается сразу при выборе — отдельной кнопки «Применить» нет, потому что
+  // выбор из закрытого списка не может быть недописан. Значение приходит по change (Enter или
+  // уход из поля), а не по каждому нажатию: иначе перерисовка забирала бы фокус.
+  if (target.dataset && target.dataset.lens) {
+    const part = target.dataset.lens;
+    const value = target.value;
+    await store.commit("Срез перестроен", (state) => {
+      setLensPart(state, part, value);
+    });
+    return;
+  }
   if (target.dataset && target.dataset.graphFilter) {
     const key = target.dataset.graphFilter;
     await store.commit("Graph filter changed", (state) => {
@@ -25421,6 +25747,9 @@ window.__lifeosKnowledgeBase = {
   },
   graphGrowthForTest() {
     return store ? computeGraphGrowth(store.state) : null;
+  },
+  lensViewForTest() {
+    return store ? computeLensView(store.state, store.state.lensDraft) : null;
   },
   backdateObjectsForTest(count, days) {
     if (!store) return Promise.resolve(0);

@@ -110,6 +110,100 @@ function renderBacklinksPanel(ctx, noteId) {
   ].join("");
 }
 
+// Q1 СРЕЗЫ (доноры Dataview + Tana live-searches). Канон: «данные ≠ представление, один
+// артефакт → много рендеров». Владелец выбирает источник, одно условие и вид — и получает
+// живое представление над теми же артефактами, а не копию данных.
+// Языка запросов и произвольного JS тут нет намеренно: всё выбирается из закрытых списков,
+// поэтому сломать срез опечаткой невозможно, а прочитать его может человек, а не парсер.
+function lensSelect(part, options, current, testId, label) {
+  const rows = options.map((option) => `<option value="${escapeHtml(option.id)}"${option.id === current ? " selected" : ""}>${escapeHtml(option.label)}</option>`).join("");
+  return `<label class="lens-field"><span>${escapeHtml(label)}</span><select data-lens="${escapeHtml(part)}" data-testid="${escapeHtml(testId)}" aria-label="${escapeHtml(label)}">${rows}</select></label>`;
+}
+
+function lensValueControl(view) {
+  const field = (view.fields || []).find((row) => row.id === view.where.field);
+  if (!field || !view.where.op) return "";
+  // «Заполнено» не требует значения — поле ввода тут было бы приглашением заполнить пустоту.
+  if (view.where.op === "filled") return "";
+  if (field.type === "select") {
+    const options = (field.values || []).map((value, index) => ({ id: value, label: (field.labels || [])[index] || value || "любое" }));
+    // Пункт «любое» обязателен и идёт первым: без него браузер показывает выбранным первое
+    // значение списка, а фильтруется при этом ничего — экран обещал бы «только доход» и
+    // показывал бы расходы тоже (нашлось пробой).
+    if (!options.some((option) => option.id === "")) options.unshift({ id: "", label: "любое" });
+    return lensSelect("value", options, view.where.value, "lens-value-select", "Значение");
+  }
+  const type = field.type === "date" ? "date" : field.type === "number" ? "number" : "text";
+  return `<label class="lens-field"><span>Значение</span><input type="${type}" data-lens="value" data-testid="lens-value" value="${escapeHtml(view.where.value)}" autocomplete="off" aria-label="Значение условия"></label>`;
+}
+
+function lensRows(view) {
+  if (!view.rows.length) {
+    return `<div class="empty-inline" data-testid="lens-empty">Под это условие не попал ни один артефакт. Это не ошибка — просто таких записей пока нет.</div>`;
+  }
+  if (view.render === "table") {
+    return [
+      `<div class="lens-table-scroll">`,
+      `<table class="lens-table" data-testid="lens-table">`,
+      `<thead><tr>${view.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}<th></th></tr></thead>`,
+      `<tbody>`,
+      view.rows.map((row) => [
+        `<tr data-testid="lens-row">`,
+        row.cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join(""),
+        `<td>${button("open-object", "Объект", { id: row.id, kind: "ghost", testId: "lens-open-object" })}</td>`,
+        `</tr>`
+      ].join("")).join(""),
+      `</tbody></table></div>`
+    ].join("");
+  }
+  return `<div class="lens-list">${view.rows.map((row) => [
+    `<button class="knowledge-note-row lens-row" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="lens-row">`,
+    `<strong>${escapeHtml(row.label)}</strong>`,
+    `<span>${escapeHtml(row.cells.filter(Boolean).slice(1, 3).join(" · "))}</span>`,
+    `</button>`
+  ].join("")).join("")}</div>`;
+}
+
+function renderLensPanel(ctx) {
+  const view = ctx.lensView;
+  if (!view) return "";
+  const saved = ctx.savedLenses || [];
+  const fieldOptions = [{ id: "", label: "без условия" }].concat((view.fields || []).map((field) => ({ id: field.id, label: field.label })));
+  return [
+    `<section class="info-panel lens-panel" data-testid="lens-panel">`,
+    `<div class="section-title">Срезы <span class="lens-count" data-testid="lens-shown">${view.shown}</span></div>`,
+    `<p class="lens-intro">Один и тот же артефакт можно смотреть по-разному. Срез — это условие, а не копия: записи остаются на своих местах.</p>`,
+    `<div class="lens-builder" data-testid="lens-builder">`,
+    lensSelect("from", view.sources, view.from, "lens-source", "Откуда"),
+    lensSelect("field", fieldOptions, view.where.field, "lens-field", "Поле"),
+    view.where.field ? lensSelect("op", view.ops, view.where.op, "lens-op", "Условие") : "",
+    lensValueControl(view),
+    view.where.field ? button("clear-lens-condition", "Снять условие", { kind: "ghost", testId: "clear-lens-condition" }) : "",
+    `</div>`,
+    `<div class="lens-actions">`,
+    `<div class="lens-render-switch" role="group" aria-label="Вид среза">`,
+    button("set-lens-render", "Список", { id: "list", kind: view.render === "list" ? "primary" : "ghost", testId: "lens-render-list" }),
+    button("set-lens-render", "Таблица", { id: "table", kind: view.render === "table" ? "primary" : "ghost", testId: "lens-render-table" }),
+    `</div>`,
+    button("save-lens", "Сохранить срез", { kind: "ghost", testId: "save-lens" }),
+    `</div>`,
+    `<p class="lens-why" data-testid="lens-why">${escapeHtml(view.why)}</p>`,
+    lensRows(view),
+    saved.length ? [
+      `<div class="lens-saved" data-testid="lens-saved">`,
+      `<div class="section-title">Сохранённые срезы</div>`,
+      saved.map((lens) => [
+        `<div class="lens-saved-row" data-testid="lens-saved-row">`,
+        `<button class="lens-saved-open" data-action="open-lens" data-id="${escapeHtml(lens.id)}" data-testid="open-lens"><strong>${escapeHtml(lens.title)}</strong><span>${lens.resultCount}</span></button>`,
+        button("delete-lens", "Удалить", { id: lens.id, kind: "ghost", testId: "delete-lens" }),
+        `</div>`
+      ].join("")).join(""),
+      `</div>`
+    ].join("") : "",
+    `</section>`
+  ].join("");
+}
+
 function renderControlTrail(ctx, noteId) {
   const forNote = (list) => (list || []).filter((item) => item.noteId === noteId);
   const rows = [
@@ -164,6 +258,7 @@ export function renderLibrary(ctx) {
     `</article>`,
     `<aside class="knowledge-cards"><h3>Выводы</h3>${safeList(claims.slice(0, 8), renderClaimEntry, `<div class="empty-inline">Инсайты появятся из чтения, аудио и заметок.</div>`)}<h3>Вопросы</h3>${safeList(questions.slice(0, 6), renderQuestionEntry, `<div class="empty-inline">Вопросы станут задачами без потери источника.</div>`)}<h3>Повторение</h3>${safeList(reviewItems.slice(0, 6), renderReviewEntry, `<div class="empty-inline">Карточка повторения появится после извлечения смысла.</div>`)}</aside>`,
     `</div>`,
+    renderLensPanel(ctx),
     renderBookWorkbenchPanel(ctx),
     renderMemorySection(ctx),
     semanticSearchSection(ctx),
