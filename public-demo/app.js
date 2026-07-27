@@ -12535,6 +12535,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     surprisingLinks: computeSurprisingLinks(state),
     linkPredictions: computeLinkPredictions(state),
     graphReport: computeGraphReport(state),
+    graphGrowth: computeGraphGrowth(state),
     goalForecast: computeGoalForecast(state),
     contradictions: computeContradictions(state),
     behaviorPatterns: computeBehaviorPatterns(state),
@@ -16252,6 +16253,58 @@ function computeForgottenImportant(state, limit = 3) {
 // Лучший паттерн донора: граф отдаёт ТЕКСТ, а не только картинку. Отчёт собирается из уже
 // посчитанного — темы, мосты, неожиданные связи, важное в памяти — и читается как абзац о
 // состоянии системы. Ничего нового не считает и ничего не записывает.
+// Рост графа во времени. Владелец хочет видеть не срез, а ДВИЖЕНИЕ: «вчера было 40 объектов,
+// сегодня 47». Данные для этого уже есть — дата создания лежит на каждом объекте, отдельной
+// коллекции заводить не нужно. Считаем по узлам графа ЖИЗНИ, а не по всем записям хранилища:
+// иначе рост показывал бы машинерию платформы, а не жизнь владельца.
+const GRAPH_GROWTH_DAYS = 14;
+
+function computeGraphGrowth(state) {
+  const graph = buildLifeGraph(state);
+  if (!graph.nodes.length) return { hasGrowth: false, days: [], today: 0, total: 0, why: "" };
+  const byDay = new Map();
+  let dated = 0;
+  for (const node of graph.nodes) {
+    const resolved = graphNodeObject(state, node.id);
+    const day = objectRecordDate(resolved && resolved.object).slice(0, 10);
+    if (!day) continue;
+    dated += 1;
+    byDay.set(day, (byDay.get(day) || 0) + 1);
+  }
+  if (!dated) return { hasGrowth: false, days: [], today: 0, total: 0, why: "" };
+  const days = [];
+  let running = 0;
+  // Накопительный итог: график должен показывать РАЗМЕР графа на каждый день, а не приток.
+  // Приток остаётся отдельным числом на той же строке — из него видно, был ли день пустым.
+  const earliest = [...byDay.keys()].sort()[0];
+  for (let offset = GRAPH_GROWTH_DAYS - 1; offset >= 0; offset -= 1) {
+    const day = dateKeyFromOffset(-offset);
+    if (day < earliest) continue;
+    running = 0;
+    for (const [key, count] of byDay) if (key <= day) running += count;
+    days.push({ day, added: byDay.get(day) || 0, total: running });
+  }
+  const max = Math.max(1, ...days.map((row) => row.total));
+  const todayRow = days.length ? days[days.length - 1] : null;
+  const firstRow = days.length ? days[0] : null;
+  const gained = todayRow && firstRow ? todayRow.total - firstRow.total + firstRow.added : 0;
+  return {
+    hasGrowth: days.length > 1,
+    total: todayRow ? todayRow.total : dated,
+    today: todayRow ? todayRow.added : 0,
+    gained,
+    days: days.map((row) => ({
+      day: row.day,
+      label: formatObjectDay(row.day),
+      added: row.added,
+      total: row.total,
+      percent: Math.round((row.total / max) * 100)
+    })),
+    // Закон №5: под графиком сказано, из чего он посчитан, а не просто нарисована линия.
+    why: "Считано по датам создания объектов жизни, машинерия платформы в счёт не идёт."
+  };
+}
+
 function computeGraphReport(state) {
   const graph = buildLifeGraph(state);
   const clusters = computeTopicClusters(state);
@@ -16281,6 +16334,15 @@ function computeGraphReport(state) {
   }
   if (forgotten.length) {
     lines.push({ key: "forgotten", text: "Забыто, но важно: «" + forgotten[0].title + "» — " + forgotten[0].why + "." });
+  }
+  const growth = computeGraphGrowth(state);
+  if (growth.hasGrowth && growth.gained > 0) {
+    lines.push({
+      key: "growth",
+      text: "За " + growth.days.length + " " + pluralRu(growth.days.length, "день", "дня", "дней") + " граф вырос на "
+        + growth.gained + " " + pluralRu(growth.gained, "объект", "объекта", "объектов")
+        + (growth.today ? ", сегодня прибавилось " + growth.today + "." : ". Сегодня новых пока нет.")
+    });
   }
   if (lines.length === 1) {
     lines.push({ key: "thin", text: "Для выводов пока мало связей. Они появятся сами, когда объекты начнут встречаться друг с другом в записях." });
@@ -25197,6 +25259,29 @@ window.__lifeosKnowledgeBase = {
       state.objectView = { id: cleanLine(objectId || ""), tab: "sut", from: state.activeSurface || "" };
       state.activeSurface = "object";
     }).then(() => true);
+  },
+  // Рост графа виден только когда у объектов РАЗНЫЕ дни. В свежем хранилище всё создано
+  // сегодня, поэтому спека сдвигает часть объектов назад — иначе проверять нечего.
+  graphGrowthForTest() {
+    return store ? computeGraphGrowth(store.state) : null;
+  },
+  backdateObjectsForTest(count, days) {
+    if (!store) return Promise.resolve(0);
+    const wanted = Math.max(0, Number(count || 0));
+    const shift = Math.max(1, Number(days || 1));
+    return store.commit("Test backdate", (state) => {
+      const stamp = new Date(Date.now() - shift * 86400000).toISOString();
+      let moved = 0;
+      // Только настоящие записи владельца: служебные заметки платформы в граф жизни не входят,
+      // и сдвиг их дат ничего не изменил бы — первый прогон пробы на этом и споткнулся.
+      for (const note of Object.values(state.notes || {})) {
+        if (moved >= wanted || note.deleted || note.systemType) continue;
+        note.createdAt = stamp;
+        note.updatedAt = stamp;
+        moved += 1;
+      }
+      rebuildIndexes(state);
+    }).then(() => wanted);
   },
   setAgentScheduleForTest(agentId, time) {
     if (!store) return Promise.resolve(false);

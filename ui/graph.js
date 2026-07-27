@@ -103,6 +103,29 @@ function renderTopicClusters(ctx) {
   ].join("");
 }
 
+// Рост графа во времени. Владелец просил видеть не срез, а движение: заходишь каждый день и
+// видишь, что база стала больше. Столбик — РАЗМЕР графа на тот день, число над ним — сколько
+// прибавилось именно в этот день; пустой день так и остаётся пустым, без сглаживания.
+function renderGraphGrowth(ctx) {
+  const growth = ctx.graphGrowth || { hasGrowth: false, days: [] };
+  if (!growth.hasGrowth) return "";
+  return [
+    `<section class="graph-growth" data-testid="graph-growth">`,
+    `<div class="graph-answers-head"><span>Как рос граф</span><em>${escapeHtml(growth.why)}</em></div>`,
+    `<p class="graph-growth-head" data-testid="graph-growth-head">Сейчас ${growth.total} ${growth.total === 1 ? "объект" : "объектов"} · за ${growth.days.length} ${growth.days.length === 1 ? "день" : "дней"} прибавилось ${growth.gained}.</p>`,
+    `<div class="graph-growth-bars">`,
+    growth.days.map((row) => [
+      `<span class="graph-growth-day" data-testid="graph-growth-day" title="${escapeHtml(row.label)}: ${row.total} всего, +${row.added} за день">`,
+      `<em>${row.added ? "+" + row.added : ""}</em>`,
+      `<i style="height:${Math.max(4, row.percent)}%"></i>`,
+      `<span>${escapeHtml(row.label)}</span>`,
+      `</span>`
+    ].join("")).join(""),
+    `</div>`,
+    `</section>`
+  ].join("");
+}
+
 // Текстовый отчёт графа (донор-паттерн Graphify GRAPH_REPORT.md): граф отдаёт абзац о состоянии
 // системы, а не только картинку. Собран из уже посчитанного, ничего не пишет.
 function renderGraphReport(ctx) {
@@ -225,6 +248,7 @@ function renderMemoryImportance(ctx) {
 export function renderGraph(ctx) {
   const body = [
     renderGraphReport(ctx),
+    renderGraphGrowth(ctx),
     `<div class="graph-workspace-split">${renderGraphCanvas(ctx)}${renderInspectorDrawer(ctx)}</div>`,
     renderGraphAnswers(ctx),
     renderTopicClusters(ctx),

@@ -11605,3 +11605,61 @@ audio {
    шло инлайном сразу за текстом. Значение выносится на свою строку. */
 .control-meter { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
 .recovery-list > strong { display: block; margin-top: 4px; }
+
+/* «Как рос граф»: столбик — размер графа на тот день, число над ним — приток именно за этот
+   день. Пустой день остаётся пустым: сглаживать данные владельца нельзя. */
+.graph-growth {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.graph-growth-head { margin: 0; font-size: var(--text-sm); line-height: 1.5; color: var(--ink); }
+
+.graph-growth-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-height: 130px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.graph-growth-day {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: end;
+  justify-items: center;
+  gap: 4px;
+  min-width: 42px;
+  height: 120px;
+  flex: 1 1 42px;
+}
+
+.graph-growth-day em {
+  font-style: normal;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+  min-height: 12px;
+}
+
+.graph-growth-day i {
+  display: block;
+  width: 100%;
+  max-width: 26px;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+  opacity: 0.75;
+}
+
+.graph-growth-day:last-child i { opacity: 1; }
+
+.graph-growth-day > span {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
