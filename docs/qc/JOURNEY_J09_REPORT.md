@@ -19,7 +19,7 @@ Goals have target values, progress, next-action/insight support, domain rows, we
   "subscriptions": 0,
   "habits": 0,
   "goals": 1,
-  "insights": 3,
+  "insights": 4,
   "claims": 0,
   "questions": 0,
   "reviewItems": 0,
@@ -35,17 +35,17 @@ Goals have target values, progress, next-action/insight support, domain rows, we
   "proposalsOpen": 0,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 4,
-  "graphEdges": 6,
-  "graphEdgeReasons": 6
+  "graphNodes": 5,
+  "graphEdges": 8,
+  "graphEdgeReasons": 8
 }
 ```
 
 ## Graph Edges
-After: 562 edges, 562 with visible reasons.
+After: 535 edges, 535 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: habit.create: Habit created: Сон 8 часов | habit.check: Habit check toggled: Сон 8 часов | goal.create: Goal created: Накопить резерв | goal.progress: Goal progress +25: Накопить резерв / manual | insight.create: Insight created: Привычка ждет отметки: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Insight created: Цель без прогресса: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Insight created: Цели нужен следующий шаг: Накопить резерв | insight.refresh: Deterministic insights refreshed
+After: 300 audit events. Tail: habit.check: Отметка привычки: Сон 8 часов | goal.create: Цель создана: Накопить резерв | goal.progress: Goal progress +25: Накопить резерв / manual | insight.create: Наблюдение записано: Привычка ждет отметки: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Наблюдение записано: Цели нужен следующий шаг: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Наблюдение записано: Цель без прогресса: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | insight.create: Наблюдение записано: Цели нужен следующий шаг: Накопить резерв | insight.refresh: Deterministic insights refreshed
 
 ## Remaining Gated
 None for this local journey.

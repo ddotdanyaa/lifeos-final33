@@ -36,16 +36,16 @@ Player stores audio, shows controls, accepts manual transcript, creates checkpoi
   "proposalsApplied": 0,
   "auditEvents": 0,
   "graphNodes": 44,
-  "graphEdges": 84,
-  "graphEdgeReasons": 84
+  "graphEdges": 83,
+  "graphEdgeReasons": 83
 }
 ```
 
 ## Graph Edges
-After: 739 edges, 739 with visible reasons.
+After: 709 edges, 709 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: review.create: Review item created: Вернуться к аудио checkpoint: Audio checkpoint | audio.checkpoint: Audio checkpoint created: Audio checkpoint | task.create: Task created: Из аудио: Audio insight should become a task and claim. | player.note: Player note created: Audio insight should become a task and claim. | transcript.task: Transcript snippet became task: Audio insight should become a task and claim. | claim.create: Claim created: Вывод из аудио: Создать задачу проверить граф. | player.note: Player note created: Создать задачу проверить граф. | transcript.claim: Transcript snippet became claim: Создать задачу проверить граф.
+After: 300 audit events. Tail: review.create: Review item created: Вернуться к аудио checkpoint: Audio checkpoint | audio.checkpoint: Audio checkpoint created: Audio checkpoint | task.create: Задача создана: Из аудио: Audio insight should become a task and claim. | player.note: Player note created: Audio insight should become a task and claim. | transcript.task: Transcript snippet became task: Audio insight should become a task and claim. | claim.create: Утверждение записано: Вывод из аудио: Создать задачу проверить граф. | player.note: Player note created: Создать задачу проверить граф. | transcript.claim: Transcript snippet became claim: Создать задачу проверить граф.
 
 ## Remaining Gated
 Automatic STT remains provider-gated; manual transcript works now.

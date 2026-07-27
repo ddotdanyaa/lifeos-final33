@@ -42,10 +42,10 @@ Library has markdown editing, wikilinks, ghost links, backlinks/search and sourc
 ```
 
 ## Graph Edges
-After: 585 edges, 585 with visible reasons.
+After: 558 edges, 558 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: provider.run: import file: Импорт: Идея: сделать систему второго мозга для книг,....md (text) | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | chat.input.artifact: owner chat artifact recorded: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку | note.create: Note created: Связанная заметка
+After: 300 audit events. Tail: highlight.create: Highlight created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | provider.run: import file: Импорт: Идея: сделать систему второго мозга для книг,....md (text) | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | chat.input.artifact: Твоё сообщение сохранено: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток | note.create: Заметка создана: Связанная заметка
 
 ## Remaining Gated
 None for this local journey.

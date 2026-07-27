@@ -34,7 +34,7 @@ Finance text capture creates expense, account/balance, subscription/bill, income
   "providerRuns": 1,
   "proposalsOpen": 2,
   "proposalsApplied": 6,
-  "auditEvents": 26,
+  "auditEvents": 25,
   "graphNodes": 18,
   "graphEdges": 36,
   "graphEdgeReasons": 36
@@ -45,7 +45,7 @@ Finance text capture creates expense, account/balance, subscription/bill, income
 After: 506 edges, 506 with visible reasons.
 
 ## Data Control Events
-After: 299 audit events. Tail: finance.transaction: Finance expense: Пятёрочка 1240 RUB | proposal.apply: Applied proposal: Пятёрочка | finance.transaction: Finance income: Доход 1240 RUB | proposal.apply: Applied proposal: Доход | finance.account: Finance account set: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка
+After: 296 audit events. Tail: finance.transaction: Расход: Пятёрочка 1 240 ₽ | proposal.apply: Applied proposal: Пятёрочка | finance.account: Счёт задан: Карта | proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Яндекс 399 | proposal.apply: Applied proposal: Яндекс | finance.transaction: Доход: Доход 100 000 ₽ | proposal.apply: Applied proposal: Доход
 
 ## Remaining Gated
 None for this local journey.

@@ -32,20 +32,20 @@ Capture workspace collects unprocessed source artifacts into a review board with
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 4,
+  "proposalsOpen": 3,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 11,
-  "graphEdges": 20,
-  "graphEdgeReasons": 20
+  "graphNodes": 10,
+  "graphEdges": 18,
+  "graphEdgeReasons": 18
 }
 ```
 
 ## Graph Edges
-After: 759 edges, 759 with visible reasons.
+After: 727 edges, 727 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | provider.run: import file: Импорт: вечерний обзор: голосом записал идею про сон,....md (text) | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | chat.input.artifact: owner chat artifact recorded: вечерний обзор: голосом записал идею про сон, деньги и граф | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact
+After: 300 audit events. Tail: review.create: Review item created: Повторить highlight: вечерний обзор: голосом записал идею про сон, деньг... | highlight.create: Highlight created: вечерний обзор: голосом записал идею про сон, деньги и граф | highlight.extract: Highlights extracted from вечерний обзор: голосом записал идею про сон,....md: 1 | provider.run: import file: Импорт: вечерний обзор: голосом записал идею про сон,....md (text) | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | chat.input.artifact: Твоё сообщение сохранено: вечерний обзор: голосом записал идею про сон, деньги и граф | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток
 
 ## Remaining Gated
 None for this local journey.

@@ -32,20 +32,20 @@ Reader parses TXT/MD, tracks progress and highlights, and shows honest PDF/EPUB 
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 2,
-  "proposalsOpen": 15,
+  "proposalsOpen": 14,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 36,
-  "graphEdges": 70,
-  "graphEdgeReasons": 70
+  "graphNodes": 35,
+  "graphEdges": 68,
+  "graphEdgeReasons": 68
 }
 ```
 
 ## Graph Edges
-After: 655 edges, 655 with visible reasons.
+After: 626 edges, 626 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: highlight.create: Highlight created: Highlight becomes knowledge | reading.progress: Reading progress 45%: book-sample | note.create: Note created: journey-parser-gate | source.project.gated: Book source projected with parser gate: journey-parser-gate.pdf | reading.create: Reading item created: journey-parser-gate | provider.run: import file: Импорт: journey-parser-gate.pdf (book) | source.import: Source imported: journey-parser-gate.pdf (book) | chat.answer.artifact: assistant chat artifact recorded: Imported journey-parser-gate.pdf and prepared next actions.
+After: 300 audit events. Tail: highlight.create: Highlight created: Highlight becomes knowledge | reading.progress: Reading progress 45%: book-sample | note.create: Заметка создана: journey-parser-gate | source.project.gated: Book source projected with parser gate: journey-parser-gate.pdf | reading.create: Reading item created: journey-parser-gate | provider.run: import file: Импорт: journey-parser-gate.pdf (book) | source.import: Source imported: journey-parser-gate.pdf (book) | chat.answer.artifact: Ответ сохранён: Imported journey-parser-gate.pdf and prepared next actions.
 
 ## Remaining Gated
 PDF/EPUB automatic parsing remains parser-gated until local parser packages are installed.

@@ -32,12 +32,12 @@ Twenty typo-heavy and mixed-language inputs create source artifacts and proposal
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 20,
-  "proposalsOpen": 89,
+  "proposalsOpen": 87,
   "proposalsApplied": 0,
   "auditEvents": 214,
-  "graphNodes": 225,
-  "graphEdges": 408,
-  "graphEdgeReasons": 408
+  "graphNodes": 223,
+  "graphEdges": 404,
+  "graphEdgeReasons": 404
 }
 ```
 
@@ -45,7 +45,7 @@ Twenty typo-heavy and mixed-language inputs create source artifacts and proposal
 After: 470 edges, 470 with visible reasons.
 
 ## Data Control Events
-After: 273 audit events. Tail: review.create: Review item created: Повторить highlight: каждый день вода 2л и читать 20 страниц | highlight.create: Highlight created: каждый день вода 2л и читать 20 страниц | highlight.extract: Highlights extracted from каждый день вода 2л и читать 20 страниц.md: 1 | provider.run: import file: Импорт: каждый день вода 2л и читать 20 страниц.md (text) | source.import: Source imported: каждый день вода 2л и читать 20 страниц.md (text) | chat.input.artifact: owner chat artifact recorded: каждый день вода 2л и читать 20 страниц | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact
+After: 271 audit events. Tail: review.create: Review item created: Повторить highlight: каждый день вода 2л и читать 20 страниц | highlight.create: Highlight created: каждый день вода 2л и читать 20 страниц | highlight.extract: Highlights extracted from каждый день вода 2л и читать 20 страниц.md: 1 | provider.run: import file: Импорт: каждый день вода 2л и читать 20 страниц.md (text) | source.import: Source imported: каждый день вода 2л и читать 20 страниц.md (text) | chat.input.artifact: Твоё сообщение сохранено: каждый день вода 2л и читать 20 страниц | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток
 
 ## Remaining Gated
 None for this local journey.

@@ -32,20 +32,20 @@ Receipt screenshot shows an image/manual extraction path with an honest OCR gate
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 7,
+  "proposalsOpen": 6,
   "proposalsApplied": 0,
-  "auditEvents": 0,
-  "graphNodes": 11,
-  "graphEdges": 22,
-  "graphEdgeReasons": 22
+  "auditEvents": 4,
+  "graphNodes": 10,
+  "graphEdges": 20,
+  "graphEdgeReasons": 20
 }
 ```
 
 ## Graph Edges
-After: 555 edges, 555 with visible reasons.
+After: 526 edges, 526 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: proposal.apply: Applied proposal: Баланс счета | finance.subscription: Subscription added: Пятёрочка 1240 | proposal.apply: Applied proposal: Пятёрочка | provider.run: import file: Импорт: market-home.png (image) | source.import: Source imported: market-home.png (image) | chat.answer.artifact: assistant chat artifact recorded: Imported market-home.png and prepared next actions. | finance.transaction: Finance expense: Аптека 890 RUB | receipt.manual: Manual receipt expense saved from market-home.png
+After: 300 audit events. Tail: proposal.apply: Applied proposal: Яндекс | finance.transaction: Доход: Доход 100 000 ₽ | proposal.apply: Applied proposal: Доход | provider.run: import file: Импорт: market-home.png (image) | source.import: Source imported: market-home.png (image) | chat.answer.artifact: Ответ сохранён: Imported market-home.png and prepared next actions. | finance.transaction: Расход: Аптека 890 ₽ | receipt.manual: Manual receipt expense saved from market-home.png
 
 ## Remaining Gated
 Automatic OCR remains provider-gated; manual extraction works now.

@@ -22,7 +22,11 @@ const FALLBACK_PREFIX = "lifeos.v33.knowledge.";
 const CHUNK_SIZE = 120000;
 const AUTO_SAVE_MS = 1500;
 const SOURCE_NOTE_TEXT_LIMIT = 60000;
+// Порог не на ХРАНЕНИЕ, а на способ хранения: до него байты едут в снимке состояния строкой
+// base64 (дёшево и удобно), после — блобом в отдельной записи IndexedDB. Потолка на размер
+// файла больше нет: часовая диктофонная запись сохраняется целиком и расшифровывается.
 const INLINE_MEDIA_LIMIT = 8 * 1024 * 1024;
+const MEDIA_PREFIX = "media:";
 const UI_REVISION = "lifeos-v34-chat-hardfix-v4";
 const PRODUCT_BRAIN_VERSION = "2026-07-09-v34-platform-primitives";
 const PRODUCT_BRAIN_FOLDER_ID = "folder-product-brain";
@@ -858,6 +862,17 @@ function base64ToBytes(value) {
   return bytes;
 }
 
+// Срок сжатия обязан зависеть от размера снимка. Раньше он был жёстким — 1,8 секунды на любой
+// объём, — и это работало ровно до тех пор, пока хранилище было маленьким. Как только запись
+// разрослась (или машина оказалась занята), gzip перестал укладываться, снимок сохранялся сырым
+// JSON, от этого рос ещё сильнее, следующее сжатие срывалось раньше — и так по спирали, с
+// потоком предупреждений в консоли. Владелец увидел итог этой спирали как экран «Repository
+// boundary stopped a failure» на своей вкладке. Бюджет считаем от объёма: ~2 мс на килобайт,
+// не меньше прежних 1,8 с и не больше 30 с, чтобы зависание всё ещё ловилось.
+function streamBudgetMs(length) {
+  return Math.min(30000, Math.max(1800, Math.round((Number(length) || 0) / 1024) * 2));
+}
+
 async function compressText(text) {
   if ("CompressionStream" in window) {
     try {
@@ -871,7 +886,7 @@ async function compressText(text) {
           encoding: "gzip-base64",
           payload: bytesToBase64(new Uint8Array(buffer))
         };
-      }, 1800);
+      }, streamBudgetMs(text.length));
     } catch (error) {
       console.warn("CompressionStream fallback", error);
     }
@@ -892,7 +907,7 @@ async function decompressText(encoding, payload) {
         await writer.write(bytes);
         await writer.close();
         return new Response(stream.readable).text();
-      }, 1800);
+      }, streamBudgetMs(payload.length));
     } catch (error) {
       console.warn("DecompressionStream fallback", error);
     }
@@ -917,6 +932,14 @@ function idbRequest(request) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+  });
+}
+
+function idbTransaction(transaction) {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve(true);
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error("IndexedDB transaction aborted"));
   });
 }
 
@@ -996,6 +1019,34 @@ class KnowledgeRepository {
 
   async readRecord(id) {
     return idbRequest(this.db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(id));
+  }
+
+  // Тяжёлые файлы (аудио, картинки) лежат ОТДЕЛЬНО от состояния — блобом под ключом
+  // `media:<sourceId>`. Раньше байты кодировались в base64 и жили внутри самого состояния, а
+  // состояние целиком пишется одним снимком: файл больше 8 МБ туда не помещался, и запись
+  // просто теряла звук, честно об этом сообщая. Блоб IndexedDB хранит как есть, потолка нет,
+  // и снимок состояния не раздувается. Отдельного хранилища не заводим — тот же объект-стор,
+  // только с префиксом ключа, поэтому версию базы поднимать не нужно.
+  async writeMedia(sourceId, blob) {
+    if (!this.db || !blob) return false;
+    const transaction = this.db.transaction(STORE_NAME, "readwrite");
+    transaction.objectStore(STORE_NAME).put({ id: MEDIA_PREFIX + sourceId, blob });
+    await idbTransaction(transaction);
+    return true;
+  }
+
+  async readMedia(sourceId) {
+    if (!this.db) return null;
+    const record = await this.readRecord(MEDIA_PREFIX + sourceId);
+    return record && record.blob ? record.blob : null;
+  }
+
+  async deleteMedia(sourceId) {
+    if (!this.db) return false;
+    const transaction = this.db.transaction(STORE_NAME, "readwrite");
+    transaction.objectStore(STORE_NAME).delete(MEDIA_PREFIX + sourceId);
+    await idbTransaction(transaction);
+    return true;
   }
 
   async save(state) {
@@ -1117,6 +1168,10 @@ function createInitialState() {
     // только ОТКЛОНЕНИЯ от умолчания панели, поэтому новая панель работает без миграции.
     panelOpen: {},
     captureDraft: "",
+    // Прикреплённые в композиторе файлы: ТОЛЬКО идентификаторы записей. Статус (сохранён,
+    // расшифровывается, расшифровано, звука нет) всегда берётся из самой записи при отрисовке,
+    // иначе на экране жила бы вторая, устаревающая копия правды.
+    captureAttachments: [],
     chatDraft: "",
     commandMessage: "Локальное хранилище готово",
     lastSavedAt: "",
@@ -2570,6 +2625,7 @@ function normalizeState(input) {
     lensDraft: normalizeLensDraft(base.lensDraft),
     panelOpen: normalizePanelOpen(base.panelOpen),
     captureDraft: String(base.captureDraft || ""),
+    captureAttachments: Array.isArray(base.captureAttachments) ? base.captureAttachments.filter((id) => typeof id === "string" && id).slice(-8) : [],
     commandMessage: base.commandMessage || "Локальное хранилище готово",
     lastSavedAt: base.lastSavedAt || "",
     folders: base.folders || {},
@@ -5927,6 +5983,47 @@ function normalizeArtifactAnalysis(input, source) {
   };
 }
 
+// Байты нужны тем записям, у которых нет текста: аудио надо расшифровать и проиграть, картинку —
+// показать. Текстовый источник (md/txt) уже разобран в `text`, второй копии ему не нужно.
+// Человеческий статус прикреплённого файла. Ровно то, что владелец хочет прочитать глазами:
+// сохранён ли файл, идёт ли расшифровка, есть ли уже текст, и если нет — почему.
+function captureAttachmentStatus(source) {
+  const status = String(source.transcriptStatus || "");
+  if (status.endsWith("-transcribing")) return "расшифровывается…";
+  if (status.endsWith("-done")) return "расшифровано";
+  if (status.includes("-failed")) return "не удалось расшифровать";
+  if (source.kind === "audio") {
+    if (source.transcriptText) return "есть расшифровка";
+    if (source.dataUrl || source.mediaStored) return "сохранено, можно расшифровать";
+    return "звук не сохранён";
+  }
+  if (source.text) return "текст прочитан";
+  return source.dataUrl || source.mediaStored ? "сохранено" : "сохранено без содержимого";
+}
+
+function needsMediaBytes(source) {
+  if (!source) return false;
+  if (source.text) return false;
+  return source.kind === "audio" || source.kind === "image" || source.kind === "book" || source.kind === "file";
+}
+
+// Единая точка доступа к байтам записи: сначала строка в снимке состояния (мелкие файлы),
+// потом блоб из хранилища (крупные). Возвращает URL, пригодный и для fetch, и для <audio>.
+const mediaObjectUrls = new Map();
+async function resolveSourceMediaUrl(sourceId) {
+  const source = store && store.state.sources ? store.state.sources[sourceId] : null;
+  if (!source) return "";
+  if (source.dataUrl) return source.dataUrl;
+  if (!source.mediaStored) return "";
+  const cached = mediaObjectUrls.get(sourceId);
+  if (cached) return cached;
+  const blob = await repository.readMedia(sourceId);
+  if (!blob) return "";
+  const url = URL.createObjectURL(blob);
+  mediaObjectUrls.set(sourceId, url);
+  return url;
+}
+
 async function fileToSourcePayload(file, forcedKind) {
   const kind = inferSourceKind(file.name, file.type, forcedKind);
   const readableText = kind !== "audio" && canReadSourceAsText(file.name, file.type);
@@ -8973,23 +9070,26 @@ async function pollWhisperTranscribeProgress(requestId, sourceId) {
   }
 }
 
-// A source whose file was too large to inline (>8MB, dataUrl === "") has no audio bytes to
-// decode. Clicking transcribe used to silently do nothing; instead set an honest failed status
-// (§7 - never a silent no-op) so the owner knows why and that manual transcript still works.
+// Байтов у записи нет вовсе — ни строкой в состоянии, ни блобом в хранилище. Так бывает у
+// записей, импортированных до появления блоб-хранилища, и после сбоя записи файла. Молчаливого
+// бездействия здесь быть не должно (§7), но и врать нельзя: прежняя формулировка «файл не
+// сохранён локально (больше 8 МБ)» читалась владельцем как «файла нет на твоём ноутбуке» —
+// хотя файл лежал у него на диске, а потолка теперь нет вовсе.
 async function markAudioMissingData(sourceId, prefix, engineLabel) {
   await store.commit(engineLabel + " transcription unavailable", (state) => {
     const src = state.sources[sourceId];
     if (!src) return;
-    src.transcriptStatus = prefix + "-failed: файл не сохранён локально (больше 8 МБ) — авто-расшифровка недоступна, ручная работает";
+    src.transcriptStatus = prefix + "-failed: звук этой записи не сохранён в хранилище — добавь файл заново, ручная расшифровка работает";
     src.updatedAt = now();
-    addAudit(state, "transcript." + prefix + ".unavailable", "Авто-расшифровка недоступна: " + src.name + " не сохранён локально (>8 МБ)", src.noteId);
+    addAudit(state, "transcript." + prefix + ".unavailable", "Авто-расшифровка недоступна: у записи " + src.name + " нет сохранённых байтов звука", src.noteId);
   });
 }
 
 async function runWhisperTranscribe(sourceId) {
   const source = store.state.sources[sourceId];
   if (!source) return;
-  if (!source.dataUrl) { await markAudioMissingData(sourceId, "whisper", "Whisper"); return; }
+  const mediaUrl = await resolveSourceMediaUrl(sourceId);
+  if (!mediaUrl) { await markAudioMissingData(sourceId, "whisper", "Whisper"); return; }
   const requestId = makeId("whisperjob");
   whisperTranscribeRuntime[requestId] = { status: "running", text: "", error: "" };
   await store.commit("Whisper transcription started", (state) => {
@@ -9001,7 +9101,7 @@ async function runWhisperTranscribe(sourceId) {
     recordProviderRun(state, "stt", "transcribe", "transcribing", "Локальная расшифровка Whisper начата: " + source.name, { sourceId });
   });
   try {
-    const audio = await decodeAudioTo16kMono(source.dataUrl);
+    const audio = await decodeAudioTo16kMono(mediaUrl);
     ensureWhisperWorker().postMessage({ type: "transcribe", requestId, audio, language: "russian" }, [audio.buffer]);
   } catch (error) {
     whisperTranscribeRuntime[requestId] = { status: "error", text: "", error: String((error && error.message) || error) };
@@ -9272,7 +9372,8 @@ async function pollVoskTranscribeProgress(requestId, sourceId) {
 async function runVoskTranscribe(sourceId) {
   const source = store.state.sources[sourceId];
   if (!source) return;
-  if (!source.dataUrl) { await markAudioMissingData(sourceId, "vosk", "Vosk"); return; }
+  const mediaUrl = await resolveSourceMediaUrl(sourceId);
+  if (!mediaUrl) { await markAudioMissingData(sourceId, "vosk", "Vosk"); return; }
   const requestId = makeId("voskjob");
   voskTranscribeRuntime[requestId] = { status: "running", text: "", error: "" };
   await store.commit("Vosk transcription started", (state) => {
@@ -9285,7 +9386,7 @@ async function runVoskTranscribe(sourceId) {
   });
   try {
     const model = await ensureVoskModel();
-    const audio = await decodeAudioTo16kMono(source.dataUrl);
+    const audio = await decodeAudioTo16kMono(mediaUrl);
     const text = await runVoskRecognizer(model, audio);
     voskTranscribeRuntime[requestId] = { status: "done", text, error: "" };
   } catch (error) {
@@ -9354,7 +9455,8 @@ async function probeWhisperCpp(endpoint) {
 async function runWhisperCppTranscribe(sourceId) {
   const source = store.state.sources[sourceId];
   if (!source) return;
-  if (!source.dataUrl) { await markAudioMissingData(sourceId, "whispercpp", "whisper.cpp"); return; }
+  const mediaUrl = await resolveSourceMediaUrl(sourceId);
+  if (!mediaUrl) { await markAudioMissingData(sourceId, "whispercpp", "whisper.cpp"); return; }
   const endpoint = ((store.state.providers || {}).whispercpp || {}).endpoint || "http://127.0.0.1:8090";
   await store.commit("whisper.cpp transcription started", (state) => {
     const src = state.sources[sourceId];
@@ -9365,7 +9467,7 @@ async function runWhisperCppTranscribe(sourceId) {
     recordProviderRun(state, "whispercpp", "transcribe", "transcribing", "Локальная расшифровка whisper.cpp начата: " + source.name, { sourceId });
   });
   try {
-    const audio = await decodeAudioTo16kMono(source.dataUrl);
+    const audio = await decodeAudioTo16kMono(mediaUrl);
     const wavBlob = encodeWav16kMono(audio);
     const formData = new FormData();
     formData.append("file", wavBlob, "audio.wav");
@@ -12572,7 +12674,25 @@ function render() {
   const state = store.state;
   const activeNote = getActiveNote(state);
   applyTheme(state);
+  // Перерисовка заменяет ВЕСЬ DOM, поэтому поле, в котором сейчас печатают, пересоздаётся и
+  // фокус пропадает. Раньше его возвращали ровно одному полю — командной палитре, — и любой
+  // другой ввод умирал после первой же буквы: владелец печатал символ в глобальный поиск, поле
+  // теряло фокус, и поиск выглядел сломанным. Запоминаем поле по id вместе с положением
+  // курсора и возвращаем ровно его — то самое, в котором фокус был перед перерисовкой.
+  const focused = document.activeElement;
+  const focusedId = focused && focused.id && app.contains(focused) ? focused.id : "";
+  const focusedStart = focusedId && typeof focused.selectionStart === "number" ? focused.selectionStart : null;
+  const focusedEnd = focusedId && typeof focused.selectionEnd === "number" ? focused.selectionEnd : null;
   app.innerHTML = renderNewShell(buildNewShellContext(state, activeNote, { saveState: store.saveState }));
+  if (focusedId) {
+    const restored = document.getElementById(focusedId);
+    if (restored) {
+      restored.focus();
+      if (focusedStart !== null && typeof restored.setSelectionRange === "function") {
+        try { restored.setSelectionRange(focusedStart, focusedEnd); } catch (error) { /* поле без выделения */ }
+      }
+    }
+  }
   if (state.commandPaletteOpen) {
     const input = document.getElementById("command-palette-query");
     if (input) {
@@ -12583,6 +12703,7 @@ function render() {
   mountGraph();
   mountCalendarDragDrop();
   mountFinanceChart();
+  mountStoredMedia();
   mountAudioPlayer();
   mountCalendarNowScroll();
   scrollChatThreadToLatest();
@@ -12893,6 +13014,18 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     bookSources: sources.filter(isBookSource),
     budgets: Object.values(state.budgets || {}).filter((item) => !item.deleted),
     captureDraft: state.captureDraft || "",
+    // Статус каждого прикреплённого файла считается ЗДЕСЬ, из самой записи, а не хранится
+    // рядом с идентификатором: иначе на экране жила бы устаревающая копия правды.
+    captureAttachments: (state.captureAttachments || [])
+      .map((sourceId) => state.sources[sourceId])
+      .filter((source) => source && !source.deleted)
+      .map((source) => ({
+        id: source.id,
+        name: source.name,
+        kind: source.kind,
+        size: source.size || 0,
+        status: captureAttachmentStatus(source)
+      })),
     chatMessages: visibleChatMessages(state),
     chatSearchQuery: state.chatSearchQuery || "",
     chatDraft: state.chatDraft || "",
@@ -14146,7 +14279,14 @@ function objectSourceGroups(state, id, kindLabel) {
       date: formatObjectDay(objectRecordDate(row.object)),
       at: objectRecordDate(row.object),
       title: shorten(graphNodeTitle(row.kind, row.object, row.id), 90),
-      gave: objectSourceGave(state, row, kindLabel)
+      gave: objectSourceGave(state, row, kindLabel),
+      // Само тело записи, а не только строка о ней. Владелец проваливался в объект аудио и
+      // видел заголовок с датой — ни плеера, ни расшифровки: «а где сам объект?». Медиа и текст
+      // отдаём здесь же, чтобы карточка показывала ИСХОДНИК, а не карточку об исходнике.
+      media: row.kind === "source" && row.object && (row.object.dataUrl || row.object.mediaStored)
+        ? { id: row.object.id, mediaKind: row.object.kind, dataUrl: row.object.dataUrl || "", stored: Boolean(row.object.mediaStored) }
+        : null,
+      transcript: row.kind === "source" && row.object ? shorten(cleanLine(row.object.transcriptText || ""), 400) : ""
     }))
     .sort((a, b) => String(b.at).localeCompare(String(a.at)));
   const groups = [];
@@ -22546,12 +22686,33 @@ async function mountCalendarDragDrop() {
 // so continuous position saving would fight the render cycle every tick. `pause` is the one
 // moment that's both a real user action and rare enough not to cause an audible reset while
 // playing - see DECISIONS.md for why this, and not timeupdate, is the save trigger.
+// Адрес блоба нельзя вписать в разметку строкой — он существует только после чтения из
+// хранилища. Поэтому любой <audio>, у которого есть запись, но нет src, получает адрес сразу
+// после отрисовки: и плеер на экране «Аудио», и предпросмотр внутри карточки объекта.
+function mountStoredMedia() {
+  const players = document.querySelectorAll("audio[data-source-id]:not([src])");
+  for (const element of players) {
+    const sourceId = element.dataset.sourceId || "";
+    if (!sourceId) continue;
+    resolveSourceMediaUrl(sourceId).then((url) => {
+      if (url && !element.getAttribute("src")) element.setAttribute("src", url);
+    }).catch(() => {});
+  }
+}
+
 function mountAudioPlayer() {
   const player = document.querySelector('[data-testid="audio-player"]');
   if (!player || !store) return;
   const sourceId = player.dataset.sourceId || "";
   const source = sourceId ? store.state.sources[sourceId] : null;
   if (!source) return;
+  // Крупная запись хранится блобом: адрес нельзя вписать в разметку строкой, он появляется
+  // только после чтения из хранилища. Подставляем его сразу после отрисовки.
+  if (!player.getAttribute("src") && source.mediaStored) {
+    resolveSourceMediaUrl(sourceId).then((url) => {
+      if (url && !player.getAttribute("src")) player.setAttribute("src", url);
+    }).catch(() => {});
+  }
   const restore = () => {
     if (source.positionSeconds > 0 && source.positionSeconds < (player.duration || Infinity)) {
       player.currentTime = source.positionSeconds;
@@ -22767,21 +22928,79 @@ async function importFilesFromInput(fileList, forcedKind) {
     payloads.push(await fileToSourcePayload(file, forcedKind));
   }
   const newAudioSourceIds = [];
+  const importedIds = [];
   await store.commit("Sources imported", (state) => {
     for (const payload of payloads) {
       const sourceId = addImportedSource(state, payload);
+      importedIds.push(sourceId);
+      // Прикреплённый файл обязан быть ВИДЕН в том же месте, где его прикрепили. Раньше импорт
+      // проходил молча: владелец выбирал два голосовых, на экране не менялось ничего, и он
+      // справедливо решал, что файлы не прикрепились.
+      state.captureAttachments = (state.captureAttachments || []).concat(sourceId).slice(-8);
       createActionProposalsForSource(state, sourceId);
       const source = state.sources[sourceId];
       addChatMessage(state, "assistant", "Imported " + source.name + " and prepared next actions.", source.id, source.noteId);
       if (source.kind === "audio" && source.dataUrl) newAudioSourceIds.push(sourceId);
     }
   });
+  // Байты файла, не поместившиеся в снимок состояния, сохраняются блобом СРАЗУ после импорта —
+  // до этого запись существовала без звука и расшифровать её было нечем.
+  for (let index = 0; index < importedIds.length; index += 1) {
+    const sourceId = importedIds[index];
+    const file = files[index];
+    const source = store.state.sources[sourceId];
+    if (!source || source.dataUrl || !file || !needsMediaBytes(source)) continue;
+    let stored = false;
+    try { stored = await repository.writeMedia(sourceId, file); } catch (error) { stored = false; }
+    await store.commit(stored ? "Media stored" : "Media store failed", (state) => {
+      const record = state.sources[sourceId];
+      if (!record) return;
+      record.mediaStored = stored;
+      record.updatedAt = now();
+      if (stored) {
+        addAudit(state, "source.media.stored", "Файл сохранён локально целиком: " + record.name + " (" + formatBytes(record.size) + ")", record.noteId);
+      } else {
+        addAudit(state, "source.media.failed", "Не удалось сохранить байты файла: " + record.name, record.noteId);
+      }
+    });
+    if (stored && source.kind === "audio") newAudioSourceIds.push(sourceId);
+  }
   // Auto-transcribe only kicks in if Whisper is already prepared and ready - never triggers a
   // fresh download on its own (that stays an explicit owner click, per CLAUDE.md §7).
   if (store.state.providers.stt.status === "ready") {
     for (const sourceId of newAudioSourceIds) {
       await runWhisperTranscribe(sourceId);
     }
+  }
+}
+
+// «Разобрать» при пустом поле и прикреплённых файлах. Аудио уходит в расшифровку тем движком,
+// который РЕАЛЬНО доступен (whisper.cpp — единственный работающий локально); если ни один не
+// готов, владелец получает не молчание, а прямую причину и рабочий обходной путь.
+async function parseCaptureAttachments() {
+  const ids = (store.state.captureAttachments || []).slice();
+  const audioIds = ids.filter((id) => {
+    const source = store.state.sources[id];
+    return source && !source.deleted && source.kind === "audio" && !source.transcriptText;
+  });
+  if (!audioIds.length) {
+    await store.commit("Прикреплённое уже разобрано", (state) => {
+      state.commandMessage = "Прикреплённые файлы уже разобраны — они в Базе и в Аудио.";
+    });
+    return;
+  }
+  const whispercpp = (store.state.providers || {}).whispercpp || {};
+  if (whispercpp.status !== "reachable") {
+    await store.commit("Расшифровка недоступна", (state) => {
+      state.commandMessage = "Локальная расшифровка не подключена: запусти whisper.cpp (npm run whisper-server) и нажми «Проверить whisper.cpp» на экране Аудио. Ручная расшифровка работает уже сейчас.";
+      addAudit(state, "capture.attachments.gated", "Разбор прикреплённых аудио отложен: whisper.cpp не отвечает", state.activeNoteId);
+      // Ведём туда, где это чинится, а не оставляем владельца перед немой кнопкой.
+      state.activeSurface = "player";
+    });
+    return;
+  }
+  for (const sourceId of audioIds) {
+    await runWhisperCppTranscribe(sourceId);
   }
 }
 
@@ -23694,6 +23913,12 @@ async function handleAction(action, id) {
   if (action === "capture-text") {
     const input = document.querySelector("#capture-input");
     const text = input ? input.value : store.state.captureDraft;
+    // Пустое поле при прикреплённых файлах — это не «нечего делать»: владелец прикрепил два
+    // голосовых и ждёт, что их разберут. Раньше нажатие не делало НИЧЕГО и выглядело зависанием.
+    if (!cleanLine(text) && (store.state.captureAttachments || []).length) {
+      await parseCaptureAttachments();
+      return;
+    }
     // Закон №7: вопрос остаётся вопросом. Ответ собирается ДО commit (поиск асинхронный),
     // а сам commit только сохраняет запись вопроса и ответ — ни одного предложения из него.
     if (looksLikeQuestion(text)) {
@@ -25892,6 +26117,9 @@ boot().catch((error) => {
 
 window.__lifeosKnowledgeBase = {
   decodeAudioTo16kMono,
+  // Байты крупной записи лежат блобом отдельно от состояния: спека обязана уметь проверить,
+  // что они действительно читаются обратно, а не только что флаг проставлен.
+  resolveSourceMediaUrlForTest: resolveSourceMediaUrl,
   extractWikiLinks,
   replaceWikiLinksForRename,
   mapGraph,
@@ -26033,6 +26261,15 @@ window.__lifeosKnowledgeBase = {
       state.objectView = { id: cleanLine(objectId || ""), tab: "sut", from: state.activeSurface || "" };
       state.activeSurface = "object";
     }).then(() => true);
+  },
+  // Расшифровка тем же путём, что и у настоящего движка, но без демона: спеке про ВЁРСТКУ
+  // карточки незачем требовать поднятый whisper.cpp — его проверяют отдельные спеки.
+  saveSourceTranscriptForTest(sourceId, text) {
+    if (!store) return Promise.resolve("");
+    let noteId = "";
+    return store.commit("Test transcript saved", (state) => {
+      noteId = saveSourceTranscript(state, cleanLine(sourceId), String(text || ""), { mode: "manual" });
+    }).then(() => noteId);
   },
   // Рост графа виден только когда у объектов РАЗНЫЕ дни. В свежем хранилище всё создано
   // сегодня, поэтому спека сдвигает часть объектов назад — иначе проверять нечего.

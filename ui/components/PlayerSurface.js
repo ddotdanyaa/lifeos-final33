@@ -39,6 +39,11 @@ function whisperCppStatusLabel(audio) {
   return "";
 }
 
+// Байты у записи есть, если она либо целиком лежит строкой в состоянии, либо сохранена блобом.
+export function hasAudioBytes(source) {
+  return Boolean(source && (source.dataUrl || source.mediaStored));
+}
+
 function segmentsFor(ctx, sourceId) {
   return (ctx.transcriptSegments || []).filter((segment) => segment.sourceId === sourceId).sort((a, b) => a.index - b.index);
 }
@@ -114,9 +119,12 @@ export function renderPlayerSurface(ctx) {
     `<section class="audio-player-card" data-testid="player-panel">`,
     `<div class="player-art"><span>▶</span></div>`,
     `<h3>${escapeHtml(active?.name || "Плеер")}</h3>`,
-    active?.dataUrl ? `<audio controls src="${escapeHtml(active.dataUrl)}" data-testid="audio-player" data-source-id="${escapeHtml(active.id)}" data-rate="${escapeHtml(String(active.playbackRate || 1))}"></audio>` : `<div class="audio-fake-controls"><button>▶</button><div></div><time>00:00</time></div>`,
+    // Крупный файл живёт блобом в хранилище, а не строкой в состоянии: `src` тогда пустой и
+    // подставляется после отрисовки (mountAudioPlayer). Плеер обязан появиться в обоих случаях —
+    // иначе часовая запись выглядит как «звука нет», хотя он сохранён целиком.
+    hasAudioBytes(active) ? `<audio controls${active.dataUrl ? ` src="${escapeHtml(active.dataUrl)}"` : ""} data-testid="audio-player" data-source-id="${escapeHtml(active.id)}" data-rate="${escapeHtml(String(active.playbackRate || 1))}"></audio>` : `<div class="audio-fake-controls"><button>▶</button><div></div><time>00:00</time></div>`,
     // R1.1: скорость воспроизведения (Audiobookshelf-идея, код свой) - запоминается в артефакте.
-    active?.dataUrl ? `<div class="audio-speed-row" data-testid="audio-speed-row"><span>Скорость</span>${[0.75, 1, 1.25, 1.5, 2].map((rate) => `<button data-action="set-audio-rate" data-id="${escapeHtml(active.id + "::" + rate)}" data-testid="audio-rate-${String(rate).replace(".", "-")}" class="${Number(active.playbackRate || 1) === rate ? "active" : ""}">${rate}×</button>`).join("")}</div>` : "",
+    hasAudioBytes(active) ? `<div class="audio-speed-row" data-testid="audio-speed-row"><span>Скорость</span>${[0.75, 1, 1.25, 1.5, 2].map((rate) => `<button data-action="set-audio-rate" data-id="${escapeHtml(active.id + "::" + rate)}" data-testid="audio-rate-${String(rate).replace(".", "-")}" class="${Number(active.playbackRate || 1) === rate ? "active" : ""}">${rate}×</button>`).join("")}</div>` : "",
     `<p>Аудио сохраняется локально. whisper.cpp расшифровывает офлайн через локальный сервер и работает; Whisper и Vosk честно заблокированы отдельными внешними проблемами (ONNX Runtime и WASM-библиотека соответственно); ручной текст работает всегда.</p>`,
     `<div class="stt-gate" data-testid="stt-gate" data-raw-status="${escapeHtml(stt.status || "not-configured")}"><div><strong>STT (Whisper)</strong><span>${escapeHtml(providerLabel(stt.status))}${stt.status === "downloading" && Number.isFinite(stt.percent) ? " · " + stt.percent + "%" : ""}</span></div><p>${escapeHtml(stt.requiredAction || "нужна настройка; ручной режим работает")}</p>${sttReady ? "" : button("prepare-whisper", "Подготовить Whisper (скачает ~75 МБ)", { kind: "primary", testId: "prepare-whisper", disabled: stt.status === "downloading" })}</div>`,
     `<div class="stt-gate" data-testid="vosk-gate" data-raw-status="${escapeHtml(vosk.status || "not-configured")}"><div><strong>STT (Vosk)</strong><span>${escapeHtml(providerLabel(vosk.status))}${vosk.status === "downloading" && Number.isFinite(vosk.percent) ? " · " + vosk.percent + "%" : ""}</span></div><p>${escapeHtml(vosk.requiredAction || "нужна настройка; ручной режим работает")}</p>${voskReady ? "" : button("prepare-vosk", "Подготовить Vosk (скачает ~46 МБ)", { kind: "primary", testId: "prepare-vosk", disabled: vosk.status === "downloading" })}</div>`,

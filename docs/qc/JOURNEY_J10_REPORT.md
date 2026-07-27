@@ -19,7 +19,7 @@ Idea capture becomes a source-backed knowledge artifact with project/next-action
   "subscriptions": 0,
   "habits": 0,
   "goals": 0,
-  "insights": 1,
+  "insights": 0,
   "claims": 0,
   "questions": 0,
   "reviewItems": 1,
@@ -32,7 +32,7 @@ Idea capture becomes a source-backed knowledge artifact with project/next-action
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 4,
+  "proposalsOpen": 5,
   "proposalsApplied": 1,
   "auditEvents": 0,
   "graphNodes": 12,
@@ -42,10 +42,10 @@ Idea capture becomes a source-backed knowledge artifact with project/next-action
 ```
 
 ## Graph Edges
-After: 584 edges, 584 with visible reasons.
+After: 557 edges, 557 with visible reasons.
 
 ## Data Control Events
-After: 300 audit events. Tail: highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | provider.run: import file: Импорт: Идея: сделать систему второго мозга для книг,....md (text) | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | chat.input.artifact: owner chat artifact recorded: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact | insight.create: Insight created: Сохранить источник в библиотеку | proposal.apply: Applied proposal: Сохранить источник в библиотеку
+After: 300 audit events. Tail: review.create: Review item created: Повторить highlight: Идея: сделать систему второго мозга для книг, аудио... | highlight.create: Highlight created: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | highlight.extract: Highlights extracted from Идея: сделать систему второго мозга для книг,....md: 1 | provider.run: import file: Импорт: Идея: сделать систему второго мозга для книг,....md (text) | source.import: Source imported: Идея: сделать систему второго мозга для книг,....md (text) | chat.input.artifact: Твоё сообщение сохранено: Идея: сделать систему второго мозга для книг, аудио и задач, где все связано графом | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток
 
 ## Remaining Gated
 None for this local journey.

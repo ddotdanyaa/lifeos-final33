@@ -11931,3 +11931,74 @@ button.graph-growth-day.open i { outline: 2px solid var(--accent); outline-offse
   border-top: 1px solid var(--line);
   padding-top: var(--space-3);
 }
+
+/* Прикреплённые в композиторе файлы: строка на файл с именем, размером и честным статусом.
+   Раньше импорт проходил молча и владелец не знал, прикрепилось ли что-нибудь вообще. */
+.capture-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.capture-attachments-title {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.capture-attachment {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 260px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.capture-attachment strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+
+.capture-attachment span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* Исходник внутри карточки объекта: аудио играет, расшифровка читается. Раньше здесь была
+   только строка о записи, и владелец не находил в объекте сам объект. */
+.object-source-preview {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+}
+
+.object-source-preview audio {
+  width: 100%;
+}
+
+.object-source-preview img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.object-source-transcript {
+  margin: 0;
+  color: var(--text-main);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}

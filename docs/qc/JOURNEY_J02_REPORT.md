@@ -34,7 +34,7 @@ A simple capture surfaces one primary Russian action plus Изменить and �
   "providerRuns": 1,
   "proposalsOpen": 3,
   "proposalsApplied": 2,
-  "auditEvents": 15,
+  "auditEvents": 14,
   "graphNodes": 11,
   "graphEdges": 20,
   "graphEdgeReasons": 20
@@ -45,7 +45,7 @@ A simple capture surfaces one primary Russian action plus Изменить and �
 After: 38 edges, 38 with visible reasons.
 
 ## Data Control Events
-After: 36 audit events. Tail: provider.run: import file: Импорт: завтра в 6 встать и приготовить завтрак.md (text) | source.import: Source imported: завтра в 6 встать и приготовить завтрак.md (text) | chat.input.artifact: owner chat artifact recorded: завтра в 6 встать и приготовить завтрак | chat.answer.artifact: assistant chat artifact recorded: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Inbox text captured as artifact | proposal.apply: Служебный шаг разбора отмечен выполненным: «Сохранить источник в библиотеку» — объект не создавался | task.create: Task created: Встать и приготовить завтрак | proposal.apply: Applied proposal: Встать и приготовить завтрак
+After: 35 audit events. Tail: capability.grant: Capability granted: import/file (local) | provider.run: import file: Импорт: завтра в 6 встать и приготовить завтрак.md (text) | source.import: Source imported: завтра в 6 встать и приготовить завтрак.md (text) | chat.input.artifact: Твоё сообщение сохранено: завтра в 6 встать и приготовить завтрак | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток | task.create: Задача создана: Встать и приготовить завтрак | proposal.apply: Applied proposal: Встать и приготовить завтрак
 
 ## Remaining Gated
 None for this local journey.

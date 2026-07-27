@@ -31,13 +31,13 @@ Fresh Home opens as four owner zones: Universal Capture, Today/Next, Money/Habit
   "chatMessages": 0,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 1,
+  "providerRuns": 0,
   "proposalsOpen": 0,
   "proposalsApplied": 0,
-  "auditEvents": 2,
-  "graphNodes": 1,
-  "graphEdges": 1,
-  "graphEdgeReasons": 1
+  "auditEvents": 0,
+  "graphNodes": 0,
+  "graphEdges": 0,
+  "graphEdgeReasons": 0
 }
 ```
 
@@ -45,7 +45,7 @@ Fresh Home opens as four owner zones: Universal Capture, Today/Next, Money/Habit
 After: 18 edges, 18 with visible reasons.
 
 ## Data Control Events
-After: 21 audit events. Tail: note.create: Note created: Food-Health | note.create: Note created: Travel | note.create: Note created: Builder-AI | note.create: Note created: Ollama local | note.create: Note created: Свои API-ключи | v34.platform.seed: LifeOS v34 platform primitives seeded | capability.grant: Capability granted: pwa/boot (local) | provider.run: pwa boot: PWA shell checked: service-worker-ready
+After: 21 audit events. Tail: note.create: Заметка создана: Food-Health | note.create: Заметка создана: Travel | note.create: Заметка создана: Builder-AI | note.create: Заметка создана: Ollama local | note.create: Заметка создана: Свои API-ключи | v34.platform.seed: LifeOS v34 platform primitives seeded | capability.grant: Capability granted: pwa/boot (local) | provider.run: pwa boot: PWA shell checked: service-worker-ready
 
 ## Remaining Gated
 None for this local journey.

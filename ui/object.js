@@ -115,9 +115,23 @@ function renderSimilar(similar) {
   ].join("");
 }
 
+// Первый исходник объекта — на самой первой вкладке. Владелец проваливается в объект своей
+// голосовой и должен увидеть ЕЁ, а не оглавление из пяти вкладок: плеер и расшифровка стоят
+// выше рассуждений системы о записи.
+function firstSourceBody(inspector) {
+  for (const group of inspector.sourceGroups || []) {
+    for (const item of group.items || []) {
+      const body = renderSourceBody(item);
+      if (body) return body;
+    }
+  }
+  return "";
+}
+
 function renderEssence(inspector) {
   return [
     `<div class="object-panel" data-testid="object-panel-sut">`,
+    firstSourceBody(inspector),
     renderPeopleReview(inspector.peopleReview),
     `<p class="object-next" data-testid="object-next">${escapeHtml(inspector.next.text)}</p>`,
     `<p class="object-next-why" data-testid="object-next-why">${escapeHtml(inspector.next.why)}</p>`,
@@ -136,6 +150,27 @@ function renderEssence(inspector) {
   ].join("");
 }
 
+// Сам исходник внутри карточки объекта: аудио играет, расшифровка читается. Раньше здесь была
+// только строка «заголовок · что дал · дата», и владелец, провалившись в объект своей голосовой,
+// не находил ни файла, ни текста — карточка рассказывала ОБ объекте вместо того, чтобы его
+// показать. Адрес блоба подставляется после отрисовки, как и в плеере на экране «Аудио».
+function renderSourceBody(item) {
+  const parts = [];
+  if (item.media && item.media.mediaKind === "audio") {
+    parts.push(`<audio controls${item.media.dataUrl ? ` src="${escapeHtml(item.media.dataUrl)}"` : ""} data-testid="object-source-audio" data-source-id="${escapeHtml(item.media.id)}"></audio>`);
+  }
+  if (item.media && item.media.mediaKind === "image" && item.media.dataUrl) {
+    parts.push(`<img src="${escapeHtml(item.media.dataUrl)}" alt="${escapeHtml(item.title)}" data-testid="object-source-image">`);
+  }
+  if (item.transcript) {
+    parts.push(`<p class="object-source-transcript" data-testid="object-source-transcript">${escapeHtml(item.transcript)}</p>`);
+  } else if (item.media && item.media.mediaKind === "audio") {
+    parts.push(`<p class="empty-inline" data-testid="object-source-transcript-empty">Расшифровки пока нет — её можно получить на экране «Аудио».</p>`);
+  }
+  if (!parts.length) return "";
+  return `<div class="object-source-preview" data-testid="object-source-preview">${parts.join("")}</div>`;
+}
+
 function renderSources(inspector) {
   if (!inspector.sourceGroups.length) {
     return `<div class="object-panel" data-testid="object-panel-src"><p class="empty-inline" data-testid="object-sources-empty">У объекта нет входящих захватов: он либо заведён вручную, либо его источники ещё не связаны. Это не ошибка — просто пока нечего показать.</p></div>`;
@@ -150,7 +185,8 @@ function renderSources(inspector) {
         `<span class="object-source-kind">${escapeHtml(item.kindLabel)}</span>`,
         `<span class="object-source-body"><strong>${escapeHtml(item.title)}</strong><em>${escapeHtml(item.gave)}</em></span>`,
         `<span class="object-source-date">${escapeHtml(item.date)}</span>`,
-        `</button>`
+        `</button>`,
+        renderSourceBody(item)
       ].join("")).join(""),
       `</div>`
     ].join("")).join(""),
