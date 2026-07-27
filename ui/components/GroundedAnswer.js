@@ -16,6 +16,16 @@ export function renderGroundedAnswer(ctx) {
     view.pipeline && view.pipeline.length
       ? `<p class="grounded-pipeline" data-testid="grounded-pipeline">${view.pipeline.map((stage) => escapeHtml(stage)).join(" → ")}</p>`
       : "",
+    // Ответ своими числами: цитата говорит «что записано», факт — «как обстоит дело». Считается
+    // по тем же объектам и теми же формулами, что и остальные экраны, поэтому каждый факт ведёт
+    // в свой объект: число можно проверить, а не принять на веру.
+    view.facts && view.facts.length ? [
+      `<div class="grounded-facts" data-testid="grounded-facts">`,
+      view.facts.map((row) => (row.objectId
+        ? `<button class="grounded-fact" data-action="open-object" data-id="${escapeHtml(row.objectId)}" data-testid="grounded-fact" data-kind="${escapeHtml(row.kind)}">${escapeHtml(row.line)}</button>`
+        : `<span class="grounded-fact grounded-fact-flat" data-testid="grounded-fact" data-kind="${escapeHtml(row.kind)}">${escapeHtml(row.line)}</span>`)).join(""),
+      `</div>`
+    ].join("") : "",
     view.citations.length ? [
       `<div class="grounded-citations" data-testid="grounded-citations">`,
       view.citations.map((row) => [

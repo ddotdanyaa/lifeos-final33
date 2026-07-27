@@ -14926,16 +14926,115 @@ function answerQueryTerms(question) {
 
 // Цитата — настоящее предложение из записи, а не пересказ. Берём то, где встретился термин.
 // Markdown-разметку снимаем: «# Хочу купить машину» — это заголовок файла, а не слова владельца.
+// Сравнение по основам, а не по подстроке: вопрос задают в одной форме («что там с машиной»),
+// а записан текст в другой («купить машину») — по точному слову цитата не находилась вовсе.
 function answerQuoteFor(text, terms) {
+  const stems = answerStems(terms);
   const sentences = String(text || "")
     .split(/(?<=[.!?…])\s+|\n+/)
     .map((line) => line.replace(/^#{1,6}\s*/, "").replace(/^[-*>]\s+/, "").trim())
     .filter(Boolean);
-  const hit = sentences.find((sentence) => {
-    const lower = normalizeRuText(sentence);
-    return terms.some((term) => lower.includes(term));
-  });
+  const hit = sentences.find((sentence) => matchesStems(sentence, stems));
   return shorten(hit || sentences[0] || "", 160);
+}
+
+// ----------------------------------------------------------------------------
+// Ответ СВОИМИ ЧИСЛАМИ, а не только цитатами (R1, донор NotebookLM grounding)
+// ----------------------------------------------------------------------------
+// До сих пор на вопрос «что там с машиной» база отвечала «тема встречается 5 раз» и показывала
+// цитаты. Но она ЗНАЕТ больше: у темы есть цель со сроком, открытые задачи, движение денег и
+// противоречие, которое уже посчитано на других экранах. Не сказать этого — значит заставить
+// владельца собирать ответ руками из того, что система уже собрала.
+// Железное правило: ни одна строка не выводится «на ощущение». Каждая — из настоящих записей,
+// с числом и со ссылкой на объект. Нет данных для грани — грани нет, а не «данных мало».
+
+// Сравнение по ОСНОВАМ, а не по подстроке: «машину» и «машины» — одно слово, а подстрочное
+// сравнение по-русски врёт (см. MEMORY.md). Основа та же, что и в тематических рёбрах графа,
+// чтобы «тема» на всех экранах значила одно и то же.
+function answerStems(terms) {
+  return new Set((terms || []).map((term) => lifeTermStem(term)).filter(Boolean));
+}
+
+function textStems(text) {
+  return new Set(normalizeRuText(text)
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3)
+    .map((word) => lifeTermStem(word)));
+}
+
+function matchesStems(text, stems) {
+  if (!stems.size) return false;
+  for (const stem of textStems(text)) if (stems.has(stem)) return true;
+  return false;
+}
+
+function answerFacts(state, terms) {
+  const stems = answerStems(terms);
+  if (!stems.size) return [];
+  const facts = [];
+  const today = todayKey();
+  const push = (kind, line, objectId) => facts.push({ kind, line, objectId: objectId || "" });
+
+  // Цель: срок и остаток дней — то, ради чего вопрос обычно и задаётся.
+  const goals = Object.values(state.goals || {})
+    .filter((goal) => !goal.deleted && goal.status !== "done" && matchesStems(goal.title, stems));
+  for (const goal of goals.slice(0, 2)) {
+    const progress = goalProgress(state, goal.id);
+    const parts = ["Цель «" + shorten(goal.title || "цель", 44) + "»"];
+    if (goal.targetDate) {
+      const daysLeft = Math.round((Date.parse(goal.targetDate + "T00:00:00") - Date.parse(today + "T00:00:00")) / 86400000);
+      parts.push(daysLeft >= 0
+        ? "срок " + formatObjectDay(goal.targetDate) + ", осталось " + daysLeft + " " + pluralRu(daysLeft, "день", "дня", "дней")
+        : "срок " + formatObjectDay(goal.targetDate) + " уже прошёл");
+    }
+    if (progress.total) parts.push("задач по ней " + progress.total + ", закрыто " + progress.done);
+    push("goal", parts.join(": ") + ".", goal.id);
+  }
+
+  // Задачи по теме: сколько открыто и сколько из них просрочено. Просрочка — это не окраска
+  // строки, а факт, который должен звучать в ответе.
+  const tasks = Object.values(state.tasks || {})
+    .filter((task) => !task.deleted && task.status !== "done" && matchesStems(task.title, stems));
+  if (tasks.length) {
+    const overdue = tasks.filter((task) => task.day && task.day < today).length;
+    push("task",
+      "Открытых задач по теме: " + tasks.length
+        + (overdue ? ", из них просрочено " + overdue : "")
+        + ". Ближайшая — «" + shorten(tasks[0].title || "задача", 44) + "».",
+      tasks[0].id);
+  }
+
+  // Деньги по теме за 30 дней. Совпадение ищем и в названии, и в категории: «бензин» владелец
+  // пишет в записи, а «Транспорт» подставляет категоризатор.
+  const since = dateKeyFromOffset(-30);
+  const txs = Object.values(state.financeTransactions || {})
+    .filter((tx) => !tx.deleted && String(tx.day || tx.createdAt || "").slice(0, 10) >= since
+      && (matchesStems(tx.title, stems) || matchesStems(tx.category, stems)));
+  if (txs.length) {
+    const spent = txs.filter((tx) => tx.kind === "expense").reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
+    const earned = txs.filter((tx) => tx.kind === "income").reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
+    const money = [];
+    if (spent) money.push("расход " + formatObjectMoney(spent));
+    if (earned) money.push("доход " + formatObjectMoney(earned));
+    if (money.length) {
+      push("money", "Деньги по теме за 30 дней: " + money.join(", ")
+        + " (" + txs.length + " " + pluralRu(txs.length, "запись", "записи", "записей") + ").", txs[0].id);
+    }
+  }
+
+  // Противоречие считается на других экранах теми же числами — ответ обязан его назвать, иначе
+  // владелец узнаёт о расхождении только случайно.
+  for (const row of computeContradictions(state).filter((item) => matchesStems(item.title + " " + (item.summary || ""), stems)).slice(0, 2)) {
+    push("conflict", "Противоречие: " + shorten(row.title || "", 90) + ".", row.objectId || "");
+  }
+
+  // Привычка по теме: есть ли она вообще и жива ли.
+  const habits = Object.values(state.habits || {})
+    .filter((habit) => !habit.deleted && habit.status !== "archived" && matchesStems(habit.title, stems));
+  if (habits.length) push("habit", "Привычка по теме: «" + shorten(habits[0].title || "", 44) + "», активна.", habits[0].id);
+
+  return facts;
 }
 
 // Реранк по расстоянию в графе жизни: первый (самый сильный лексически) остаётся первым,
@@ -14944,10 +15043,26 @@ function rerankByGraphDistance(state, rows) {
   if (rows.length < 3) return rows;
   const graph = buildLifeGraph(state);
   const { adjacency } = buildUndirectedAdjacency(graph);
-  const anchor = rows[0];
-  if (!adjacency.has(anchor.id)) return rows;
-  const distance = new Map([[anchor.id, 0]]);
-  const queue = [anchor.id];
+  // Узел графа жизни несёт id САМОЙ СИЛЬНОЙ проекции захвата, а цитируем мы обычно сам захват
+  // (у него настоящее время записи). По id захвата якорь в графе не находился никогда, и реранк
+  // молча не запускался — при том что конвейер обещал «порядок по близости в графе». Ищем узел
+  // по ключу группы, ровно как это уже делает поиск похожих записей.
+  const nodeKeyOf = new Map();
+  for (const node of graph.nodes) if (node.key) nodeKeyOf.set(node.key, node.id);
+  const graphIdOf = (row) => {
+    if (adjacency.has(row.id)) return row.id;
+    const key = lifeGroupKeyFor(state, row.id);
+    return key && nodeKeyOf.has(key) ? nodeKeyOf.get(key) : "";
+  };
+  const anchorId = graphIdOf(rows[0]);
+  if (!anchorId) {
+    // Причина у молчания разная, и называть её надо разную: тут не «связей мало», а «первая
+    // цитата вообще ещё не встала в граф» — переставлять не от чего.
+    for (const row of rows) row.rerankSkipped = "anchor-off-graph";
+    return rows;
+  }
+  const distance = new Map([[anchorId, 0]]);
+  const queue = [anchorId];
   while (queue.length) {
     const current = queue.shift();
     for (const next of adjacency.get(current) || []) {
@@ -14956,23 +15071,28 @@ function rerankByGraphDistance(state, rows) {
       queue.push(next);
     }
   }
-  for (const row of rows) row.distance = distance.has(row.id) ? distance.get(row.id) : 99;
+  for (const row of rows) {
+    const id = graphIdOf(row);
+    row.distance = id && distance.has(id) ? distance.get(id) : 99;
+  }
   const rest = rows.slice(1).sort((a, b) => {
     const da = a.distance === null ? 99 : a.distance;
     const db = b.distance === null ? 99 : b.distance;
     return da - db || String(b.day).localeCompare(String(a.day));
   });
-  return [anchor].concat(rest);
+  return [rows[0]].concat(rest);
 }
 
 async function buildGroundedAnswer(state, question) {
   const terms = answerQueryTerms(question);
+  const stems = answerStems(terms);
   const candidates = [];
   const seen = new Set();
-  // Сколько слов запроса реально встретилось в цитате — это и есть «почему нашлось».
+  // Сколько слов запроса реально встретилось в цитате — это и есть «почему нашлось». Считаем
+  // по основам: иначе «совпало 0 из 2» стояло бы под цитатой, которая очевидно про то же самое.
   const matchedTerms = (quote) => {
-    const lower = normalizeRuText(quote);
-    return terms.filter((term) => lower.includes(term)).length;
+    const quoteStems = textStems(quote);
+    return [...stems].filter((stem) => quoteStems.has(stem)).length;
   };
   const pushCitation = (id, kind, title, text, at) => {
     if (!id || seen.has(id)) return;
@@ -14994,11 +15114,23 @@ async function buildGroundedAnswer(state, question) {
     const note = (state.notes || {})[hit.noteId];
     if (note && !note.deleted) pushCitation(note.id, "note", note.title, note.body, note.createdAt);
   }
+  // Минисёрч не знает русской морфологии: у него prefix + fuzzy 0.2, а «машиной» отличается от
+  // «машину» на две правки — вопрос в одной падежной форме не находил записи в другой, и ответ
+  // получался «дословных записей по теме нет» при пяти записях ровно про это (нашлось пробой).
+  // Добираем заметки тем же правилом основы, что и факты: одна тема — одно понимание темы.
+  if (stems.size) {
+    const notes = Object.values(state.notes || {})
+      .filter((note) => !note.deleted && !INSIGHT_INTERNAL_SYSTEM_TYPES.has(note.systemType)
+        && (matchesStems(note.title, stems) || matchesStems(note.body, stems)))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    for (const note of notes.slice(0, 5)) pushCitation(note.id, "note", note.title, note.body, note.createdAt);
+  }
+
   // Захваты минисёрчем не индексируются (индекс по заметкам) — добираем их прямым проходом,
   // иначе ответ на вопрос о сегодняшнем дне остался бы без источников.
-  if (terms.length) {
+  if (stems.size) {
     const sources = Object.values(state.sources || {})
-      .filter((source) => !source.deleted && terms.some((term) => normalizeRuText(source.text || source.name || "").includes(term)))
+      .filter((source) => !source.deleted && matchesStems(source.text || source.name || "", stems))
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     for (const source of sources.slice(0, 5)) pushCitation(source.id, "source", source.name, source.text, source.createdAt);
   }
@@ -15018,11 +15150,27 @@ async function buildGroundedAnswer(state, question) {
   // сортируем по близости к нему в графе жизни. Так цитаты идут одной темой, а не вперемешку.
   cited = rerankByGraphDistance(state, cited);
 
-  if (!cited.length) {
+  // Числа по теме считаются всегда: цитата отвечает «что записано», факт — «как обстоит дело».
+  const facts = answerFacts(state, terms);
+
+  if (!cited.length && !facts.length) {
     return {
       question: cleanLine(question),
       answer: "В твоих записях об этом ничего нет — отвечать не из чего. Я не буду придумывать ответ: запиши, что знаешь по теме, и спроси снова.",
       citations: [],
+      facts: [],
+      createdNothing: true,
+      createdAt: now()
+    };
+  }
+
+  if (!cited.length) {
+    return {
+      question: cleanLine(question),
+      answer: "Дословных записей по теме нет, но в системе о ней кое-что посчитано — ниже то, что известно из твоих объектов.",
+      citations: [],
+      facts,
+      pipeline: ["цитат не нашлось", "посчитано граней: " + facts.length],
       createdNothing: true,
       createdAt: now()
     };
@@ -15044,6 +15192,7 @@ async function buildGroundedAnswer(state, question) {
     if (index === 0) parts.push("самое сильное совпадение");
     // Реранк по графу включается только когда цитат хотя бы три — на двух переставлять нечего.
     // Поэтому расстояние может быть не посчитано, и врать про «связь не найдена» здесь нельзя.
+    else if (row.rerankSkipped === "anchor-off-graph") parts.push("порядок по дате: первая цитата ещё не связана в графе");
     else if (typeof row.distance !== "number") parts.push("порядок по дате: связей для перестановки мало");
     else if (row.distance === 1) parts.push("напрямую связано с первым");
     else if (row.distance >= 99) parts.push("связь с первым не найдена");
@@ -15053,11 +15202,15 @@ async function buildGroundedAnswer(state, question) {
   const pipeline = [
     "нашлось " + candidates.length + " " + pluralRu(candidates.length, "запись", "записи", "записей"),
     "после склейки проекций осталось " + cited.length,
-    "порядок — по силе совпадения и близости в графе"
+    "порядок — по силе совпадения и близости в графе",
+    facts.length
+      ? "посчитано граней по объектам: " + facts.length
+      : "по объектам считать нечего: ни цели, ни задач, ни трат по теме"
   ];
   const answer = "По твоим записям тема встречается " + cited.length + " " + pluralRu(cited.length, "раз", "раза", "раз") + "." + span
+    + (facts.length ? " Что известно по объектам — сразу под этим абзацем." : "")
     + " Ниже — что именно записано, дословно и со ссылкой на источник. Вывод из этого делаешь ты: я показываю только то, что есть.";
-  return { question: cleanLine(question), answer, citations: cited, pipeline, createdNothing: true, createdAt: now() };
+  return { question: cleanLine(question), answer, citations: cited, facts, pipeline, createdNothing: true, createdAt: now() };
 }
 
 function storeGroundedAnswer(state, answer) {
@@ -15090,6 +15243,9 @@ function computeAnswerView(state) {
     answer: answer.answer,
     at: formatObjectStamp(answer.createdAt),
     citations: (answer.citations || []).map((row) => Object.assign({}, row)),
+    // Факты — то, что система посчитала по своим объектам: цель со сроком, открытые задачи,
+    // движение денег, противоречие. У каждого есть объект, в который можно провалиться.
+    facts: (answer.facts || []).map((row) => Object.assign({}, row)),
     pipeline: Array.isArray(answer.pipeline) ? answer.pipeline : [],
     // Явная строка канона: система сообщает, что ничего не записала.
     nothingCreatedLine: "Ничего не создано: это был вопрос, а не задача. Запись самого вопроса сохранена в потоке."
