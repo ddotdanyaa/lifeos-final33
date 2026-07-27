@@ -14874,7 +14874,10 @@ function runDayDigest(state) {
   const day = todayKey();
   const sources = digestSourcesForDay(state, day);
   const before = Object.values(state.proposals || {}).filter((item) => item.status === "open").length;
-  const edgesBefore = (graphForDisplay(state).links || []).length;
+  // Считаем связи ГРАФА ЖИЗНИ, а не технического: на всех остальных экранах владелец видит
+  // именно его, и одно число не должно означать разное на разных поверхностях. Технический граф
+  // содержит рёбра машинерии — «55 связей» рядом с «6 объектов жизни» читались как противоречие.
+  const edgesBefore = (buildLifeGraph(state).links || []).length;
 
   for (const source of sources) createActionProposalsForSource(state, source.id);
 
@@ -14893,10 +14896,14 @@ function runDayDigest(state) {
     for (const name of (item.fields && item.fields.names) || []) entityNames.add(String(name).toLocaleLowerCase("ru-RU"));
   }
   const matches = proposals.filter((item) => Boolean(digestProposalMatch(state, item))).length;
-  const edgesAfter = (graphForDisplay(state).links || []).length;
+  const edgesAfter = (buildLifeGraph(state).links || []).length;
   const lifeProposals = proposals.filter(isDigestLifeProposal);
   const asks = lifeProposals.filter((item) => item.confidence < DIGEST_CONFIDENCE_GATE || proposalNeedsOwnerChoice(item)).length;
 
+  // Рост графа за сегодня — тем же счётом, что и на экране Графа: одно число не должно
+  // расходиться между поверхностями.
+  const growth = computeGraphGrowth(state);
+  const topicGrowth = computeTopicGrowthToday(state);
   const stages = [
     {
       id: "read",
@@ -14942,7 +14949,12 @@ function runDayDigest(state) {
       id: "links",
       label: "Строю связи с целями и проектами",
       value: Math.max(0, edgesAfter - edgesBefore) + " " + pluralRu(Math.max(0, edgesAfter - edgesBefore), "новая связь", "новые связи", "новых связей"),
-      detail: "Всего связей в графе: " + edgesAfter + "."
+      detail: "Всего связей в графе жизни: " + edgesAfter + "."
+        // «Граф вырос на N» — число без смысла, пока не сказано, ГДЕ он вырос.
+        + (growth.today
+          ? " Граф жизни за сегодня вырос на " + growth.today + " " + pluralRu(growth.today, "объект", "объекта", "объектов")
+            + (topicGrowth.length ? ", больше всего тема «" + topicGrowth[0].name + "» (+" + topicGrowth[0].addedToday + ")." : ".")
+          : " Новых объектов жизни за сегодня в графе нет.")
     },
     {
       id: "patterns",
@@ -16380,6 +16392,28 @@ function computeGraphGrowth(state) {
       };
     })()
   };
+}
+
+// Какая тема выросла сегодня сильнее прочих. Нужна разбору дня: «граф вырос на N» — число без
+// смысла, пока не сказано, ГДЕ он вырос. Считаем по тем же узлам графа жизни и по тем же датам.
+function computeTopicGrowthToday(state) {
+  const graph = buildLifeGraph(state);
+  if (!graph.nodes.length) return [];
+  const today = todayKey();
+  const freshIds = new Set();
+  for (const node of graph.nodes) {
+    const resolved = graphNodeObject(state, node.id);
+    if (objectRecordDate(resolved && resolved.object).slice(0, 10) === today) freshIds.add(node.id);
+  }
+  if (!freshIds.size) return [];
+  return computeTopicClusters(state)
+    .map((cluster) => ({
+      hubId: cluster.hubId,
+      name: cluster.name,
+      addedToday: (cluster.memberIds || []).filter((id) => freshIds.has(id)).length
+    }))
+    .filter((row) => row.addedToday > 0)
+    .sort((a, b) => b.addedToday - a.addedToday || a.name.localeCompare(b.name));
 }
 
 function computeGraphReport(state) {

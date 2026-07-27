@@ -199,3 +199,25 @@ test("демо-заметки платформы не считаются объ�
   const growth = await page.evaluate(() => window.__lifeosKnowledgeBase.graphGrowthForTest());
   expect(growth.total).toBeLessThan(platform);
 });
+
+// G10: разбор дня говорит не только «22 записи», но и ГДЕ граф вырос. Число одно и то же на
+// всех поверхностях: и на экране Графа, и в разборе считается граф ЖИЗНИ.
+test("разбор дня называет рост графа и самую выросшую тему", async ({ page }) => {
+  await reset(page);
+  await fill(page);
+
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("capture"));
+  await expect(page.getByTestId("day-digest")).toBeVisible({ timeout: 30000 });
+  await page.getByTestId("run-day-digest").click();
+  await page.waitForTimeout(900);
+
+  const links = page.locator('[data-testid="digest-stage"][data-stage="links"]');
+  await expect(links).toContainText("Граф жизни за сегодня вырос на");
+  await expect(links).toContainText("больше всего тема");
+  // Счёт связей — тоже графа жизни: одно число не должно означать разное на разных экранах.
+  await expect(links).toContainText("связей в графе жизни");
+
+  const growth = await page.evaluate(() => window.__lifeosKnowledgeBase.graphGrowthForTest());
+  const text = await links.textContent();
+  expect(text).toContain("вырос на " + growth.today);
+});
