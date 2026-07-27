@@ -1021,6 +1021,32 @@ class KnowledgeRepository {
     return idbRequest(this.db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(id));
   }
 
+  // Сколько в снимке того, что владелец создал сам. Заметки не считаем: часть из них приезжает
+  // с заводским наполнением, и по ним пустое хранилище не отличить от заполненного.
+  static ownerRecordCount(state) {
+    const collections = ["sources", "tasks", "financeTransactions", "planBlocks", "goals", "habits", "claims", "highlights"];
+    let total = 0;
+    for (const name of collections) {
+      const collection = state[name];
+      if (collection && typeof collection === "object") total += Object.keys(collection).length;
+    }
+    return total;
+  }
+
+  // Правда о том, что уже лежит на диске, берётся из META: рядом со снимком записано, сколько
+  // в нём было записей владельца. Считаем именно их, а не байты: свежее хранилище с заводским
+  // наполнением весит полтораста килобайт, и по размеру пустое от полного не отличить.
+  async wouldEraseVault(candidate) {
+    if (!this.db) return false;
+    if (KnowledgeRepository.ownerRecordCount(candidate) > 0) return false;
+    let meta = null;
+    try { meta = await this.readRecord(META_KEY); } catch (error) { return false; }
+    if (!meta) return false;
+    if (Number.isFinite(meta.ownerRecords)) return meta.ownerRecords > 0;
+    // Снимок от прежних версий счётчика не несёт: там судим по размеру, консервативно.
+    return Number.isFinite(meta.rawLength) && meta.rawLength > 400000;
+  }
+
   // Тяжёлые файлы (аудио, картинки) лежат ОТДЕЛЬНО от состояния — блобом под ключом
   // `media:<sourceId>`. Раньше байты кодировались в base64 и жили внутри самого состояния, а
   // состояние целиком пишется одним снимком: файл больше 8 МБ туда не помещался, и запись
@@ -1056,6 +1082,16 @@ class KnowledgeRepository {
     // mocked-away one.
     if (this.simulateFailureForTest) throw new Error("Simulated storage failure (test injection)");
     const clean = normalizeState(state);
+    // ЗАЩИТА ОТ ЗАТИРАНИЯ. Если загрузка по любой причине не прочитала снимок, приложение
+    // поднимается на пустом состоянии — и первое же автосохранение затирает настоящее хранилище.
+    // Так были потеряны две голосовые записи владельца и всё, что из них выросло: экран показывал
+    // сбой, а фоновый коммит в это время записал поверх реальных данных пустоту. Локально-первый
+    // продукт не имеет права терять данные молча: пустой снимок поверх непустого не пишется
+    // никогда, а отказ виден в состоянии и в журнале.
+    if (await this.wouldEraseVault(clean)) {
+      this.lastSaveBlockedAt = now();
+      throw new Error("Сохранение остановлено: пустое состояние поверх непустого хранилища. Данные на диске не тронуты — переоткрой вкладку.");
+    }
     clean.lastSavedAt = now();
     const text = JSON.stringify(clean);
     const compressed = await compressText(text);
@@ -1066,6 +1102,8 @@ class KnowledgeRepository {
       encoding: compressed.encoding,
       chunkCount: chunks.length,
       rawLength: text.length,
+      // Сколько записей владельца в этом снимке — по нему следующая запись поймёт, что затирает.
+      ownerRecords: KnowledgeRepository.ownerRecordCount(clean),
       payloadLength: compressed.payload.length,
       updatedAt: clean.lastSavedAt
     };
@@ -26290,6 +26328,23 @@ window.__lifeosKnowledgeBase = {
       state.objectView = { id: cleanLine(objectId || ""), tab: "sut", from: state.activeSurface || "" };
       state.activeSurface = "object";
     }).then(() => true);
+  },
+  // Размер того, что реально лежит на диске: спека про потерю данных обязана смотреть в
+  // хранилище, а не в состояние в памяти — потеряли ведь именно диск.
+  vaultSizeForTest() {
+    if (!repository || !repository.db) return Promise.resolve({ ownerRecords: 0, rawLength: 0 });
+    return repository.readRecord(META_KEY).then((meta) => ({
+      ownerRecords: store ? KnowledgeRepository.ownerRecordCount(store.state) : 0,
+      rawLength: meta && Number.isFinite(meta.rawLength) ? meta.rawLength : 0
+    }));
+  },
+  // Ровно тот случай, что стоил владельцу данных: приложение поднялось пустым и пытается
+  // сохранить пустоту поверх настоящего хранилища.
+  saveEmptyStateForTest() {
+    if (!repository) return Promise.resolve({ rejected: false, reason: "нет хранилища" });
+    return repository.save(normalizeState(createInitialState()))
+      .then(() => ({ rejected: false, reason: "" }))
+      .catch((error) => ({ rejected: true, reason: String((error && error.message) || error) }));
   },
   // Расшифровка тем же путём, что и у настоящего движка, но без демона: спеке про ВЁРСТКУ
   // карточки незачем требовать поднятый whisper.cpp — его проверяют отдельные спеки.
