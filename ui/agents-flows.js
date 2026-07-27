@@ -42,7 +42,17 @@ function renderAgentCenter(ctx) {
 function agentCard(agent) {
   return [
     `<article class="agent-card" data-testid="agent-card" data-agent="${escapeHtml(agent.id)}">`,
-    `<header class="agent-card-head"><h4>${escapeHtml(agent.name)}</h4><span class="agent-card-when" data-testid="agent-when">${escapeHtml(agent.when)}</span></header>`,
+    `<header class="agent-card-head"><h4>${escapeHtml(agent.name)}</h4><span class="agent-card-when" data-testid="agent-when">${escapeHtml(agent.schedule ? agent.schedule.label : agent.when)}</span></header>`,
+    // Расписание задаётся здесь же. §7: наступившее время НЕ запускает агента — оно ставит
+    // предложение, а запуск остаётся кнопкой владельца.
+    `<div class="agent-schedule" data-testid="agent-schedule">`,
+    agent.schedule && agent.schedule.due
+      ? `<p class="agent-schedule-due" data-testid="agent-schedule-due">${escapeHtml(agent.schedule.label)}</p>`
+      : "",
+    `<label class="agent-schedule-field"><span>По расписанию в</span><input type="time" data-testid="agent-schedule-time" data-agent-time="${escapeHtml(agent.id)}" value="${escapeHtml(agent.schedule ? agent.schedule.time : "")}"></label>`,
+    button("set-agent-schedule", "Сохранить время", { id: agent.id, kind: "ghost", testId: "agent-schedule-save" }),
+    agent.schedule ? button("clear-agent-schedule", "Снять расписание", { id: agent.id, kind: "ghost", testId: "agent-schedule-clear" }) : "",
+    `</div>`,
     `<ol class="agent-card-steps" data-testid="agent-steps-list">${agent.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>`,
     // Права показываются обеими сторонами: что агент может И чего он не может (§7).
     `<ul class="agent-card-rights" data-testid="agent-rights">`,

@@ -1097,6 +1097,7 @@ function createInitialState() {
     entityAliases: {},
     dismissedPersonMerges: [],
     personSplits: [],
+    agentSchedules: {},
     financeAccounts: {},
     financeTransactions: {},
     budgets: {},
@@ -2543,6 +2544,9 @@ function normalizeState(input) {
     // отключено. Без этого поля состояние пересобиралось бы белым списком и разделение молча
     // терялось при следующей загрузке.
     personSplits: Array.isArray(base.personSplits) ? base.personSplits : [],
+    // Расписания агентов: id агента -> { time, setAt, lastOfferedDay }. Без записи в белый
+    // список нормализация стёрла бы расписание при следующей сборке состояния.
+    agentSchedules: base.agentSchedules && typeof base.agentSchedules === "object" ? base.agentSchedules : {},
     financeAccounts: base.financeAccounts || {},
     financeTransactions: base.financeTransactions || {},
     budgets: base.budgets || {},
@@ -15014,7 +15018,7 @@ const LIFEOS_AGENTS = [
   {
     id: "evening-digest",
     name: "Вечерний разбор",
-    when: "Вручную, кнопкой. Расписания в LifeOS нет — агент не просыпается сам.",
+    when: "Вручную кнопкой или по расписанию. По расписанию агент сам не запускается — он предлагает запуск, решение за тобой.",
     steps: [
       "Читает сегодняшние захваты",
       "Извлекает сущности: людей, суммы, сроки",
@@ -15257,6 +15261,58 @@ function cancelAgentRun(state) {
   state.control.agentFindings = [];
 }
 
+// Расписание агента. Канон и §7 не позволяют агенту просыпаться и что-то делать самому:
+// «в 21:00 сам разобрал день» — это скрытое действие. Поэтому расписание здесь означает ровно
+// одно: когда время наступило и владелец открыл систему, агент ПРЕДЛАГАЕТ запуск. Решение
+// остаётся за владельцем, и до подтверждения не меняется ничего.
+function normalizeScheduleTime(value) {
+  const match = String(value || "").trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (!match) return "";
+  return String(Number(match[1])).padStart(2, "0") + ":" + match[2];
+}
+
+function setAgentSchedule(state, agentId, time) {
+  const agent = LIFEOS_AGENTS.find((row) => row.id === agentId);
+  const clean = normalizeScheduleTime(time);
+  if (!agent || !clean) return false;
+  state.agentSchedules = Object.assign({}, state.agentSchedules, {
+    [agentId]: { time: clean, setAt: now(), lastOfferedDay: "" }
+  });
+  addAudit(state, "agent.schedule", "Расписание агента «" + agent.name + "»: " + clean, "");
+  addReceipt(state, "agent", agentId,
+    "Расписание агента «" + agent.name + "» — " + clean + ". Агент сам не запускается: в это время он предложит запуск, решение за тобой.",
+    { surface: "flows" });
+  return true;
+}
+
+function clearAgentSchedule(state, agentId) {
+  const agent = LIFEOS_AGENTS.find((row) => row.id === agentId);
+  if (!agent || !(state.agentSchedules || {})[agentId]) return false;
+  const schedules = Object.assign({}, state.agentSchedules);
+  delete schedules[agentId];
+  state.agentSchedules = schedules;
+  addAudit(state, "agent.schedule.clear", "Расписание агента «" + agent.name + "» снято", "");
+  addReceipt(state, "agent", agentId, "Расписание снято у агента «" + agent.name + "»: предложений по времени больше не будет.", { surface: "flows" });
+  return true;
+}
+
+// Наступило ли время сегодня. Сравнение по местному времени владельца — расписание живёт в его
+// дне, а не в UTC. Прошедшее время без запуска остаётся предложением до конца суток.
+function agentScheduleState(state, agentId) {
+  const schedule = (state.agentSchedules || {})[agentId];
+  if (!schedule || !schedule.time) return null;
+  const nowDate = new Date();
+  const current = String(nowDate.getHours()).padStart(2, "0") + ":" + String(nowDate.getMinutes()).padStart(2, "0");
+  const due = current >= schedule.time;
+  return {
+    time: schedule.time,
+    due,
+    label: due
+      ? "Время " + schedule.time + " наступило — предлагаю запуск. Сам не запускаюсь: жду кнопку."
+      : "По расписанию в " + schedule.time + ". Сам не запустится: предложит."
+  };
+}
+
 function computeAgentRunView(state) {
   const run = state.control.agentRun;
   if (!run) return null;
@@ -15290,6 +15346,7 @@ function computeAgentsView(state) {
       // Журнал агента — его собственные чеки из Контроля, а не отдельная история.
       journal: receipts.filter((receipt) => receipt.objectId === agent.id).slice(-4).reverse()
         .map((receipt) => ({ at: formatObjectStamp(receipt.createdAt), summary: shorten(receipt.summary, 120) })),
+      schedule: agentScheduleState(state, agent.id),
       run: state.control.agentRun && state.control.agentRun.agentId === agent.id ? computeAgentRunView(state) : null,
       planned: Boolean(plan && plan.agentId === agent.id),
       plan: plan && plan.agentId === agent.id ? plan : null,
@@ -16413,6 +16470,9 @@ const DOUBT_MARKERS = [
   "может обойтись", "обойтись без", "не стоит"
 ];
 
+// Тот же список обязательства, что и у наблюдения, но доступный за пределами анализатора.
+const OBLIGATION_HINT_RE = /(?<![А-Яа-яЁё])(надо|нужно|должен|должна|стоит|запланируй|добавь|поставь|сделать|купить|позвонить|оплатить|напомни)(?![А-Яа-яЁё])/i;
+
 // Свершившийся факт: что-то пришло, получено или закончено. Дела из этого не выдумываем —
 // «Счёт за воду пришёл» не значит «оплати счёт», это додумывание за владельца (закон №6).
 // Обязательство и сумма отменяют признак: «надо оплатить счёт» это дело, «пришло 200000» —
@@ -16424,9 +16484,6 @@ function looksLikeFinishedFact(text) {
   if (!FINISHED_FACT_RE.test(source)) return false;
   return !OBLIGATION_HINT_RE.test(source);
 }
-
-// Тот же список обязательства, что и у наблюдения, но доступный за пределами анализатора.
-const OBLIGATION_HINT_RE = /(?<![А-Яа-яЁё])(надо|нужно|должен|должна|стоит|запланируй|добавь|поставь|сделать|купить|позвонить|оплатить|напомни)(?![А-Яа-яЁё])/i;
 
 function looksLikeDoubt(text) {
   const lower = normalizeRuText(String(text || ""));
@@ -22289,6 +22346,21 @@ async function handleAction(action, id) {
     render();
     return;
   }
+  if (action === "set-agent-schedule") {
+    // Время читается из поля рядом с карточкой агента — тем же приёмом, что и остальные формы.
+    const field = document.querySelector('[data-agent-time="' + String(id || "").replace(/[^a-z0-9-]/gi, "") + '"]');
+    const time = field ? field.value : "";
+    await store.commit("Расписание агента задано", (state) => {
+      setAgentSchedule(state, id, time);
+    });
+    return;
+  }
+  if (action === "clear-agent-schedule") {
+    await store.commit("Расписание агента снято", (state) => {
+      clearAgentSchedule(state, id);
+    });
+    return;
+  }
   if (action === "merge-person") {
     // Срез 10: владелец подтвердил, что alias и target - один человек (id = "alias=>target").
     const [alias, target] = String(id || "").split("=>");
@@ -25071,6 +25143,12 @@ window.__lifeosKnowledgeBase = {
     return store.commit("Test object opened", (state) => {
       state.objectView = { id: cleanLine(objectId || ""), tab: "sut", from: state.activeSurface || "" };
       state.activeSurface = "object";
+    }).then(() => true);
+  },
+  setAgentScheduleForTest(agentId, time) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Test agent schedule", (state) => {
+      setAgentSchedule(state, agentId, time);
     }).then(() => true);
   },
   setSurfaceForTest(surface) {

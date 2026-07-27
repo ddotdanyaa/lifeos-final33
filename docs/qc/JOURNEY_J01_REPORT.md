@@ -31,13 +31,13 @@ Fresh Home opens as four owner zones: Universal Capture, Today/Next, Money/Habit
   "chatMessages": 0,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 0,
+  "providerRuns": 1,
   "proposalsOpen": 0,
   "proposalsApplied": 0,
-  "auditEvents": 0,
-  "graphNodes": 0,
-  "graphEdges": 0,
-  "graphEdgeReasons": 0
+  "auditEvents": 2,
+  "graphNodes": 1,
+  "graphEdges": 1,
+  "graphEdgeReasons": 1
 }
 ```
 
