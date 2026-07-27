@@ -15601,6 +15601,19 @@ function lifeTopicEdges(state) {
     .map((pair) => ({ a: pair.a, b: pair.b, label: "общая тема: " + [...new Set(pair.stems)].slice(0, 2).join(", ") }));
 }
 
+// Ключ группы объекта жизни. Раньше это был нормализованный заголовок, и один денежный захват
+// давал ДВА узла: заметка «Потратил 40000 продукты» и запись расхода «Потратил продукты 40000» —
+// те же слова в другом порядке. В темах графа они стояли рядом как два разных объекта.
+// Сравниваем НАБОР предметных слов, а не строку: порядок слов смысла не несёт.
+function lifeGroupKey(label) {
+  const clean = normalizeTitle(String(label || "").replace(/\.[a-z0-9]{1,5}$/i, "").replace(/^highlight:\s*/i, ""));
+  if (!clean) return "";
+  const words = [...contentWordsForMatch(clean)].sort();
+  // Если предметных слов нет вовсе (короткое название из служебных слов), ключом остаётся
+  // сама строка — иначе все такие узлы схлопнулись бы в один.
+  return words.length ? words.join(" ") : clean;
+}
+
 function buildLifeGraph(state) {
   const base = graphForDisplay(state);
   const cached = lifeGraphCache.get(base);
@@ -15614,7 +15627,7 @@ function buildLifeGraph(state) {
     if (LIFE_GRAPH_NOISE_TITLE.test(String(node.label || "").trim())) continue;
     // Ключ — нормализованный заголовок без расширения файла: «Оценить продажу.md» и задача
     // «Оценить продажу» — один и тот же объект жизни в разных проекциях.
-    const key = normalizeTitle(String(node.label || node.id).replace(/\.[a-z0-9]{1,5}$/i, "").replace(/^highlight:\s*/i, "")) || node.id;
+    const key = lifeGroupKey(String(node.label || node.id)) || node.id;
     if (!groups.has(key)) groups.set(key, { key, ids: [], label: node.label || node.id, kinds: new Set(), rank: 99, primaryId: node.id });
     const group = groups.get(key);
     group.ids.push(node.id);
@@ -16116,8 +16129,7 @@ function weightedCosine(index, a, b) {
 function lifeGroupKeyFor(state, objectId) {
   const resolved = graphNodeObject(state, objectId);
   if (!resolved || !resolved.object) return "";
-  const raw = String(resolved.object.title || resolved.object.name || "");
-  return normalizeTitle(raw.replace(/\.[a-z0-9]{1,5}$/i, "").replace(/^highlight:\s*/i, ""));
+  return lifeGroupKey(String(resolved.object.title || resolved.object.name || ""));
 }
 
 function computeSimilarRecords(state, objectId, limit = 4, excludeIds = []) {
@@ -16887,8 +16899,14 @@ function computeDayStream(state) {
       id: source.id,
       kind: streamKindLabel(source),
       time: isNaN(date.getTime()) ? "" : String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0"),
-      title: cleanLine(shorten(source.name || source.text || "Объект", 90)),
-      meta: cleanLine(source.transcript ? "расшифровано" : source.text ? shorten(source.text, 40) : ""),
+      // Владелец наговорил мысль, а не создал файл. Имя источника у текстового захвата
+      // синтетическое — «<текст>.md», — и в потоке каждая запись выглядела как файл. Для
+      // настоящих файлов имя с расширением остаётся: там оно и есть имя.
+      title: cleanLine(shorten(source.kind === "text" ? (source.text || stripExtension(source.name)) : (source.name || source.text || "Объект"), 90)),
+      // Подпись повторяла заголовок слово в слово, когда текст и есть имя.
+      meta: cleanLine(source.transcript
+        ? "расшифровано"
+        : source.kind === "text" ? "" : source.text ? shorten(source.text, 40) : ""),
       noteId: source.noteId || ""
     });
   }
