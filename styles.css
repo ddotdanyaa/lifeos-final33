@@ -7049,6 +7049,31 @@ audio {
   text-align: left;
 }
 
+/* Список Базы: у кнопки глобальный min-height 36px, а «Название» + «N связей» шли инлайном и
+   давали 54-75px содержимого — строки налезали друг на друга, а счётчик прилипал к названию
+   («Новая запись 290 связей»). Раскладка та же, что уже принята для списков памяти ниже. */
+.knowledge-sidebar .knowledge-note-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  height: auto;
+}
+
+.knowledge-sidebar .knowledge-note-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-sidebar .knowledge-note-row span {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
 /* Срез 8: панель памяти - 4 слоя как спокойная сетка карточек (проекция, не хранилище). */
 .memory-total {
   display: inline-block;

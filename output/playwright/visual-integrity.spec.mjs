@@ -107,3 +107,27 @@ test("инсайты-связи не строятся на служебных с
   expect(/suggested/i.test(joined)).toBe(false);
   expect(/\bactions\b/i.test(joined)).toBe(false);
 });
+
+// V5: строка списка Базы. У кнопки глобальный min-height 36px, а «Название» и «N связей» шли
+// инлайном: содержимое занимало 54-75px, строки налезали друг на друга, и счётчик читался как
+// часть названия («Новая запись 290 связей»). Живой прогон это видит, ни одна зелёная спека — нет.
+test("строки списка Базы не переполняются и не слипаются со счётчиком", async ({ page }) => {
+  await reset(page);
+  await captureAndApply(page, ["Хочу купить машину до августа", "Надо ответить Дмитрию до среды"]);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("library"));
+  await page.waitForTimeout(800);
+
+  const rows = await page.evaluate(() => [...document.querySelectorAll(".knowledge-sidebar .knowledge-note-row")].map((node) => {
+    const title = node.querySelector("strong");
+    const counter = node.querySelector("span");
+    const gap = title && counter ? counter.getBoundingClientRect().left - title.getBoundingClientRect().right : null;
+    return {
+      text: (node.textContent || "").slice(0, 40),
+      overflowY: node.scrollHeight - node.clientHeight,
+      gap
+    };
+  }));
+  expect(rows.length).toBeGreaterThan(0);
+  expect(rows.filter((row) => row.overflowY > 1).map((row) => row.text)).toEqual([]);
+  expect(rows.filter((row) => row.gap !== null && row.gap < 4).map((row) => row.text)).toEqual([]);
+});
