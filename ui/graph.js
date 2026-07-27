@@ -88,14 +88,22 @@ function renderGraphAnswers(ctx) {
 // Имя темы — самый связанный объект внутри неё, а не «Сообщество 7». Без кластеров граф после
 // вечернего дампа превращается в клубок, в котором ничего не читается.
 function renderTopicClusters(ctx) {
+  const focusedHub = ctx.graphGrowth && ctx.graphGrowth.topic ? ctx.graphGrowth.topic.hubId : "";
   const clusters = ctx.topicClusters || [];
   if (!clusters.length) return "";
   return [
     `<section class="topic-clusters" data-testid="topic-clusters">`,
     `<div class="graph-answers-head"><span>Темы</span><em>посчитано по связям, имя — самый связанный объект темы</em></div>`,
     clusters.map((cluster) => [
-      `<article class="topic-cluster" data-testid="topic-cluster" data-cluster="${escapeHtml(cluster.id)}">`,
-      `<header><strong>${escapeHtml(cluster.name)}</strong><span data-testid="topic-cluster-size">${cluster.size} ${cluster.size === 1 ? "объект" : "объектов"} · плотность ${cluster.cohesion}%</span></header>`,
+      `<article class="topic-cluster${focusedHub === cluster.hubId ? " focused" : ""}" data-testid="topic-cluster" data-cluster="${escapeHtml(cluster.id)}">`,
+      `<header><strong>${escapeHtml(cluster.name)}</strong><span data-testid="topic-cluster-size">${cluster.size} ${cluster.size === 1 ? "объект" : "объектов"} · плотность ${cluster.cohesion}%</span>`,
+      // Выбор темы — это фильтр взгляда, а не изменение данных: повторное нажатие снимает его.
+      button("focus-topic", ctx.graphGrowth && ctx.graphGrowth.topic && ctx.graphGrowth.topic.hubId === cluster.hubId ? "Смотрю рост" : "Рост темы", {
+        id: cluster.hubId,
+        kind: "ghost",
+        testId: "focus-topic"
+      }),
+      `</header>`,
       `<div class="topic-cluster-members">${cluster.members.map((member) => `<span class="topic-member-wrap"><button class="topic-member" data-action="open-object" data-id="${escapeHtml(member.id)}" data-testid="topic-member">${escapeHtml(member.label)}</button>${button("pick-path-node", "Путь", { id: member.id, kind: "ghost", testId: "pick-path-node" })}</span>`).join("")}</div>`,
       `</article>`
     ].join("")).join(""),
@@ -108,20 +116,24 @@ function renderTopicClusters(ctx) {
 // прибавилось именно в этот день; пустой день так и остаётся пустым, без сглаживания.
 function renderGraphGrowth(ctx) {
   const growth = ctx.graphGrowth || { hasGrowth: false, days: [] };
-  if (!growth.hasGrowth) return "";
+  // Блок остаётся на месте, пока тема выбрана: иначе вместе с ним пропадает выход из темы.
+  if (!growth.hasGrowth && !growth.topic) return "";
   return [
     `<section class="graph-growth" data-testid="graph-growth">`,
-    `<div class="graph-answers-head"><span>Как рос граф</span><em>${escapeHtml(growth.why)}</em></div>`,
-    `<p class="graph-growth-head" data-testid="graph-growth-head">Сейчас ${growth.total} ${growth.total === 1 ? "объект" : "объектов"} · за ${growth.days.length} ${growth.days.length === 1 ? "день" : "дней"} прибавилось ${growth.gained}.</p>`,
-    `<div class="graph-growth-bars">`,
-    growth.days.map((row) => [
+    `<div class="graph-answers-head"><span>Как рос граф${growth.topic ? " · тема «" + escapeHtml(growth.topic.name) + "»" : ""}</span><em>${escapeHtml(growth.why)}</em></div>`,
+    growth.topic ? `<div class="graph-growth-focus" data-testid="graph-growth-focus">${button("clear-topic-focus", "Показать весь граф", { kind: "ghost", testId: "clear-topic-focus" })}</div>` : "",
+    growth.hasGrowth
+      ? `<p class="graph-growth-head" data-testid="graph-growth-head">Сейчас ${escapeHtml(growth.totalLabel || "")} · за ${escapeHtml(growth.daysLabel || "")} прибавилось ${growth.gained}.</p>`
+      : `<p class="graph-growth-head" data-testid="graph-growth-head">Сейчас ${escapeHtml(growth.totalLabel || "")}. ${escapeHtml(growth.emptyReason || "")}</p>`,
+    growth.hasGrowth ? `<div class="graph-growth-bars">` : "",
+    (growth.hasGrowth ? growth.days : []).map((row) => [
       `<span class="graph-growth-day" data-testid="graph-growth-day" title="${escapeHtml(row.label)}: ${row.total} всего, +${row.added} за день">`,
       `<em>${row.added ? "+" + row.added : ""}</em>`,
       `<i style="height:${Math.max(4, row.percent)}%"></i>`,
       `<span>${escapeHtml(row.label)}</span>`,
       `</span>`
     ].join("")).join(""),
-    `</div>`,
+    growth.hasGrowth ? `</div>` : "",
     `</section>`
   ].join("");
 }

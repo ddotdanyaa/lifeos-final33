@@ -1183,7 +1183,10 @@ function createInitialState() {
       zoom: 1,
       selectedNodeId: "",
       mode: "global",
-      searchQuery: ""
+      searchQuery: "",
+      // Тема, по которой смотрят рост. Хранится id её ХАБА, а не порядковый номер: номер
+      // сдвигается при пересчёте кластеров, хаб — это конкретный объект владельца.
+      focusTopic: ""
     },
     control: {
       lastExportSummary: "",
@@ -2633,7 +2636,7 @@ function normalizeState(input) {
       // G2.5/G2.6: сила отталкивания/длина связи/гравитация центра (Obsidian graph settings)
       // и глубина локального графа в хопах (Obsidian local graph depth) - владелец крутит,
       // раскладка/фильтр пересчитываются с реальными значениями, не косметика.
-      forceRepulsion: 8600, forceLinkDistance: 158, forceGravity: 0.004, localDepth: 1,
+      forceRepulsion: 8600, forceLinkDistance: 158, forceGravity: 0.004, localDepth: 1, focusTopic: "",
       // G2.12: фильтр «граф на дату» - показывать только узлы, появившиеся не позже этой
       // даты (донор-идея Timeline-интеграция/слайдер). "" = без фильтра, весь граф.
       dateFilter: ""
@@ -15847,6 +15850,9 @@ function computeTopicClusters(state) {
         hubId: hub,
         size: members.length,
         cohesion: Math.round(cohesion * 100),
+        // Полный состав темы: экран показывает шесть участников, а фильтр роста должен считать
+        // всех, иначе «рост темы» врал бы на больших темах.
+        memberIds: members.slice(),
         members: members
           .slice()
           .sort((a, b) => (adjacency.get(b).size - adjacency.get(a).size) || String(a).localeCompare(String(b)))
@@ -16261,10 +16267,16 @@ const GRAPH_GROWTH_DAYS = 14;
 
 function computeGraphGrowth(state) {
   const graph = buildLifeGraph(state);
-  if (!graph.nodes.length) return { hasGrowth: false, days: [], today: 0, total: 0, why: "" };
+  if (!graph.nodes.length) return { hasGrowth: false, days: [], today: 0, total: 0, why: "", topic: null };
+  // Фокус на теме: считаем рост ТОЛЬКО её объектов. Владелец просил выбирать проект и смотреть,
+  // как растёт именно он, а не вся база сразу.
+  const focusHub = cleanLine((state.graphView && state.graphView.focusTopic) || "");
+  const topic = focusHub ? computeTopicClusters(state).find((cluster) => cluster.hubId === focusHub) : null;
+  const allowed = topic ? new Set(topic.memberIds || []) : null;
   const byDay = new Map();
   let dated = 0;
   for (const node of graph.nodes) {
+    if (allowed && !allowed.has(node.id)) continue;
     const resolved = graphNodeObject(state, node.id);
     const day = objectRecordDate(resolved && resolved.object).slice(0, 10);
     if (!day) continue;
@@ -16285,12 +16297,23 @@ function computeGraphGrowth(state) {
     days.push({ day, added: byDay.get(day) || 0, total: running });
   }
   const max = Math.max(1, ...days.map((row) => row.total));
+  // Склонение считает проекция: шаблон не должен решать языковые вопросы «на глаз», иначе
+  // выходит «за 4 дней».
   const todayRow = days.length ? days[days.length - 1] : null;
   const firstRow = days.length ? days[0] : null;
   const gained = todayRow && firstRow ? todayRow.total - firstRow.total + firstRow.added : 0;
+  const totalCount = todayRow ? todayRow.total : dated;
   return {
     hasGrowth: days.length > 1,
-    total: todayRow ? todayRow.total : dated,
+    // Тема выбрана, а истории у неё меньше двух дней — рисовать нечего, но и молча пропадать
+    // блоку нельзя: вместе с ним исчезала бы кнопка «показать весь граф», и владелец оставался
+    // запертым в теме без выхода. Первый прогон проба на этом и споткнулся.
+    emptyReason: days.length > 1 ? "" : (topic
+      ? "У темы «" + topic.name + "» пока один день истории — рост показывать не из чего."
+      : "Истории пока на один день — рост показывать не из чего."),
+    total: totalCount,
+    totalLabel: totalCount + " " + pluralRu(totalCount, "объект", "объекта", "объектов"),
+    daysLabel: days.length + " " + pluralRu(days.length, "день", "дня", "дней"),
     today: todayRow ? todayRow.added : 0,
     gained,
     days: days.map((row) => ({
@@ -16301,7 +16324,13 @@ function computeGraphGrowth(state) {
       percent: Math.round((row.total / max) * 100)
     })),
     // Закон №5: под графиком сказано, из чего он посчитан, а не просто нарисована линия.
-    why: "Считано по датам создания объектов жизни, машинерия платформы в счёт не идёт."
+    why: topic
+      ? "Считано по датам создания объектов темы «" + topic.name + "», машинерия платформы в счёт не идёт."
+      : "Считано по датам создания объектов жизни, машинерия платформы в счёт не идёт.",
+    // Если выбранная тема распалась при пересчёте, фокус честно считается снятым: врать о теме,
+    // которой больше нет, нельзя.
+    topic: topic ? { hubId: topic.hubId, name: topic.name, size: topic.size } : null,
+    focusLost: Boolean(focusHub && !topic)
   };
 }
 
@@ -22459,6 +22488,23 @@ async function handleAction(action, id) {
     store.state.timelineDay = cleanLine(id || "");
     store.scheduleSave("Timeline day set");
     render();
+    return;
+  }
+  // Выбор темы для роста: смотрим, как растёт именно этот проект. Ничего не меняет в данных —
+  // это фильтр представления, поэтому чека нет (закон №3 про записи, а не про взгляд).
+  if (action === "focus-topic") {
+    await store.commit("Тема выбрана", (state) => {
+      const hub = cleanLine(id || "");
+      state.graphView = Object.assign({}, state.graphView, {
+        focusTopic: state.graphView && state.graphView.focusTopic === hub ? "" : hub
+      });
+    });
+    return;
+  }
+  if (action === "clear-topic-focus") {
+    await store.commit("Тема снята", (state) => {
+      state.graphView = Object.assign({}, state.graphView, { focusTopic: "" });
+    });
     return;
   }
   if (action === "set-agent-schedule") {

@@ -11663,3 +11663,8 @@ audio {
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* Выбранная тема подсвечивается рамкой: видно, чей рост сейчас на графике. */
+.topic-cluster.focused { border-color: var(--accent); }
+.topic-cluster header { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.graph-growth-focus { display: flex; }

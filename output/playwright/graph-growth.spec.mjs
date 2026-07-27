@@ -99,3 +99,56 @@ test("отчёт графа называет рост словами", async ({ 
   expect(lines.length).toBe(1);
   expect(lines[0]).toMatch(/вырос на \d+/);
 });
+
+// G5: выбор темы сужает рост до её объектов — владелец просил смотреть, как растёт КОНКРЕТНЫЙ
+// проект, а не вся база сразу. Тема названа прямо в подписи.
+test("выбор темы сужает рост до её объектов", async ({ page }) => {
+  await reset(page);
+  await fill(page);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.backdateObjectsForTest(4, 3));
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("graph"));
+  await page.waitForTimeout(900);
+
+  const whole = await page.evaluate(() => window.__lifeosKnowledgeBase.graphGrowthForTest());
+  expect(whole.topic).toBeNull();
+
+  await page.getByTestId("focus-topic").first().click();
+  await page.waitForTimeout(700);
+
+  const focused = await page.evaluate(() => window.__lifeosKnowledgeBase.graphGrowthForTest());
+  expect(focused.topic).toBeTruthy();
+  expect(focused.total).toBeLessThan(whole.total);
+  expect(focused.why).toContain(focused.topic.name);
+});
+
+// G6: тема без истории не должна ЗАПИРАТЬ. Блок роста исчезал вместе с кнопкой возврата, и
+// выйти из темы было нечем — нашлось прогоном пробы.
+test("тема без истории оставляет выход из темы", async ({ page }) => {
+  await reset(page);
+  await fill(page);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("graph"));
+  await page.waitForTimeout(800);
+
+  await page.getByTestId("focus-topic").first().click();
+  await page.waitForTimeout(700);
+
+  await expect(page.getByTestId("graph-growth")).toBeVisible();
+  await expect(page.getByTestId("graph-growth-head")).toContainText("не из чего");
+  await expect(page.getByTestId("clear-topic-focus")).toBeVisible();
+});
+
+// G7: тот же выбор снимается — и кнопкой возврата, и повторным нажатием на теме.
+test("фокус темы снимается", async ({ page }) => {
+  await reset(page);
+  await fill(page);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("graph"));
+  await page.waitForTimeout(800);
+
+  await page.getByTestId("focus-topic").first().click();
+  await page.waitForTimeout(600);
+  expect((await page.evaluate(() => window.__lifeosKnowledgeBase.graphGrowthForTest())).topic).toBeTruthy();
+
+  await page.getByTestId("clear-topic-focus").click();
+  await page.waitForTimeout(600);
+  expect((await page.evaluate(() => window.__lifeosKnowledgeBase.graphGrowthForTest())).topic).toBeNull();
+});
