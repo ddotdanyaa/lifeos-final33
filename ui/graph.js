@@ -126,14 +126,29 @@ function renderGraphGrowth(ctx) {
       ? `<p class="graph-growth-head" data-testid="graph-growth-head">Сейчас ${escapeHtml(growth.totalLabel || "")} · за ${escapeHtml(growth.daysLabel || "")} прибавилось ${growth.gained}.</p>`
       : `<p class="graph-growth-head" data-testid="graph-growth-head">Сейчас ${escapeHtml(growth.totalLabel || "")}. ${escapeHtml(growth.emptyReason || "")}</p>`,
     growth.hasGrowth ? `<div class="graph-growth-bars">` : "",
+    // День кликабелен: «вырос на 22» ничего не значит, пока не видно, ЧТО именно добавилось.
     (growth.hasGrowth ? growth.days : []).map((row) => [
-      `<span class="graph-growth-day" data-testid="graph-growth-day" title="${escapeHtml(row.label)}: ${row.total} всего, +${row.added} за день">`,
+      `<button class="graph-growth-day${growth.openDay && growth.openDay.day === row.day ? " open" : ""}" data-action="open-growth-day" data-id="${escapeHtml(row.day)}" data-testid="graph-growth-day" title="${escapeHtml(row.label)}: ${row.total} всего, +${row.added} за день">`,
       `<em>${row.added ? "+" + row.added : ""}</em>`,
       `<i style="height:${Math.max(4, row.percent)}%"></i>`,
       `<span>${escapeHtml(row.label)}</span>`,
-      `</span>`
+      `</button>`
     ].join("")).join(""),
     growth.hasGrowth ? `</div>` : "",
+    growth.openDay ? [
+      `<div class="graph-growth-detail" data-testid="graph-growth-detail">`,
+      `<p class="canon-eyebrow">${escapeHtml(growth.openDay.label)} · что добавилось</p>`,
+      growth.openDay.empty
+        ? `<p class="empty-inline" data-testid="graph-growth-detail-empty">В этот день не добавилось ничего.</p>`
+        : `<div class="graph-growth-detail-list">${growth.openDay.items.map((item) => [
+            `<button class="graph-growth-item" data-action="open-object" data-id="${escapeHtml(item.id)}" data-testid="graph-growth-item">`,
+            item.kindLabel ? `<span>${escapeHtml(item.kindLabel)}</span>` : "",
+            `<strong>${escapeHtml(item.label)}</strong>`,
+            `</button>`
+          ].join("")).join("")}</div>`,
+      growth.openDay.more ? `<p class="graph-growth-more" data-testid="graph-growth-more">И ещё ${growth.openDay.more}.</p>` : "",
+      `</div>`
+    ].join("") : "",
     `</section>`
   ].join("");
 }

@@ -1186,7 +1186,10 @@ function createInitialState() {
       searchQuery: "",
       // Тема, по которой смотрят рост. Хранится id её ХАБА, а не порядковый номер: номер
       // сдвигается при пересчёте кластеров, хаб — это конкретный объект владельца.
-      focusTopic: ""
+      focusTopic: "",
+      // День на графике роста, который владелец раскрыл: «на сколько вырос» само по себе
+      // ничего не говорит, пока не видно, ЧТО именно добавилось.
+      growthDay: ""
     },
     control: {
       lastExportSummary: "",
@@ -2636,7 +2639,7 @@ function normalizeState(input) {
       // G2.5/G2.6: сила отталкивания/длина связи/гравитация центра (Obsidian graph settings)
       // и глубина локального графа в хопах (Obsidian local graph depth) - владелец крутит,
       // раскладка/фильтр пересчитываются с реальными значениями, не косметика.
-      forceRepulsion: 8600, forceLinkDistance: 158, forceGravity: 0.004, localDepth: 1, focusTopic: "",
+      forceRepulsion: 8600, forceLinkDistance: 158, forceGravity: 0.004, localDepth: 1, focusTopic: "", growthDay: "",
       // G2.12: фильтр «граф на дату» - показывать только узлы, появившиеся не позже этой
       // даты (донор-идея Timeline-интеграция/слайдер). "" = без фильтра, весь граф.
       dateFilter: ""
@@ -15633,6 +15636,12 @@ function buildLifeGraph(state) {
     const resolved = graphNodeObject(state, node.id);
     const kind = resolved ? resolved.kind : "note";
     if (!LIFE_GRAPH_KINDS.has(kind)) continue;
+    // Демо-содержимое платформы — не жизнь владельца. Заметки `product_brain` (канон разработки)
+    // и `v34_platform` (демо-системы: CRM, Smart-home, Ollama, Travel) проходили фильтр вида
+    // «заметка» и считались наравне с его записями: раскрытие дня роста показывало «Builder-AI»,
+    // «Smart-home dashboard» и «Ollama local» вместо того, что владелец действительно записал.
+    // Тот же набор уже отсекается в поиске связей-инсайтов — здесь он нужен по той же причине.
+    if (resolved && resolved.object && INSIGHT_INTERNAL_SYSTEM_TYPES.has(resolved.object.systemType)) continue;
     if (LIFE_GRAPH_NOISE_TITLE.test(String(node.label || "").trim())) continue;
     // Ключ — нормализованный заголовок без расширения файла: «Оценить продажу.md» и задача
     // «Оценить продажу» — один и тот же объект жизни в разных проекциях.
@@ -15675,7 +15684,18 @@ function buildLifeGraph(state) {
   for (const edge of lifeTopicEdges(state)) {
     addLifeEdge(canonicalOf.get(edge.a), canonicalOf.get(edge.b), edge.label);
   }
-  const graph = { nodes, links };
+  // Призрак — это вики-ссылка на ещё не созданную заметку. Он объект жизни только пока на него
+  // кто-то ссылается: после исключения демо-заметок платформы их призраки («Control», «Builder»)
+  // остались висеть в графе сами по себе и попадали в раскрытие дня как записи владельца.
+  const linkedIds = new Set();
+  for (const link of links) {
+    linkedIds.add(link.source);
+    linkedIds.add(link.target);
+  }
+  const graph = {
+    nodes: nodes.filter((node) => !node.kinds.includes("ghost") || linkedIds.has(node.id)),
+    links
+  };
   lifeGraphCache.set(base, graph);
   return graph;
 }
@@ -16066,7 +16086,12 @@ const MEMORY_HALF_LIFE_DAYS = 30;
 // морфологию: «машину» и «машины» дают почти одинаковые наборы кусков, где точное сравнение
 // слов уже проваливается. Донор-идея — гибридный ретривер LlamaIndex/Haystack, лексическая
 // половина которого ровно такая.
-const SIMILAR_MIN_SCORE = 0.16;
+// Порог выбран ЗАМЕРОМ, а не на глаз (`similarScoresForTest`). На чистом графе жизни настоящая
+// пара («Хочу купить машину до августа» ↔ «Оценить продажу старой машины») даёт 0.138, шум
+// («Позвонить маме в выходные») — 0.069, несвязанное — 0. Разделение примерно вдвое, порог стоит
+// посередине. Первое значение 0.16 было откалибровано на корпусе, куда ещё входили демо-заметки
+// платформы: они раздували idf, и те же пары получали более высокие оценки.
+const SIMILAR_MIN_SCORE = 0.1;
 const SIMILAR_TEXT_LIMIT = 600;
 let similarityIndexCache = new WeakMap();
 
@@ -16274,6 +16299,9 @@ function computeGraphGrowth(state) {
   const topic = focusHub ? computeTopicClusters(state).find((cluster) => cluster.hubId === focusHub) : null;
   const allowed = topic ? new Set(topic.memberIds || []) : null;
   const byDay = new Map();
+  // Состав дня собираем в том же проходе: «вырос на 22» ничего не значит, пока не видно, ЧТО
+  // именно добавилось в этот день.
+  const membersByDay = new Map();
   let dated = 0;
   for (const node of graph.nodes) {
     if (allowed && !allowed.has(node.id)) continue;
@@ -16282,6 +16310,12 @@ function computeGraphGrowth(state) {
     if (!day) continue;
     dated += 1;
     byDay.set(day, (byDay.get(day) || 0) + 1);
+    if (!membersByDay.has(day)) membersByDay.set(day, []);
+    membersByDay.get(day).push({
+      id: node.id,
+      label: shorten(node.label || node.id, 60),
+      kindLabel: OBJECT_KIND_LABELS[(resolved && resolved.kind) || ""] || ""
+    });
   }
   if (!dated) return { hasGrowth: false, days: [], today: 0, total: 0, why: "" };
   const days = [];
@@ -16330,7 +16364,21 @@ function computeGraphGrowth(state) {
     // Если выбранная тема распалась при пересчёте, фокус честно считается снятым: врать о теме,
     // которой больше нет, нельзя.
     topic: topic ? { hubId: topic.hubId, name: topic.name, size: topic.size } : null,
-    focusLost: Boolean(focusHub && !topic)
+    focusLost: Boolean(focusHub && !topic),
+    // Раскрытый день: что именно добавилось. Пустой день так и говорит — «в этот день не
+    // добавилось ничего», а не показывает пустой список без объяснения.
+    openDay: (() => {
+      const wanted = cleanLine((state.graphView && state.graphView.growthDay) || "");
+      if (!wanted || !days.some((row) => row.day === wanted)) return null;
+      const items = (membersByDay.get(wanted) || []).slice(0, 12);
+      return {
+        day: wanted,
+        label: formatObjectDay(wanted),
+        items,
+        more: Math.max(0, (membersByDay.get(wanted) || []).length - items.length),
+        empty: items.length === 0
+      };
+    })()
   };
 }
 
@@ -22496,7 +22544,19 @@ async function handleAction(action, id) {
     await store.commit("Тема выбрана", (state) => {
       const hub = cleanLine(id || "");
       state.graphView = Object.assign({}, state.graphView, {
-        focusTopic: state.graphView && state.graphView.focusTopic === hub ? "" : hub
+        focusTopic: state.graphView && state.graphView.focusTopic === hub ? "" : hub,
+        // Состав дня считается ВНУТРИ темы, поэтому при смене темы раскрытый день сбрасывается:
+        // иначе он показывал бы состав от прошлой темы.
+        growthDay: ""
+      });
+    });
+    return;
+  }
+  if (action === "open-growth-day") {
+    await store.commit("День роста раскрыт", (state) => {
+      const day = cleanLine(id || "");
+      state.graphView = Object.assign({}, state.graphView, {
+        growthDay: state.graphView && state.graphView.growthDay === day ? "" : day
       });
     });
     return;
@@ -25308,6 +25368,23 @@ window.__lifeosKnowledgeBase = {
   },
   // Рост графа виден только когда у объектов РАЗНЫЕ дни. В свежем хранилище всё создано
   // сегодня, поэтому спека сдвигает часть объектов назад — иначе проверять нечего.
+  // Пороги калибруются по ЗАМЕРУ, а не на глаз: хук отдаёт сырые оценки без отсечения.
+  similarScoresForTest(objectId) {
+    if (!store) return [];
+    const state = store.state;
+    const index = buildSimilarityIndex(state);
+    const targetKey = lifeGroupKeyFor(state, objectId);
+    const target = index.docs.find((doc) => doc.id === objectId) || (targetKey ? index.docs.find((doc) => doc.key === targetKey) : null);
+    if (!target) return [];
+    return index.docs
+      .filter((doc) => doc.id !== target.id)
+      .map((doc) => ({
+        label: doc.label,
+        cosine: Number(weightedCosine(index, target.grams, doc.grams).toFixed(3)),
+        jaccard: Number(jaccardSimilarity(target.grams, doc.grams).toFixed(3))
+      }))
+      .sort((a, b) => b.cosine - a.cosine);
+  },
   graphGrowthForTest() {
     return store ? computeGraphGrowth(store.state) : null;
   },

@@ -11668,3 +11668,46 @@ audio {
 .topic-cluster.focused { border-color: var(--accent); }
 .topic-cluster header { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
 .graph-growth-focus { display: flex; }
+
+/* День на графике роста — кнопка: клик раскрывает, что именно добавилось в этот день. */
+button.graph-growth-day {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+/* Глобальный стиль кнопок добавляет тень — на столбике графика она выглядит рамкой-карточкой
+   вокруг каждого дня. Столбик остаётся столбиком. */
+button.graph-growth-day { box-shadow: none; border-radius: 0; }
+button.graph-growth-day:hover i { opacity: 1; }
+button.graph-growth-day.open i { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.graph-growth-detail {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.graph-growth-detail-list { display: grid; gap: var(--space-2); }
+
+.graph-growth-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.graph-growth-item:hover { border-color: var(--accent); }
+.graph-growth-item span { font-size: var(--text-xs); color: var(--muted); flex-shrink: 0; }
+.graph-growth-item strong { font-weight: 500; font-size: var(--text-sm); color: var(--ink); }
+.graph-growth-more { margin: 0; font-size: var(--text-xs); color: var(--muted); }

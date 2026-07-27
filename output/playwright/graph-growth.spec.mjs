@@ -152,3 +152,50 @@ test("фокус темы снимается", async ({ page }) => {
   await page.waitForTimeout(600);
   expect((await page.evaluate(() => window.__lifeosKnowledgeBase.graphGrowthForTest())).topic).toBeNull();
 });
+
+// G8: «вырос на 22» ничего не значит, пока не видно, ЧТО именно добавилось. Клик по дню
+// раскрывает состав, и каждая запись ведёт в свой объект.
+test("клик по дню показывает, что именно добавилось", async ({ page }) => {
+  await reset(page);
+  await fill(page);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.backdateObjectsForTest(3, 4));
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("graph"));
+  await page.waitForTimeout(900);
+
+  await page.getByTestId("graph-growth-day").last().click();
+  await page.waitForTimeout(600);
+
+  await expect(page.getByTestId("graph-growth-detail")).toBeVisible();
+  const items = await page.getByTestId("graph-growth-item").allTextContents();
+  expect(items.length).toBeGreaterThan(0);
+
+  // Запись ведёт в объект — находку можно проверить, а не принять на веру.
+  await page.getByTestId("graph-growth-item").first().click();
+  await expect(page.getByTestId("workspace-object")).toBeVisible({ timeout: 20000 });
+});
+
+// G9: демо-содержимое платформы — не жизнь владельца. Заметки product_brain и v34_platform
+// (CRM, Smart-home, Ollama, Travel, Builder-AI) считались наравне с его записями: раскрытие дня
+// показывало их вместо того, что он действительно записал.
+test("демо-заметки платформы не считаются объектами жизни", async ({ page }) => {
+  await reset(page);
+  await fill(page);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.backdateObjectsForTest(3, 4));
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("graph"));
+  await page.waitForTimeout(900);
+
+  await page.getByTestId("graph-growth-day").last().click();
+  await page.waitForTimeout(600);
+
+  const items = (await page.getByTestId("graph-growth-item").allTextContents()).join(" | ");
+  expect(items).not.toMatch(/CRM|Smart-home|Ollama|Builder-AI|Product Brain|UX Debt|Bug Ledger/i);
+
+  // И в самом графе их тоже нет: рост считается по тем же узлам.
+  const platform = await page.evaluate(() => {
+    const snapshot = window.__lifeosKnowledgeBase.getStateSnapshot();
+    return Object.values(snapshot.notes).filter((note) => !note.deleted && note.systemType).length;
+  });
+  expect(platform).toBeGreaterThan(0);
+  const growth = await page.evaluate(() => window.__lifeosKnowledgeBase.graphGrowthForTest());
+  expect(growth.total).toBeLessThan(platform);
+});
