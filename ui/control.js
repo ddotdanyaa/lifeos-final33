@@ -19,9 +19,48 @@ function auditTypeLabel(type) {
     "control.rollback.snapshot": "Rollback",
     "control.rollback.restore": "Restored",
     "control.corrupt.isolate": "Изоляция",
-    "control.corrupt.recover": "Восстановлено"
+    "control.corrupt.recover": "Восстановлено",
+    // Экран называется «понятный след без стены технических доказательств», поэтому события
+    // владельца не должны выглядеть как «goal create».
+    "goal.create": "Цель",
+    "goal.reinforce": "Цель усилена",
+    "goal.toggle": "Цель закрыта",
+    "task.create": "Задача",
+    "artifact.reinforce": "Усиление",
+    "entity.merge": "Люди объединены",
+    "entity.unmerge": "Люди разъединены",
+    "entity.split": "Люди разделены",
+    "entity.unsplit": "Разделение снято",
+    "entity.extract": "Сущности",
+    "digest.run": "Разбор дня",
+    "agent.schedule": "Расписание",
+    "agent.schedule.clear": "Расписание снято",
+    "object.conflict.revert": "Откат решения",
+    "habit.create": "Привычка",
+    "finance.create": "Деньги",
+    "plan.create": "Блок дня",
+    "reminder.create": "Напоминание",
+    "claim.create": "Утверждение",
+    "insight.link": "Связь",
+    "link.predict.apply": "Связь создана",
+    "link.predict.dismiss": "Связь отклонена",
+    "finance.transaction": "Деньги",
+    "finance.account": "Счёт",
+    "chat.input.artifact": "Сообщение",
+    "chat.answer.artifact": "Ответ"
   };
   return map[String(type || "")] || String(type || "Изменение").replace(/[._-]+/g, " ");
+}
+
+// «2026-07-27T05:42» — это технический след, а экран обещает обратное. Дату показываем так же,
+// как её показывают остальные экраны: «27 июл 05:42».
+const AUDIT_MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+
+function auditStamp(value) {
+  const date = new Date(String(value || ""));
+  if (isNaN(date.getTime())) return String(value || "").slice(0, 16);
+  const time = String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
+  return date.getDate() + " " + AUDIT_MONTHS[date.getMonth()] + " " + time;
 }
 
 function auditSummaryText(summary) {
@@ -285,7 +324,7 @@ export function renderControl(ctx) {
     `<h3>Что изменилось</h3>`,
     safeList(
       audit.slice(-10).reverse(),
-      (event) => `<div class="control-event" data-testid="audit-row"><strong>${escapeHtml(auditTypeLabel(event.type))}</strong><span>${escapeHtml(compactText(auditSummaryText(event.summary || ""), 130))}</span><time>${escapeHtml(String(event.createdAt || event.at || "").slice(0, 16))}</time></div>`,
+      (event) => `<div class="control-event" data-testid="audit-row"><strong>${escapeHtml(auditTypeLabel(event.type))}</strong><span>${escapeHtml(compactText(auditSummaryText(event.summary || ""), 130))}</span><time>${escapeHtml(auditStamp(event.createdAt || event.at || ""))}</time></div>`,
       `<div class="empty-inline">Изменений пока нет.</div>`
     ),
     renderOwnerInstructions(ctx),
@@ -302,7 +341,7 @@ export function renderControl(ctx) {
     button("import-backup", "Импорт бэкапа", { kind: "ghost", testId: "import-backup" }),
     button("create-rollback-snapshot", "Снимок отката", { kind: "ghost", testId: "create-rollback-snapshot" }),
     button("archive-selected-artifact", "В архив", { kind: "danger", testId: "archive-selected-artifact" }),
-    `<section class="recovery-list" data-testid="rollback-list"><h4>Rollback snapshots</h4>${rollbackRows(snapshots)}</section>`,
+    `<section class="recovery-list" data-testid="rollback-list"><h4>Снимки отката</h4>${rollbackRows(snapshots)}</section>`,
     `<section class="recovery-list" data-testid="trash-list"><h4>Корзина</h4><span>Восстановление доступно ${trashGraceDays} дней, затем удаление навсегда</span><strong data-testid="trash-count">${trashItems.length}</strong>${button("undo-last-trash", "Отменить последнее удаление", { kind: "ghost", testId: "undo-last-trash", disabled: !trashItems.length })}${trashRows(trashItems)}</section>`,
     `<section class="recovery-list" data-testid="deleted-note-list"><h4>Удалённые заметки</h4>${deletedNoteRows(ctx.deletedNotes || [])}</section>`,
     `<section class="recovery-list" data-testid="corrupt-record-list"><h4>Повреждённые записи</h4><strong data-testid="corrupt-record-count">${corruptRecords.length}</strong>${corruptRows(corruptRecords)}</section>`,

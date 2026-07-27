@@ -11589,3 +11589,19 @@ audio {
 .bucket-column .today-task-row > div { min-width: 0; }
 .now-column .today-task-row strong,
 .bucket-column .today-task-row strong { overflow-wrap: anywhere; }
+
+/* Экран «Контроль»: заголовок панели тоже был элементом сетки и занимал ШИРОКУЮ колонку, поэтому
+   журнал изменений уезжал в боковую колонку 300px — строки сжимались до восьми строк текста,
+   а метка времени обрезалась краем. Заголовок теперь на всю ширину, журнал — в широкой колонке. */
+.control-human-layout > .control-panel-intro { grid-column: 1 / -1; }
+
+/* В узкой раскладке строка события переносится, а не выпихивает время за край. */
+@media (max-width: 1100px) {
+  .control-event { grid-template-columns: minmax(0, 1fr); }
+  .control-event time { justify-self: start; }
+}
+
+/* «Снимки отката0» и «…удаление навсегда0» — подпись и значение слипались, потому что <strong>
+   шло инлайном сразу за текстом. Значение выносится на свою строку. */
+.control-meter { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.recovery-list > strong { display: block; margin-top: 4px; }

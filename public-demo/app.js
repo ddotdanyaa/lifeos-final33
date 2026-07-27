@@ -4020,7 +4020,7 @@ function createNote(state, title, folderId, body) {
   };
   state.activeNoteId = id;
   state.activeFolderId = state.notes[id].folderId;
-  addAudit(state, "note.create", "Note created: " + state.notes[id].title, id);
+  addAudit(state, "note.create", "Заметка создана: " + state.notes[id].title, id);
   rebuildIndexes(state);
   return id;
 }
@@ -5980,7 +5980,7 @@ function captureTextArtifact(state, text) {
   state.captureDraft = "";
   addChatMessage(state, "owner", cleanText, sourceId, state.sources[sourceId] ? state.sources[sourceId].noteId : "");
   addChatMessage(state, "assistant", "Артефакт связан с Библиотекой, Графом и предложениями на Сегодня.", sourceId, state.sources[sourceId] ? state.sources[sourceId].noteId : "");
-  addAudit(state, "inbox.capture", "Inbox text captured as artifact", state.sources[sourceId] ? state.sources[sourceId].noteId : "");
+  addAudit(state, "inbox.capture", "Запись принята в поток", state.sources[sourceId] ? state.sources[sourceId].noteId : "");
   return sourceId;
 }
 
@@ -6203,7 +6203,7 @@ function addChatMessage(state, role, text, sourceId, noteId) {
     deleted: false,
     createdAt
   };
-  addAudit(state, cleanRole === "owner" ? "chat.input.artifact" : "chat.answer.artifact", cleanRole + " chat artifact recorded: " + shorten(cleanText, 120), resolvedNoteId);
+  addAudit(state, cleanRole === "owner" ? "chat.input.artifact" : "chat.answer.artifact", (cleanRole === "owner" ? "Твоё сообщение сохранено: " : "Ответ сохранён: ") + shorten(cleanText, 120), resolvedNoteId);
   state.graphProjectionStamp = Number(state.graphProjectionStamp || 0) + 1;
   return id;
 }
@@ -6907,7 +6907,7 @@ function addHabit(state, title, options) {
     createdAt,
     updatedAt: createdAt
   };
-  addAudit(state, "habit.create", "Habit created: " + cleanTitle, state.habits[id].noteId);
+  addAudit(state, "habit.create", "Привычка создана: " + cleanTitle, state.habits[id].noteId);
   return id;
 }
 
@@ -6922,7 +6922,7 @@ function toggleHabit(state, habitId, day) {
     habit.checkins[key] = now();
   }
   habit.updatedAt = now();
-  addAudit(state, "habit.check", "Habit check toggled: " + habit.title, habit.noteId);
+  addAudit(state, "habit.check", "Отметка привычки: " + habit.title, habit.noteId);
 }
 
 function archiveHabit(state, habitId) {
@@ -6930,7 +6930,7 @@ function archiveHabit(state, habitId) {
   if (!habit || habit.deleted) return;
   habit.deleted = true;
   habit.updatedAt = now();
-  addAudit(state, "habit.archive", "Habit archived: " + habit.title, habit.noteId);
+  addAudit(state, "habit.archive", "Привычка в архиве: " + habit.title, habit.noteId);
 }
 
 function restoreHabit(state, habitId) {
@@ -6938,7 +6938,7 @@ function restoreHabit(state, habitId) {
   if (!habit || !habit.deleted) return;
   habit.deleted = false;
   habit.updatedAt = now();
-  addAudit(state, "habit.restore", "Habit restored: " + habit.title, habit.noteId);
+  addAudit(state, "habit.restore", "Привычка возвращена: " + habit.title, habit.noteId);
 }
 
 // F1/F2 (donor: honest-gate bank passport + rules-first parsing, same pattern as U2 money
@@ -7125,7 +7125,7 @@ function ensureFinanceAccount(state, name, balance) {
     createdAt,
     updatedAt: createdAt
   };
-  addAudit(state, "finance.account", "Finance account set: " + cleanName, state.activeNoteId);
+  addAudit(state, "finance.account", "Счёт задан: " + cleanName, state.activeNoteId);
   return id;
 }
 
@@ -7202,7 +7202,7 @@ function addFinanceTransaction(state, title, amount, kind, options) {
   };
   const account = state.financeAccounts[accountId];
   if (account) account.balance += txKind === "income" ? value : -value;
-  addAudit(state, "finance.transaction", "Finance " + txKind + ": " + cleanTitle + " " + value + " RUB", state.financeTransactions[id].noteId);
+  addAudit(state, "finance.transaction", (txKind === "income" ? "Доход" : "Расход") + ": " + cleanTitle + " " + formatObjectMoney(value), state.financeTransactions[id].noteId);
   return id;
 }
 
@@ -7265,7 +7265,7 @@ function addInsight(state, title, reason, options) {
     createdAt,
     updatedAt: createdAt
   };
-  addAudit(state, "insight.create", "Insight created: " + cleanTitle, state.insights[id].noteId);
+  addAudit(state, "insight.create", "Наблюдение записано: " + cleanTitle, state.insights[id].noteId);
   return id;
 }
 
@@ -7298,7 +7298,7 @@ function addClaim(state, title, body, options) {
     createdAt,
     updatedAt: createdAt
   };
-  addAudit(state, "claim.create", "Claim created: " + cleanTitle, state.claims[id].noteId);
+  addAudit(state, "claim.create", "Утверждение записано: " + cleanTitle, state.claims[id].noteId);
   return id;
 }
 
@@ -7712,7 +7712,10 @@ function applyProposal(state, proposalId) {
     proposal.appliedObjectId = "";
     proposal.status = "applied";
     proposal.updatedAt = now();
-    addAudit(state, "proposal.apply", "Служебный шаг разбора отмечен выполненным: «" + proposal.title + "» — объект не создавался", proposal.noteId);
+    // В журнал «Что изменилось» этот шаг НЕ пишется: он ничего не менял. Три такие строки на
+    // каждый захват хоронили настоящие изменения владельца под собой, а закон №3 требует видеть
+    // записи, а не отсутствие записей. Сколько служебных шагов прошло — считает разбор дня,
+    // и сам шаг виден в своём предложении со статусом «применено».
     return;
   }
   const schedule = {
@@ -7904,7 +7907,9 @@ function applyProposal(state, proposalId) {
     if (entityType === "person" || entityType === "date") {
       const listed = names.map((name) => cleanLine(name)).filter(Boolean);
       if (listed.length) {
-        addAudit(state, "entity.extract", "Распознаны " + typeLabel.toLocaleLowerCase("ru-RU") + ": " + listed.join(", ") + " — второй объект не создавался", proposal.noteId);
+        // Согласование рода тут не построить («Распознаны дата»), поэтому фраза строится вокруг
+        // самого слова-типа: «Дата: август — …».
+        addAudit(state, "entity.extract", typeLabel + ": " + listed.join(", ") + " — второй объект не создавался", proposal.noteId);
         addReceipt(state, "reinforce", entityType === "person" ? personNodeId(state, listed[0]) : "",
           typeLabel + ": " + listed.join(", ") + " — " + (entityType === "person"
             ? "упоминания привязаны к существующей карточке человека, дубликат не создавался."
@@ -9239,7 +9244,7 @@ function addGoal(state, title, options) {
     createdAt,
     updatedAt: createdAt
   };
-  addAudit(state, "goal.create", "Goal created: " + cleanTitle, state.activeNoteId);
+  addAudit(state, "goal.create", "Цель создана: " + cleanTitle, state.activeNoteId);
   return id;
 }
 
@@ -9363,7 +9368,7 @@ function addTask(state, title, scheduleOptions) {
     createdAt,
     updatedAt: createdAt
   };
-  addAudit(state, "task.create", "Task created: " + cleanTitle, noteId);
+  addAudit(state, "task.create", "Задача создана: " + cleanTitle, noteId);
   return id;
 }
 
