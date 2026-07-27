@@ -511,6 +511,29 @@ function parseTimeFromTextHumanSafe(text) {
     if ((marker === "\u0443\u0442\u0440\u0430" || marker === "am") && hour === 12) hour = 0;
     return makeTime(hour, 0);
   }
+  // Предлог «с» — то, как называют начало смены: «работаю с 16», «смена с 16 до 22». Раньше
+  // читались только «в» и «к», поэтому у смены не было времени вовсе, а голое число успевало
+  // стать расходом («Буду работать с 16» давало трату 16 ₽ — числу нечего было значить).
+  // Возраст, число месяца и проценты исключены явно: «с 16 лет», «с 16 числа», «с 16 сентября».
+  const fromHour = lower.match(/(?:^|\s)с\s+([01]?\d|2[0-3])(?:[:.](\d{2}))?(?=$|\s|[,.;:!?])/u);
+  if (fromHour) {
+    const tail = lower.slice(fromHour.index + fromHour[0].length).trimStart();
+    const notATime = /^(лет|год|числ|процент|%|январ|феврал|март|апрел|мая|июн|июл|август|сентябр|октябр|ноябр|декабр)/u.test(tail);
+    if (!notATime) {
+      const startHour = Number(fromHour[1]);
+      const startTime = String(startHour).padStart(2, "0") + ":" + String(Number(fromHour[2] || 0)).padStart(2, "0");
+      const toHour = tail.match(/^до\s+([01]?\d|2[0-3])(?:[:.](\d{2}))?(?=$|\s|[,.;:!?])/u);
+      const endHour = toHour ? Number(toHour[1]) : -1;
+      const endTime = toHour ? String(endHour).padStart(2, "0") + ":" + String(Number(toHour[2] || 0)).padStart(2, "0") : "";
+      // Час больше 12 однозначен сам по себе; «с 9 до 18» однозначен концом. Всё остальное
+      // («с 9») остаётся вопросом — закон №6: при сомнении не решаем за владельца.
+      // Конца смены не выдумываем: «с» называет только начало, и дорисованные 45 минут читались
+      // на экране как «Смена / работа с 16:00 до 16:45» — время, которого владелец не называл.
+      if (startHour > 12) return { startTime, endTime };
+      if (toHour && endHour > 12) return { startTime, endTime };
+      return ambiguous(startHour, "Начало без части суток: уточните " + String(startHour).padStart(2, "0") + ":00 или " + String((startHour % 12) + 12).padStart(2, "0") + ":00 перед созданием.");
+    }
+  }
   const plainHour = lower.match(/(?:^|\s)(?:\u0432|\u043a|at)\s+([01]?\d|2[0-3])(?=$|\s|[,.;:!?])/u);
   if (plainHour) {
     const hour = Number(plainHour[1]);
@@ -5391,9 +5414,34 @@ function parseShiftEntry(text) {
   return { hours, income, expenses };
 }
 
-function analyzeArtifactInput(input, fileMeta) {
+// RR-001 Этап A: надиктованная запись — это НЕСКОЛЬКО предложений, и каждое несёт свой смысл.
+// Владелец диктует «Работаю сегодня с 16. Потратил 800 рублей на такси. Надо ответить Дмитрию
+// до среды» одним куском, и whisper.cpp отдаёт расшифровку ровно так же — по предложениям.
+// Режем по границе предложения (точка/восклицание/вопрос/перевод строки): это единственная
+// граница, которую владелец действительно проговаривает паузой.
+// Режем только КОРОТКУЮ запись: длинный документ (книга, письмо, конспект) — не диктовка, и
+// дробить его на десятки предложений значило бы завалить владельца предложениями.
+const CAPTURE_SPLIT_MAX_LENGTH = 600;
+const CAPTURE_SPLIT_MAX_CLAUSES = 8;
+
+function splitCaptureClauses(text) {
+  const source = String(text || "").trim();
+  if (!source || source.length > CAPTURE_SPLIT_MAX_LENGTH) return [];
+  const parts = source
+    .split(/(?<=[.!?…])\s+|[\r\n]+/u)
+    .map((part) => cleanLine(part))
+    // Обрывок в одно слово смыслом не является: у него нет ни глагола, ни суммы, а разбирать
+    // его отдельно значило бы плодить черновики из «Ага» и «Всё».
+    .filter((part) => part && part.split(/\s+/).length >= 2);
+  if (parts.length < 2 || parts.length > CAPTURE_SPLIT_MAX_CLAUSES) return [];
+  return parts;
+}
+
+function analyzeArtifactInput(input, fileMeta, options) {
   const rawText = typeof input === "string" ? input : String(input && input.text ? input.text : "");
   const meta = fileMeta && typeof fileMeta === "object" ? fileMeta : {};
+  // Клаузу разбираем обычным разбором, но повторно резать её нечего — иначе рекурсия.
+  const noSplit = Boolean(options && options.noSplit);
   const text = repairMojibake(rawText).trim();
   const lower = text.toLocaleLowerCase();
   const detectedClasses = [];
@@ -5482,7 +5530,12 @@ function analyzeArtifactInput(input, fileMeta) {
   const isFood = hasAnyText(lower, ["еда", "продукты", "ужин", "обед", "завтрак"]) || /\b(grocery|meal)\b/i.test(lower);
   // Разговорная смена/подработка без строгого формата parseShiftEntry ("буду работать с 16",
   // "подработка в такси", "отработаю") — очень частый вид голосового захвата.
-  const isWorkPlan = hasAnyText(lower, ["выхожу на работу", "буду работать", "работать с", "подработ", "в такси", "отработаю", "на смену", "смена с"]);
+  // «Работаю сегодня с 16» — самая частая форма голосового захвата смены, и подстрокой её не
+  // взять: между глаголом и «с 16» стоит обстоятельство. Признак — глагол работы И названный
+  // час начала; без часа «работаю над проектом» смены не образует.
+  const WORK_START_RE = /(?<![А-Яа-яЁё])(работаю|работаем|выхожу|заступаю)(?![А-Яа-яЁё])[^.!?]{0,40}?(?<![А-Яа-яЁё])с\s+\d{1,2}(?![А-Яа-яЁё\d])/iu;
+  const isWorkPlan = hasAnyText(lower, ["выхожу на работу", "буду работать", "работать с", "подработ", "в такси", "отработаю", "на смену", "смена с"])
+    || WORK_START_RE.test(text);
   // Намерение записать доход ПОЗЖЕ, суммы ещё нет ("потом скажу сколько заработал").
   const isIncomeIntent = !(amount > 0) && hasAnyText(lower, ["сколько заработал", "сколько денег", "сколько заработаю", "скажу сколько", "запишу доход", "отпишу доход"]);
 
@@ -5590,7 +5643,10 @@ function analyzeArtifactInput(input, fileMeta) {
   const eventOnly = hasEventTime && !actionLanguage && !isWorkPlan;
   // Голая дата без языка действия задачей не становится, если время уже отдало запись событию:
   // иначе «завтра в 14:00 зал» снова давало бы пару «задача + блок».
-  if (!shift && !isSelfObservation && (isTask || isHome || isTravel || isFood || isProject || isIdea || (hasDateOrTime && !eventOnly))) {
+  // Смена уже забрала запись себе (workplan-main выше). Голая дата не должна добавлять к ней
+  // ещё и задачу: «Работаю сегодня с 16» давало блок дня И дело с названием «Работаю с» —
+  // дело, которое выполнить нельзя. Язык действия рядом со сменой задачу по-прежнему создаёт.
+  if (!shift && !isSelfObservation && (isTask || isHome || isTravel || isFood || isProject || isIdea || (hasDateOrTime && !eventOnly && !isWorkPlan))) {
     const actionReason = isProject || isIdea
       ? "Идея или проект требует owner-visible следующего шага"
       : "Найден глагол действия или предмет покупки/дела";
@@ -5719,6 +5775,27 @@ function analyzeArtifactInput(input, fileMeta) {
     addDraftOnce(drafts, draft("media-parser", "parser", "Разобрать книгу локальным парсером", "media", "Файл книги сохранен, парсер должен быть честно подключен", quote, {
       parserStatus: /\.pdf$/i.test(meta.name || "") ? "pdf-parser-required" : "epub-parser-required"
     }, 0.72));
+  }
+  // Разбор по предложениям (см. splitCaptureClauses выше). Смысловые черновики берём у клауз,
+  // сводку в библиотеку и служебные шаги — у целого текста: источник-то один. Черновик целого
+  // текста остаётся только если НИ ОДНА клауза не дала такого же типа — так разбор ничего не
+  // теряет, но склеенных названий вроде «Работаю с Потратил на такси ответить в Дмитрию до
+  // среды» больше не производит.
+  if (!noSplit) {
+    const clauseDrafts = [];
+    for (const clause of splitCaptureClauses(text)) {
+      for (const item of analyzeArtifactInput(clause, {}, { noSplit: true }).drafts) {
+        if (MACHINERY_DRAFT_IDS.has(item.draftId)) continue;
+        addDraftOnce(clauseDrafts, item);
+      }
+    }
+    if (clauseDrafts.length) {
+      const clauseTypes = new Set(clauseDrafts.map((item) => item.type));
+      const kept = drafts.filter((item) => MACHINERY_DRAFT_IDS.has(item.draftId) || !clauseTypes.has(item.type));
+      drafts.length = 0;
+      for (const item of kept) drafts.push(item);
+      for (const item of clauseDrafts) addDraftOnce(drafts, item);
+    }
   }
   addDraftOnce(drafts, draft("automation-context", "chat", "Открыть контекст в чате", "automation", "Чат привязывается к активному артефакту", quote, {
     mode: "local"
