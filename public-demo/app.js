@@ -4679,9 +4679,24 @@ function stripOwnerActionTitleUnicode(text) {
     .replace(/(^|[\s,.;:!?])(?:\u0443\u0442\u0440\u0430|\u0434\u043d\u044f|\u0432\u0435\u0447\u0435\u0440\u0430|\u043d\u043e\u0447\u0438)(?=$|[\s,.;:!?])/giu, " ")
     .replace(/(^|[\s,.;:!?])(?:\u043d\u0443\u0436\u043d\u043e|\u043d\u0430\u0434\u043e|\u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430|\u043d\u0430\u043f\u043e\u043c\u043d\u0438|\u0437\u0430\u0434\u0430\u0447\u0430|t[o]do|task|\u0446\u0435\u043b\u044c|\u0445\u043e\u0447\u0443|\u043f\u0440\u0438\u0432\u044b\u0447\u043a\u0430|\u043a\u0430\u0436\u0434\u044b\u0439\s+\u0434\u0435\u043d\u044c|\u0435\u0436\u0435\u0434\u043d\u0435\u0432\u043d\u043e)(?=$|[\s,.;:!?])/giu, " ")
     .replace(/\d{1,2}[:.]\d{2}/g, " ")
-    .replace(/\d{2,9}\s*(\u20bd|\u0440\u0443\u0431(?:\.|\u043b\u0435\u0439|\u043b\u044f|\u043b\u044c)?|\u0440\b|rub\b)?/giu, " ")
+    // Величина остаётся: «Пробежать 10 км» без этой оговорки превращалось в «Пробежать км».
+    .replace(/\d{2,9}\s*(?:\u20bd|\u0440\u0443\u0431(?:\.|\u043b\u0435\u0439|\u043b\u044f|\u043b\u044c)?|\u0440\b|rub\b)?/giu, (match, offset, full) => {
+      const rest = String(full).slice(offset + match.length).trimStart();
+      return MEASURE_AFTER_NUMBER.test(rest) ? match : " ";
+    })
     .replace(/[,.!?]+/g, " ")
     .replace(/\s+/g, " "));
+}
+
+// Снятая команда не должна оставлять строчную букву: «Надо ответить Дмитрию» превращалось в
+// «ответить Дмитрию до среды», и список дел выглядел сломанным. Заглавную ставим только когда
+// первая буква действительно строчная — чужие названия и аббревиатуры не трогаем.
+function capitalizeFirstLetter(text) {
+  const clean = cleanLine(text);
+  if (!clean) return clean;
+  const first = clean[0];
+  const upper = first.toLocaleUpperCase("ru-RU");
+  return upper === first ? clean : upper + clean.slice(1);
 }
 
 // Числительные и несколько существительных, которые по форме неотличимы от инфинитива
@@ -5197,7 +5212,7 @@ function analyzeArtifactInput(input, fileMeta) {
     }, 0.7));
   }
 
-  const actionTitle = stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text) || stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг";
+  const actionTitle = capitalizeFirstLetter(stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text) || stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг");
   // isExpense deliberately excluded here (U2 MONEY_FAST fix): a pure expense/income entry
   // with no task-language and no date/time shouldn't also spawn a redundant task-main draft
   // just because it happens to mention money (found via "Расход: 350 бензин" creating both a
@@ -5218,7 +5233,13 @@ function analyzeArtifactInput(input, fileMeta) {
         reason: "Владелец сказал это о себе сам — источником служат его собственные слова, ничего не досчитано"
       }, 0.7));
   }
-  if (!shift && !isSelfObservation && (isTask || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea)) {
+  // Дело или событие, но не оба. Названное ВРЕМЯ делает запись событием дня («завтра в 14:00
+  // зал»), отсутствие времени — сроком дела («ответить до среды»). Раньше при любой дате
+  // заводились оба черновика, и один смысл давал два объекта с одним названием: задачу и блок
+  // дня. Хуже того, они попадали в один и тот же таймлайн и объявлялись конфликтом друг с
+  // другом — система находила «пересечение» объекта с его же двойником.
+  const hasEventTime = Boolean(time.startTime);
+  if (!shift && !isSelfObservation && !hasEventTime && (isTask || hasDateOrTime || isHome || isTravel || isFood || isProject || isIdea)) {
     const actionReason = isProject || isIdea
       ? "Идея или проект требует owner-visible следующего шага"
       : "Найден глагол действия или предмет покупки/дела";
@@ -5231,8 +5252,8 @@ function analyzeArtifactInput(input, fileMeta) {
       ...timeChoiceFields
     }, 0.82));
   }
-  if (hasDateOrTime && !isWorkPlan) {
-    addDraftOnce(drafts, draft("calendar-main", "calendar", actionTitle, "calendar", "Найдена дата или время", sourceQuote(text, /\b(сегодня|завтра|послезавтра|вечером|утром|днем|\d{1,2}[:.]\d{2}|в\s+\d{1,2})[^,.!?]*/i), {
+  if (hasEventTime && !isWorkPlan) {
+    addDraftOnce(drafts, draft("calendar-main", "calendar", actionTitle, "calendar", "Найдено время события", sourceQuote(text, /\b(сегодня|завтра|послезавтра|вечером|утром|днем|\d{1,2}[:.]\d{2}|в\s+\d{1,2})[^,.!?]*/i), {
       title: actionTitle,
       day: day || todayKey(),
       startTime: time.startTime || "",
