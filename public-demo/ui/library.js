@@ -1,6 +1,6 @@
 import { renderBookWorkbenchPanel } from "./components/ReaderSurface.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, compactText, emptyState, escapeHtml, safeList } from "./components/shared.js";
+import { button, collapsiblePanel, compactText, emptyState, escapeHtml, safeList } from "./components/shared.js";
 
 function wikiLinks(text) {
   const links = [];
@@ -35,9 +35,9 @@ function semanticSearchSection(ctx) {
         `<div class="empty-inline" data-testid="semantic-search-empty">По смыслу ничего не найдено.</div>`
       )
     : "";
-  return [
-    `<section class="info-panel semantic-search-panel" data-testid="semantic-search-panel">`,
-    `<div class="section-title">Семантический поиск</div>`,
+  // Свёрнут по умолчанию, но подпись честно говорит СОСТОЯНИЕ: без эмбеддингов поиск недоступен,
+  // и узнать это можно не раскрывая блок.
+  const body = [
     `<label>Запрос<input id="semantic-search-input" data-testid="semantic-search-input" autocomplete="off" aria-label="Семантический поиск" placeholder="Найти заметки по смыслу"></label>`,
     button("run-semantic-search", "Найти по смыслу", { kind: "ghost", testId: "run-semantic-search" }),
     `<div><span>Индекс: ${index.vectorCount || 0} заметок${index.model ? " (" + escapeHtml(index.model) + ")" : ""}</span></div>`,
@@ -45,8 +45,17 @@ function semanticSearchSection(ctx) {
       ? `<div class="empty-inline" data-testid="semantic-search-unavailable">Семантический поиск недоступен: ${escapeHtml(report.reason || "провайдер эмбеддингов не подключён")}</div>`
       : "",
     report && report.status === "embeddings_ok" ? `<div data-testid="semantic-search-results">${rows}</div>` : "",
-    `</section>`
   ].join("");
+  return collapsiblePanel({
+    id: "library-semantic",
+    title: "Семантический поиск",
+    hint: report && report.status === "embeddings_ok" ? "" : "нужны локальные эмбеддинги",
+    count: index.vectorCount || 0,
+    open: Boolean((ctx.panelOpen || {})["library-semantic"]),
+    body,
+    testId: "semantic-search-panel",
+    className: "semantic-search-panel"
+  });
 }
 
 // Срез 8: панель «Память» - 4 слоя как вычисляемая проекция (app.js memoryLayers). Не новое
@@ -98,16 +107,21 @@ function renderBacklinksPanel(ctx, noteId) {
   const backlinkIds = (ctx.backlinks && ctx.backlinks[noteId]) || [];
   const notesById = new Map((ctx.notes || []).map((note) => [note.id, note]));
   const backlinkNotes = backlinkIds.map((id) => notesById.get(id)).filter(Boolean);
-  return [
-    `<section class="info-panel library-backlinks-panel" data-testid="library-backlinks-panel">`,
-    `<div class="section-title">Обратные ссылки</div>`,
-    safeList(
+  // Счётчик в заголовке отвечает на главный вопрос («ссылается кто-нибудь или нет») без
+  // раскрытия — ради этого блок и можно держать свёрнутым.
+  return collapsiblePanel({
+    id: "library-backlinks",
+    title: "Обратные ссылки",
+    count: backlinkNotes.length,
+    open: Boolean((ctx.panelOpen || {})["library-backlinks"]),
+    body: safeList(
       backlinkNotes,
       (note) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(note.id)}" data-testid="backlink-row"><strong>${escapeHtml(note.title || "Заметка")}</strong></button>`,
       `<div class="empty-inline" data-testid="backlinks-empty">Пока никто не ссылается на эту заметку.</div>`
     ),
-    `</section>`
-  ].join("");
+    testId: "library-backlinks-panel",
+    className: "library-backlinks-panel"
+  });
 }
 
 // Q1 СРЕЗЫ (доноры Dataview + Tana live-searches). Канон: «данные ≠ представление, один
@@ -169,9 +183,7 @@ function renderLensPanel(ctx) {
   if (!view) return "";
   const saved = ctx.savedLenses || [];
   const fieldOptions = [{ id: "", label: "без условия" }].concat((view.fields || []).map((field) => ({ id: field.id, label: field.label })));
-  return [
-    `<section class="info-panel lens-panel" data-testid="lens-panel">`,
-    `<div class="section-title">Срезы <span class="lens-count" data-testid="lens-shown">${view.shown}</span></div>`,
+  const body = [
     `<p class="lens-intro">Один и тот же артефакт можно смотреть по-разному. Срез — это условие, а не копия: записи остаются на своих местах.</p>`,
     `<div class="lens-builder" data-testid="lens-builder">`,
     lensSelect("from", view.sources, view.from, "lens-source", "Откуда"),
@@ -199,9 +211,19 @@ function renderLensPanel(ctx) {
         `</div>`
       ].join("")).join(""),
       `</div>`
-    ].join("") : "",
-    `</section>`
+    ].join("") : ""
   ].join("");
+  // Срез — рабочий инструмент экрана, поэтому открыт по умолчанию; но свернуть его владелец
+  // тоже вправе, и выбор запоминается.
+  return collapsiblePanel({
+    id: "library-lens",
+    title: "Срезы",
+    count: view.shown,
+    open: Boolean((ctx.panelOpen || {})["library-lens"]),
+    body,
+    testId: "lens-panel",
+    className: "lens-panel"
+  });
 }
 
 function renderControlTrail(ctx, noteId) {
@@ -212,13 +234,18 @@ function renderControlTrail(ctx, noteId) {
     ["Повторение", forNote(ctx.reviewItems).length],
     ["Источники", (ctx.sources || []).filter((item) => item.noteId === noteId).length]
   ];
-  return [
-    `<section class="info-panel library-control-trail" data-testid="library-control-trail">`,
-    `<div class="section-title">Контроль базы</div>`,
-    `<div class="control-trail-counts">${rows.map(([label, value]) => `<span class="control-trail-row"><em>${escapeHtml(label)}</em><strong>${value}</strong></span>`).join("")}</div>`,
-    `<div class="control-trail-actions">${button("set-surface", "Открыть контроль", { id: "control", kind: "ghost" })}</div>`,
-    `</section>`
-  ].join("");
+  return collapsiblePanel({
+    id: "library-control",
+    title: "Контроль базы",
+    count: rows.reduce((sum, row) => sum + row[1], 0),
+    open: Boolean((ctx.panelOpen || {})["library-control"]),
+    body: [
+      `<div class="control-trail-counts">${rows.map(([label, value]) => `<span class="control-trail-row"><em>${escapeHtml(label)}</em><strong>${value}</strong></span>`).join("")}</div>`,
+      `<div class="control-trail-actions">${button("set-surface", "Открыть контроль", { id: "control", kind: "ghost" })}</div>`
+    ].join(""),
+    testId: "library-control-trail",
+    className: "library-control-trail"
+  });
 }
 
 export function renderLibrary(ctx) {
@@ -259,7 +286,17 @@ export function renderLibrary(ctx) {
     `<aside class="knowledge-cards"><h3>Выводы</h3>${safeList(claims.slice(0, 8), renderClaimEntry, `<div class="empty-inline">Инсайты появятся из чтения, аудио и заметок.</div>`)}<h3>Вопросы</h3>${safeList(questions.slice(0, 6), renderQuestionEntry, `<div class="empty-inline">Вопросы станут задачами без потери источника.</div>`)}<h3>Повторение</h3>${safeList(reviewItems.slice(0, 6), renderReviewEntry, `<div class="empty-inline">Карточка повторения появится после извлечения смысла.</div>`)}</aside>`,
     `</div>`,
     renderLensPanel(ctx),
-    renderBookWorkbenchPanel(ctx),
+    // Чтение на экране Базы — вторично: у него есть собственное рабочее место «Чтение».
+    // В заголовке стоит счётчик материалов, поэтому свёрнутый блок не скрывает факта.
+    collapsiblePanel({
+      id: "library-book",
+      title: "Чтение",
+      count: (ctx.bookSources || []).length,
+      hint: (ctx.bookSources || []).length ? "" : "материалов пока нет",
+      open: Boolean((ctx.panelOpen || {})["library-book"]),
+      body: renderBookWorkbenchPanel(ctx),
+      testId: "library-book-panel"
+    }),
     renderMemorySection(ctx),
     semanticSearchSection(ctx),
     active ? renderBacklinksPanel(ctx, active.id) : "",

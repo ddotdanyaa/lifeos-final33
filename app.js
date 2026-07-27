@@ -1086,6 +1086,9 @@ function createInitialState() {
     // Q1: черновик среза — что именно владелец сейчас настраивает в Базе. Один черновик на
     // систему: срез либо строится, либо сохранён, третьего состояния нет.
     lensDraft: { from: "tasks", where: { field: "", op: "", value: "" }, render: "list" },
+    // Прогрессивное раскрытие (запрос владельца: «много окон, кучно и непонятно»). Хранятся
+    // только ОТКЛОНЕНИЯ от умолчания панели, поэтому новая панель работает без миграции.
+    panelOpen: {},
     captureDraft: "",
     chatDraft: "",
     commandMessage: "Локальное хранилище готово",
@@ -2538,6 +2541,7 @@ function normalizeState(input) {
     commandPaletteRecents: Array.isArray(base.commandPaletteRecents) ? base.commandPaletteRecents.filter((id) => typeof id === "string").slice(0, 6) : [],
     savedSearches: base.savedSearches && typeof base.savedSearches === "object" ? base.savedSearches : {},
     lensDraft: normalizeLensDraft(base.lensDraft),
+    panelOpen: normalizePanelOpen(base.panelOpen),
     captureDraft: String(base.captureDraft || ""),
     commandMessage: base.commandMessage || "Локальное хранилище готово",
     lastSavedAt: base.lastSavedAt || "",
@@ -3761,6 +3765,53 @@ function computeLensView(state, lens) {
           : "Из «" + sourceLabel + "» без условия: " + records.length + " " + pluralRu(records.length, "запись", "записи", "записей") + "."))
       + (matched.length > rows.length ? " Показаны первые " + rows.length + " по свежести." : "")
   };
+}
+
+// Реестр сворачиваемых панелей и их умолчаний. Владелец назвал приоритетом «много окон, кучно
+// и непонятно»: экран Базы шёл на 3155 пикселей, то есть три с половиной экрана прокрутки.
+//
+// Два правила, и оба проверены на себе.
+// 1. В ЗАГОЛОВКЕ свёрнутого блока всегда стоит счётчик того, что внутри. Свёрнуто ≠ спрятано;
+//    блок, который молчит о своём содержимом, — это скрытие данных, а §7 запрещает скрытое
+//    поведение и в показе тоже.
+// 2. Сворачивается только то, у чего ЕСТЬ СОБСТВЕННОЕ РАБОЧЕЕ МЕСТО. Первая попытка свернула
+//    «Обратные ссылки» и «Семантический поиск» — и обе спеки упали по делу: связи владелец как
+//    раз и просил читать глазом, а честный статус провайдера («поиск недоступен») обязан быть
+//    виден без клика. Свернуть их значило усугубить ровно ту жалобу, ради которой всё делалось.
+const PANEL_DEFAULT_OPEN = {
+  "library-lens": true,
+  "library-semantic": true,
+  "library-backlinks": true,
+  // Есть рабочее место «Чтение» — здесь это дубль.
+  "library-book": false,
+  // Есть рабочее место «Контроль» — здесь это сводка.
+  "library-control": false
+};
+
+function panelIsOpen(state, key) {
+  const map = state.panelOpen || {};
+  if (Object.prototype.hasOwnProperty.call(map, key)) return Boolean(map[key]);
+  return Boolean(PANEL_DEFAULT_OPEN[key]);
+}
+
+// Умолчание живёт в одном месте — здесь. Экран получает уже разрешённую карту, чтобы правило
+// «открыт по умолчанию» не размножилось по компонентам и не разошлось с действием-переключателем.
+function resolvePanelOpen(state) {
+  const resolved = {};
+  for (const key of Object.keys(PANEL_DEFAULT_OPEN)) resolved[key] = panelIsOpen(state, key);
+  for (const key of Object.keys(state.panelOpen || {})) resolved[key] = panelIsOpen(state, key);
+  return resolved;
+}
+
+// Раскрытие панелей: только булевы значения и только по строковым ключам. Карта маленькая по
+// смыслу — это отклонения от умолчаний, а не список всех панелей продукта.
+function normalizePanelOpen(base) {
+  const source = base && typeof base === "object" ? base : {};
+  const clean = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof key === "string" && key) clean[key] = Boolean(value);
+  }
+  return clean;
 }
 
 // Черновик среза пересобирается по тем же закрытым спискам: чужое поле или выдуманная операция
@@ -12887,6 +12938,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     // посчитанным, как и любая другая проекция.
     lensView: computeLensView(state, state.lensDraft),
     savedLenses: lensList(state),
+    panelOpen: resolvePanelOpen(state),
     scheduleItems,
     searchQuery: state.searchQuery || "",
     selectedGraph,
@@ -22750,6 +22802,18 @@ async function handleAction(action, id) {
       }
     });
     requestAnimationFrame(() => window.scrollTo(0, 0));
+    return;
+  }
+  // Раскрытие панели — это ВИД, а не данные: чека и записи в аудит здесь быть не должно,
+  // иначе журнал изменений забьётся тем, что владелец просто свернул блок.
+  if (action === "toggle-panel") {
+    await store.commit("Панель свёрнута или раскрыта", (state) => {
+      const key = cleanLine(id || "");
+      if (!key) return;
+      // Переключаем от ЭФФЕКТИВНОГО значения, а не от записи в карте: у панели, открытой по
+      // умолчанию, записи ещё нет, и «!undefined» снова открыл бы уже открытое.
+      state.panelOpen = Object.assign({}, state.panelOpen, { [key]: !panelIsOpen(state, key) });
+    });
     return;
   }
   // Q1: срез сохраняется, открывается и удаляется как обычный артефакт — с чеком в Контроле.

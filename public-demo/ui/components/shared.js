@@ -150,6 +150,29 @@ export function emptyState(title, detail, action = "") {
   ].join("");
 }
 
+// Сворачиваемая панель (запрос владельца: «много окон, вложенные стрелочки, кучно и непонятно»).
+// Управляемое состояние, а НЕ нативный <details>: тот схлопывается на каждом ре-рендере — тот же
+// фикс уже применён к тулбару чата и настройкам графа.
+// Железное правило: счётчик стоит в ЗАГОЛОВКЕ и виден в свёрнутом виде. Свёрнуто — это «убрано
+// с глаз», а не «скрыто»: блок, который молчит о своём содержимом, прячет данные.
+export function collapsiblePanel(options) {
+  const { id, title, count, hint, body, open, testId, className } = options;
+  const classes = ["info-panel", "foldable-panel"];
+  if (className) classes.push(className);
+  if (open) classes.push("open");
+  const countLabel = count === undefined || count === null || count === "" ? "" : String(count);
+  return [
+    `<section class="${classes.join(" ")}" data-testid="${escapeHtml(testId || id)}" data-panel="${escapeHtml(id)}">`,
+    `<button type="button" class="foldable-head" data-action="toggle-panel" data-id="${escapeHtml(id)}" data-testid="toggle-panel" aria-expanded="${open ? "true" : "false"}">`,
+    `<span class="section-title">${escapeHtml(title)}${countLabel ? `<span class="foldable-count" data-testid="panel-count">${escapeHtml(countLabel)}</span>` : ""}</span>`,
+    hint ? `<span class="foldable-hint">${escapeHtml(hint)}</span>` : "",
+    `<span class="foldable-chevron" aria-hidden="true">${open ? "Свернуть" : "Раскрыть"}</span>`,
+    `</button>`,
+    open ? `<div class="foldable-body" data-testid="panel-body">${body}</div>` : "",
+    `</section>`
+  ].join("");
+}
+
 export function objectChip(label, value, accent = "") {
   const style = accent ? ` style="--chip-accent:${escapeHtml(accent)}"` : "";
   return `<span class="object-chip"${style}><em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
