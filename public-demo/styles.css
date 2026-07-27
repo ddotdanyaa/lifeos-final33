@@ -6075,15 +6075,32 @@ audio {
 
 /* D1.4: тихие часы после 22:00 - приглушённые акценты на Доме (донор-идея SP evening-theme),
    только визуальное затемнение через локальный override переменных, ничего не скрывается. */
+/* Переменная НЕ может ссылаться сама на себя: по спецификации это цикл, и значение становится
+   «guaranteed-invalid» — пустым. Здесь так и было: внутри тихих часов `--accent` обнулялся, а
+   `.ui-btn-primary` рисуется как `background: var(--accent); color: #fff` — то есть главная
+   кнопка Дома становилась БЕЛОЙ ПО БЕЛОМУ. Ровно вечером, когда владелец разбирает день.
+   Смешанное значение кладём под другим именем на контейнер, а `--accent` переопределяем уже
+   на его детях: там базовое значение приходит от :root, цикла нет. */
 .assistant-home-v2.quiet-hours {
-  --accent: color-mix(in srgb, var(--accent) 62%, var(--bg-surface-2));
-  --accent-capture: color-mix(in srgb, var(--accent-capture) 62%, var(--bg-surface-2));
-  --accent-task: color-mix(in srgb, var(--accent-task) 62%, var(--bg-surface-2));
-  --accent-calendar: color-mix(in srgb, var(--accent-calendar) 62%, var(--bg-surface-2));
-  --accent-finance: color-mix(in srgb, var(--accent-finance) 62%, var(--bg-surface-2));
-  --accent-habit: color-mix(in srgb, var(--accent-habit) 62%, var(--bg-surface-2));
-  --accent-goal: color-mix(in srgb, var(--accent-goal) 62%, var(--bg-surface-2));
-  --accent-knowledge: color-mix(in srgb, var(--accent-knowledge) 62%, var(--bg-surface-2));
+  --accent-quiet: color-mix(in srgb, var(--accent) 62%, var(--bg-surface-2));
+  --accent-capture-quiet: color-mix(in srgb, var(--accent-capture) 62%, var(--bg-surface-2));
+  --accent-task-quiet: color-mix(in srgb, var(--accent-task) 62%, var(--bg-surface-2));
+  --accent-calendar-quiet: color-mix(in srgb, var(--accent-calendar) 62%, var(--bg-surface-2));
+  --accent-finance-quiet: color-mix(in srgb, var(--accent-finance) 62%, var(--bg-surface-2));
+  --accent-habit-quiet: color-mix(in srgb, var(--accent-habit) 62%, var(--bg-surface-2));
+  --accent-goal-quiet: color-mix(in srgb, var(--accent-goal) 62%, var(--bg-surface-2));
+  --accent-knowledge-quiet: color-mix(in srgb, var(--accent-knowledge) 62%, var(--bg-surface-2));
+}
+
+.assistant-home-v2.quiet-hours > * {
+  --accent: var(--accent-quiet);
+  --accent-capture: var(--accent-capture-quiet);
+  --accent-task: var(--accent-task-quiet);
+  --accent-calendar: var(--accent-calendar-quiet);
+  --accent-finance: var(--accent-finance-quiet);
+  --accent-habit: var(--accent-habit-quiet);
+  --accent-goal: var(--accent-goal-quiet);
+  --accent-knowledge: var(--accent-knowledge-quiet);
 }
 
 .home-hero-copy {
@@ -11515,5 +11532,60 @@ audio {
   color: var(--ink);
 }
 
-.agent-schedule-field { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--muted); }
+/* Подпись не переносится: в узкой карточке «По расписанию в» ломалось на три строки и
+   выталкивало кнопку за рамку блока. */
+.agent-schedule-field { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--muted); white-space: nowrap; }
 .agent-schedule-field input { font: inherit; padding: 2px var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm, 6px); background: var(--surface); color: var(--ink); }
+
+/* Панель «Сценарий» стоит в узкой колонке, а её сетки были жёстко на 3 и 5 столбцов: заголовки
+   «Триггер», «Действие» и стадии Trigger→Audit обрезались краем панели, кнопка налезала на текст.
+   Столбцы теперь переносятся по доступной ширине — содержимое остаётся целым на любой колонке. */
+.flow-canvas { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.flow-builder-board { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.flow-builder { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+
+/* Стрелка между шагами рисуется в зазоре справа; после переноса строки её место занимает
+   следующий столбец, поэтому на узкой раскладке она прячется. */
+@media (max-width: 1200px) {
+  .flow-builder-node:not(:last-child)::after { display: none; }
+}
+
+.flow-builder-node input,
+.flow-builder-node select,
+.flow-builder input,
+.flow-builder select { max-width: 100%; min-width: 0; }
+
+/* «Пока нет запусков» и пояснение шли инлайном и слипались в одну строку. */
+.execution-history > div > strong { display: block; }
+.execution-history > div > span { display: block; }
+
+/* Колонки «Что делать сейчас» (.now-column) и «Без времени» (.bucket-column) — узкие (≈226px), а строка задачи была жёсткой
+   сеткой «галочка · текст · действия» с четвёртым блоком подзадач. Кнопки «Главная / →Завтра /
+   Объект / Изменить» не помещались и вылезали за рамку карточки, обрезаясь краем колонки.
+   В узкой колонке строка раскладывается по вертикали: заголовок с галочкой, ниже действия,
+   ниже подзадачи. На широких экранах исходная раскладка не меняется. */
+.now-column .today-task-row,
+.bucket-column .today-task-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: start;
+}
+
+.now-column .today-task-row > .row-actions,
+.now-column .today-task-row > .task-subtasks,
+.bucket-column .today-task-row > .row-actions,
+.bucket-column .today-task-row > .task-subtasks {
+  grid-column: 1 / -1;
+}
+
+.now-column .today-task-row > .row-actions,
+.bucket-column .today-task-row > .row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.now-column .today-task-row > div,
+.bucket-column .today-task-row > div { min-width: 0; }
+.now-column .today-task-row strong,
+.bucket-column .today-task-row strong { overflow-wrap: anywhere; }

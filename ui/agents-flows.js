@@ -49,7 +49,7 @@ function agentCard(agent) {
     agent.schedule && agent.schedule.due
       ? `<p class="agent-schedule-due" data-testid="agent-schedule-due">${escapeHtml(agent.schedule.label)}</p>`
       : "",
-    `<label class="agent-schedule-field"><span>По расписанию в</span><input type="time" data-testid="agent-schedule-time" data-agent-time="${escapeHtml(agent.id)}" value="${escapeHtml(agent.schedule ? agent.schedule.time : "")}"></label>`,
+    `<label class="agent-schedule-field"><span>Время</span><input type="time" data-testid="agent-schedule-time" data-agent-time="${escapeHtml(agent.id)}" value="${escapeHtml(agent.schedule ? agent.schedule.time : "")}"></label>`,
     button("set-agent-schedule", "Сохранить время", { id: agent.id, kind: "ghost", testId: "agent-schedule-save" }),
     agent.schedule ? button("clear-agent-schedule", "Снять расписание", { id: agent.id, kind: "ghost", testId: "agent-schedule-clear" }) : "",
     `</div>`,

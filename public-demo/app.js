@@ -7682,7 +7682,7 @@ function addReminderForReviewItem(state, reviewId) {
 // draftId, а не по названию и типу: в чат-пути владелец САМ просит сохранить сообщение в базу,
 // и предложение там называется так же. Первая версия правила ловила по названию и обрывала это
 // осознанное действие — сломались ai-memory-gate и chat-actions, и правильно сломались.
-const MACHINERY_DRAFT_IDS = new Set(["knowledge-summary", "control-graph"]);
+const MACHINERY_DRAFT_IDS = new Set(["knowledge-summary", "control-graph", "automation-context"]);
 
 function isMachineryProposal(proposal) {
   if (!proposal) return false;
@@ -14230,7 +14230,9 @@ function computePersonInspector(state, personId, tab) {
         + (days.length ? (days[0] === days[days.length - 1] ? ", все " + formatObjectDay(days[0]) : ", с " + formatObjectDay(days[0]) + " по " + formatObjectDay(days[days.length - 1])) : "") + ". "
         // Род имени системе неизвестен, поэтому «связан/связана» не пишем вовсе.
         + (related.length ? "Связей с объектами системы: " + related.length + "." : "Пока только упоминания — ни задач, ни целей с этим человеком не связано.")
-      : person.name + " встретился один раз" + (days.length ? " " + formatObjectDay(days[0]) : "") + ". Для выводов этого мало.",
+      // Род имени неизвестен, поэтому глагол в мужском роде («встретился») недопустим: строим
+      // фразу вокруг ИМЕНИ как слова, а не вокруг человека.
+      : "«" + person.name + "» встречается пока один раз" + (days.length ? ", " + formatObjectDay(days[0]) : "") + ". Для выводов этого мало.",
     scale: null,
     facts: [
       { value: String(person.mentions), label: pluralRu(person.mentions, "упоминание", "упоминания", "упоминаний"), source: "посчитано по захватам, вручную не вводилось" },
@@ -14249,10 +14251,15 @@ function computePersonInspector(state, personId, tab) {
       // составлена так, чтобы имя стояло в именительном.
       ? { text: "Объектов, где встречается «" + person.name + "»: " + related.length + " — смотри вкладку «Связи».", why: "Связь считается по упоминанию имени в тексте объекта, а не по ручной привязке.", tab: "" }
       : { text: "Пока это только имя в записях.", why: "Задачи и цели свяжутся с человеком сами, когда его имя встретится в их тексте.", tab: "" },
-    knows: [{
+    knows: [person.aliases.length ? {
       title: "Это один человек, а не " + (person.aliases.length + 1) + " разных",
-      detail: person.aliases.length ? "Падежи «" + [person.name].concat(person.aliases).join("», «") + "» сведены по основе имени." : "Другие написания имени пока не встречались.",
-      confidence: person.aliases.length ? "по правилу языка" : "факт"
+      detail: "Написания «" + [person.name].concat(person.aliases).join("», «") + "» сведены по основе имени.",
+      confidence: "по правилу языка"
+    } : {
+      // Сводить нечего — и говорить «это один человек, а не 1 разных» бессмысленно.
+      title: "Имя встречено в одном написании",
+      detail: "Другие формы этого имени пока не встречались, поэтому сводить нечего.",
+      confidence: "факт"
     }],
     sourceGroups: (() => {
       const groups = [];
@@ -16983,7 +16990,12 @@ const INSIGHT_TERM_STOPWORDS = new Set([
 // не в стоп-листе, плюс теги и цели вики-связей. Set нормализованных форм.
 function artifactDistinctiveTerms(note) {
   const terms = new Set();
-  const raw = String((note.title || "") + " " + (note.body || ""));
+  // Служебная шапка тела («Source artifact», «Kind: text», «Suggested actions:») одинакова у всех
+  // заметок, и её слова проходили фильтр длины как «различающие термины». В панели инсайтов это
+  // выглядело так: «Похоже, „Хочу купить машину“ и „Надо ответить Дмитрию“ об одном · общие темы:
+  // suggested, actions». Связь по служебному слову — не связь. Тот же срез уже применён к поиску
+  // похожих записей, здесь он нужен ровно по той же причине.
+  const raw = stripRecordBoilerplate(String((note.title || "") + " " + (note.body || "")));
   for (const word of raw.split(/[^0-9a-zA-Zа-яёА-ЯЁ]+/)) {
     const norm = normalizeTitle(word);
     if (norm.length >= 5 && !INSIGHT_TERM_STOPWORDS.has(norm)) terms.add(norm);
