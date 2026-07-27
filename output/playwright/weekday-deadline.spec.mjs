@@ -44,11 +44,15 @@ async function captureAndApply(page, lines) {
 
 // Ожидаемая дата считается по тем же часам, что и у приложения: иначе прогон около полуночи
 // или в другом поясе сравнивал бы разные «сегодня».
+// «Сегодня» берём по местному календарю (как todayKey), а всю арифметику ведём в UTC — иначе
+// getUTCDay() от МЕСТНОЙ полуночи в UTC+3 отдаёт вчерашний день недели. Раньше здесь стояли
+// сразу две такие ошибки, и в UTC+3 они гасили друг друга: помощник давал верную дату по
+// неверному пути и молчал бы о поясе западнее Гринвича.
 async function nextWeekday(page, weekday) {
   return page.evaluate((target) => {
     const today = new Date();
     const key = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-    const base = new Date(key + "T00:00:00");
+    const base = new Date(key + "T00:00:00Z");
     const offset = (target - base.getUTCDay() + 7) % 7 || 7;
     return new Date(base.getTime() + offset * 86400000).toISOString().slice(0, 10);
   }, weekday);

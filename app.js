@@ -276,7 +276,11 @@ function parseDateFromTextHumanSafe(text) {
     const year = dotted[3] ? Number(dotted[3].length === 2 ? "20" + dotted[3] : dotted[3]) : currentYear;
     return String(year).padStart(4, "0") + "-" + String(Number(dotted[2])).padStart(2, "0") + "-" + String(Number(dotted[1])).padStart(2, "0");
   }
-  const today = new Date(todayKey() + "T00:00:00");
+  // Суффикс «Z» обязателен: без него строка «2026-07-27T00:00:00» разбирается как МЕСТНАЯ
+  // полночь, а getUTCDay() ниже читает её уже в UTC — и в поясе восточнее Гринвича понедельник
+  // становится воскресеньем. Владелец в UTC+3 говорил «до среды» и получал четверг: все сроки
+  // по дням недели уезжали на сутки вперёд. В облаке (UTC) ошибка не проявлялась вовсе.
+  const today = new Date(todayKey() + "T00:00:00Z");
   // День недели почти никогда не звучит в именительном: «до среды», «в пятницу», «к субботе».
   // Сравнение по точному слову ловило только «вторник» и «четверг» — те два дня, у которых
   // винительный совпадает с именительным. Всё остальное молча уезжало на сегодня.
@@ -336,7 +340,7 @@ function parseDateFromTextHuman(text) {
     ["\u043f\u044f\u0442\u043d\u0438\u0446\u0430", "friday"],
     ["\u0441\u0443\u0431\u0431\u043e\u0442\u0430", "saturday"]
   ];
-  const today = new Date(todayKey() + "T00:00:00");
+  const today = new Date(todayKey() + "T00:00:00Z");
   for (let index = 0; index < weekdays.length; index += 1) {
     if (!weekdays[index].some((word) => lower.includes(word))) continue;
     const offset = (index - today.getUTCDay() + 7) % 7 || 7;
@@ -382,7 +386,7 @@ function parseDateFromText(text) {
     ["friday", "пятница"],
     ["saturday", "суббота"]
   ];
-  const today = new Date(todayKey() + "T00:00:00");
+  const today = new Date(todayKey() + "T00:00:00Z");
   for (let index = 0; index < weekDays.length; index += 1) {
     if (!weekDays[index].some((word) => lower.includes(word))) continue;
     const current = today.getUTCDay();
@@ -25848,9 +25852,16 @@ let swReloadArmed = false;
 function armServiceWorkerAutoReload() {
   if (swReloadArmed || !navigator.serviceWorker) return;
   swReloadArmed = true;
+  // Перезагружаемся только когда воркер СМЕНИЛСЯ, то есть приехала новая сборка. Первая
+  // установка контроллером не была — до неё контроллера нет вовсе, — и перезагрузка на ней
+  // рвала первый сеанс через пару секунд после открытия: всё, что владелец успел напечатать
+  // в поле захвата, исчезало вместе со страницей. В браузере с уже установленным воркером
+  // (как у владельца изо дня в день) дефект не виден; виден он на ЧИСТОМ профиле — то есть
+  // при первом знакомстве с продуктом и в каждом прогоне e2e.
+  const hadController = Boolean(navigator.serviceWorker.controller);
   let reloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloaded) return;
+    if (!hadController || reloaded) return;
     reloaded = true;
     window.location.reload();
   });
