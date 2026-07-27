@@ -10638,8 +10638,20 @@ async function streamOllamaChatAnswer(endpoint, model, prompt, numPredict, signa
 // Capability Contract (Seven Contracts, "Capability/Locality"): a grant is
 // resource+action+scope+locality+approval+budget, per P1.3. Every provider action
 // checks/ensures a grant exists before the run is recorded - see recordProviderRun below.
+// Контейнер разрешений может отсутствовать в хранилище, собранном предыдущими версиями:
+// `state.control` склеивается через Object.assign, и ключ, пришедший из старого снимка пустым,
+// перекрывает дефолт. Обращение к нему без защиты роняло ЗАГРУЗКУ приложения целиком —
+// «Cannot convert undefined or null to object» на экране вместо LifeOS. Хуже всего то, где это
+// срабатывало: по браузерному событию beforeinstallprompt, которого не бывает в headless-прогоне,
+// поэтому весь набор спек оставался зелёным, а вкладка владельца не открывалась.
+function capabilityStore(state) {
+  if (!state.control || typeof state.control !== "object") state.control = {};
+  if (!state.control.capabilities || typeof state.control.capabilities !== "object") state.control.capabilities = {};
+  return state.control.capabilities;
+}
+
 function findActiveCapability(state, resource, action) {
-  return Object.values(state.control.capabilities).find((grant) => grant.resource === resource && grant.action === action && !grant.revokedAt) || null;
+  return Object.values(capabilityStore(state)).find((grant) => grant.resource === resource && grant.action === action && !grant.revokedAt) || null;
 }
 
 function ensureCapabilityGrant(state, resource, action, options = {}) {
@@ -10658,13 +10670,13 @@ function ensureCapabilityGrant(state, resource, action, options = {}) {
     grantedAt: createdAt,
     revokedAt: ""
   };
-  state.control.capabilities[id] = grant;
+  capabilityStore(state)[id] = grant;
   addAudit(state, "capability.grant", "Capability granted: " + grant.resource + "/" + grant.action + " (" + grant.locality + ")", state.activeNoteId);
   return grant;
 }
 
 function revokeCapability(state, id) {
-  const grant = state.control.capabilities[id];
+  const grant = capabilityStore(state)[id];
   if (!grant || grant.revokedAt) return;
   grant.revokedAt = now();
   addAudit(state, "capability.revoke", "Capability revoked: " + grant.resource + "/" + grant.action, state.activeNoteId);
@@ -22937,33 +22949,41 @@ async function importFilesFromInput(fileList, forcedKind) {
       // проходил молча: владелец выбирал два голосовых, на экране не менялось ничего, и он
       // справедливо решал, что файлы не прикрепились.
       state.captureAttachments = (state.captureAttachments || []).concat(sourceId).slice(-8);
+      // Байты крупного файла в снимок не попали — значит они поедут блобом сразу после коммита.
+      // Помечаем здесь же, чтобы не платить вторым полным сохранением состояния за каждый файл.
+      if (!state.sources[sourceId].dataUrl && needsMediaBytes(state.sources[sourceId])) {
+        state.sources[sourceId].mediaStored = true;
+        addAudit(state, "source.media.stored", "Файл сохранён локально целиком: " + state.sources[sourceId].name + " (" + formatBytes(state.sources[sourceId].size) + ")", state.sources[sourceId].noteId);
+      }
       createActionProposalsForSource(state, sourceId);
       const source = state.sources[sourceId];
       addChatMessage(state, "assistant", "Imported " + source.name + " and prepared next actions.", source.id, source.noteId);
       if (source.kind === "audio" && source.dataUrl) newAudioSourceIds.push(sourceId);
     }
   });
-  // Байты файла, не поместившиеся в снимок состояния, сохраняются блобом СРАЗУ после импорта —
-  // до этого запись существовала без звука и расшифровать её было нечем.
+  // Байты, не поместившиеся в снимок состояния, уходят блобом. Флаг `mediaStored` проставлен
+  // ещё в первом коммите: сохранение состояния стоит дорого (весь снимок сжимается заново), и
+  // второй коммит на каждый файл удваивал цену импорта — на девяти мегабайтах это выливалось в
+  // минуты ожидания у владельца. Здесь остаётся только сама запись байтов, а повторный коммит
+  // случается лишь если она НЕ удалась: тогда флаг честно снимается.
   for (let index = 0; index < importedIds.length; index += 1) {
     const sourceId = importedIds[index];
     const file = files[index];
     const source = store.state.sources[sourceId];
-    if (!source || source.dataUrl || !file || !needsMediaBytes(source)) continue;
+    if (!source || !source.mediaStored || !file) continue;
     let stored = false;
     try { stored = await repository.writeMedia(sourceId, file); } catch (error) { stored = false; }
-    await store.commit(stored ? "Media stored" : "Media store failed", (state) => {
+    if (stored) {
+      if (source.kind === "audio") newAudioSourceIds.push(sourceId);
+      continue;
+    }
+    await store.commit("Media store failed", (state) => {
       const record = state.sources[sourceId];
       if (!record) return;
-      record.mediaStored = stored;
+      record.mediaStored = false;
       record.updatedAt = now();
-      if (stored) {
-        addAudit(state, "source.media.stored", "Файл сохранён локально целиком: " + record.name + " (" + formatBytes(record.size) + ")", record.noteId);
-      } else {
-        addAudit(state, "source.media.failed", "Не удалось сохранить байты файла: " + record.name, record.noteId);
-      }
+      addAudit(state, "source.media.failed", "Не удалось сохранить байты файла: " + record.name, record.noteId);
     });
-    if (stored && source.kind === "audio") newAudioSourceIds.push(sourceId);
   }
   // Auto-transcribe only kicks in if Whisper is already prepared and ready - never triggers a
   // fresh download on its own (that stays an explicit owner click, per CLAUDE.md §7).
@@ -25828,11 +25848,20 @@ function bindGlobalEvents() {
 }
 
 function renderError(error) {
+  // Экран отказа обязан оставлять след. Раньше он показывал одну строку сообщения и молча
+  // проглатывал стек — владелец видел «Cannot convert undefined or null to object» без единой
+  // подсказки, где это случилось, и починить такое можно было только угадыванием.
+  console.error("LifeOS boot/render failure", error);
+  window.__lifeosLastError = {
+    message: error && error.message ? String(error.message) : String(error || "Unknown error"),
+    stack: error && error.stack ? String(error.stack) : ""
+  };
   app.innerHTML = [
     "<div class=\"error-shell\">",
-    "<h1>Repository boundary stopped a failure</h1>",
+    "<h1>Хранилище остановило сбой, данные целы</h1>",
     "<p>" + escapeHtml(error && error.message ? error.message : "Unknown error") + "</p>",
-    "<button onclick=\"location.reload()\">Reload vault</button>",
+    "<details><summary>Подробности для отчёта</summary><pre>" + escapeHtml((error && error.stack) || "стек недоступен") + "</pre></details>",
+    "<button onclick=\"location.reload()\">Открыть заново</button>",
     "</div>"
   ].join("");
 }
