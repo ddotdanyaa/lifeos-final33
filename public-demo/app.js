@@ -5903,6 +5903,12 @@ function createActionProposalsForSource(state, sourceId) {
   // из 11 задач 5 были такими. Сама запись не теряется (у неё есть источник, заметка и
   // предложение «сохранить в базу»), а о непонятых захватах честно сообщает разбор дня.
   if (!hasDirectProjection) source.parsedIntent = "not-understood";
+  // «Не разобрано» должно значить именно это. Сомнение и свершившийся факт объектов не порождают
+  // — и правильно: сомнение не дело, а «Счёт пришёл» уже случилось. Но помечать их непонятыми
+  // нечестно вдвойне: смысл системе известен (сомнение УЖЕ стоит рядом с целью в противоречиях),
+  // а разбор дня отчитывался о них как о своей неудаче.
+  if (!hasDirectProjection && looksLikeDoubt(source.text || "")) source.parsedIntent = "doubt";
+  else if (!hasDirectProjection && looksLikeFinishedFact(source.text || "")) source.parsedIntent = "fact";
   // Наблюдение о себе помечено отдельно: это не «не понял» и не дело, и разбор дня считает
   // такие записи своей строкой, а не молчит о них.
   if ((analysis.drafts || []).some((item) => item.draftId === "observation-main")) source.parsedIntent = "observation";
@@ -14838,6 +14844,8 @@ function runDayDigest(state) {
   const texts = sources.filter((source) => source.kind === "text").length;
   const notUnderstood = sources.filter((source) => source.parsedIntent === "not-understood").length;
   const observed = sources.filter((source) => source.parsedIntent === "observation").length;
+  const doubted = sources.filter((source) => source.parsedIntent === "doubt").length;
+  const facts = sources.filter((source) => source.parsedIntent === "fact").length;
   const entityProposals = proposals.filter((item) => item.type === "entity-extract");
   const entityNames = new Set();
   for (const item of entityProposals) {
@@ -14859,6 +14867,9 @@ function runDayDigest(state) {
           // Наблюдение о себе — не «не понял» и не дело. Отдельная строка, иначе такие записи
           // либо молча числились непонятыми, либо оседали в списке дел невыполнимой задачей.
           + (observed ? " " + observed + " " + pluralRu(observed, "запись — наблюдение", "записи — наблюдения", "записей — наблюдения") + " о себе: в дела не пойдут, но и не потеряются." : "")
+          // Сомнение и факт объектов не порождают, но и непонятыми не являются: смысл известен.
+          + (doubted ? " " + doubted + " " + pluralRu(doubted, "запись — сомнение", "записи — сомнения", "записей — сомнения") + ": они стоят рядом с целями в противоречиях." : "")
+          + (facts ? " " + facts + " " + pluralRu(facts, "запись — свершившийся факт", "записи — свершившиеся факты", "записей — свершившиеся факты") + ": дела из них не выдумываю." : "")
         : "За сегодня захватов не было."
     },
     {
@@ -16401,6 +16412,21 @@ const DOUBT_MARKERS = [
   "передумал", "передумала", "не нужен", "не нужна", "не нужно", "отказ", "зря",
   "может обойтись", "обойтись без", "не стоит"
 ];
+
+// Свершившийся факт: что-то пришло, получено или закончено. Дела из этого не выдумываем —
+// «Счёт за воду пришёл» не значит «оплати счёт», это додумывание за владельца (закон №6).
+// Обязательство и сумма отменяют признак: «надо оплатить счёт» это дело, «пришло 200000» —
+// деньги, и оба разбираются своими правилами раньше.
+const FINISHED_FACT_RE = /(?<![А-Яа-яЁё])(пришл[аои]?|пришёл|пришел|получил[аи]?|закончил[аси]*|доделал[аи]?|сдал[аи]?|отдал[аи]?|прислал[аи]?|подписал[аи]?)(?![А-Яа-яЁё])/i;
+
+function looksLikeFinishedFact(text) {
+  const source = String(text || "");
+  if (!FINISHED_FACT_RE.test(source)) return false;
+  return !OBLIGATION_HINT_RE.test(source);
+}
+
+// Тот же список обязательства, что и у наблюдения, но доступный за пределами анализатора.
+const OBLIGATION_HINT_RE = /(?<![А-Яа-яЁё])(надо|нужно|должен|должна|стоит|запланируй|добавь|поставь|сделать|купить|позвонить|оплатить|напомни)(?![А-Яа-яЁё])/i;
 
 function looksLikeDoubt(text) {
   const lower = normalizeRuText(String(text || ""));
