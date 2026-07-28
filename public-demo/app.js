@@ -6068,7 +6068,13 @@ async function fileToSourcePayload(file, forcedKind) {
   const text = readableText ? await file.text() : "";
   const dataUrl = !readableText && file.size <= INLINE_MEDIA_LIMIT ? await readFileAsDataUrl(file) : "";
   const parserStatus = parserStatusForSource(file.name, kind, readableText);
-  const checksum = await computeChecksum(text || dataUrl);
+  // Сумма считается по СОДЕРЖИМОМУ, и у крупного файла его надо взять из самого файла: текста у
+  // него нет, строки base64 тоже (она не помещается в снимок), и сумма выходила пустой — то есть
+  // дедупа (закон №4) у больших записей не было вовсе. Владелец несколько раз добавлял одну и ту
+  // же диктофонную запись и каждый раз получал новую копию.
+  const checksum = text || dataUrl
+    ? await computeChecksum(text || dataUrl)
+    : await computeBinaryChecksum(file);
   return {
     name: cleanLine(file.name || "imported-source"),
     kind,
@@ -6109,6 +6115,17 @@ function createSourceNoteBody(source) {
 // Import Pipeline (P6.2): every import gets a checksum for real dedup detection (not
 // name/size heuristics) and an import_receipt via recordProviderRun. Duplicates are never
 // silently dropped or silently merged - they're flagged for an explicit owner decision.
+// Сумма по байтам файла — для тех записей, у которых нет ни текста, ни строки base64.
+async function computeBinaryChecksum(file) {
+  if (!file || !file.size) return "";
+  try {
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch (error) {
+    return "";
+  }
+}
+
 async function computeChecksum(text) {
   if (!text) return "";
   try {
@@ -6292,7 +6309,9 @@ function resolveMergeReview(state, mergeId, decision) {
 }
 
 function addImportedSource(state, payload) {
-  const id = makeId("source");
+  // Идентификатор можно выдать заранее: байты крупного файла пишутся в хранилище ДО коммита,
+  // чтобы флаг «сохранено» в состоянии был правдой уже в момент его появления, а не обещанием.
+  const id = cleanLine(payload.id) || makeId("source");
   const createdAt = now();
   const source = {
     id,
@@ -22975,7 +22994,16 @@ async function importFilesFromInput(fileList, forcedKind) {
   if (!files.length) return;
   const payloads = [];
   for (const file of files) {
-    payloads.push(await fileToSourcePayload(file, forcedKind));
+    const payload = await fileToSourcePayload(file, forcedKind);
+    // Байты, не поместившиеся в снимок состояния, пишутся блобом ЗАРАНЕЕ — под тем же
+    // идентификатором, под которым запись сейчас появится. Так флаг «сохранено» не обгоняет
+    // саму запись: к моменту, когда владелец видит файл в списке, звук уже лежит в хранилище.
+    if (!payload.dataUrl && !payload.text && needsMediaBytes(payload)) {
+      payload.id = makeId("source");
+      try { payload.mediaStored = await repository.writeMedia(payload.id, file); }
+      catch (error) { payload.mediaStored = false; }
+    }
+    payloads.push(payload);
   }
   const newAudioSourceIds = [];
   const importedIds = [];
@@ -22987,9 +23015,10 @@ async function importFilesFromInput(fileList, forcedKind) {
       // проходил молча: владелец выбирал два голосовых, на экране не менялось ничего, и он
       // справедливо решал, что файлы не прикрепились.
       state.captureAttachments = (state.captureAttachments || []).concat(sourceId).slice(-8);
-      // Байты крупного файла в снимок не попали — значит они поедут блобом сразу после коммита.
-      // Помечаем здесь же, чтобы не платить вторым полным сохранением состояния за каждый файл.
-      if (!state.sources[sourceId].dataUrl && needsMediaBytes(state.sources[sourceId])) {
+      // Флаг отражает СВЕРШИВШИЙСЯ факт: блоб записан ещё до этого коммита. Ставить его
+      // авансом нельзя — в окне между обещанием и записью перезагрузка оставила бы запись,
+      // которая утверждает, что звук сохранён, не имея его.
+      if (payload.mediaStored) {
         state.sources[sourceId].mediaStored = true;
         addAudit(state, "source.media.stored", "Файл сохранён локально целиком: " + state.sources[sourceId].name + " (" + formatBytes(state.sources[sourceId].size) + ")", state.sources[sourceId].noteId);
       }
@@ -22999,29 +23028,12 @@ async function importFilesFromInput(fileList, forcedKind) {
       if (source.kind === "audio" && source.dataUrl) newAudioSourceIds.push(sourceId);
     }
   });
-  // Байты, не поместившиеся в снимок состояния, уходят блобом. Флаг `mediaStored` проставлен
-  // ещё в первом коммите: сохранение состояния стоит дорого (весь снимок сжимается заново), и
-  // второй коммит на каждый файл удваивал цену импорта — на девяти мегабайтах это выливалось в
-  // минуты ожидания у владельца. Здесь остаётся только сама запись байтов, а повторный коммит
-  // случается лишь если она НЕ удалась: тогда флаг честно снимается.
-  for (let index = 0; index < importedIds.length; index += 1) {
-    const sourceId = importedIds[index];
-    const file = files[index];
+  // Запись байтов уже произошла — до коммита. Второго полного сохранения состояния на каждый
+  // файл больше нет: оно удваивало цену импорта, а на девяти мегабайтах это были минуты
+  // ожидания. Здесь остаётся только собрать те аудио, чей звук действительно лежит на диске.
+  for (const sourceId of importedIds) {
     const source = store.state.sources[sourceId];
-    if (!source || !source.mediaStored || !file) continue;
-    let stored = false;
-    try { stored = await repository.writeMedia(sourceId, file); } catch (error) { stored = false; }
-    if (stored) {
-      if (source.kind === "audio") newAudioSourceIds.push(sourceId);
-      continue;
-    }
-    await store.commit("Media store failed", (state) => {
-      const record = state.sources[sourceId];
-      if (!record) return;
-      record.mediaStored = false;
-      record.updatedAt = now();
-      addAudit(state, "source.media.failed", "Не удалось сохранить байты файла: " + record.name, record.noteId);
-    });
+    if (source && source.kind === "audio" && source.mediaStored) newAudioSourceIds.push(sourceId);
   }
   // Auto-transcribe only kicks in if Whisper is already prepared and ready - never triggers a
   // fresh download on its own (that stays an explicit owner click, per CLAUDE.md §7).

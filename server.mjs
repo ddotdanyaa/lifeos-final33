@@ -80,7 +80,11 @@ async function transcodeAudioWithFfmpeg(inputBuffer) {
   await writeFile(inputPath, inputBuffer);
   try {
     await new Promise((resolve, reject) => {
-      const proc = spawn("ffmpeg", ["-y", "-i", inputPath, "-c:a", "pcm_s16le", outputPath]);
+      // Сразу 16 кГц моно — ровно то, что нужно распознавателю. Без этого мост отдавал звук в
+      // исходном качестве, и часовая диктофонная запись превращалась в сотни мегабайт WAV,
+      // которые ещё надо перекачать в браузер и там декодировать. Качество распознавания от
+      // этого не страдает: конвейер всё равно приводит звук к 16 кГц моно следующим шагом.
+      const proc = spawn("ffmpeg", ["-y", "-i", inputPath, "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", outputPath]);
       let stderr = "";
       proc.stderr.on("data", (chunk) => { stderr += chunk; });
       proc.on("error", reject);
