@@ -73,7 +73,9 @@ function renderNav(ctx) {
     // Открывает уже существующую палитру команд — не новый механизм.
     `<button class="nav-search-v3" data-action="open-command-palette" data-testid="nav-search-v3">Поиск<span>⌘K</span></button>`,
     `<nav data-testid="home-workspace-rail">${primaryNav.map((row) => navButton(ctx, row)).join("")}</nav>`,
-    `<details class="nav-more" data-testid="app-ribbon"><summary>Ещё</summary><div>${secondaryNav.map((row) => navButton(ctx, row)).join("")}</div></details>`,
+    // Раскрытие «Ещё» держится состоянием, а не браузером: родной <details> теряет открытость на
+    // каждой перерисовке, а она случается после любого действия — меню закрывалось под рукой.
+    `<details class="nav-more" data-testid="app-ribbon"${ctx.navMoreOpen ? " open" : ""}><summary data-action="toggle-nav-more">Ещё</summary><div>${secondaryNav.map((row) => navButton(ctx, row)).join("")}</div></details>`,
     button("open-command-palette", "Команды", { kind: "ghost", testId: "open-command-palette" }),
     // V3-DESIGN: блок владельца внизу панели — «всё локально» как постоянное напоминание границы (§7).
     `<div class="nav-owner-v3" data-testid="nav-owner-v3"><span class="nav-owner-dot"></span><div><strong>Данил</strong><em>всё локально</em></div></div>`,

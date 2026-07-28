@@ -1210,6 +1210,10 @@ function createInitialState() {
     // расшифровывается, расшифровано, звука нет) всегда берётся из самой записи при отрисовке,
     // иначе на экране жила бы вторая, устаревающая копия правды.
     captureAttachments: [],
+    // Вторичное меню «Ещё». Родной <details> схлопывается на КАЖДОЙ перерисовке, а перерисовка
+    // идёт после любого действия: владелец раскрывал меню, оно закрывалось под рукой, и путь к
+    // экранам «Аудио», «Чтение», «Чат» рвался. Состояние раскрытия живёт здесь.
+    navMoreOpen: false,
     chatDraft: "",
     commandMessage: "Локальное хранилище готово",
     lastSavedAt: "",
@@ -2663,6 +2667,7 @@ function normalizeState(input) {
     lensDraft: normalizeLensDraft(base.lensDraft),
     panelOpen: normalizePanelOpen(base.panelOpen),
     captureDraft: String(base.captureDraft || ""),
+    navMoreOpen: Boolean(base.navMoreOpen),
     captureAttachments: Array.isArray(base.captureAttachments) ? base.captureAttachments.filter((id) => typeof id === "string" && id).slice(-8) : [],
     commandMessage: base.commandMessage || "Локальное хранилище готово",
     lastSavedAt: base.lastSavedAt || "",
@@ -13082,6 +13087,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     audioSources: sources.filter((source) => source.kind === "audio"),
     bookSources: sources.filter(isBookSource),
     budgets: Object.values(state.budgets || {}).filter((item) => !item.deleted),
+    navMoreOpen: Boolean(state.navMoreOpen),
     captureDraft: state.captureDraft || "",
     // Статус каждого прикреплённого файла считается ЗДЕСЬ, из самой записи, а не хранится
     // рядом с идентификатором: иначе на экране жила бы устаревающая копия правды.
@@ -23144,6 +23150,12 @@ async function handleAction(action, id) {
   }
   if (action === "delete-saved-search") {
     await store.commit("Сохраненный поиск удален", (state) => deleteSavedSearch(state, id));
+    return;
+  }
+  if (action === "toggle-nav-more") {
+    await store.commit("Вторичное меню переключено", (state) => {
+      state.navMoreOpen = !state.navMoreOpen;
+    });
     return;
   }
   if (action === "set-surface") {
