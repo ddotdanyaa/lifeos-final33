@@ -100,6 +100,132 @@ async function transcodeAudioWithFfmpeg(inputBuffer) {
   }
 }
 
+
+// ─── П35 · МОСТ TELEGRAM ──────────────────────────────────────────────────────────────────
+//
+// Смысл приходит в дороге, где есть телефон и нет LifeOS. К вечеру мысль либо потеряна, либо
+// лежит в чужом мессенджере, откуда её никто не достанет. Мост ловит её там, где она возникает.
+//
+// Разбор донора (`node tools/donor-lookup.mjs голос с телефона`; апстрим NousResearch/hermes-agent,
+// MIT) дал три вывода, и все три здесь соблюдены:
+//
+//   1. ТРАНСПОРТ, НЕ МОЗГ. Мост только приносит байты. Он не разбирает, не типизирует, не решает
+//      — этим занимается приложение через СВОЙ существующий путь импорта. Второго пути импорта
+//      нет: иначе дедуп по байтам, `.m4a` и статусы прикрепления пришлось бы реализовывать
+//      дважды, и однажды они разошлись бы.
+//   2. WHITELIST — ВХОД, А НЕ ОПЦИЯ. Без списка разрешённых user_id мост не отвечает НИКОМУ.
+//      Не «отвечает всем по умолчанию», а молчит: бот с токеном в интернете доступен любому,
+//      кто узнает его имя.
+//   3. ТРАНСКРИПЦИЯ ОСТАЁТСЯ НАШЕЙ. Telegram и Hermes умеют расшифровывать сами, но чужой текст
+//      придёт без сегментов и секунд — и оборвётся путь «вывод → цитата → секунда записи»,
+//      который построил П5. Провенанс один.
+//
+// Токен и whitelist живут в переменных окружения, не в репозитории (CLAUDE.md §7):
+//   set LIFEOS_TELEGRAM_TOKEN=...      (от @BotFather, вводит владелец)
+//   set LIFEOS_TELEGRAM_ALLOW=123456   (его user_id, через запятую)
+//
+// Без токена мост просто не поднимается и честно говорит об этом одной строкой. Он не имитирует
+// работу и не пытается «как-нибудь»: провайдер честен (`not-connected`).
+const TELEGRAM_TOKEN = String(process.env.LIFEOS_TELEGRAM_TOKEN || "").trim();
+const TELEGRAM_ALLOW = String(process.env.LIFEOS_TELEGRAM_ALLOW || "")
+  .split(/[,;\s]+/)
+  .map((value) => value.trim())
+  .filter(Boolean);
+const TELEGRAM_INBOX_PATH = "/telegram-inbox";
+
+// Принесённое лежит здесь, пока приложение его не заберёт. В памяти, а не на диске: это
+// перевалочный пункт, а не хранилище. Хранилище — IndexedDB владельца.
+const telegramInbox = [];
+
+function telegramStatus() {
+  if (!TELEGRAM_TOKEN) return { status: "not-connected", why: "LIFEOS_TELEGRAM_TOKEN не задан" };
+  if (!TELEGRAM_ALLOW.length) return { status: "permission-required", why: "LIFEOS_TELEGRAM_ALLOW пуст: без списка user_id мост молчит для всех" };
+  return { status: "ok", why: "" };
+}
+
+async function telegramApi(method, payload) {
+  const response = await fetch("https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/" + method, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  if (!response.ok) throw new Error(method + ": HTTP " + response.status);
+  const data = await response.json();
+  if (!data.ok) throw new Error(method + ": " + (data.description || "отказ Telegram"));
+  return data.result;
+}
+
+async function telegramDownload(fileId) {
+  const file = await telegramApi("getFile", { file_id: fileId });
+  const url = "https://api.telegram.org/file/bot" + TELEGRAM_TOKEN + "/" + file.file_path;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("скачивание файла: HTTP " + response.status);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return { buffer, name: String(file.file_path || "voice").split("/").pop() };
+}
+
+// Одно обновление Telegram. Всё, что не от владельца, отбрасывается ДО любой обработки — так же,
+// как у донора: сначала проверка, потом всё остальное.
+async function handleTelegramUpdate(update) {
+  const message = update && (update.message || update.channel_post);
+  if (!message) return;
+  const from = String((message.from && message.from.id) || "");
+  if (!TELEGRAM_ALLOW.includes(from)) {
+    console.log("[telegram] сообщение от " + (from || "неизвестного") + " отброшено: не в whitelist");
+    return;
+  }
+  const chatId = message.chat && message.chat.id;
+  try {
+    if (message.voice || message.audio) {
+      const media = message.voice || message.audio;
+      const file = await telegramDownload(media.file_id);
+      telegramInbox.push({
+        kind: "audio",
+        name: "telegram-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + "-" + file.name,
+        mime: media.mime_type || "audio/ogg",
+        size: file.buffer.length,
+        // base64 — язык, на котором браузер принимает байты без второго канала. Разбор,
+        // расшифровка и провенанс происходят в приложении, а не здесь.
+        base64: file.buffer.toString("base64"),
+        at: new Date().toISOString()
+      });
+      await telegramApi("sendMessage", { chat_id: chatId, text: "Записал. Расшифрую своим whisper — с таймкодами, чтобы потом можно было проверить каждое слово." });
+      return;
+    }
+    if (message.text) {
+      telegramInbox.push({ kind: "text", text: String(message.text), at: new Date().toISOString() });
+      await telegramApi("sendMessage", { chat_id: chatId, text: "Принял. Разберу тем же путём, что и напечатанное на ноутбуке." });
+      return;
+    }
+    await telegramApi("sendMessage", { chat_id: chatId, text: "Пока принимаю голос и текст. Остальное придёт позже — обещать то, чего нет, не буду." });
+  } catch (error) {
+    console.log("[telegram] ошибка обработки: " + ((error && error.message) || error));
+  }
+}
+
+// Long polling. Вебхук потребовал бы публичного адреса — а весь смысл в том, что данные никуда
+// не уезжают: ноутбук сам ходит за обновлениями.
+async function startTelegramBridge() {
+  const state = telegramStatus();
+  if (state.status !== "ok") {
+    console.log("[telegram] мост не поднят (" + state.status + "): " + state.why);
+    return;
+  }
+  console.log("[telegram] мост поднят, whitelist: " + TELEGRAM_ALLOW.length + " user_id");
+  let offset = 0;
+  for (;;) {
+    try {
+      const updates = await telegramApi("getUpdates", { offset, timeout: 30 });
+      for (const update of updates) {
+        offset = Math.max(offset, Number(update.update_id) + 1);
+        await handleTelegramUpdate(update);
+      }
+    } catch (error) {
+      console.log("[telegram] опрос сорвался, повтор через 5 с: " + ((error && error.message) || error));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+}
 createServer(async (req, res) => {
   try {
     if (req.method === "POST" && new URL(req.url || "/", `http://localhost:${port}`).pathname === AUDIO_TRANSCODE_PATH) {
@@ -112,6 +238,12 @@ createServer(async (req, res) => {
         res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
         res.end("ffmpeg transcode unavailable: " + ((error && error.message) || error));
       }
+      return;
+    }
+    if (new URL(req.url || "/", `http://localhost:${port}`).pathname === TELEGRAM_INBOX_PATH) {
+      const taken = telegramInbox.splice(0, telegramInbox.length);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(JSON.stringify(Object.assign({ items: taken }, telegramStatus())));
       return;
     }
     if (new URL(req.url || "/", `http://localhost:${port}`).pathname === VOSK_MODEL_PROXY_PATH) {
@@ -136,4 +268,5 @@ createServer(async (req, res) => {
   }
 }).listen(port, () => {
   console.log(`LifeOS Knowledge Base running at http://localhost:${port}`);
+  startTelegramBridge();
 });

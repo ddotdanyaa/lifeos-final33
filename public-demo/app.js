@@ -24620,6 +24620,70 @@ function promptValue(message, fallback) {
   return value == null ? "" : cleanLine(value);
 }
 
+// ─── П35 · ЗАБРАТЬ ПРИНЕСЁННОЕ МОСТОМ ─────────────────────────────────────────────────────
+//
+// Мост в `server.mjs` только приносит байты. Разбор, дедуп, расшифровка и провенанс происходят
+// ЗДЕСЬ — тем же самым путём, что у файла, перетащенного мышкой. Второго пути импорта нет
+// осознанно: иначе `.m4a` с телефона, дедуп по байтам и статусы прикрепления существовали бы в
+// двух реализациях, и однажды они разошлись бы.
+//
+// Опрос идёт только на локальном сервере и только когда мост поднят: на статической сборке
+// эндпоинта нет, ответ 404, и функция честно молчит вместо того, чтобы делать вид, что ждёт.
+const TELEGRAM_POLL_MS = 20000;
+let telegramBridgeState = { status: "unchecked", why: "", lastAt: "", brought: 0 };
+
+function base64ToFile(item) {
+  const binary = atob(String(item.base64 || ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new File([bytes], cleanLine(item.name || "telegram-voice"), { type: cleanLine(item.mime || "audio/ogg") });
+}
+
+async function pullTelegramInbox() {
+  let payload = null;
+  try {
+    const response = await fetch("/telegram-inbox", { cache: "no-store" });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    payload = await response.json();
+  } catch (error) {
+    // Нет эндпоинта — нет моста. Это не ошибка и не повод писать в журнал: на статической
+    // сборке так и должно быть.
+    telegramBridgeState = { status: "not-connected", why: "локальный сервер не отвечает на /telegram-inbox", lastAt: now(), brought: 0 };
+    return telegramBridgeState;
+  }
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  telegramBridgeState = { status: cleanLine(payload.status || "ok"), why: cleanLine(payload.why || ""), lastAt: now(), brought: items.length };
+  if (!items.length) return telegramBridgeState;
+
+  const files = [];
+  const texts = [];
+  for (const item of items) {
+    if (item.kind === "audio" && item.base64) files.push(base64ToFile(item));
+    else if (item.kind === "text" && item.text) texts.push(String(item.text));
+  }
+  // Голос идёт ровно тем же путём, что файл с диска: дедуп, статусы, расшифровка, провенанс.
+  if (files.length) await importFilesFromInput(files, "audio");
+  for (const text of texts) {
+    await store.commit("Захват из Telegram", (state) => {
+      captureTextArtifact(state, text);
+      addAudit(state, "telegram.capture", "Текст из Telegram разобран тем же путём, что и печатный ввод", state.activeNoteId);
+    });
+  }
+  await store.commit("Мост Telegram принёс записи", (state) => {
+    recordProviderRun(state, "telegram", "inbox", "ok",
+      "Мост принёс: голосовых " + files.length + ", текстов " + texts.length, { brought: items.length });
+  });
+  return telegramBridgeState;
+}
+
+// Опрос заводится один раз и только если сервер вообще отвечает на эндпоинт.
+function armTelegramBridge() {
+  pullTelegramInbox().then((state) => {
+    if (state.status === "not-connected") return;
+    setInterval(() => { pullTelegramInbox().catch(() => {}); }, TELEGRAM_POLL_MS);
+  }).catch(() => {});
+}
+
 async function importFilesFromInput(fileList, forcedKind) {
   const files = Array.from(fileList || []);
   if (!files.length) return;
@@ -27889,6 +27953,8 @@ async function boot() {
   refreshPwaStatus("boot").catch((error) => {
     bootError = error;
   });
+  // П35: мост опрашивается после загрузки. Нет сервера — молча ничего не делает.
+  armTelegramBridge();
 }
 
 boot().catch((error) => {
@@ -27938,6 +28004,12 @@ window.__lifeosKnowledgeBase = {
       const note = state.notes[cleanLine(noteId)];
       if (note) { note.deleted = true; note.updatedAt = now(); }
     }).then(() => true);
+  },
+  pullTelegramInboxForTest() {
+    return pullTelegramInbox();
+  },
+  telegramBridgeStateForTest() {
+    return telegramBridgeState;
   },
   computeValueLoopForTest() {
     return store ? computeValueLoop(store.state) : [];
