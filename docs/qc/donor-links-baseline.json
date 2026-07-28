@@ -1,0 +1,14 @@
+{
+  "measuredAt": "2026-07-28",
+  "summary": {
+    "audit": "donor-links",
+    "catalogRows": 164,
+    "catalogClaimedDone": 58,
+    "markersInCode": 0,
+    "markersUnknown": 0,
+    "markersStale": 0,
+    "claimedDoneWithoutMarker": 58,
+    "donorBriefs": 3,
+    "briefDonorsUnknown": 0
+  }
+}

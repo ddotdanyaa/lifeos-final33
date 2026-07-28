@@ -1,4 +1,4 @@
-import { button, compactText, escapeHtml, safeList } from "./shared.js";
+import { button, compactText, dataSection, escapeHtml, safeList } from "./shared.js";
 
 function readingFor(ctx, sourceId) {
   return (ctx.readingItems || []).find((item) => item.sourceId === sourceId) || null;
@@ -60,7 +60,7 @@ export function renderReaderSurface(ctx) {
     button("import-file", "Добавить текст", { kind: "primary", testId: "book-import" }),
     `</aside>`,
     renderBookWorkbenchPanel(ctx),
-    `<aside class="reader-notes"><h3>Выделения</h3>${safeList(ctx.highlights?.slice(0, 5) || [], (item) => `<div class="highlight-row" data-testid="highlight-row"><strong>${escapeHtml(compactText(item.text || item.title, 80))}</strong>${item.readingItemId ? button("go-to-highlight", "Перейти", { id: item.id, kind: "ghost", testId: "go-to-highlight" }) : ""}</div>`, `<div class="empty-inline">Выделение можно превратить в знание или задачу.</div>`)}</aside>`,
+    `<aside class="reader-notes">${dataSection("Выделения", ctx.highlights?.slice(0, 5) || [], (item) => `<div class="highlight-row" data-testid="highlight-row"><strong>${escapeHtml(compactText(item.text || item.title, 80))}</strong>${item.readingItemId ? button("go-to-highlight", "Перейти", { id: item.id, kind: "ghost", testId: "go-to-highlight" }) : ""}</div>`)}${(ctx.highlights || []).length ? "" : `<div class="empty-inline">Выделение можно превратить в знание или задачу.</div>`}</aside>`,
     `</div>`
   ].join("");
 }

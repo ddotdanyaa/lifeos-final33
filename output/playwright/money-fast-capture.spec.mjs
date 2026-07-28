@@ -72,7 +72,9 @@ test("U2 MONEY_FAST: bare-text expense/income auto-parse, goal pace, real weekly
   await expect(page.getByTestId("owner-money-zone")).toContainText("350");
 
   // 3) Goal "Выкуп машины" with a debt target and date - progress bar + honest pace label.
-  await openSurface(page, "habits");
+  // Пункт меню «Привычки» намеренно слит с «Целями» (канон §9: два пункта рисовали один и тот
+  // же экран). Экран тот же, вход теперь один — спека идёт за продуктом, проверки прежние.
+  await openSurface(page, "goals");
   await page.locator("#goal-title-entry").fill("Выкуп машины");
   await page.locator("#goal-target-amount").fill("300000");
   const future = new Date();

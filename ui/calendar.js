@@ -1,6 +1,6 @@
 import { renderTimeGrid } from "./components/TimeGrid.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, emptyState, escapeHtml, safeList, scheduleLine } from "./components/shared.js";
+import { button, dataSection, emptyState, escapeHtml, safeList, scheduleLine } from "./components/shared.js";
 
 // K1.1: месячный вид с плотными полосками событий по дням (донор-идея tui.calendar
 // month-view) - плюс к уже существующему дневному грид-виду, не вместо него.
@@ -54,7 +54,9 @@ export function renderCalendar(ctx) {
         `<section class="calendar-load-state" data-testid="calendar-overload-warning"><span>Фокус дня</span><strong>${escapeHtml(overloadTitle)}</strong><em>${escapeHtml(overloadDetail)}</em></section>`,
         `<main class="calendar-main-grid">`,
         renderTimeGrid(ctx, todayItems),
-        `<aside class="unscheduled-bucket"><h3>Без времени</h3>${safeList(unscheduled, (item) => `<button class="unscheduled-item" data-action="focus-graph-node" data-id="${escapeHtml(item.id)}" data-testid="calendar-agenda-item"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(scheduleLine(item, ctx.todayKey, ctx.tomorrowKey))}</span></button>`, emptyState("Нет свободных задач", "Все задачи либо назначены, либо день пуст."))}</aside>`,
+        // П2: подпись «Без времени» — только над задачами без времени. Пустое состояние
+        // отвечает на вопрос «почему пусто» и остаётся; подпись над ним не нужна.
+        `<aside class="unscheduled-bucket">${dataSection("Без времени", unscheduled, (item) => `<button class="unscheduled-item" data-action="focus-graph-node" data-id="${escapeHtml(item.id)}" data-testid="calendar-agenda-item"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(scheduleLine(item, ctx.todayKey, ctx.tomorrowKey))}</span></button>`)}${unscheduled.length ? "" : emptyState("Нет свободных задач", "Все задачи либо назначены, либо день пуст.")}</aside>`,
         `</main>`,
         `<footer class="calendar-agenda-strip" data-testid="calendar-agenda-strip">${safeList(ctx.scheduleItems.slice(0, 6), (item) => `<button data-action="focus-graph-node" data-id="${escapeHtml(item.id)}"><time>${escapeHtml(scheduleLine(item, ctx.todayKey, ctx.tomorrowKey))}</time><strong>${escapeHtml(item.title || "Блок")}</strong></button>`, `<span>Добавь задачу, и она появится в плане.</span>`)}</footer>`
       ].join("");
@@ -62,7 +64,9 @@ export function renderCalendar(ctx) {
     `<div class="calendar-planner" data-testid="calendar-workbench">`,
     tabs,
     mainSection,
-    `<section class="calendar-system-schedule" data-testid="calendar-system-schedule"><h3>Даты систем</h3>${safeList((ctx.systemRecordSchedule || []).slice(0, 10), (entry) => `<div class="reminder-chip" data-testid="calendar-system-schedule-row"><strong>${escapeHtml(entry.title)}</strong><span>${escapeHtml(entry.day + " · " + entry.systemTitle)}</span></div>`, `<span>Даты систем появятся после заполнения полей типа "дата".</span>`)}</section>`,
+    // Раздела нет вовсе, пока в системах не заполнено ни одного поля-даты: обещание «появятся
+    // после заполнения полей типа дата» рассказывает об устройстве системы, а не о дне владельца.
+    `<section class="calendar-system-schedule" data-testid="calendar-system-schedule">${dataSection("Даты систем", (ctx.systemRecordSchedule || []).slice(0, 10), (entry) => `<div class="reminder-chip" data-testid="calendar-system-schedule-row"><strong>${escapeHtml(entry.title)}</strong><span>${escapeHtml(entry.day + " · " + entry.systemTitle)}</span></div>`)}</section>`,
     `</div>`
   ].join("");
   return renderWorkspaceLayout("calendar", "Календарь", "Планирование времени, а не таблица задач.", body, { testId: "workspace-calendar", actions, kicker: "План" });

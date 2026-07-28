@@ -1,6 +1,6 @@
 import { renderMoneyDashboard } from "./components/MoneyDashboard.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, escapeHtml, money, safeList } from "./components/shared.js";
+import { button, dataSection, escapeHtml, money, safeList } from "./components/shared.js";
 // (Срез 3 использует button/escapeHtml из того же импорта - ничего нового.)
 
 function stripExtension(name) {
@@ -173,8 +173,10 @@ export function renderFinance(ctx) {
     recurringHintSection(ctx),
     paydayForecastSection(ctx),
     `<section class="finance-deep-row">`,
-    `<div class="budget-panel"><h3>Категории</h3>${safeList(ctx.budgets, (budget) => budgetEnvelopeRow(ctx, budget), `<div class="empty-inline">Добавь бюджет для категории.</div>`)}<div class="budget-add-row"><input id="budget-category" data-testid="budget-category" placeholder="Категория" aria-label="Категория бюджета"><input id="budget-limit" data-testid="budget-limit" type="number" min="0" step="500" placeholder="Лимит" aria-label="Лимит бюджета">${button("add-budget-entry", "Добавить бюджет", { kind: "ghost", testId: "add-budget-entry" })}</div></div>`,
-    `<div class="subscription-panel"><h3>Подписки</h3>${safeList(ctx.subscriptions, (sub) => `<div class="subscription-row" data-testid="subscription-row"><span>${escapeHtml(sub.title || "Подписка")}</span><strong>${money(sub.amount)}</strong></div>`, `<div class="empty-inline">Регулярные платежи появятся здесь.</div>`)}</div>`,
+    // П2: подпись «Категории» — над категориями. Форма ниже остаётся: завести первый бюджет
+    // владелец должен уметь и на пустом экране.
+    `<div class="budget-panel">${dataSection("Категории", ctx.budgets, (budget) => budgetEnvelopeRow(ctx, budget))}<div class="budget-add-row"><input id="budget-category" data-testid="budget-category" placeholder="Категория" aria-label="Категория бюджета"><input id="budget-limit" data-testid="budget-limit" type="number" min="0" step="500" placeholder="Лимит" aria-label="Лимит бюджета">${button("add-budget-entry", "Добавить бюджет", { kind: "ghost", testId: "add-budget-entry" })}</div></div>`,
+    `<div class="subscription-panel">${dataSection("Подписки", ctx.subscriptions, (sub) => `<div class="subscription-row" data-testid="subscription-row"><span>${escapeHtml(sub.title || "Подписка")}</span><strong>${money(sub.amount)}</strong></div>`)}</div>`,
     `<div class="receipt-panel" data-testid="receipt-workbench"><h3>Скрин чека</h3><p>Чек сохраняется локально. Если OCR не подключён, расход можно заполнить вручную.</p>${button("import-file", "Добавить скрин", { kind: "primary", testId: "capture-import" })}</div>`,
     safeList(ctx.receiptSources || [], (source) => receiptCard(ctx, source), ""),
     `</section>`,

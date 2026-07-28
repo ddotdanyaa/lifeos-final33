@@ -1,6 +1,6 @@
 import { renderBookWorkbenchPanel } from "./components/ReaderSurface.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, collapsiblePanel, compactText, emptyState, escapeHtml, safeList } from "./components/shared.js";
+import { button, collapsiblePanel, compactText, dataSection, emptyState, escapeHtml, safeList, sectionStack } from "./components/shared.js";
 
 function wikiLinks(text) {
   const links = [];
@@ -277,13 +277,20 @@ export function renderLibrary(ctx) {
 
   const body = [
     `<div class="knowledge-layout library-layout" data-testid="knowledge-workbench">`,
-    `<aside class="knowledge-sidebar"><input id="library-search" placeholder="Поиск по базе" aria-label="Поиск по базе"><h3>Заметки</h3>${safeList(notes, (note) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(note.id)}" data-testid="note-row"><strong>${escapeHtml(note.title || "Заметка")}</strong><span>${wikiLinks(note.body || "").length} связей</span></button>`, emptyState("База пустая", "Сохрани идею или импортируй текст."))}${button("new-note", "Новая заметка", { kind: "primary", testId: "new-note" })}</aside>`,
+    `<aside class="knowledge-sidebar"><input id="library-search" placeholder="Поиск по базе" aria-label="Поиск по базе">${dataSection("Заметки", notes, (note) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(note.id)}" data-testid="note-row"><strong>${escapeHtml(note.title || "Заметка")}</strong><span>${wikiLinks(note.body || "").length} связей</span></button>`)}${notes.length ? "" : emptyState("База пустая", "Сохрани идею или импортируй текст.")}${button("new-note", "Новая заметка", { kind: "primary", testId: "new-note" })}</aside>`,
     `<article class="markdown-editor-surface">`,
     noteHeader,
     active ? `<header><span>Markdown</span><h3>${escapeHtml(active?.title || "Заметка")}</h3></header><textarea id="note-body" data-testid="note-body">${escapeHtml(active.body || "")}</textarea><div class="wikilink-preview" data-testid="wikilink-preview"><strong>Связи</strong>${safeList(links, (link) => `<button data-action="focus-graph-node" data-id="${escapeHtml(link)}">${escapeHtml(link)}</button>`, `<span>Wikilinks появятся как [[Название]].</span>`)}</div>` : `<div class="empty-inline">Выбери заметку.</div>`,
     knowledgeForms,
     `</article>`,
-    `<aside class="knowledge-cards"><h3>Выводы</h3>${safeList(claims.slice(0, 8), renderClaimEntry, `<div class="empty-inline">Инсайты появятся из чтения, аудио и заметок.</div>`)}<h3>Вопросы</h3>${safeList(questions.slice(0, 6), renderQuestionEntry, `<div class="empty-inline">Вопросы станут задачами без потери источника.</div>`)}<h3>Повторение</h3>${safeList(reviewItems.slice(0, 6), renderReviewEntry, `<div class="empty-inline">Карточка повторения появится после извлечения смысла.</div>`)}</aside>`,
+    // П2: три подписи с обещаниями («инсайты появятся», «вопросы станут задачами») исчезают.
+    // Есть выводы — есть раздел «Выводы». Нет ничего — одна честная строка, из чего это
+    // берётся, а не три строки о том, чего нет.
+    `<aside class="knowledge-cards" data-testid="knowledge-cards">${sectionStack([
+      dataSection("Выводы", claims.slice(0, 8), renderClaimEntry, { testId: "knowledge-claims-head" }),
+      dataSection("Вопросы", questions.slice(0, 6), renderQuestionEntry, { testId: "knowledge-questions-head" }),
+      dataSection("Повторение", reviewItems.slice(0, 6), renderReviewEntry, { testId: "knowledge-review-head" })
+    ], emptyState("Смысл ещё не извлечён", "Выводы, вопросы и повторение появятся из твоих заметок, аудио и чтения."))}</aside>`,
     `</div>`,
     renderLensPanel(ctx),
     // Чтение на экране Базы — вторично: у него есть собственное рабочее место «Чтение».

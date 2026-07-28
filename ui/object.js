@@ -162,6 +162,21 @@ function renderSourceBody(item) {
   if (item.media && item.media.mediaKind === "image" && item.media.dataUrl) {
     parts.push(`<img src="${escapeHtml(item.media.dataUrl)}" alt="${escapeHtml(item.title)}" data-testid="object-source-image">`);
   }
+  // П5 · ОБРАТНЫЙ ПУТЬ. Утверждение → цитата → секунда записи. Провенанс лежал в данных и
+  // раньше, но проверить его владелец не мог: он видел вывод и полную расшифровку, а найти в
+  // ней ту самую фразу — его работа. Теперь фраза показана отдельно, со своим временем, и по
+  // нажатию запись играет С ЭТОГО МЕСТА. Кнопки нет, если времени нет: «слушать с 0:00»
+  // выглядит как ответ, а ответом не является.
+  if (item.quoteAt) {
+    parts.push([
+      `<div class="object-source-quote" data-testid="object-source-quote">`,
+      `<em>«${escapeHtml(item.quoteAt.text)}»</em>`,
+      item.quoteAt.exact && item.media && item.media.mediaKind === "audio"
+        ? `<button data-action="play-source-at" data-id="${escapeHtml(item.media.id + "::" + item.quoteAt.seconds)}" data-testid="object-quote-play">Слушать с ${escapeHtml(item.quoteAt.timecode)}</button>`
+        : `<span class="object-source-quote-note" data-testid="object-quote-no-time">Время в записи неизвестно: расшифровка пришла без таймкодов</span>`,
+      `</div>`
+    ].join(""));
+  }
   if (item.transcript) {
     parts.push(`<p class="object-source-transcript" data-testid="object-source-transcript">${escapeHtml(item.transcript)}</p>`);
   } else if (item.media && item.media.mediaKind === "audio") {

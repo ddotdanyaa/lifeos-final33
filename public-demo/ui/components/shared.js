@@ -182,6 +182,31 @@ export function safeList(items, renderer, fallback) {
   return items && items.length ? items.map(renderer).join("") : fallback;
 }
 
+// П2 · ЧЕСТНАЯ ПУСТОТА. Подпись рисуется, только когда за ней есть НАСТОЯЩЕЕ содержимое.
+//
+// Владелец открыл Базу и увидел «Выводы — инсайты появятся из чтения, аудио и заметок»,
+// «Вопросы — вопросы станут задачами», «Повторение — карточка появится после извлечения
+// смысла». Три заголовка, три обещания, ноль данных: панель выглядит наполненной, а сообщить
+// ей нечего. Это и есть бутафория — интерфейс, который занимает экран разговором о себе.
+//
+// Правило: нет данных — нет раздела. Пусто ВСЁ — одна честная строка о том, чего не хватает,
+// вместо набора обещаний (её даёт sectionStack ниже).
+export function dataSection(title, items, renderer, options = {}) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) return "";
+  const level = options.level === "h4" ? "h4" : "h3";
+  const count = options.showCount ? `<em>${list.length}</em>` : "";
+  const head = title ? `<${level}${options.testId ? ` data-testid="${escapeHtml(options.testId)}"` : ""}>${escapeHtml(title)}${count}</${level}>` : "";
+  return head + list.map(renderer).join("");
+}
+
+// Стопка разделов: рисуются только непустые. Если не осталось ни одного — ровно одно
+// объяснение на всю панель, а не по обещанию на каждый несуществующий раздел.
+export function sectionStack(sections, empty = "") {
+  const rendered = (Array.isArray(sections) ? sections : []).filter(Boolean).join("");
+  return rendered || empty;
+}
+
 // Renderer Registry (P2.1): one artifact -> any of RENDERER_MODES, driven by a
 // presentArtifact() shape (see artifact-os-architecture.mjs) rather than per-type markup.
 export function renderArtifactAsFeedBubble(item) {

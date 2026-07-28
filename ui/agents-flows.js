@@ -1,6 +1,6 @@
 import { renderFlowCanvas } from "./components/FlowCanvas.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, compactText, escapeHtml, publicText, safeList } from "./components/shared.js";
+import { button, compactText, dataSection, escapeHtml, publicText, safeList } from "./components/shared.js";
 
 // Срез 13: Agent Center - делегирование задачи агенту + статус/прогресс/результат/история в
 // человеческом UI. Проекции из app.js (delegatableTasks, agentRuns). Всё как предложения -
@@ -146,7 +146,7 @@ export function renderAgentsFlows(ctx) {
     `<h3>Сценарий</h3>`,
     renderFlowCanvas(ctx),
     `</section>`,
-    `<aside class="agent-history"><h3>История</h3>${safeList(runs.slice(0, 6), (run) => [
+    `<aside class="agent-history">${dataSection("История", runs.slice(0, 6), (run) => [
       `<div class="run-row" data-testid="agent-run">`,
       `<strong>${escapeHtml(publicText(run.name || run.title || run.kind || "черновой прогон"))}</strong>`,
       `<span>${run.status === "applied" ? "применено" : "черновой прогон · Требуется Принять"}</span>`,
@@ -156,7 +156,7 @@ export function renderAgentsFlows(ctx) {
         ? button("approve-agent-run", "Одобрить", { id: run.id, kind: "primary", testId: "approve-agent-run" })
         : "",
       `</div>`
-    ].join(""), `<div class="empty-inline">Запусти агента или сценарий.</div>`)}</aside>`,
+    ].join(""))}${runs.length ? "" : `<div class="empty-inline">Запусти агента или сценарий — история прогонов появится здесь.</div>`}</aside>`,
     `<section class="approval-queue" data-testid="approval-queue"><h3>Очередь подтверждения</h3><p>Все результаты остаются предложениями до явного действия владельца.</p></section>`,
     `</div>`
   ].join("");

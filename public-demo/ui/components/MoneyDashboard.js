@@ -1,4 +1,4 @@
-import { button, escapeHtml, money, safeList } from "./shared.js";
+import { button, dataSection, escapeHtml, money, safeList } from "./shared.js";
 
 export function renderMoneyDashboard(ctx) {
   const summary = ctx.financeSummary || {};
@@ -20,8 +20,8 @@ export function renderMoneyDashboard(ctx) {
     button("add-finance", "Записать", { kind: "primary", testId: "add-finance" }),
     `</div>`,
     `<div class="money-columns">`,
-    `<section><h3>Операции</h3>${safeList(transactions.slice(0, 8), (tx) => `<div class="money-row" data-testid="finance-transaction"><span><strong>${escapeHtml(tx.title || "Операция")}</strong><em>${escapeHtml([tx.day, tx.category].filter(Boolean).join(" · "))}</em></span><b>${tx.kind === "income" ? "+" : "-"}${money(tx.amount)}</b>${button("correct-category", "Категория", { id: tx.id, kind: "ghost", testId: "correct-category" })}</div>`, `<div class="empty-inline">Добавь расход текстом или вручную.</div>`)}</section>`,
-    `<section><h3>Счета</h3>${safeList(accounts, (account) => `<div class="money-row" data-testid="finance-account-row"><span>${escapeHtml(account.name || "Счёт")}</span><b>${money(account.balance)}</b></div>`, `<div class="empty-inline">Напиши: баланс карта 15200.</div>`)}</section>`,
+    `<section>${dataSection("Операции", transactions.slice(0, 8), (tx) => `<div class="money-row" data-testid="finance-transaction"><span><strong>${escapeHtml(tx.title || "Операция")}</strong><em>${escapeHtml([tx.day, tx.category].filter(Boolean).join(" · "))}</em></span><b>${tx.kind === "income" ? "+" : "-"}${money(tx.amount)}</b>${button("correct-category", "Категория", { id: tx.id, kind: "ghost", testId: "correct-category" })}</div>`)}${transactions.length ? "" : `<div class="empty-inline">Добавь расход текстом или вручную.</div>`}</section>`,
+    `<section>${dataSection("Счета", accounts, (account) => `<div class="money-row" data-testid="finance-account-row"><span>${escapeHtml(account.name || "Счёт")}</span><b>${money(account.balance)}</b></div>`)}${accounts.length ? "" : `<div class="empty-inline">Напиши: баланс карта 15200.</div>`}</section>`,
     `</div>`,
     `</div>`
   ].join("");

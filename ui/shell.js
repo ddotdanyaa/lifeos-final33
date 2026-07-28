@@ -39,26 +39,11 @@ const primaryNav = [
   ["control", "Контроль"]
 ];
 
-// Вторичное меню разделено по ЧЕСТНОСТИ, а не по алфавиту: сверху то, что работает и куда
-// владелец ходит каждый день; ниже — черновики, у которых есть экран, но нет наполнения.
-// Список черновиков не выдуман: он взят из docs/design/LIFEOS_DESIGN_CANON.md §9, где
-// зафиксирован по итогам собственного UX-аудита владельца. Смешивать их с рабочими пунктами
-// нельзя: именно это и создаёт ощущение, что «сайт перегружен мусором» — с виду одинаковые
-// строки, а половина ведёт в пустую комнату.
-const secondaryNav = [
-  ["capture", "Входящие"],
-  ["chat", "Чат"],
-  ["reader", "Чтение"],
-  ["player", "Аудио"],
-  // «Цели» и «Привычки» рисовали ОДИН И ТОТ ЖЕ экран (проверено обходом: 1097 знаков и 6 кнопок
-  // у обоих). Канон §9 велит объединить — два пункта в меню на один экран это не выбор, а шум.
-  ["goals", "Цели и привычки"],
-  ["agents", "Сценарии"],
-  ["providers", "Подключения"]
-];
-
 // Экраны-каркасы: заголовок, описание и пара кнопок без работающего сценария за ними. Держим их
 // доступными (они не сломаны, они не дописаны) и подписываем прямо — «в разработке».
+// Список не выдуман: он взят из docs/design/LIFEOS_DESIGN_CANON.md §9, где зафиксирован по
+// итогам UX-аудита владельца. Раскладку по кластерам см. ниже (navClusters, П32): каркас живёт
+// в своей группе со своей подписью, а не отдельной кучей «в разработке».
 const draftNav = [
   ["projects", "Проекты"],
   ["models", "Модели"],
@@ -73,10 +58,102 @@ const draftNav = [
 
 export const DRAFT_SURFACES = new Set(draftNav.map((row) => row[0]));
 
+// П32 · УПЛОТНЕНИЕ. Шестнадцать пунктов подряд — это не меню, а список: владелец каждый раз
+// перечитывает его целиком, потому что глазу не за что зацепиться. Разбиваем на четыре
+// кластера ПО ДЕЛУ, а не по алфавиту, и раскрытым держим максимум один: открылся новый —
+// закрылся прежний. Девять главных пунктов не трогаем (audit-workspace-shape, CLAUDE.md §6).
+//
+// Каркасы («в разработке») не выносим отдельной кучей: каждый живёт в СВОЁМ кластере со своей
+// подписью. Иначе владелец видит группу «в разработке» и не знает, чего в ней искать.
+const navClusters = [
+  {
+    id: "capture",
+    label: "Ввод и разбор",
+    hint: "куда всё попадает",
+    items: [["capture", "Входящие", true], ["player", "Аудио", true], ["reader", "Чтение", true], ["screen", "Экран", false]]
+  },
+  {
+    id: "doing",
+    label: "Дела",
+    hint: "что делаю и к чему иду",
+    items: [["goals", "Цели и привычки", true], ["projects", "Проекты", false]]
+  },
+  {
+    id: "ai",
+    label: "ИИ",
+    hint: "кто помогает",
+    items: [["chat", "Чат", true], ["agents", "Сценарии", true], ["providers", "Подключения", true], ["models", "Модели", false], ["twin", "Двойник", false]]
+  },
+  {
+    id: "workshop",
+    label: "Мастерская",
+    hint: "чем настраиваю систему",
+    items: [["marketplace", "Паки", false], ["builder", "Конструктор", false], ["databases", "Таблицы", false], ["design", "Дизайн", false], ["smart-home", "Умный дом", false]]
+  }
+];
+
 function navButton(ctx, row, testPrefix = "surface") {
   const [id, label] = row;
   const active = ctx.activeSurface === id || (id === "inbox" && ctx.activeSurface === "capture") ? " active" : "";
   return `<button class="nav-item${active}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix)}-${escapeHtml(id)}">${escapeHtml(label)}</button>`;
+}
+
+// Кластер раскрыт ровно один. Какой — либо тот, что владелец открыл сам, либо тот, в котором
+// лежит текущий экран: провалился в «Аудио» — открыт «Ввод и разбор», и видно, где ты.
+// Одна строка меню. Каркас признаётся прямо в ней, а не ссылается в отдельную группу: владелец
+// видит, куда идёт, не отходя от того, что искал.
+function navItem(ctx, [id, label, isReady], testPrefix) {
+  const active = ctx.activeSurface === id ? " active" : "";
+  const draftMark = isReady ? "" : `<span class="nav-item-draft">в разработке</span>`;
+  return `<button class="nav-item${active}${isReady ? "" : " draft"}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix || "surface")}-${escapeHtml(id)}">${escapeHtml(label)}${draftMark}</button>`;
+}
+
+function activeClusterId(ctx) {
+  const chosen = ctx.navClusterOpen || "";
+  if (chosen && navClusters.some((cluster) => cluster.id === chosen)) return chosen;
+  const holder = navClusters.find((cluster) => cluster.items.some(([id]) => id === ctx.activeSurface));
+  return holder ? holder.id : "";
+}
+
+// Префикс обязателен: боковое и мобильное меню рисуют ОДНИ И ТЕ ЖЕ группы, и без него на
+// странице оказывается по два элемента с одним data-testid — спека перестаёт понимать, о каком
+// из них речь, и падает не по делу.
+// `alwaysShowDrafts` — для мобильного листа «Ещё». Он и так открывается намеренно и
+// прокручивается целиком: прятать там каркасы не за что, а прятали — и до них переставало
+// хватать одного касания.
+function renderNavClusters(ctx, testPrefix = "", alwaysShowDrafts = false) {
+  const openId = activeClusterId(ctx);
+  const mark = testPrefix ? testPrefix + "-" : "";
+  return navClusters.map((cluster) => {
+    const open = cluster.id === openId;
+    const workingCount = cluster.items.filter((row) => row[2]).length;
+    const drafts = cluster.items.filter((row) => !row[2]);
+    return [
+      `<div class="nav-cluster${open ? " open" : ""}" data-testid="${escapeHtml(mark)}nav-cluster-${escapeHtml(cluster.id)}">`,
+      `<button class="nav-cluster-head" data-action="toggle-nav-cluster" data-id="${escapeHtml(cluster.id)}" data-testid="${escapeHtml(mark)}nav-cluster-head-${escapeHtml(cluster.id)}">`,
+      `<span>${escapeHtml(cluster.label)}</span>`,
+      // Счётчик показывает РАБОЧИЕ разделы: свёрнутый кластер не должен прятать факт, что за
+      // ним что-то есть, и не должен обещать больше, чем в нём работает. Ноль рабочих — это не
+      // «ноль», это «вся группа ещё строится», и сказать так честнее.
+      workingCount ? `<em>${workingCount}</em>` : `<em class="nav-cluster-draft">в разработке</em>`,
+      `</button>`,
+      `<div class="nav-cluster-body">`,
+      `<p class="nav-cluster-hint">${escapeHtml(cluster.hint)}</p>`,
+      // Рабочие разделы видны СРАЗУ. Прятать их за раскрытие нельзя: до раздела, который
+      // работает, должен быть один клик, а не два, — иначе уплотнение меню оплачено тем, что
+      // до всего стало дальше.
+      cluster.items.filter((row) => row[2]).map((row) => navItem(ctx, row, testPrefix)).join(""),
+      // А каркасы прячутся за одну строку с честным числом. Они не исчезли и не соврали о себе:
+      // «+5 в разработке» — это ровно то, что за ней лежит.
+      drafts.length
+        ? ((open || alwaysShowDrafts)
+          ? `<div class="nav-cluster-drafts">${drafts.map((row) => navItem(ctx, row, testPrefix)).join("")}</div>`
+          : `<button class="nav-cluster-drafts-toggle" data-action="toggle-nav-cluster" data-id="${escapeHtml(cluster.id)}" data-testid="${escapeHtml(mark)}nav-cluster-drafts-${escapeHtml(cluster.id)}">+${drafts.length} в разработке</button>`)
+        : "",
+      `</div>`,
+      `</div>`
+    ].join("");
+  }).join("");
 }
 
 function renderNav(ctx) {
@@ -89,9 +166,8 @@ function renderNav(ctx) {
     `<nav data-testid="home-workspace-rail">${primaryNav.map((row) => navButton(ctx, row)).join("")}</nav>`,
     // Раскрытие «Ещё» держится состоянием, а не браузером: родной <details> теряет открытость на
     // каждой перерисовке, а она случается после любого действия — меню закрывалось под рукой.
-    `<details class="nav-more" data-testid="app-ribbon"${ctx.navMoreOpen ? " open" : ""}><summary data-action="toggle-nav-more">Ещё</summary><div>${secondaryNav.map((row) => navButton(ctx, row)).join("")}`
-      + `<p class="nav-group-label" data-testid="nav-draft-label">🚧 В разработке</p>`
-      + draftNav.map((row) => navButton(ctx, row)).join("")
+    `<details class="nav-more" data-testid="app-ribbon"${ctx.navMoreOpen ? " open" : ""}><summary data-action="toggle-nav-more">Ещё</summary><div>`
+      + renderNavClusters(ctx)
       + `</div></details>`,
     button("open-command-palette", "Команды", { kind: "ghost", testId: "open-command-palette" }),
     // V3-DESIGN: блок владельца внизу панели — «всё локально» как постоянное напоминание границы (§7).
@@ -103,10 +179,15 @@ function renderNav(ctx) {
 function renderMobileNav(ctx) {
   const items = [["inbox", "Дом"], ["feed", "Лента"], ["today", "Сегодня"], ["systems", "Системы"], ["capture", "Ввод"]];
   const remainingPrimary = primaryNav.filter(([id]) => !items.some(([itemId]) => itemId === id));
-  const mobileMoreItems = remainingPrimary.concat(secondaryNav, draftNav);
+  // П32: на телефоне «Ещё» показывало ПОЛНЫЙ плоский список третий раз подряд — после нижней
+  // панели и после боковой. Теперь та же структура, что и на большом экране: оставшиеся главные
+  // пункты, затем кластеры. Один список, одна логика, никакого третьего перечисления.
   return [
     `<nav class="mobile-bottom-nav">${items.map((row) => navButton(ctx, row, "mobile-surface")).join("")}</nav>`,
-    `<details class="mobile-more-nav" data-testid="mobile-more-nav"><summary>Ещё</summary><div>${mobileMoreItems.map((row) => navButton(ctx, row, "mobile-more")).join("")}</div></details>`
+    `<details class="mobile-more-nav" data-testid="mobile-more-nav"><summary>Ещё</summary><div>`
+      + remainingPrimary.map((row) => navButton(ctx, row, "mobile-more")).join("")
+      + renderNavClusters(ctx, "mobile-more", true)
+      + `</div></details>`
   ].join("");
 }
 

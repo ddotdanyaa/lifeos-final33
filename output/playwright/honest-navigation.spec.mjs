@@ -34,24 +34,75 @@ async function open(page, tag) {
 // Канон (docs/design/LIFEOS_DESIGN_CANON.md §9) требует ровно этого: черновики — отдельной
 // группой «🚧 В разработке», одинаковые экраны — объединить.
 
-test("черновики стоят отдельной группой, а не вперемешку с рабочими разделами", async ({ page }) => {
+// П32 изменил продукт НАМЕРЕННО: одна общая куча «🚧 В разработке» разошлась по четырём
+// кластерам, и каркас теперь признаётся ПРЯМО В СВОЕЙ СТРОКЕ. Суть канона §9 («не смешивать
+// рабочее и каркасы одинаковыми строками») от этого не ослабла, а усилилась: раньше признание
+// стояло один раз на границе, теперь — на каждом каркасе, в каждой группе. Проверка идёт за
+// продуктом и стала строже: правило применяется ко ВСЕМ кластерам сразу, а не к одной границе.
+test("каркас признаётся в своей строке, и ни один рабочий раздел не стоит после каркаса", async ({ page }) => {
   await open(page, "nav-honest");
 
   const ribbon = page.locator('[data-testid="app-ribbon"]');
   await ribbon.locator("summary").click();
-  await expect(page.getByTestId("nav-draft-label")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByTestId("nav-draft-label")).toContainText("В разработке");
 
-  // Порядок обязателен: рабочее выше подписи, черновики — ниже неё.
-  const order = await page.evaluate(() => {
-    const nodes = Array.from(document.querySelectorAll('[data-testid="app-ribbon"] button, [data-testid="nav-draft-label"]'));
-    return nodes.map((node) => node.dataset.testid || "label");
-  });
-  const labelAt = order.indexOf("nav-draft-label");
-  expect(labelAt).toBeGreaterThan(0);
-  expect(order.slice(0, labelAt)).toContain("surface-player");
-  expect(order.slice(labelAt)).toContain("surface-twin");
-  expect(order.slice(0, labelAt)).not.toContain("surface-twin");
+  const clusters = ["capture", "doing", "ai", "workshop"];
+  let draftsSeen = 0;
+  for (const cluster of clusters) {
+    // Каркасы свёрнуты за строку «+N в разработке» — раскрываем её, чтобы увидеть их все.
+    const toggle = page.getByTestId("nav-cluster-drafts-" + cluster);
+    if (await toggle.count()) await toggle.click();
+    await page.waitForTimeout(250);
+    const rows = await page.evaluate((id) => {
+      const body = document.querySelector('[data-testid="nav-cluster-' + id + '"] .nav-cluster-body');
+      if (!body) return [];
+      return Array.from(body.querySelectorAll("button.nav-item")).map((node) => ({
+        id: node.dataset.testid,
+        draft: node.classList.contains("draft"),
+        text: node.textContent || ""
+      }));
+    }, cluster);
+    expect(rows.length, "кластер «" + cluster + "» не должен быть пустым").toBeGreaterThan(0);
+
+    // Рабочее — выше каркасов, всегда и в каждой группе.
+    const firstDraft = rows.findIndex((row) => row.draft);
+    if (firstDraft >= 0) {
+      expect(rows.slice(firstDraft).every((row) => row.draft),
+        "в кластере «" + cluster + "» рабочий раздел стоит ПОСЛЕ каркаса").toBe(true);
+    }
+    // И каждый каркас говорит о себе сам.
+    for (const row of rows.filter((item) => item.draft)) {
+      draftsSeen += 1;
+      expect(row.text, row.id + " обязан признаться прямо в строке").toContain("в разработке");
+    }
+  }
+  expect(draftsSeen, "каркасы обязаны остаться доступными, а не исчезнуть из меню").toBeGreaterThanOrEqual(9);
+});
+
+// Ради этого пакет и делался: шестнадцать плоских строк перестали быть списком.
+test("вторичное меню — четыре группы, раскрыта максимум одна", async ({ page }) => {
+  await open(page, "nav-clusters");
+  await page.locator('[data-testid="app-ribbon"] summary').click();
+
+  for (const cluster of ["capture", "doing", "ai", "workshop"]) {
+    await expect(page.getByTestId("nav-cluster-head-" + cluster)).toBeVisible({ timeout: 10000 });
+  }
+
+  // Рабочий раздел виден СРАЗУ, без раскрытия: до того, что работает, один клик, а не два.
+  // Иначе уплотнение меню оплачено тем, что до всего стало дальше.
+  await expect(page.getByTestId("surface-chat")).toBeVisible();
+  await expect(page.getByTestId("surface-player")).toBeVisible();
+  await expect(page.getByTestId("surface-goals")).toBeVisible();
+
+  // Каркасы свёрнуты за одну строку с честным числом — и раскрыта максимум одна такая строка.
+  await page.getByTestId("nav-cluster-drafts-ai").click();
+  await page.waitForTimeout(250);
+  await expect(page.locator('[data-testid="nav-cluster-ai"] .nav-cluster-drafts')).toBeVisible();
+
+  await page.getByTestId("nav-cluster-drafts-workshop").click();
+  await page.waitForTimeout(250);
+  await expect(page.locator('[data-testid="nav-cluster-workshop"] .nav-cluster-drafts')).toBeVisible();
+  await expect(page.locator('[data-testid="nav-cluster-ai"] .nav-cluster-drafts')).toHaveCount(0);
+  expect(await page.locator('[data-testid="app-ribbon"] .nav-cluster-drafts').count()).toBe(1);
 });
 
 test("двух пунктов на один и тот же экран больше нет", async ({ page }) => {
