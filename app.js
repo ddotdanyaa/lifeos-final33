@@ -2833,6 +2833,8 @@ function normalizeState(input) {
       // О8: канарейка. Пятьдесят замороженных вердиктов владельца, которые НИКОГДА не входят в
       // обучение — единственный набор, по которому видно, что система поехала.
       canary: null,
+      // П22: когда в последний раз убирались. Уборка раз в сутки, а не на каждое сохранение.
+      lastForgetAt: "",
       obsidianScanReport: null,
       semanticIndex: { endpoint: "", model: "", vectors: {}, vectorCount: 0, updatedAt: "" },
       semanticSearchReport: null,
@@ -2934,6 +2936,7 @@ function normalizeState(input) {
   }
   state.control.mergeReview = state.control.mergeReview && typeof state.control.mergeReview === "object" ? state.control.mergeReview : {};
   state.control.canary = state.control.canary && typeof state.control.canary === "object" ? state.control.canary : null;
+  state.control.lastForgetAt = cleanLine(state.control.lastForgetAt || "");
   for (const entry of Object.values(state.control.mergeReview)) {
     entry.id = cleanLine(entry.id || makeId("merge"));
     entry.sourceId = cleanLine(entry.sourceId || "");
@@ -9585,6 +9588,59 @@ function computeSycophancy(state) {
       ? "согласие выше правды на " + Math.round(gap * 100) + " пунктов: предложения принимают с правкой"
       : "согласие и правда сходятся"
   };
+}
+
+// ─── П22 · ЗАБЫВАНИЕ ──────────────────────────────────────────────────────────────────────
+//
+// Всё, что петля пишет, растёт бесконечно, а место в браузере конечно. Забывание — не
+// оптимизация, а условие того, чтобы система прожила годы: журнал провайдеров на тысяче
+// расшифровок весит больше самих записей владельца.
+//
+// Правило, отличающее забывание от потери: **удаляется только то, что можно пересчитать или
+// что уже никого не информирует.** Данные владельца не трогаются никогда — ни задачи, ни
+// расходы, ни записи, ни цитаты. Удаляются журналы работы САМОЙ СИСТЕМЫ.
+const FORGET_LIMITS = {
+  // Сколько прогонов провайдера имеет смысл держать: последняя неделя активной работы.
+  providerRuns: 200,
+  agentRuns: 200,
+  // Аудит — след изменений владельца, поэтому порог выше и уплотнение мягче.
+  audit: 1000
+};
+
+// Обрезка журнала по возрасту записей, а не по алфавиту id. Оставляем последние N — они и есть
+// то, по чему владелец что-то понимает; остальное уже никому ничего не говорит.
+function trimJournal(state, collection, limit) {
+  const rows = Object.values(state[collection] || {});
+  if (rows.length <= limit) return 0;
+  const ordered = rows.slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  let removed = 0;
+  for (const row of ordered.slice(limit)) {
+    delete state[collection][row.id];
+    removed += 1;
+  }
+  return removed;
+}
+
+// Корзину уплотняет НЕ этот пакет: hard-purge после TRASH_GRACE_DAYS уже живёт в
+// normalizeState (P7.1) и проверен спекой trash-undo-grace. Вторая реализация того же правила
+// означала бы два места, где решается, когда данные владельца исчезают навсегда, — и рано или
+// поздно они разошлись бы. Здесь остаются только журналы работы самой системы.
+
+// Одна операция забывания: её результат — числа, которые владелец видит, а не тихая усушка.
+function runForgetting(state, options) {
+  const report = {
+    providerRuns: trimJournal(state, "providerRuns", FORGET_LIMITS.providerRuns),
+    agentRuns: trimJournal(state, "agentRuns", FORGET_LIMITS.agentRuns),
+    audit: trimJournal(state, "audit", FORGET_LIMITS.audit)
+  };
+  const total = Object.values(report).reduce((sum, value) => sum + value, 0);
+  if (total) {
+    addAudit(state, "storage.forget", "Уплотнение: прогонов провайдеров " + report.providerRuns
+      + ", прогонов агентов " + report.agentRuns + ", строк журнала " + report.audit
+      + ", удалённых записей из корзины " + report.trash, "");
+  }
+  report.total = total;
+  return report;
 }
 
 // И-5: всё, куда пишет петля, обязано уметь забываться. Удаление именно удаление, а не флаг:
@@ -27568,6 +27624,15 @@ async function boot() {
   // О2: журнал решений начинается пустым, но сами решения были — они лежат в аудите с первого
   // дня. Достаём их один раз, чтобы калибровка стартовала не с нуля. Ретро-ставки помечены и
   // весят вдвое меньше живых: они восстановлены, а не наблюдались.
+  // П22: уборка раз в сутки. Забывание — условие того, чтобы система прожила годы, но оно не
+  // должно занимать первый экран владельца: считаем один раз при загрузке и молча.
+  const lastForget = Date.parse((store.state.control && store.state.control.lastForgetAt) || "") || 0;
+  if (Date.now() - lastForget > 86400000) {
+    await store.commit("Уплотнение журналов", (state) => {
+      runForgetting(state);
+      state.control.lastForgetAt = now();
+    });
+  }
   if (!Object.keys(store.state.decisions || {}).length) {
     await store.commit("Журнал решений дополнен из аудита", (state) => backfillDecisionsFromAudit(state));
   }
@@ -27616,6 +27681,36 @@ window.__lifeosKnowledgeBase = {
     return store ? Object.values(store.state.goals || {}).filter(isLiveGoal) : [];
   },
   // О8/О4: канарейка и анти-лесть проверяются целиком, без месяца ожидания.
+  captureTextForTest(text) {
+    if (!store) return Promise.resolve("");
+    let id = "";
+    return store.commit("Захват для теста", (state) => { id = captureTextArtifact(state, String(text || "")); }).then(() => id);
+  },
+  deleteNoteForTest(noteId) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Заметка удалена для теста", (state) => {
+      const note = state.notes[cleanLine(noteId)];
+      if (note) { note.deleted = true; note.updatedAt = now(); }
+    }).then(() => true);
+  },
+  runForgettingForTest(options) {
+    if (!store) return Promise.resolve(null);
+    let report = null;
+    return store.commit("Уплотнение журналов", (state) => { report = runForgetting(state, options || {}); }).then(() => report);
+  },
+  seedJournalForTest(collection, count) {
+    if (!store) return Promise.resolve(0);
+    return store.commit("Журнал заполнен для теста", (state) => {
+      for (let index = 0; index < Number(count || 0); index += 1) {
+        const id = makeId("row");
+        state[collection][id] = {
+          id, createdAt: new Date(Date.now() - index * 60000).toISOString(),
+          updatedAt: new Date(Date.now() - index * 60000).toISOString(),
+          provider: "test", action: "test", status: "ok", message: "row " + index, deleted: false
+        };
+      }
+    }).then(() => Number(count || 0));
+  },
   freezeCanaryForTest() {
     if (!store) return Promise.resolve(null);
     let result = null;

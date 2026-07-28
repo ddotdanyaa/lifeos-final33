@@ -42,7 +42,7 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
 ```
 
 ## Graph Edges
-After: 66 edges, 66 with visible reasons.
+After: 67 edges, 67 with visible reasons.
 
 ## Data Control Events
 After: 57 audit events. Tail: proposal.apply: Applied proposal: Напомнить: Зал купить протеин вода 2л до 1 июля накопить | finance.account: Счёт задан: Основной счет | finance.transaction: Расход: Протеин 2 500 ₽ | proposal.apply: Applied proposal: Протеин | habit.create: Привычка создана: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | goal.create: Цель создана: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером

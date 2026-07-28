@@ -42,7 +42,7 @@ Reader parses TXT/MD, tracks progress and highlights, and shows honest PDF/EPUB 
 ```
 
 ## Graph Edges
-After: 626 edges, 626 with visible reasons.
+After: 627 edges, 627 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: highlight.create: Highlight created: Highlight becomes knowledge | reading.progress: Reading progress 45%: book-sample | note.create: Заметка создана: journey-parser-gate | source.project.gated: Book source projected with parser gate: journey-parser-gate.pdf | reading.create: Reading item created: journey-parser-gate | provider.run: import file: Импорт: journey-parser-gate.pdf (book) | source.import: Source imported: journey-parser-gate.pdf (book) | chat.answer.artifact: Ответ сохранён: Imported journey-parser-gate.pdf and prepared next actions.

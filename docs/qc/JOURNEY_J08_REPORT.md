@@ -42,7 +42,7 @@ Habits can be created, checked in for today, shown in Today/Goals, and written i
 ```
 
 ## Graph Edges
-After: 527 edges, 527 with visible reasons.
+After: 528 edges, 528 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: proposal.apply: Applied proposal: Доход | provider.run: import file: Импорт: market-home.png (image) | source.import: Source imported: market-home.png (image) | chat.answer.artifact: Ответ сохранён: Imported market-home.png and prepared next actions. | finance.transaction: Расход: Аптека 890 ₽ | receipt.manual: Manual receipt expense saved from market-home.png | habit.create: Привычка создана: Сон 8 часов | habit.check: Отметка привычки: Сон 8 часов

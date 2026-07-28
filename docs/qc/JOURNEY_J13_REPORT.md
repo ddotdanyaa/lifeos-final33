@@ -32,12 +32,12 @@ Player stores audio, shows controls, accepts manual transcript, creates checkpoi
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 9,
+  "proposalsOpen": 8,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 24,
-  "graphEdges": 45,
-  "graphEdgeReasons": 45
+  "graphNodes": 23,
+  "graphEdges": 44,
+  "graphEdgeReasons": 44
 }
 ```
 

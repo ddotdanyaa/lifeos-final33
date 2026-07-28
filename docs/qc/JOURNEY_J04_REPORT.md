@@ -42,7 +42,7 @@ Twenty typo-heavy and mixed-language inputs create source artifacts and proposal
 ```
 
 ## Graph Edges
-After: 470 edges, 470 with visible reasons.
+After: 471 edges, 471 with visible reasons.
 
 ## Data Control Events
 After: 271 audit events. Tail: review.create: Review item created: Повторить highlight: каждый день вода 2л и читать 20 страниц | highlight.create: Highlight created: каждый день вода 2л и читать 20 страниц | highlight.extract: Highlights extracted from каждый день вода 2л и читать 20 страниц.md: 1 | provider.run: import file: Импорт: каждый день вода 2л и читать 20 страниц.md (text) | source.import: Source imported: каждый день вода 2л и читать 20 страниц.md (text) | chat.input.artifact: Твоё сообщение сохранено: каждый день вода 2л и читать 20 страниц | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток

@@ -42,10 +42,10 @@ A simple capture surfaces one primary Russian action plus Изменить and �
 ```
 
 ## Graph Edges
-After: 38 edges, 38 with visible reasons.
+After: 37 edges, 37 with visible reasons.
 
 ## Data Control Events
-After: 35 audit events. Tail: capability.grant: Capability granted: import/file (local) | provider.run: import file: Импорт: завтра в 6 встать и приготовить завтрак.md (text) | source.import: Source imported: завтра в 6 встать и приготовить завтрак.md (text) | chat.input.artifact: Твоё сообщение сохранено: завтра в 6 встать и приготовить завтрак | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток | task.create: Задача создана: Встать и приготовить завтрак | proposal.apply: Applied proposal: Встать и приготовить завтрак
+After: 33 audit events. Tail: capability.grant: Capability granted: import/file (local) | provider.run: import file: Импорт: завтра в 6 встать и приготовить завтрак.md (text) | source.import: Source imported: завтра в 6 встать и приготовить завтрак.md (text) | chat.input.artifact: Твоё сообщение сохранено: завтра в 6 встать и приготовить завтрак | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток | task.create: Задача создана: Встать и приготовить завтрак | proposal.apply: Applied proposal: Встать и приготовить завтрак
 
 ## Remaining Gated
 None for this local journey.

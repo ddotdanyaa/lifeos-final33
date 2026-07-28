@@ -42,7 +42,7 @@ Finance shows balance/account rows, spending, transactions, budgets, subscriptio
 ```
 
 ## Graph Edges
-After: 526 edges, 526 with visible reasons.
+After: 527 edges, 527 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: proposal.apply: Applied proposal: Яндекс | finance.transaction: Доход: Доход 100 000 ₽ | proposal.apply: Applied proposal: Доход | provider.run: import file: Импорт: market-home.png (image) | source.import: Source imported: market-home.png (image) | chat.answer.artifact: Ответ сохранён: Imported market-home.png and prepared next actions. | finance.transaction: Расход: Аптека 890 ₽ | receipt.manual: Manual receipt expense saved from market-home.png
