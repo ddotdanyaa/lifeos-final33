@@ -34,6 +34,17 @@ async function openSurface(page, id) {
   if (!(await direct.isVisible().catch(() => false))) {
     await page.locator('[data-testid="app-ribbon"] summary').first().click();
   }
+  // П32 изменил меню намеренно: разделы-каркасы свёрнуты за строку «+N в разработке», чтобы
+  // рабочее было видно сразу. До каркаса теперь один дополнительный клик — раскрываем его,
+  // а не возвращаем прежнюю плоскую простыню из шестнадцати строк.
+  if (!(await page.getByTestId(`surface-${id}`).first().isVisible().catch(() => false))) {
+    const toggles = page.locator('[data-testid="app-ribbon"] .nav-cluster-drafts-toggle');
+    const count = await toggles.count();
+    for (let index = 0; index < count; index += 1) {
+      await toggles.nth(index).click().catch(() => {});
+      if (await page.getByTestId(`surface-${id}`).first().isVisible().catch(() => false)) break;
+    }
+  }
   await page.getByTestId(`surface-${id}`).first().click();
 }
 
