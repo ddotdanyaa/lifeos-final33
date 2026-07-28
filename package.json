@@ -8,7 +8,7 @@
     "smoke": "node smoke.mjs",
     "setup-whisper-cpp": "node tools/setup-whisper-cpp.mjs",
     "stamp": "node tools/stamp-version.mjs",
-    "whisper-server": "vendorwhisper-cppReleasewhisper-server.exe --model vendorwhisper-cppggml-large-v3-turbo.bin --language ru --port 8090",
+    "whisper-server": "vendor\\whisper-cpp\\Release\\whisper-server.exe --model vendor\\whisper-cpp\\ggml-small.bin --language ru --port 8090",
     "e2e": "playwright test output/playwright/human-public.spec.mjs output/playwright/final-human-product.spec.mjs --workers=1 --reporter=line",
     "e2e:owner": "playwright test output/playwright/owner-rescue.spec.mjs --reporter=line",
     "e2e:journeys": "playwright test output/playwright/final-journeys.spec.mjs --reporter=line",
