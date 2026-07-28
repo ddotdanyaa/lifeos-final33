@@ -6485,7 +6485,19 @@ function analyzeArtifactInput(input, fileMeta, options) {
     }
     if (clauseDrafts.length || intentDrafts.length) {
       const clauseTypes = new Set(clauseDrafts.concat(intentDrafts).map((item) => item.type));
-      const kept = drafts.filter((item) => MACHINERY_DRAFT_IDS.has(item.draftId) || !clauseTypes.has(item.type));
+      // Черновик, снятый со ВСЕГО текста, описывает надиктовку как ОДИН смысл. Если намерения
+      // разобрали её на несколько, он заведомо неверен — и не важно, совпал ли его тип с
+      // чьим-то ещё. Без этого правила три строки про смену давали правильные смена+доход+ставку
+      // И задачу «Так поработал с 8 до 3 часа получается после налога пришло Потом ещё…» —
+      // ровно ту склейку, ради устранения которой пакет и делался. Поймано съёмкой видео (П38):
+      // спеки этого не видели, потому что в их входе всегда была ещё и клауза-задача.
+      const singleMeaningTypes = new Set(["task", "calendar", "reminder", "goal", "habit", "claim", "insight", "finance_expense", "finance_income", "shift"]);
+      const explained = speech.covered.size > 0;
+      const kept = drafts.filter((item) => {
+        if (MACHINERY_DRAFT_IDS.has(item.draftId)) return true;
+        if (explained && singleMeaningTypes.has(item.type)) return false;
+        return !clauseTypes.has(item.type);
+      });
       drafts.length = 0;
       for (const item of kept) drafts.push(item);
       for (const item of intentDrafts) addDraftOnce(drafts, item);
