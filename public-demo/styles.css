@@ -6418,6 +6418,56 @@ audio {
 .budget-panel,
 .subscription-panel,
 .receipt-panel,
+/* О3 · Калибровка в Контроле: что система знает о своих же предложениях. Число появляется
+   только когда решений хватает — иначе честная строка «мало данных», а не убедительный процент. */
+.control-calibration {
+  margin: 16px 0 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.control-calibration h3 {
+  margin: 0 0 6px 0;
+}
+
+.control-calibration-note,
+.control-calibration-drift {
+  margin: 0 0 10px 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.control-calibration-drift {
+  color: var(--accent);
+}
+
+.control-calibration-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line-hairline);
+}
+
+.control-calibration-row strong {
+  min-width: 140px;
+  font-size: var(--text-sm);
+}
+
+.control-calibration-row em {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-style: normal;
+}
+
+.control-calibration-thin {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 .control-primary,
 .control-actions,
 .agent-command,

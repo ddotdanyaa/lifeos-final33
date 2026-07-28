@@ -302,6 +302,37 @@ function renderReceiptJournal(ctx) {
   ].join("");
 }
 
+// О3 · КАЛИБРОВКА, показанная честно. Уверенности в разборе назначались руками (0.7, 0.72,
+// 0.84) — это привычка автора, а не знание о владельце. Настоящая уверенность — доля
+// предложений этого типа, которые он ПРИНЯЛ.
+//
+// Панель не считает сама и ничего не меняет: она показывает, что накоплено. Мало решений —
+// так и написано, числа нет. Инвариант И-2: память отдельно, политика отдельно.
+function renderCalibrationPanel(ctx) {
+  const calibration = ctx.calibration || { total: 0, types: [] };
+  if (!calibration.total) return "";
+  const rows = (calibration.types || []).filter((row) => row.decisions > 0).slice(0, 8);
+  if (!rows.length) return "";
+  return [
+    `<section class="control-calibration" data-testid="control-calibration">`,
+    `<h3>Что система знает о своих предложениях</h3>`,
+    `<p class="control-calibration-note" data-testid="calibration-note">Решений в журнале: ${calibration.total}${calibration.retro ? ` (из них ${calibration.retro} восстановлено из журнала изменений — половинный вес)` : ""}.</p>`,
+    calibration.drifted
+      ? `<p class="control-calibration-drift" data-testid="calibration-drift">Последние решения расходятся с прежними — история обнулена, система учится заново. Это честнее, чем держаться за устаревшую правду о тебе.</p>`
+      : "",
+    rows.map((row) => [
+      `<div class="control-calibration-row" data-testid="calibration-row">`,
+      `<strong>${escapeHtml(row.type)}</strong>`,
+      row.trusted
+        ? `<span data-testid="calibration-value">принято ${Math.round(row.acceptance * 100)}%</span>`
+        : `<span class="control-calibration-thin" data-testid="calibration-thin">${escapeHtml(row.status)}</span>`,
+      `<em>${row.decisions} ${row.decisions === 1 ? "решение" : "решений"}${row.editedShare > 0 ? ` · с правкой ${Math.round(row.editedShare * 100)}%` : ""}</em>`,
+      `</div>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
 export function renderControl(ctx) {
   const audit = ctx.auditLog || [];
   const snapshots = ctx.control?.rollbackSnapshots || [];
@@ -327,6 +358,7 @@ export function renderControl(ctx) {
       (event) => `<div class="control-event" data-testid="audit-row"><strong>${escapeHtml(auditTypeLabel(event.type))}</strong><span>${escapeHtml(compactText(auditSummaryText(event.summary || ""), 130))}</span><time>${escapeHtml(auditStamp(event.createdAt || event.at || ""))}</time></div>`,
       `<div class="empty-inline">Изменений пока нет.</div>`
     ),
+    renderCalibrationPanel(ctx),
     renderOwnerInstructions(ctx),
     renderOutboundRoutes(ctx),
     renderReceiptJournal(ctx),

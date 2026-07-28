@@ -1229,6 +1229,11 @@ function createInitialState() {
     // экранам «Аудио», «Чтение», «Чат» рвался. Состояние раскрытия живёт здесь.
     navMoreOpen: false,
     navClusterOpen: "",
+    // О1: журнал решений владельца. Пустой до первого решения — накопление, а не выдумка.
+    decisions: {},
+    // У0 (П13): сколько раз владелец открывал каждое рабочее место и когда в последний раз.
+    // Пять строк, которые делают возможным П34: сворачивать по ДАННЫМ, а не по вкусу.
+    surfaceUsage: {},
     chatDraft: "",
     commandMessage: "Локальное хранилище готово",
     lastSavedAt: "",
@@ -2693,6 +2698,8 @@ function normalizeState(input) {
     captureDraft: String(base.captureDraft || ""),
     navMoreOpen: Boolean(base.navMoreOpen),
     navClusterOpen: cleanLine(base.navClusterOpen || ""),
+    decisions: base.decisions && typeof base.decisions === "object" ? base.decisions : {},
+    surfaceUsage: base.surfaceUsage && typeof base.surfaceUsage === "object" ? base.surfaceUsage : {},
     captureAttachments: Array.isArray(base.captureAttachments) ? base.captureAttachments.filter((id) => typeof id === "string" && id).slice(-8) : [],
     commandMessage: base.commandMessage || "Локальное хранилище готово",
     lastSavedAt: base.lastSavedAt || "",
@@ -9199,6 +9206,15 @@ function applyProposal(state, proposalId) {
   }
   proposal.status = "applied";
   proposal.updatedAt = now();
+  // Служебный шаг разбора решением владельца не является — он и в очередь не попадал.
+  if (!isMachineryProposal(proposal)) {
+    recordOwnerDecision(state, proposal, "applied", {
+      // Правка текста до принятия — сигнал «поняли наполовину». Видно по расхождению названия
+      // объекта с тем, что предлагали.
+      edited: Boolean(objectId && graphNodeObject(state, objectId)
+        && normalizeTitle(graphNodeTitle(graphNodeObject(state, objectId).kind, graphNodeObject(state, objectId).object, objectId)) !== normalizeTitle(proposal.title))
+    });
+  }
   addAudit(state, "proposal.apply", "Applied proposal: " + proposal.title, proposal.noteId);
   rebuildIndexes(state);
 }
@@ -9265,11 +9281,195 @@ function applyAllProposals(state) {
   addAudit(state, "proposal.apply_all", "Applied " + ids.length + " proposals", state.activeNoteId);
 }
 
+// ─── О1 · ЖУРНАЛ РЕШЕНИЙ владельца ────────────────────────────────────────────────────────
+//
+// До этого пакета решения владельца НЕ СОХРАНЯЛИСЬ никуда, кроме строки в аудите: слово
+// "dismissed" встречалось в репозитории дважды и не читалось никем. Значит система не могла
+// знать, что она предлагает хорошо, а что плохо, — и «улучшаться» ей было не на чем.
+//
+// Запись одна на решение и содержит признаки, по которым потом считается калибровка:
+// тип предложения, кто его породил (правило или модель), время суток, заявленная уверенность,
+// правил ли владелец текст перед принятием. Провенанс обязателен (И-6): без предложения и его
+// источника запись не заводится.
+//
+// Инвариант И-2: это ПАМЯТЬ, а не политика. Журнал только копит доказательства; смена весов —
+// отдельная операция, которая здесь не происходит.
+// Инвариант И-5: у коллекции есть процедура удаления — `forgetDecisions` ниже.
+function recordOwnerDecision(state, proposal, decision, options) {
+  if (!proposal) return "";
+  const extra = options && typeof options === "object" ? options : {};
+  const id = makeId("decision");
+  const createdAt = now();
+  const hour = new Date(createdAt).getHours();
+  state.decisions[id] = {
+    id,
+    proposalId: proposal.id,
+    decision: decision === "applied" ? "applied" : "dismissed",
+    type: cleanLine(proposal.type || ""),
+    draftId: cleanLine(proposal.draftId || ""),
+    // Кто породил предложение. Правило и модель ошибаются по-разному, и мерить их вместе
+    // значит не узнать про обе.
+    origin: cleanLine(extra.origin || (proposal.draftId ? (String(proposal.draftId).startsWith("speech-") ? "speech-intent" : "rules") : "owner")),
+    confidence: Number.isFinite(Number(proposal.confidence)) ? Number(proposal.confidence) : 0,
+    // Время суток: владелец диктует утром и вечером по-разному, и разбор ошибается неодинаково.
+    hour,
+    dayPart: hour < 6 ? "ночь" : hour < 12 ? "утро" : hour < 18 ? "день" : "вечер",
+    // Правил ли он текст перед принятием — самый честный сигнал качества: принял молча значит
+    // попали, принял с правкой значит поняли наполовину.
+    edited: Boolean(extra.edited),
+    sourceId: cleanLine(proposal.sourceId || ""),
+    noteId: cleanLine(proposal.noteId || ""),
+    // Ретро-запись (О2) восстановлена из журнала, а не наблюдалась: вес у неё половинный.
+    retro: Boolean(extra.retro),
+    weight: extra.retro ? 0.5 : 1,
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  return id;
+}
+
+// ─── О2 · РЕТРО-ЗАПОЛНЕНИЕ ────────────────────────────────────────────────────────────────
+//
+// Журнал решений начинается пустым, и первые недели считать по нему нечего. Но решения-то были
+// — они лежат в аудите («Applied proposal: …», «Dismissed proposal: …») с самого начала работы.
+// Достаём их оттуда, чтобы калибровка стартовала не с нуля.
+//
+// Ретро-ставка ПОМЕЧЕНА и весит вдвое меньше живой: она восстановлена, а не наблюдалась. Части
+// признаков у неё нет вовсе (правил ли владелец текст — из аудита не узнать), и врать про них
+// нельзя: поле остаётся пустым, а не заполняется догадкой.
+function backfillDecisionsFromAudit(state) {
+  const known = new Set(Object.values(state.decisions || {}).map((row) => row.proposalId));
+  let added = 0;
+  for (const entry of Object.values(state.audit || {})) {
+    const kind = cleanLine(entry.kind || "");
+    if (kind !== "proposal.apply" && kind !== "proposal.dismiss") continue;
+    const title = cleanLine(String(entry.message || "").replace(/^(Applied|Dismissed) proposal:\s*/i, ""));
+    if (!title) continue;
+    const proposal = Object.values(state.proposals || {})
+      .find((item) => normalizeTitle(item.title) === normalizeTitle(title) && !known.has(item.id));
+    if (!proposal) continue;
+    known.add(proposal.id);
+    const id = recordOwnerDecision(state, proposal, kind === "proposal.apply" ? "applied" : "dismissed", { retro: true });
+    if (id && entry.createdAt) {
+      // Время берём у самой записи аудита: ретро-ставка обязана лежать в своём дне, иначе
+      // затухание веса посчитает её сегодняшней.
+      state.decisions[id].createdAt = entry.createdAt;
+      state.decisions[id].updatedAt = entry.createdAt;
+      const hour = new Date(entry.createdAt).getHours();
+      state.decisions[id].hour = hour;
+      state.decisions[id].dayPart = hour < 6 ? "ночь" : hour < 12 ? "утро" : hour < 18 ? "день" : "вечер";
+      state.decisions[id].edited = false;
+    }
+    added += 1;
+  }
+  if (added) addAudit(state, "decision.backfill", "Журнал решений дополнен из аудита: " + added + " (половинный вес)", "");
+  return added;
+}
+
+// ─── О3 · КАЛИБРОВКА ──────────────────────────────────────────────────────────────────────
+//
+// Уверенности в разборе были назначены руками: 0.7, 0.72, 0.84… Это не знание, а привычка
+// автора. Настоящая уверенность — ЭМПИРИЧЕСКАЯ ЧАСТОТА: как часто предложения этого типа
+// владелец принимал.
+//
+// Три правила, без которых калибровка врёт:
+//   • Затухание с полупериодом 60 дней: сегодняшнее решение весит больше прошлогоднего, но
+//     прошлогоднее не исчезает.
+//   • Мало данных — не считаем. Меньше MIN_DECISIONS_FOR_TRUST решений по типу означает, что
+//     частота — шум, и остаётся заявленная уверенность. Честнее не знать, чем знать неверно.
+//   • Детектор дрейфа: точность последних 20 решений заметно ниже исторической → история
+//     обнуляется и статус честный, «учусь заново». Иначе система держится за устаревшую правду
+//     о владельце, который изменился.
+const CALIBRATION_HALF_LIFE_DAYS = 60;
+const MIN_DECISIONS_FOR_TRUST = 8;
+const DRIFT_WINDOW = 20;
+const DRIFT_DROP = 0.25;
+
+function decisionWeight(row, nowMs) {
+  const at = Date.parse(row.createdAt || "") || nowMs;
+  const ageDays = Math.max(0, (nowMs - at) / 86400000);
+  const decay = Math.pow(0.5, ageDays / CALIBRATION_HALF_LIFE_DAYS);
+  return Math.max(0, Number(row.weight || 1)) * decay;
+}
+
+function computeCalibration(state) {
+  const rows = Object.values(state.decisions || {}).filter((row) => row && !row.deleted);
+  const nowMs = Date.now();
+  const byType = new Map();
+  for (const row of rows) {
+    const key = cleanLine(row.type || "?");
+    if (!byType.has(key)) byType.set(key, { type: key, applied: 0, total: 0, count: 0, edited: 0 });
+    const bucket = byType.get(key);
+    const weight = decisionWeight(row, nowMs);
+    bucket.total += weight;
+    bucket.count += 1;
+    if (row.decision === "applied") bucket.applied += weight;
+    if (row.edited) bucket.edited += weight;
+  }
+  // Дрейф считаем по ПОСЛЕДНИМ решениям в порядке времени, а не по весу.
+  const ordered = rows.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const recent = ordered.slice(-DRIFT_WINDOW);
+  const historyRows = ordered.slice(0, Math.max(0, ordered.length - DRIFT_WINDOW));
+  const share = (list) => (list.length ? list.filter((row) => row.decision === "applied").length / list.length : 0);
+  const recentShare = share(recent);
+  const historyShare = share(historyRows);
+  const drifted = historyRows.length >= DRIFT_WINDOW && recent.length >= DRIFT_WINDOW && (historyShare - recentShare) >= DRIFT_DROP;
+  const types = [...byType.values()].map((bucket) => {
+    const trusted = bucket.count >= MIN_DECISIONS_FOR_TRUST && !drifted;
+    return {
+      type: bucket.type,
+      decisions: bucket.count,
+      // Доля принятых с затуханием — это и есть эмпирическая уверенность.
+      acceptance: bucket.total > 0 ? bucket.applied / bucket.total : 0,
+      editedShare: bucket.total > 0 ? bucket.edited / bucket.total : 0,
+      trusted,
+      // Честный статус вместо числа, когда числа нет.
+      status: drifted ? "учусь заново" : (trusted ? "по твоим решениям" : "мало данных: " + bucket.count + " из " + MIN_DECISIONS_FOR_TRUST)
+    };
+  }).sort((a, b) => b.decisions - a.decisions);
+  return {
+    total: rows.length,
+    retro: rows.filter((row) => row.retro).length,
+    drifted,
+    recentShare,
+    historyShare,
+    types,
+    byType: Object.fromEntries(types.map((row) => [row.type, row]))
+  };
+}
+
+// Уверенность предложения: эмпирическая, когда данных хватает; заявленная — когда нет.
+// Никогда не «средняя между ними»: смешивать измеренное с назначенным значит перестать
+// понимать, откуда взялось число.
+function calibratedConfidence(state, proposal) {
+  const declared = Number.isFinite(Number(proposal && proposal.confidence)) ? Number(proposal.confidence) : 0.72;
+  const calibration = computeCalibration(state);
+  const row = calibration.byType[cleanLine((proposal && proposal.type) || "?")];
+  if (!row || !row.trusted) return { value: declared, source: "заявлено разбором", trusted: false };
+  return { value: row.acceptance, source: row.status, trusted: true, decisions: row.decisions };
+}
+
+// И-5: всё, куда пишет петля, обязано уметь забываться. Удаление именно удаление, а не флаг:
+// журнал решений — это наблюдения о владельце, и он вправе их стереть.
+function forgetDecisions(state, filter) {
+  const match = typeof filter === "function" ? filter : () => true;
+  let removed = 0;
+  for (const [id, row] of Object.entries(state.decisions || {})) {
+    if (!match(row)) continue;
+    delete state.decisions[id];
+    removed += 1;
+  }
+  if (removed) addAudit(state, "decision.forget", "Удалено записей журнала решений: " + removed, "");
+  return removed;
+}
+
 function dismissProposal(state, proposalId) {
   const proposal = state.proposals[proposalId];
   if (!proposal || proposal.status !== "open") return;
   proposal.status = "dismissed";
   proposal.updatedAt = now();
+  recordOwnerDecision(state, proposal, "dismissed", {});
   addAudit(state, "proposal.dismiss", "Dismissed proposal: " + proposal.title, proposal.noteId);
 }
 
@@ -13910,6 +14110,10 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     budgets: Object.values(state.budgets || {}).filter((item) => !item.deleted),
     navMoreOpen: Boolean(state.navMoreOpen),
     navClusterOpen: cleanLine(state.navClusterOpen || ""),
+    // О3: что система знает о СВОИХ предложениях по решениям владельца. Экран не заводим —
+    // это данные для уже существующего Контроля (И-7).
+    calibration: computeCalibration(state),
+    surfaceUsage: state.surfaceUsage || {},
     captureDraft: state.captureDraft || "",
     // Статус каждого прикреплённого файла считается ЗДЕСЬ, из самой записи, а не хранится
     // рядом с идентификатором: иначе на экране жила бы устаревающая копия правды.
@@ -24046,6 +24250,11 @@ async function handleAction(action, id) {
     await store.commit("Рабочее место открыто", (state) => {
       state.activeSurface = id || "inbox";
       state.commandPaletteOpen = false;
+      // У0 (П13): чем владелец пользуется на самом деле. Пять строк — и П34 сможет сворачивать
+      // разделы ПО ДАННЫМ, а не по чьему-то вкусу. Это ВИД, а не данные: ни чека, ни аудита.
+      const key = cleanLine(state.activeSurface);
+      const seen = state.surfaceUsage[key] || { opens: 0, lastOpenedAt: "" };
+      state.surfaceUsage[key] = { opens: Number(seen.opens || 0) + 1, lastOpenedAt: now() };
     });
     requestAnimationFrame(() => {
       window.scrollTo(0, 0);
@@ -27099,6 +27308,12 @@ async function boot() {
   store = new ReactiveStore(repository);
   store.subscribe(render);
   await store.hydrate();
+  // О2: журнал решений начинается пустым, но сами решения были — они лежат в аудите с первого
+  // дня. Достаём их один раз, чтобы калибровка стартовала не с нуля. Ретро-ставки помечены и
+  // весят вдвое меньше живых: они восстановлены, а не наблюдались.
+  if (!Object.keys(store.state.decisions || {}).length) {
+    await store.commit("Журнал решений дополнен из аудита", (state) => backfillDecisionsFromAudit(state));
+  }
   render();
   refreshEnvironmentStatus().catch((error) => {
     bootError = error;
@@ -27127,6 +27342,45 @@ window.__lifeosKnowledgeBase = {
   fileToSourcePayload,
   addImportedSource,
   analyzeArtifactInput,
+  // О1–О3: журнал решений, ретро-заполнение и калибровка. Чистая логика — спека обязана уметь
+  // проверить их без недели ожидания и без живого владельца.
+  computeCalibration,
+  calibratedConfidence,
+  backfillDecisionsFromAudit,
+  forgetDecisions,
+  recordOwnerDecisionForTest(proposalId, decision, options) {
+    if (!store) return Promise.resolve("");
+    let id = "";
+    return store.commit("Решение владельца записано", (state) => {
+      id = recordOwnerDecision(state, state.proposals[cleanLine(proposalId)], decision, options || {});
+    }).then(() => id);
+  },
+  computeCalibrationForTest() {
+    return store ? computeCalibration(store.state) : null;
+  },
+  seedDecisionsForTest(rows) {
+    if (!store) return Promise.resolve(0);
+    let added = 0;
+    return store.commit("Журнал решений заполнен для теста", (state) => {
+      for (const row of Array.isArray(rows) ? rows : []) {
+        const id = makeId("decision");
+        const createdAt = row.createdAt || now();
+        state.decisions[id] = {
+          id, proposalId: cleanLine(row.proposalId || id), decision: row.decision === "applied" ? "applied" : "dismissed",
+          type: cleanLine(row.type || "task"), draftId: "", origin: cleanLine(row.origin || "rules"),
+          confidence: Number(row.confidence || 0.7), hour: 12, dayPart: "день", edited: Boolean(row.edited),
+          sourceId: "", noteId: "", retro: Boolean(row.retro), weight: row.retro ? 0.5 : 1,
+          deleted: false, createdAt, updatedAt: createdAt
+        };
+        added += 1;
+      }
+    }).then(() => added);
+  },
+  forgetDecisionsForTest() {
+    if (!store) return Promise.resolve(0);
+    let removed = 0;
+    return store.commit("Журнал решений очищен", (state) => { removed = forgetDecisions(state); }).then(() => removed);
+  },
   // Слой намерений (RR-001 Этап B). Схема и валидатор — чистая логика: спека обязана уметь
   // проверить их без модели и без демона, а слой (в) — с настоящим Ollama, если он поднят.
   SPEECH_INTENT_SCHEMA,
@@ -27429,6 +27683,11 @@ window.__lifeosKnowledgeBase = {
   applyProposalForTest(proposalId) {
     if (!store) return Promise.resolve(false);
     return store.commit("Proposal applied", (state) => applyProposal(state, proposalId)).then(() => true);
+  },
+  // Отказ — такое же решение владельца, как согласие, и журнал обязан уметь его проверить.
+  dismissProposalForTest(proposalId) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Proposal dismissed", (state) => dismissProposal(state, cleanLine(proposalId))).then(() => true);
   },
   injectCorruptRecordForTest() {
     if (!store) return Promise.resolve("");
