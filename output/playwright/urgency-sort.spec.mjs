@@ -20,15 +20,26 @@ async function openSurface(page, id) {
   const direct = page.getByTestId(`surface-${id}`).first();
   if (!(await direct.isVisible().catch(() => false))) {
     await page.locator('[data-testid="app-ribbon"] summary').first().click();
+    // Раскрытие «Ещё» живёт в состоянии, а не в браузерном <details>: после клика идёт коммит и
+    // перерисовка. Без ожидания следующий шаг работает по старому DOM.
+    await page.waitForTimeout(350);
+    if (!(await page.locator('[data-testid="app-ribbon"] .nav-cluster').first().isVisible().catch(() => false))) {
+      await page.locator('[data-testid="app-ribbon"] summary').first().click().catch(() => {});
+      await page.waitForTimeout(350);
+    }
   }
   // П32 изменил меню намеренно: разделы-каркасы свёрнуты за строку «+N в разработке», чтобы
   // рабочее было видно сразу. До каркаса теперь один дополнительный клик — раскрываем его,
   // а не возвращаем прежнюю плоскую простыню из шестнадцати строк.
   if (!(await page.getByTestId(`surface-${id}`).first().isVisible().catch(() => false))) {
-    const toggles = page.locator('[data-testid="app-ribbon"] .nav-cluster-drafts-toggle');
-    const count = await toggles.count();
-    for (let index = 0; index < count; index += 1) {
-      await toggles.nth(index).click().catch(() => {});
+    // Перебираем группы ПОИМЁННО. Раскрыта всегда одна, поэтому «первый тумблер в DOM» после
+    // каждого клика возвращается к началу — цикл по `.first()` ходил бы между двумя группами
+    // бесконечно. И ждём перерисовку: раскрытие идёт через состояние, а не через CSS.
+    for (const cluster of ["capture", "doing", "ai", "workshop"]) {
+      const toggle = page.getByTestId(`nav-cluster-drafts-${cluster}`);
+      if (!(await toggle.count())) continue;
+      await toggle.click().catch(() => {});
+      await page.waitForTimeout(350);
       if (await page.getByTestId(`surface-${id}`).first().isVisible().catch(() => false)) break;
     }
   }
