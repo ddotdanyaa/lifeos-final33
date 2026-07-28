@@ -317,6 +317,15 @@ function renderCalibrationPanel(ctx) {
     `<section class="control-calibration" data-testid="control-calibration">`,
     `<h3>Что система знает о своих предложениях</h3>`,
     `<p class="control-calibration-note" data-testid="calibration-note">Решений в журнале: ${calibration.total}${calibration.retro ? ` (из них ${calibration.retro} восстановлено из журнала изменений — половинный вес)` : ""}.</p>`,
+    // О8: канарейка — единственная проверка, которая смотрит НЕ на те данные, на которых
+    // система училась. Её вердикт важнее любого процента выше.
+    ctx.canary && ctx.canary.frozenLearning
+      ? `<p class="control-calibration-drift" data-testid="calibration-canary">Канарейка: точность на замороженных вердиктах упала до ${Math.round((ctx.canary.accuracy || 0) * 100)}% при эталоне ${Math.round((ctx.canary.baseline || 0) * 100)}% — обучение остановлено до твоего разбора.</p>`
+      : "",
+    // О4: согласие ≠ правда.
+    ctx.sycophancy && ctx.sycophancy.flattering
+      ? `<p class="control-calibration-drift" data-testid="calibration-sycophancy">${escapeHtml(ctx.sycophancy.status)}. Значит система тебе нравится больше, чем помогает — вес двигается от правды, а не от согласия.</p>`
+      : "",
     calibration.drifted
       ? `<p class="control-calibration-drift" data-testid="calibration-drift">Последние решения расходятся с прежними — история обнулена, система учится заново. Это честнее, чем держаться за устаревшую правду о тебе.</p>`
       : "",

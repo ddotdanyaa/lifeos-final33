@@ -2830,6 +2830,9 @@ function normalizeState(input) {
       byokVault: {},
       mergeReview: {},
       importJobs: {},
+      // О8: канарейка. Пятьдесят замороженных вердиктов владельца, которые НИКОГДА не входят в
+      // обучение — единственный набор, по которому видно, что система поехала.
+      canary: null,
       obsidianScanReport: null,
       semanticIndex: { endpoint: "", model: "", vectors: {}, vectorCount: 0, updatedAt: "" },
       semanticSearchReport: null,
@@ -2930,6 +2933,7 @@ function normalizeState(input) {
     model.budget = model.budget && typeof model.budget === "object" ? model.budget : { limit: 50, used: 0, costPerCall: 0, unit: "USD" };
   }
   state.control.mergeReview = state.control.mergeReview && typeof state.control.mergeReview === "object" ? state.control.mergeReview : {};
+  state.control.canary = state.control.canary && typeof state.control.canary === "object" ? state.control.canary : null;
   for (const entry of Object.values(state.control.mergeReview)) {
     entry.id = cleanLine(entry.id || makeId("merge"));
     entry.sourceId = cleanLine(entry.sourceId || "");
@@ -9405,7 +9409,9 @@ function decisionWeight(row, nowMs) {
 }
 
 function computeCalibration(state) {
-  const rows = Object.values(state.decisions || {}).filter((row) => row && !row.deleted);
+  // Канареечные решения в обучение не входят НИКОГДА (О8): иначе система проверяет себя по
+  // тому, на чём училась, и всегда оказывается права.
+  const rows = Object.values(state.decisions || {}).filter((row) => row && !row.deleted && !row.canary);
   const nowMs = Date.now();
   const byType = new Map();
   for (const row of rows) {
@@ -9439,9 +9445,20 @@ function computeCalibration(state) {
       status: drifted ? "учусь заново" : (trusted ? "по твоим решениям" : "мало данных: " + bucket.count + " из " + MIN_DECISIONS_FOR_TRUST)
     };
   }).sort((a, b) => b.decisions - a.decisions);
+  // О8: канарейка сказала «точность упала» — обучение заморожено, и ни одно число из журнала
+  // больше не считается знанием, пока владелец не разберётся. Честнее замереть, чем уверенно
+  // ошибаться в сторону, которую никто не заметил.
+  const canaryFrozen = Boolean(state.control && state.control.canary && state.control.canary.frozenLearning);
+  if (canaryFrozen) {
+    for (const row of types) {
+      row.trusted = false;
+      row.status = "обучение заморожено: канарейка показала падение точности";
+    }
+  }
   return {
     total: rows.length,
     retro: rows.filter((row) => row.retro).length,
+    canaryFrozen,
     drifted,
     recentShare,
     historyShare,
@@ -9459,6 +9476,115 @@ function calibratedConfidence(state, proposal) {
   const row = calibration.byType[cleanLine((proposal && proposal.type) || "?")];
   if (!row || !row.trusted) return { value: declared, source: "заявлено разбором", trusted: false };
   return { value: row.acceptance, source: row.status, trusted: true, decisions: row.decisions };
+}
+
+// ─── О8 · КАНАРЕЙКА ───────────────────────────────────────────────────────────────────────
+//
+// Калибровка считает себя по тем же данным, на которых учится, — и потому не может заметить,
+// что поехала. Нужен набор, который в обучение НЕ ВХОДИТ НИКОГДА: пятьдесят замороженных
+// решений владельца, отложенных в сторону. Раз в месяц система заново предсказывает по ним свой
+// же ответ. Точность на них упала — значит поехала не выборка, а сама система, и обучение
+// замораживается до разбирательства.
+//
+// Это единственная защита от медленного дрейфа, которого не видно изнутри: остальные проверки
+// смотрят на те же цифры, что и калибровка.
+const CANARY_SIZE = 50;
+const CANARY_DROP = 0.15;
+
+// Замораживаем РАННИЕ решения: они уже не влияют на свежую калибровку из-за затухания, а как
+// эталон работают лучше поздних — по ним видно, что система понимала владельца с самого начала.
+function freezeCanary(state) {
+  const rows = Object.values(state.decisions || {})
+    .filter((row) => row && !row.deleted && !row.retro)
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  if (rows.length < CANARY_SIZE) {
+    return { frozen: 0, need: CANARY_SIZE - rows.length, status: "рано: решений " + rows.length + " из " + CANARY_SIZE };
+  }
+  const picked = rows.slice(0, CANARY_SIZE);
+  state.control.canary = {
+    frozenAt: now(),
+    // Храним ответ владельца и то, что система тогда заявляла. Больше ничего: канарейка не
+    // должна становиться ещё одним источником обучения.
+    rows: picked.map((row) => ({ proposalId: row.proposalId, type: row.type, decision: row.decision, confidence: row.confidence })),
+    baseline: picked.filter((row) => row.decision === "applied").length / picked.length,
+    lastCheckedAt: "",
+    lastAccuracy: 0,
+    frozenLearning: false
+  };
+  for (const row of picked) {
+    const live = state.decisions[row.id];
+    // Помечаем на самой записи: калибровка обязана исключить их, иначе система проверяет себя
+    // по тому, на чём училась, и всегда «права».
+    if (live) live.canary = true;
+  }
+  addAudit(state, "canary.freeze", "Канарейка заморожена: " + picked.length + " вердиктов, они больше не участвуют в обучении", "");
+  return { frozen: picked.length, status: "заморожено" };
+}
+
+// Перепредсказание: что система сказала бы СЕЙЧАС по тем же типам, и совпало ли это с тем, что
+// владелец решил тогда.
+function checkCanary(state) {
+  const canary = (state.control && state.control.canary) || null;
+  if (!canary || !Array.isArray(canary.rows) || !canary.rows.length) {
+    return { status: "не заморожена", accuracy: 0, baseline: 0, frozenLearning: false };
+  }
+  const calibration = computeCalibration(state);
+  let hits = 0;
+  for (const row of canary.rows) {
+    const known = calibration.byType[row.type];
+    // Предсказание системы: приняла бы она это предложение сама. Нет знания по типу — берём
+    // заявленную тогда уверенность, и это честно: именно так система и вела бы себя.
+    const predicted = (known && known.trusted ? known.acceptance : Number(row.confidence) || 0) >= 0.5 ? "applied" : "dismissed";
+    if (predicted === row.decision) hits += 1;
+  }
+  const accuracy = hits / canary.rows.length;
+  const baseline = Number(canary.baseline) || 0;
+  // Сравниваем с тем, как система попадала в момент заморозки: baseline — доля принятых, то
+  // есть точность «всегда соглашаться». Упасть ниже неё на CANARY_DROP значит стать хуже, чем
+  // тупая стратегия.
+  const dropped = accuracy < Math.max(0, baseline - CANARY_DROP);
+  return { status: dropped ? "точность упала" : "в норме", accuracy, baseline, frozenLearning: dropped, checked: canary.rows.length };
+}
+
+// ─── О4 · АНТИ-ЛЕСТЬ ──────────────────────────────────────────────────────────────────────
+//
+// Самый тихий способ испортить систему — учить её на СОГЛАСИИ. Владелец соглашается охотнее,
+// когда предложение звучит уверенно, а не когда оно верно; система это замечает, начинает
+// звучать увереннее — и обе стороны довольны, пока результат не разойдётся с жизнью.
+//
+// Поэтому меряем ДВЕ вещи отдельно:
+//   • согласие — доля принятых;
+//   • правду — доля принятых БЕЗ ПРАВКИ. Принял и переписал название значит поняли наполовину,
+//     и складывать это с чистым согласием нельзя.
+// Расхождение между ними и есть лесть: чем больше согласий с правкой, тем сильнее система
+// нравится владельцу, не будучи ему полезной.
+function computeSycophancy(state) {
+  const rows = Object.values(state.decisions || {}).filter((row) => row && !row.deleted && !row.canary);
+  if (!rows.length) return { measured: false, status: "решений пока нет" };
+  const applied = rows.filter((row) => row.decision === "applied");
+  const agreement = applied.length / rows.length;
+  const clean = applied.filter((row) => !row.edited).length / rows.length;
+  const gap = agreement - clean;
+  // Сравниваем уверенность там, где владелец соглашался, и там, где отказывал. Если система
+  // «уверена» ровно тогда, когда с ней соглашаются, — это подгонка под согласие, а не знание.
+  const avg = (list) => (list.length ? list.reduce((sum, row) => sum + (Number(row.confidence) || 0), 0) / list.length : 0);
+  const confidenceOnYes = avg(applied);
+  const confidenceOnNo = avg(rows.filter((row) => row.decision === "dismissed"));
+  return {
+    measured: true,
+    decisions: rows.length,
+    agreement,
+    truth: clean,
+    gap,
+    confidenceOnYes,
+    confidenceOnNo,
+    // Порог не «магическое число», а граница здравого смысла: каждое пятое согласие с правкой
+    // означает, что систему принимают из вежливости к самой себе.
+    flattering: gap >= 0.2,
+    status: gap >= 0.2
+      ? "согласие выше правды на " + Math.round(gap * 100) + " пунктов: предложения принимают с правкой"
+      : "согласие и правда сходятся"
+  };
 }
 
 // И-5: всё, куда пишет петля, обязано уметь забываться. Удаление именно удаление, а не флаг:
@@ -14240,6 +14366,10 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     // О3: что система знает о СВОИХ предложениях по решениям владельца. Экран не заводим —
     // это данные для уже существующего Контроля (И-7).
     calibration: computeCalibration(state),
+    // О4: согласие и правда отдельно. Если система нравится владельцу, не будучи полезной, это
+    // должно быть видно ему, а не только ей.
+    sycophancy: computeSycophancy(state),
+    canary: (state.control && state.control.canary) ? checkCanary(state) : null,
     surfaceUsage: state.surfaceUsage || {},
     captureDraft: state.captureDraft || "",
     // Статус каждого прикреплённого файла считается ЗДЕСЬ, из самой записи, а не хранится
@@ -27485,6 +27615,33 @@ window.__lifeosKnowledgeBase = {
   liveGoalsForTest() {
     return store ? Object.values(store.state.goals || {}).filter(isLiveGoal) : [];
   },
+  // О8/О4: канарейка и анти-лесть проверяются целиком, без месяца ожидания.
+  freezeCanaryForTest() {
+    if (!store) return Promise.resolve(null);
+    let result = null;
+    return store.commit("Канарейка заморожена", (state) => { result = freezeCanary(state); }).then(() => result);
+  },
+  checkCanaryForTest() {
+    return store ? checkCanary(store.state) : null;
+  },
+  applyCanaryVerdictForTest() {
+    if (!store) return Promise.resolve(null);
+    let verdict = null;
+    return store.commit("Канарейка проверена", (state) => {
+      verdict = checkCanary(state);
+      if (state.control.canary) {
+        state.control.canary.lastCheckedAt = now();
+        state.control.canary.lastAccuracy = verdict.accuracy;
+        state.control.canary.frozenLearning = verdict.frozenLearning;
+        if (verdict.frozenLearning) {
+          addAudit(state, "canary.freeze-learning", "Канарейка: точность упала до " + Math.round(verdict.accuracy * 100) + "% — обучение заморожено", "");
+        }
+      }
+    }).then(() => verdict);
+  },
+  computeSycophancyForTest() {
+    return store ? computeSycophancy(store.state) : null;
+  },
   findSupersededGoalForTest(goalId) {
     return store ? findSupersededGoal(store.state, store.state.goals[cleanLine(goalId)]) : null;
   },
@@ -27515,7 +27672,7 @@ window.__lifeosKnowledgeBase = {
         state.decisions[id] = {
           id, proposalId: cleanLine(row.proposalId || id), decision: row.decision === "applied" ? "applied" : "dismissed",
           type: cleanLine(row.type || "task"), draftId: "", origin: cleanLine(row.origin || "rules"),
-          confidence: Number(row.confidence || 0.7), hour: 12, dayPart: "день", edited: Boolean(row.edited),
+          confidence: Number.isFinite(Number(row.confidence)) ? Number(row.confidence) : 0.7, hour: 12, dayPart: "день", edited: Boolean(row.edited),
           sourceId: "", noteId: "", retro: Boolean(row.retro), weight: row.retro ? 0.5 : 1,
           deleted: false, createdAt, updatedAt: createdAt
         };
