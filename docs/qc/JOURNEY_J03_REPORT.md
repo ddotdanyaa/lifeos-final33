@@ -32,17 +32,17 @@ Complex input creates grouped proposals for task, time block, finance, habit, go
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 3,
+  "proposalsOpen": 1,
   "proposalsApplied": 6,
   "auditEvents": 22,
-  "graphNodes": 16,
-  "graphEdges": 28,
-  "graphEdgeReasons": 28
+  "graphNodes": 14,
+  "graphEdges": 24,
+  "graphEdgeReasons": 24
 }
 ```
 
 ## Graph Edges
-After: 67 edges, 67 with visible reasons.
+After: 63 edges, 63 with visible reasons.
 
 ## Data Control Events
 After: 57 audit events. Tail: proposal.apply: Applied proposal: Напомнить: Зал купить протеин вода 2л до 1 июля накопить | finance.account: Счёт задан: Основной счет | finance.transaction: Расход: Протеин 2 500 ₽ | proposal.apply: Applied proposal: Протеин | habit.create: Привычка создана: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | goal.create: Цель создана: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером | proposal.apply: Applied proposal: завтра в зал, купить протеин , каждый день вода 2л, до 1 июля накопить , напомни вечером

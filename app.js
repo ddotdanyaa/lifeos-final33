@@ -1231,6 +1231,8 @@ function createInitialState() {
     navClusterOpen: "",
     // О1: журнал решений владельца. Пустой до первого решения — накопление, а не выдумка.
     decisions: {},
+    // О6: короткие ставки — те, ответ на которые приходит в тот же день.
+    bets: {},
     // У0 (П13): сколько раз владелец открывал каждое рабочее место и когда в последний раз.
     // Пять строк, которые делают возможным П34: сворачивать по ДАННЫМ, а не по вкусу.
     surfaceUsage: {},
@@ -2699,6 +2701,7 @@ function normalizeState(input) {
     navMoreOpen: Boolean(base.navMoreOpen),
     navClusterOpen: cleanLine(base.navClusterOpen || ""),
     decisions: base.decisions && typeof base.decisions === "object" ? base.decisions : {},
+    bets: base.bets && typeof base.bets === "object" ? base.bets : {},
     surfaceUsage: base.surfaceUsage && typeof base.surfaceUsage === "object" ? base.surfaceUsage : {},
     captureAttachments: Array.isArray(base.captureAttachments) ? base.captureAttachments.filter((id) => typeof id === "string" && id).slice(-8) : [],
     commandMessage: base.commandMessage || "Локальное хранилище готово",
@@ -7035,6 +7038,9 @@ function addProposal(state, type, title, sourceId, noteId, details) {
     createdAt,
     updatedAt: createdAt
   };
+  // О5: профиль владельца впрыскивается в ОДНОЙ точке — здесь. Он не отбрасывает предложение
+  // (решать не ему), а понижает уверенность и объясняет словами, почему предлагает осторожно.
+  applyOwnerProfileToProposal(state, state.proposals[id]);
   return id;
 }
 
@@ -9211,6 +9217,11 @@ function applyProposal(state, proposalId) {
     });
   }
   proposal.appliedObjectId = objectId;
+  // О6: задача на сегодня — ставка, ответ на которую придёт к вечеру. Такие проверяются пачками,
+  // и выборка растёт в разы быстрее недельных.
+  if (objectId && proposal.type === "task" && state.tasks[objectId] && state.tasks[objectId].day === todayKey()) {
+    openShortBet(state, "task-today", objectId, "закроет сегодня: " + shorten(proposal.title, 60), proposal.sourceId);
+  }
   // П5 · провенанс переживает применение. Цитата была у предложения и терялась при подтверждении:
   // у самого расхода, задачи или инсайта её уже не было. Обратный путь обрывался ровно там, где
   // владелец хочет проверить — на объекте, который он видит в списке через неделю. И-6 требует
@@ -9234,6 +9245,9 @@ function applyProposal(state, proposalId) {
     });
   }
   addAudit(state, "proposal.apply", "Applied proposal: " + proposal.title, proposal.noteId);
+  // П37: подтверждение — момент, когда петля ценности может замкнуться. Ищем повторы среди
+  // ПОДТВЕРЖДЁННОГО и возвращаем их владельцу выводом, а не четвёртым таким же предложением.
+  if (!isMachineryProposal(proposal)) proposeValueLoopInsights(state);
   rebuildIndexes(state);
 }
 
@@ -9587,6 +9601,235 @@ function computeSycophancy(state) {
     status: gap >= 0.2
       ? "согласие выше правды на " + Math.round(gap * 100) + " пунктов: предложения принимают с правкой"
       : "согласие и правда сходятся"
+  };
+}
+
+// ─── П37 · ПЕТЛЯ ЦЕННОСТИ ─────────────────────────────────────────────────────────────────
+//
+// Три механизма уже есть по отдельности: чек фиксирует, что владелец подтвердил; журнал решений
+// это помнит; калибровка считает частоту. Не хватало ЗАМЫКАНИЯ — момента, когда подтверждённый
+// объект возвращается к владельцу выводом, а вывод делает следующее предложение точнее.
+//
+// Это единственное место, где видно, что система не просто хранит, а работает: он подтвердил
+// расход на такси в третий раз за неделю — и получил не четвёртое такое же предложение, а
+// наблюдение о том, что такси стало заметной статьёй.
+//
+// Правило честности здесь строже обычного: вывод делается ТОЛЬКО из подтверждённых объектов.
+// Предложение, которое владелец не принял, — это не факт его жизни, и строить на нём инсайт
+// значит выдавать собственную гипотезу за его данные.
+const VALUE_LOOP_MIN_REPEATS = 3;
+
+function computeValueLoop(state) {
+  // Берём только применённые предложения: подтверждение владельца и есть тот внешний вердикт,
+  // на котором петле разрешено учиться (И-4).
+  const applied = Object.values(state.proposals || {}).filter((item) => item && item.status === "applied" && !isMachineryProposal(item));
+  const byType = new Map();
+  for (const proposal of applied) {
+    const key = cleanLine(proposal.type || "");
+    if (!key) continue;
+    if (!byType.has(key)) byType.set(key, []);
+    byType.get(key).push(proposal);
+  }
+  const findings = [];
+  for (const [type, rows] of byType.entries()) {
+    if (rows.length < VALUE_LOOP_MIN_REPEATS) continue;
+    // Повторяющийся предмет внутри типа: три такси — это уже не три случайных расхода.
+    const bySubject = new Map();
+    for (const proposal of rows) {
+      const subject = normalizeTitle(shorten(cleanLine(proposal.fields && proposal.fields.title ? proposal.fields.title : proposal.title), 40));
+      if (!subject || subject.length < 3) continue;
+      if (!bySubject.has(subject)) bySubject.set(subject, []);
+      bySubject.get(subject).push(proposal);
+    }
+    for (const [subject, group] of bySubject.entries()) {
+      if (group.length < VALUE_LOOP_MIN_REPEATS) continue;
+      const amounts = group.map((row) => Number((row.fields || {}).amount || 0)).filter((value) => value > 0);
+      const total = amounts.reduce((sum, value) => sum + value, 0);
+      findings.push({
+        type,
+        subject: cleanLine(group[0].fields && group[0].fields.title ? group[0].fields.title : group[0].title),
+        times: group.length,
+        total,
+        // Провенанс обязателен: инсайт без ссылки на подтверждённые объекты — просто фраза.
+        proposalIds: group.map((row) => row.id),
+        sourceIds: [...new Set(group.map((row) => row.sourceId).filter(Boolean))]
+      });
+    }
+  }
+  return findings.sort((a, b) => b.times - a.times).slice(0, 5);
+}
+
+// Замыкание: находка становится предложением-инсайтом. Не объектом напрямую — владелец решает
+// сам, как всегда, и видит, из чего вывод сделан.
+function proposeValueLoopInsights(state) {
+  const created = [];
+  for (const finding of computeValueLoop(state)) {
+    const title = finding.total > 0
+      ? finding.subject + ": " + finding.times + " раза за период, всего " + finding.total + " ₽"
+      : finding.subject + ": повторяется " + finding.times + " раза";
+    const id = addProposal(state, "insight", title, finding.sourceIds[0] || "", "", {
+      reason: "Собрано из " + finding.times + " ПОДТВЕРЖДЁННЫХ тобой записей — это твои данные, а не моя догадка.",
+      quote: "",
+      confidence: 0.7,
+      group: "knowledge",
+      fields: {
+        title,
+        valueLoop: true,
+        times: finding.times,
+        total: finding.total,
+        fromProposals: finding.proposalIds,
+        reason: "Вывод сделан только из того, что ты подтвердил. Непринятые предложения в него не входят."
+      }
+    });
+    if (id) created.push(id);
+  }
+  if (created.length) {
+    addAudit(state, "value.loop", "Петля ценности: из подтверждённых записей собрано выводов — " + created.length, "");
+  }
+  return created;
+}
+
+// ─── О5 · ПРОФИЛЬ ВЛАДЕЛЬЦА ───────────────────────────────────────────────────────────────
+//
+// Журнал решений копит факты, но разбор следующего захвата о них не знает — и повторяет ту же
+// ошибку в сотый раз. Профиль это исправляет: он ЧИТАЕТ журнал и говорит разбору, чего владелец
+// от него не принимает.
+//
+// Строго в одну сторону: профиль НЕ создаёт объектов, НЕ меняет типы и НЕ отменяет правила. Он
+// только понижает уверенность там, где история говорит «не берёт», и добавляет к предложению
+// причину словами. Владелец по-прежнему решает всё сам (И-1) — он просто перестаёт получать то,
+// что уже сорок раз отклонил.
+//
+// Порог тот же, что у калибровки (8 решений): на трёх наблюдениях профиль был бы не знанием о
+// владельце, а суеверием о нём.
+function buildOwnerProfile(state) {
+  const calibration = computeCalibration(state);
+  const rejects = [];
+  const accepts = [];
+  for (const row of calibration.types || []) {
+    if (!row.trusted) continue;
+    if (row.acceptance <= 0.25) rejects.push({ type: row.type, acceptance: row.acceptance, decisions: row.decisions });
+    if (row.acceptance >= 0.85) accepts.push({ type: row.type, acceptance: row.acceptance, decisions: row.decisions });
+  }
+  // Время суток: разбор ошибается неодинаково утром и вечером, и это видно по journal-признаку.
+  const rows = Object.values(state.decisions || {}).filter((row) => row && !row.deleted && !row.canary);
+  const byPart = new Map();
+  for (const row of rows) {
+    const key = cleanLine(row.dayPart || "");
+    if (!key) continue;
+    if (!byPart.has(key)) byPart.set(key, { part: key, total: 0, applied: 0 });
+    const bucket = byPart.get(key);
+    bucket.total += 1;
+    if (row.decision === "applied") bucket.applied += 1;
+  }
+  const dayParts = [...byPart.values()]
+    .filter((bucket) => bucket.total >= MIN_DECISIONS_FOR_TRUST)
+    .map((bucket) => ({ part: bucket.part, acceptance: bucket.applied / bucket.total, decisions: bucket.total }));
+  return {
+    known: rejects.length > 0 || accepts.length > 0,
+    rejects,
+    accepts,
+    dayParts,
+    // Профиль обязан уметь объяснить себя владельцу одной фразой, иначе это чёрный ящик.
+    summary: rejects.length
+      ? "Ты почти не берёшь: " + rejects.map((row) => row.type).join(", ")
+      : (accepts.length ? "Ты стабильно берёшь: " + accepts.map((row) => row.type).join(", ") : "")
+  };
+}
+
+// Впрыск в разбор: предложение типа, который владелец не берёт, получает пониженную уверенность
+// и ЧЕСТНУЮ причину. Не отбрасывается — иначе система решала бы за него, чего ему не показывать.
+function applyOwnerProfileToProposal(state, proposal) {
+  if (!proposal || isMachineryProposal(proposal)) return proposal;
+  const profile = buildOwnerProfile(state);
+  if (!profile.known) return proposal;
+  const reject = profile.rejects.find((row) => row.type === proposal.type);
+  if (!reject) return proposal;
+  const before = Number(proposal.confidence) || 0.72;
+  proposal.confidence = Math.max(0.15, Math.min(before, reject.acceptance));
+  proposal.reason = cleanLine(proposal.reason || "") + " · Ты берёшь такое редко ("
+    + Math.round(reject.acceptance * 100) + "% из " + reject.decisions + "), поэтому предлагаю осторожно.";
+  return proposal;
+}
+
+// ─── О6 · КОРОТКИЙ ГОРИЗОНТ ───────────────────────────────────────────────────────────────
+//
+// Выборка растёт медленно, если каждая ставка проверяется неделями. Короткий горизонт — ставки,
+// у которых ответ приходит В ТОТ ЖЕ ДЕНЬ: «эту задачу он закроет сегодня», «этот расход он
+// подтвердит». Их можно проверять пачками, и выборка растёт в разы быстрее.
+//
+// Ключевое правило: ставка, на которую ответа не пришло, — НЕ ошибка и НЕ попадание. Она
+// `unverifiable` и из веса исключается совсем. Считать молчание отказом значит учить систему
+// на том, чего не было.
+const SHORT_HORIZON_HOURS = 24;
+
+function openShortBet(state, kind, objectId, expectation, sourceId) {
+  const id = makeId("bet");
+  const createdAt = now();
+  state.bets[id] = {
+    id,
+    kind: cleanLine(kind),
+    objectId: cleanLine(objectId),
+    // Что именно мы утверждаем. Без этого «ставка» — просто отметка времени.
+    expectation: cleanLine(expectation),
+    sourceId: cleanLine(sourceId || ""),
+    horizonHours: SHORT_HORIZON_HOURS,
+    dueAt: new Date(Date.now() + SHORT_HORIZON_HOURS * 3600 * 1000).toISOString(),
+    status: "open",
+    outcome: "",
+    resolvedAt: "",
+    deleted: false,
+    createdAt,
+    updatedAt: createdAt
+  };
+  return id;
+}
+
+// Разрешение: смотрим на РЕАЛЬНОЕ состояние объекта, а не спрашиваем систему, права ли она.
+function resolveShortBets(state) {
+  const report = { hit: 0, miss: 0, unverifiable: 0 };
+  for (const bet of Object.values(state.bets || {})) {
+    if (!bet || bet.deleted || bet.status !== "open") continue;
+    if (Date.parse(bet.dueAt || "") > Date.now()) continue;
+    const task = state.tasks ? state.tasks[bet.objectId] : null;
+    if (bet.kind === "task-today") {
+      if (!task || task.deleted) {
+        // Объекта не стало — проверить нечего, и выдумывать исход нельзя.
+        bet.status = "resolved";
+        bet.outcome = "unverifiable";
+        report.unverifiable += 1;
+      } else {
+        const done = task.status === "done";
+        bet.status = "resolved";
+        bet.outcome = done ? "hit" : "miss";
+        report[done ? "hit" : "miss"] += 1;
+      }
+    } else {
+      bet.status = "resolved";
+      bet.outcome = "unverifiable";
+      report.unverifiable += 1;
+    }
+    bet.resolvedAt = now();
+    bet.updatedAt = now();
+  }
+  if (report.hit + report.miss + report.unverifiable) {
+    addAudit(state, "bet.resolve", "Короткие ставки: попаданий " + report.hit + ", промахов "
+      + report.miss + ", непроверяемых " + report.unverifiable + " (последние в вес не входят)", "");
+  }
+  return report;
+}
+
+// Точность коротких ставок. Непроверяемые исключаются из знаменателя — иначе молчание
+// засчитывалось бы как ошибка, и система училась бы на том, чего не было.
+function shortBetAccuracy(state) {
+  const rows = Object.values(state.bets || {}).filter((bet) => bet && !bet.deleted && bet.status === "resolved");
+  const scored = rows.filter((bet) => bet.outcome === "hit" || bet.outcome === "miss");
+  return {
+    resolved: rows.length,
+    scored: scored.length,
+    unverifiable: rows.filter((bet) => bet.outcome === "unverifiable").length,
+    accuracy: scored.length ? scored.filter((bet) => bet.outcome === "hit").length / scored.length : 0,
+    trusted: scored.length >= MIN_DECISIONS_FOR_TRUST
   };
 }
 
@@ -27630,6 +27873,9 @@ async function boot() {
   if (Date.now() - lastForget > 86400000) {
     await store.commit("Уплотнение журналов", (state) => {
       runForgetting(state);
+      // О6: заодно закрываем ставки, у которых вышел срок. Молчание — не отказ: такая ставка
+      // помечается непроверяемой и в вес не входит.
+      resolveShortBets(state);
       state.control.lastForgetAt = now();
     });
   }
@@ -27691,6 +27937,50 @@ window.__lifeosKnowledgeBase = {
     return store.commit("Заметка удалена для теста", (state) => {
       const note = state.notes[cleanLine(noteId)];
       if (note) { note.deleted = true; note.updatedAt = now(); }
+    }).then(() => true);
+  },
+  computeValueLoopForTest() {
+    return store ? computeValueLoop(store.state) : [];
+  },
+  buildOwnerProfileForTest() {
+    return store ? buildOwnerProfile(store.state) : null;
+  },
+  openShortBetForTest(kind, objectId, expectation) {
+    if (!store) return Promise.resolve("");
+    let id = "";
+    return store.commit("Ставка открыта", (state) => { id = openShortBet(state, kind, objectId, expectation, ""); }).then(() => id);
+  },
+  dueShortBetForTest(betId) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Срок ставки наступил", (state) => {
+      const bet = state.bets[cleanLine(betId)];
+      if (bet) bet.dueAt = new Date(Date.now() - 1000).toISOString();
+    }).then(() => true);
+  },
+  resolveShortBetsForTest() {
+    if (!store) return Promise.resolve(null);
+    let report = null;
+    return store.commit("Ставки разрешены", (state) => { report = resolveShortBets(state); }).then(() => report);
+  },
+  shortBetAccuracyForTest() {
+    return store ? shortBetAccuracy(store.state) : null;
+  },
+  addTaskForTest(title, day) {
+    if (!store) return Promise.resolve("");
+    let id = "";
+    return store.commit("Задача заведена для теста", (state) => {
+      id = addTask(state, String(title || ""), { day: day || todayKey() });
+    }).then(() => id);
+  },
+  archiveTaskForTest(taskId) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Задача удалена для теста", (state) => archiveTask(state, cleanLine(taskId))).then(() => true);
+  },
+  completeTaskForTest(taskId) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Задача закрыта для теста", (state) => {
+      const task = state.tasks[cleanLine(taskId)];
+      if (task) { task.status = "done"; task.updatedAt = now(); }
     }).then(() => true);
   },
   runForgettingForTest(options) {

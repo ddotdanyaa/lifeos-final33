@@ -108,11 +108,35 @@ function navItem(ctx, [id, label, isReady], testPrefix) {
   return `<button class="nav-item${active}${isReady ? "" : " draft"}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix || "surface")}-${escapeHtml(id)}">${escapeHtml(label)}${draftMark}</button>`;
 }
 
+// П34 · СВОРАЧИВАНИЕ ПО ДАННЫМ. Какой кластер раскрыть по умолчанию — вопрос вкуса ровно до тех
+// пор, пока нет данных. Они есть: У0 считает, сколько раз владелец открывал каждый раздел
+// (`surfaceUsage`). Раскрываем тот, куда он ходит, а не тот, который кто-то счёл главным.
+//
+// Порог намеренно низкий, но не нулевой: один случайный заход не должен переставлять меню под
+// рукой. Данных не хватило — остаётся прежний порядок, а не выдуманное предпочтение.
+const USAGE_MIN_OPENS = 3;
+
+function mostUsedClusterId(ctx) {
+  const usage = ctx.surfaceUsage || {};
+  let best = null;
+  for (const cluster of navClusters) {
+    const opens = cluster.items
+      .filter((row) => row[2])
+      .reduce((sum, row) => sum + Number((usage[row[0]] || {}).opens || 0), 0);
+    if (opens < USAGE_MIN_OPENS) continue;
+    if (!best || opens > best.opens) best = { id: cluster.id, opens };
+  }
+  return best ? best.id : "";
+}
+
+// Кластер раскрыт ровно один. Порядок решения: что владелец открыл руками → где лежит текущий
+// экран → куда он ходит чаще всего по данным. Вкуса в этой цепочке нет нигде.
 function activeClusterId(ctx) {
   const chosen = ctx.navClusterOpen || "";
   if (chosen && navClusters.some((cluster) => cluster.id === chosen)) return chosen;
   const holder = navClusters.find((cluster) => cluster.items.some(([id]) => id === ctx.activeSurface));
-  return holder ? holder.id : "";
+  if (holder) return holder.id;
+  return mostUsedClusterId(ctx);
 }
 
 // Префикс обязателен: боковое и мобильное меню рисуют ОДНИ И ТЕ ЖЕ группы, и без него на
