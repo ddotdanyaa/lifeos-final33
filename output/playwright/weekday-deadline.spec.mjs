@@ -48,10 +48,13 @@ async function captureAndApply(page, lines) {
 // getUTCDay() от МЕСТНОЙ полуночи в UTC+3 отдаёт вчерашний день недели. Раньше здесь стояли
 // сразу две такие ошибки, и в UTC+3 они гасили друг друга: помощник давал верную дату по
 // неверному пути и молчал бы о поясе западнее Гринвича.
+// Ожидаемый день считаем от ТОГО ЖЕ «сегодня», которое видит продукт, а не от локальных часов
+// браузера. Своя копия календаря в тесте расходилась с продуктом в трёхчасовом окне после
+// полуночи (UTC+3): продукт брал вторник и отвечал «завтра среда» — верно, — а тест брал среду
+// и ждал следующую. Тест обязан проверять продукт, а не пересчитывать календарь заново.
 async function nextWeekday(page, weekday) {
   return page.evaluate((target) => {
-    const today = new Date();
-    const key = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const key = window.__lifeosKnowledgeBase.todayKeyForTest();
     const base = new Date(key + "T00:00:00Z");
     const offset = (target - base.getUTCDay() + 7) % 7 || 7;
     return new Date(base.getTime() + offset * 86400000).toISOString().slice(0, 10);

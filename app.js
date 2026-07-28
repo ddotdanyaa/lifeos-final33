@@ -25723,6 +25723,11 @@ window.__lifeosKnowledgeBase = {
   telegramBridgeStateForTest() {
     return telegramBridgeState;
   },
+  // Тест обязан считать ожидаемые даты от ТОГО ЖЕ «сегодня», что и продукт: своя копия
+  // календаря в спеке расходится с ним в окне после полуночи и ловит часовой пояс, а не дефект.
+  todayKeyForTest() {
+    return todayKey();
+  },
   computeValueLoopForTest() {
     return store ? computeValueLoop(store.state) : [];
   },
