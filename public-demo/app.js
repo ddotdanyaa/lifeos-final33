@@ -7988,6 +7988,11 @@ function addHighlight(state, title, text, options) {
 function extractHighlightsFromSource(state, sourceId) {
   const source = state.sources[sourceId];
   if (!source || source.deleted) return [];
+  // Цитата — из того, что ЧИТАЮТ: книга, статья, длинный текст. Надиктованная за десять секунд
+  // мысль цитатой из себя не бывает: расшифровка укладывалась в одну строку, и система заводила
+  // «цитату» во весь текст записи плюс пункт «Повторить highlight» с тем же текстом. Владелец
+  // видел одну и ту же фразу трижды — как расшифровку, как цитату и как повторение.
+  if (source.kind === "audio" && !isBookSource(source)) return [];
   const text = [source.text, source.transcriptText].filter(Boolean).join("\n");
   const readingItemId = ensureReadingItemForSource(state, sourceId);
   const lines = uniqueCleanItems(String(text || "").split(/\r?\n/).map((line) => cleanKnowledgeSentence(line)).filter((line) => line.length >= 32), 8);
@@ -8140,23 +8145,50 @@ function extractKnowledgeSentences(text) {
   }), 16);
 }
 
-function extractKnowledgeQuestions(text, noteTitle) {
-  const sentences = extractKnowledgeSentences(text);
-  const direct = sentences.filter((line) => /\?$|^(как|что|почему|зачем|когда|where|how|why|what)\b/i.test(line));
-  if (direct.length) return direct.slice(0, 4);
-  const title = cleanLine(noteTitle || "активный артефакт");
-  return ["Что проверить в теме: " + title + "?"];
+// Вопрос — это вопрос владельца, а не выдуманный системой повод. Раньше при отсутствии
+// настоящего вопроса подставлялся «Что проверить в теме: <имя файла>?» — и каждая голосовая
+// заводила вопрос про саму себя, на который нечего отвечать. Нет вопроса — нет вопроса.
+function extractKnowledgeQuestions(text) {
+  return extractKnowledgeSentences(text)
+    .filter((line) => /\?$|^(как|что|почему|зачем|когда|where|how|why|what)\b/i.test(line))
+    .slice(0, 4);
 }
 
 function extractKnowledgeFromNote(state, noteId) {
   const note = noteId && state.notes[noteId] && !state.notes[noteId].deleted ? state.notes[noteId] : getActiveNote(state);
   if (!note) return { claims: 0, questions: 0, reviews: 0 };
   const source = sourceForNote(state, note.id);
-  const sourceText = source ? [source.text, source.transcriptText].filter(Boolean).join("\n") : "";
-  const body = [note.body, sourceText].filter(Boolean).join("\n");
+  // Знание извлекается из СЛОВ ВЛАДЕЛЬЦА, а не из обвязки, которую система написала сама. У
+  // заметки-расшифровки тело начинается со служебной шапки («# Название», «Источник: …»,
+  // «Режим: локальный whisper.cpp…»), и раньше каждая её строка становилась «выводом»: одна
+  // голосовая давала четыре вывода, из которых три были про саму машинерию. Хуже того, шапка
+  // одинакова у всех расшифровок — и система находила, что две разные записи «об одном».
+  // Если у заметки есть источник, его текст и есть слова владельца; своего тела оно не имеет.
+  const ownerWords = source ? cleanLine([source.transcriptText, source.text].filter(Boolean).join("\n")) : "";
+  const body = ownerWords || note.body || "";
   const sentences = extractKnowledgeSentences(body);
-  const claimCandidates = sentences.filter((line) => !/\?$/.test(line)).slice(0, 4);
-  const questionCandidates = extractKnowledgeQuestions(body, note.title).slice(0, 3);
+  // Фраза, которая уже стала типизированным объектом (расходом, задачей, сменой), не становится
+  // ещё и «выводом». Иначе одно «Потратил 800 рублей на такси» жило на экране трижды: как
+  // расшифровка, как расход и как вывод, — и база знаний превращалась в эхо потока. В знании
+  // остаётся то, у чего своего объекта НЕТ: наблюдения о себе, сомнения, свершившиеся факты.
+  const typedTitles = source && source.analysis && Array.isArray(source.analysis.drafts)
+    ? source.analysis.drafts.filter((item) => !MACHINERY_DRAFT_IDS.has(item.draftId)).map((item) => item.title)
+    : [];
+  // Название типизированного объекта короче фразы, из которой оно вынуто («Такси» из «Потратил
+  // 800 рублей на такси»), поэтому сравнения «похожи ли объекты» мало — проверяем и вхождение.
+  const alreadyTyped = (line) => {
+    const normalizedLine = normalizeTitle(line);
+    return typedTitles.some((title) => {
+      const normalizedTitle = normalizeTitle(title);
+      if (!normalizedTitle || normalizedTitle.length < 4) return false;
+      return normalizedLine.includes(normalizedTitle) || looksLikeSameObject(title, line);
+    });
+  };
+  const claimCandidates = sentences
+    .filter((line) => !/\?$/.test(line))
+    .filter((line) => !alreadyTyped(line))
+    .slice(0, 4);
+  const questionCandidates = extractKnowledgeQuestions(body).slice(0, 3);
   let claimCount = 0;
   let questionCount = 0;
   const sourceId = source ? source.id : "";
@@ -8170,12 +8202,14 @@ function extractKnowledgeFromNote(state, noteId) {
     const id = addQuestionOnce(state, title, "Нужно проверить по источнику: " + note.title, { noteId: note.id, sourceId, quote: line });
     if (id) questionCount += 1;
   }
-  const reviewTitle = "Повторить и связать: " + note.title;
-  const reviewId = addReviewItemOnce(state, reviewTitle, { noteId: note.id, sourceId, day: dateKeyFromOffset(7) });
-  const reviewCount = reviewId ? 1 : 0;
-  if (claimCount || questionCount) {
-    ensureInsight(state, "Смысловая карта выросла: " + note.title, "LifeOS выделил claims/questions/review и связал их с исходной заметкой, графом и контролем.", { sourceId, noteId: note.id });
-  }
+  // Повторение — про СМЫСЛ, а не про файл. Пункт «Повторить и связать: owner-voice-ru
+  // Расшифровка» возвращал владельца к имени файла, из которого он уже всё вынул. Заводим его
+  // только когда есть что повторять, и называем первым настоящим выводом.
+  const reviewCount = claimCount && claimCandidates.length
+    ? (addReviewItemOnce(state, "Вернуться к мысли: " + shorten(claimCandidates[0], 60), { noteId: note.id, sourceId, day: dateKeyFromOffset(7) }) ? 1 : 0)
+    : 0;
+  // Инсайт «Смысловая карта выросла» рассказывал о работе самой системы, а не о жизни владельца
+  // (правило: машинерия платформы объектов не создаёт). Убран.
   addAudit(state, "knowledge.extract", "Knowledge extracted from " + note.title + ": " + claimCount + " claims, " + questionCount + " questions", note.id);
   return { claims: claimCount, questions: questionCount, reviews: reviewCount };
 }
@@ -8780,7 +8814,7 @@ function playerNotesForSource(state, sourceId) {
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-function addAudioCheckpoint(state, sourceId, title, timecode, noteText) {
+function addAudioCheckpoint(state, sourceId, title, timecode, noteText, options) {
   const source = state.sources[sourceId];
   if (!source || source.deleted) return "";
   const cleanTitle = cleanLine(title || "Checkpoint: " + stripExtension(source.name));
@@ -8798,11 +8832,15 @@ function addAudioCheckpoint(state, sourceId, title, timecode, noteText) {
     createdAt,
     updatedAt: createdAt
   };
-  addReviewItemOnce(state, "Вернуться к аудио checkpoint: " + cleanTitle, {
-    sourceId,
-    noteId: source.noteId || state.activeNoteId || "",
-    day: dateKeyFromOffset(3)
-  });
+  // Повторение заводится только к закладке, которую поставил ВЛАДЕЛЕЦ. Служебную отметку
+  // «Расшифровка сохранена» система ставит на каждую запись, и возвращаться к ней незачем.
+  if (!options || options.review !== false) {
+    addReviewItemOnce(state, "Вернуться к аудио checkpoint: " + cleanTitle, {
+      sourceId,
+      noteId: source.noteId || state.activeNoteId || "",
+      day: dateKeyFromOffset(3)
+    });
+  }
   addAudit(state, "audio.checkpoint", "Audio checkpoint created: " + cleanTitle, source.noteId || state.activeNoteId);
   return id;
 }
@@ -8934,7 +8972,12 @@ function saveSourceTranscript(state, sourceId, transcriptText, options) {
     "",
     cleanText
   ].join("\n");
-  const existingNote = source.noteId && state.notes[source.noteId] && !state.notes[source.noteId].deleted && /^Режим: /m.test(state.notes[source.noteId].body || "");
+  // Одна запись — одна заметка. У аудио заметка уже создана при импорте; расшифровка её
+  // ДОПОЛНЯЕТ, а не заводит вторую. Раньше условие требовало, чтобы в теле уже стояло
+  // «Режим: », то есть срабатывало только со второго раза — и на каждый файл в Базе появлялась
+  // пара «Новая запись 30» и «Новая запись 30 Расшифровка», а система потом искала между ними
+  // связь и находила её по одинаковой служебной шапке.
+  const existingNote = Boolean(source.noteId && state.notes[source.noteId] && !state.notes[source.noteId].deleted);
   const noteId = existingNote ? source.noteId : createNote(state, title, state.activeFolderId, body);
   if (existingNote) {
     state.notes[noteId].title = title;
@@ -8945,13 +8988,11 @@ function saveSourceTranscript(state, sourceId, transcriptText, options) {
   syncTranscriptSegments(state, source.id, noteId, cleanText);
   extractKnowledgeFromNote(state, noteId);
   extractHighlightsFromSource(state, source.id);
-  addAudioCheckpoint(state, source.id, "Расшифровка сохранена", "00:00", modeCopy.label + " стала текстом в базе.");
-  addReviewItemOnce(state, "Повторить аудио: " + stripExtension(source.name), {
-    sourceId: source.id,
-    noteId,
-    day: dateKeyFromOffset(3)
-  });
-  ensureInsight(state, "Аудио стало знанием: " + stripExtension(source.name), "Расшифровка связана с источником и может создавать заметки, задачи, выводы, цитаты, повторение, связи и контроль.", { sourceId: source.id, noteId });
+  addAudioCheckpoint(state, source.id, "Расшифровка сохранена", "00:00", modeCopy.label + " стала текстом в базе.", { review: false });
+  // Убраны два служебных объекта на каждую запись: пункт «Повторить аудио: <имя файла>» и
+  // инсайт «Аудио стало знанием: <имя файла>». Оба рассказывали о работе системы, а не о жизни
+  // владельца, и на четырёх голосовых давали восемь строк, к которым нечего добавить. Смысл
+  // записи и так становится задачами, расходами и сменами через разбор ниже.
   createActionProposalsForSource(state, source.id);
   // Срез 6 (v1.4): голос — первоклассный вход чата. Расшифровка становится сообщением
   // владельца в чате с типизированным предложением (смена/расход/задача/заметка) через тот
