@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 function findLocalChromium() {
@@ -45,10 +45,20 @@ async function counts(page) {
   });
 }
 
-async function importAndTranscribe(page, text) {
-  await page.locator("input#file-import").setInputFiles(VOICE_M4A);
-  await expect.poll(async () => page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources || {}).some((item) => item.kind === "audio")), { timeout: 30000 }).toBe(true);
-  const sourceId = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).find((item) => item.kind === "audio").id);
+async function importAndTranscribe(page, text, name) {
+  const before = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources || {}).filter((item) => item.kind === "audio").length);
+  // Всегда буфером с явным именем: так у каждой записи своё имя, и проверка не зависит от того,
+  // как именно браузер прочитал файл с диска.
+  await page.locator("input#file-import").setInputFiles({
+    name: name || "запись-" + (before + 1) + ".m4a",
+    mimeType: "audio/mp4",
+    buffer: readFileSync(VOICE_M4A)
+  });
+  await expect.poll(async () => page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources || {}).filter((item) => item.kind === "audio").length), { timeout: 30000 }).toBeGreaterThan(before);
+  const sourceId = await page.evaluate((position) => {
+    const audios = Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).filter((item) => item.kind === "audio");
+    return audios[position] ? audios[position].id : "";
+  }, before);
   await page.evaluate(([id, value]) => window.__lifeosKnowledgeBase.saveSourceTranscriptForTest(id, value), [sourceId, text]);
   await page.waitForTimeout(1500);
   return sourceId;
@@ -89,6 +99,38 @@ test("одна запись даёт один смысл, а не двенадц
 
   // Надиктовка не книга: цитат из самой себя она не порождает.
   expect(after.highlights).toBe(before.highlights);
+});
+
+// Владелец увидел на Доме: «Похоже, „Новая запись 30 Расшифровка“ и „Новая запись 31
+// Расшифровка“ — об одном». Записи были про совершенно разное. Связь держалась на служебной
+// шапке, которую система пишет сама («Источник: …», «Режим: локальный whisper.cpp …»), и на
+// слове «Расшифровка» в названии — они одинаковы у ВСЕХ расшифровок. Тот же класс ошибки уже
+// ловили на «suggested/actions»: связь по служебному слову — не связь.
+test("две разные записи не объявляются «об одном» из-за служебной шапки", async ({ page }) => {
+  await reset(page, "two-records");
+
+  await importAndTranscribe(page, "Работаю сегодня с 16. Потратил 800 рублей на такси.", "запись-1.m4a");
+  await importAndTranscribe(page, "Купил протеин за 2500. Завтра в 14 зал.", "запись-2.m4a");
+
+  const connections = await page.evaluate(() => (window.__lifeosKnowledgeBase.detectConceptConnectionsForTest() || [])
+    .map((item) => String(item.title || item.summary || "")));
+  const joined = connections.join(" | ");
+  expect(joined).not.toMatch(/запись-1/);
+  expect(joined).not.toMatch(/запись-2/);
+  expect(joined.toLowerCase()).not.toContain("расшифровка");
+});
+
+// И обратная проверка того же правила: связь по НАСТОЯЩЕЙ общей теме обязана остаться, иначе
+// вместе с шумом мы выключили бы саму способность системы видеть повторяющееся.
+test("две записи об одном предмете по-прежнему связываются", async ({ page }) => {
+  await reset(page, "two-records-same");
+
+  await importAndTranscribe(page, "Смотрел объявления, машина за 900 тысяч выглядит нормально.", "машина-1.m4a");
+  await importAndTranscribe(page, "Съездил посмотреть машину, продавец скинул 40 тысяч.", "машина-2.m4a");
+
+  const connections = await page.evaluate(() => (window.__lifeosKnowledgeBase.detectConceptConnectionsForTest() || [])
+    .map((item) => String(item.title || item.summary || "") + " " + JSON.stringify(item.terms || item.sharedTerms || [])));
+  expect(connections.join(" | ").toLowerCase(), "общая тема «машина» обязана связать записи").toContain("машин");
 });
 
 // Обратная сторона того же правила. Вычищая эхо, легко вычистить и саму мысль — а наблюдение о
