@@ -96,6 +96,12 @@ updated: 2026-07-28
 `money-fast-capture` · `back-to-the-source` (провенанс переживает применение) ·
 `ai-memory-gate` · `agent-guarded-runs` · `failure-injection`.
 
+## 5.1. Тип `supersede`
+
+Особый случай: применение НЕ создаёт объект, а помечает старый вытесненным (`applyGoalSupersede`).
+Старая цель живёт со ссылкой, датой и причиной; откат — `undoGoalSupersede`. Разбор доноров —
+`docs/context/donors/memory-decay.donor.md`.
+
 ## 6.1. Каждое решение уходит в журнал
 
 `applyProposal` и `dismissProposal` пишут `recordOwnerDecision` — с типом, происхождением,
