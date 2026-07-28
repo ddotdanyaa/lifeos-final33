@@ -3070,7 +3070,12 @@ function normalizeState(input) {
     goal.targetAmount = Number.isFinite(Number(goal.targetAmount)) ? Number(goal.targetAmount) : 0;
     goal.targetDate = cleanLine(goal.targetDate || "");
     goal.progress = Number.isFinite(Number(goal.progress)) ? Number(goal.progress) : 0;
-    goal.status = goal.status === "done" ? "done" : "active";
+    // О7: «вытеснено» — третье законное состояние цели. Без него нормализация возвращала её в
+    // «активные» на первой же перезагрузке, и «Polo» снова становился действующей целью.
+    goal.supersededBy = cleanLine(goal.supersededBy || "");
+    goal.supersededAt = cleanLine(goal.supersededAt || "");
+    goal.supersededReason = cleanLine(goal.supersededReason || "");
+    goal.status = goal.supersededBy ? "superseded" : (goal.status === "done" ? "done" : "active");
     goal.deleted = Boolean(goal.deleted);
     goal.createdAt = goal.createdAt || now();
     goal.updatedAt = goal.updatedAt || goal.createdAt;
@@ -9050,6 +9055,9 @@ function applyProposal(state, proposalId) {
         noteId: proposal.noteId
       });
     }
+  } else if (proposal.type === "supersede") {
+    // О7: старая цель не удаляется — на ней появляется ссылка на новую, дата и причина.
+    objectId = applyGoalSupersede(state, fields, proposal);
   } else if (proposal.type === "finance_income") {
     objectId = addFinanceTransaction(state, fields.title || proposal.title, fields.amount, "income", {
       category: fields.category || "Доход",
@@ -9108,6 +9116,9 @@ function applyProposal(state, proposalId) {
         sourceId: proposal.sourceId,
         noteId: proposal.noteId
       });
+      // О7: новая цель могла вытеснить прежнюю («Polo» → «Camry»). Система это ЗАМЕЧАЕТ, но не
+      // решает: заводится предложение с обеими целями и причиной, а слово за владельцем.
+      if (objectId) proposeGoalSupersede(state, objectId);
     }
   } else if (proposal.type === "claim") {
     objectId = addClaim(state, fields.title || proposal.title, fields.body || proposal.reason, {
@@ -10804,6 +10815,117 @@ function sharesSubjectWord(a, b) {
   return false;
 }
 
+// О7: вытесненная цель ЖИВЁТ, но не всплывает. Она отвечает на вопрос «что я думал в марте»
+// и не занимает место среди действующих. Это и есть decay из Mem0, только честный: не «тихо
+// погасло», а «убрано с причиной, можно посмотреть».
+function isLiveGoal(goal) {
+  return Boolean(goal) && !goal.deleted && !cleanLine(goal.supersededBy || "");
+}
+
+// ─── О7 · ВЫТЕСНЕНИЕ ──────────────────────────────────────────────────────────────────────
+//
+// В марте владелец сказал «хочу Polo», в июле — «беру Camry». Система, которая просто хранит
+// факты, покажет ему ДВЕ цели. Система, которая перетирает, потеряет март и не сможет ответить,
+// когда и почему он передумал. Обе неправы.
+//
+// Разбор шести доноров (Mem0, Graphiti, Zep, Neo4j GDS — `node tools/donor-lookup.mjs
+// вытеснение памяти`) сходится в одном: НИКТО НЕ УДАЛЯЕТ. Устаревший факт помечается
+// недействительным с моментом, начиная с которого он перестал быть правдой.
+//
+// Три правила, без которых это стало бы тихой потерей данных:
+//   • Вытеснение — ПРЕДЛОЖЕНИЕ, а не автоматическое действие. Система не решает за владельца,
+//     что он передумал (И-1: судья вне петли).
+//   • На вытесненном пишется id нового, дата и ПРИЧИНА — цитата владельца, из которой следует
+//     смена (И-6: провенанс на записи).
+//   • Откат в один клик. Ошибочное вытеснение обязано сниматься так же дёшево, как ставится.
+const SUPERSEDE_SUBJECT_STOPWORDS = new Set([
+  "хочу", "хотел", "хотела", "купить", "накопить", "собрать", "цель", "новый", "новую", "новая",
+  "себе", "нужно", "надо", "буду", "план", "планирую", "мечта", "взять", "беру", "решил", "решила"
+]);
+
+// Предмет цели — то, О ЧЁМ она. «Хочу купить Polo до августа» и «Беру Camry в сентябре» — про
+// одно и то же (машина), но предметы разные, и именно это делает их конфликтом, а не двумя
+// целями. Берём значимые слова, выкинув глаголы желания и служебные.
+function goalSubjectWords(title) {
+  return normalizeRuText(title)
+    .split(/[^0-9a-zа-яё]+/i)
+    .filter((word) => word.length >= 3 && !SUPERSEDE_SUBJECT_STOPWORDS.has(word) && !/^\d+$/.test(word));
+}
+
+// Две цели конфликтуют, когда у них ОБЩАЯ рамка и РАЗНЫЙ предмет. Общая рамка — совпадающее
+// слово («машина», «квартира», «отпуск»); разный предмет — всё остальное не совпадает.
+// Без общей рамки это просто две разные цели, и трогать их нельзя.
+function findSupersededGoal(state, freshGoal) {
+  if (!freshGoal || freshGoal.deleted) return null;
+  const freshWords = goalSubjectWords(freshGoal.title);
+  if (!freshWords.length) return null;
+  for (const goal of Object.values(state.goals || {})) {
+    if (!goal || goal.deleted || goal.id === freshGoal.id) continue;
+    if (goal.status === "done" || cleanLine(goal.supersededBy || "")) continue;
+    const words = goalSubjectWords(goal.title);
+    if (!words.length) continue;
+    const shared = words.filter((word) => freshWords.includes(word));
+    if (!shared.length) continue;
+    // Полное совпадение предмета — это тот же объект, им занимается дедуп в addGoal, а не мы.
+    const freshOnly = freshWords.filter((word) => !words.includes(word));
+    const oldOnly = words.filter((word) => !freshWords.includes(word));
+    if (!freshOnly.length || !oldOnly.length) continue;
+    return { goal, shared, reason: shared.join(", ") };
+  }
+  return null;
+}
+
+// Предложение вытеснения. Владелец видит обе цели, причину и цену решения — и решает сам.
+function proposeGoalSupersede(state, freshGoalId) {
+  const fresh = state.goals[freshGoalId];
+  if (!fresh || fresh.deleted) return "";
+  const found = findSupersededGoal(state, fresh);
+  if (!found) return "";
+  return addProposal(state, "supersede", "Похоже, цель изменилась: «" + shorten(found.goal.title, 40) + "» → «" + shorten(fresh.title, 40) + "»",
+    fresh.sourceId || "", fresh.noteId || "", {
+      reason: "У целей общая тема (" + found.reason + ") и разный предмет. Это одна изменившаяся цель, а не две — но решаешь ты.",
+      quote: cleanLine(fresh.quote || fresh.title),
+      confidence: 0.66,
+      group: "goals",
+      fields: {
+        supersededId: found.goal.id,
+        supersedesId: fresh.id,
+        supersededTitle: found.goal.title,
+        freshTitle: fresh.title,
+        sharedTopic: found.reason
+      }
+    });
+}
+
+// Применение: старая цель НЕ удаляется. На ней появляется ссылка на новую, дата и причина —
+// и она перестаёт всплывать в списках, продолжая существовать и отвечать на вопрос «а что я
+// думал в марте».
+function applyGoalSupersede(state, fields, proposal) {
+  const older = state.goals[cleanLine(fields.supersededId || "")];
+  const fresh = state.goals[cleanLine(fields.supersedesId || "")];
+  if (!older || !fresh || older.deleted || fresh.deleted) return "";
+  older.supersededBy = fresh.id;
+  older.supersededAt = now();
+  older.supersededReason = cleanLine(proposal && proposal.quote ? proposal.quote : ("общая тема: " + (fields.sharedTopic || "")));
+  older.status = "superseded";
+  older.updatedAt = now();
+  addAudit(state, "goal.supersede", "Цель «" + older.title + "» вытеснена целью «" + fresh.title + "»", older.noteId || "");
+  return fresh.id;
+}
+
+// Откат в один клик: вытеснение — гипотеза системы, и ошибаться она обязана дёшево.
+function undoGoalSupersede(state, goalId) {
+  const goal = state.goals[cleanLine(goalId)];
+  if (!goal || !cleanLine(goal.supersededBy || "")) return false;
+  goal.supersededBy = "";
+  goal.supersededAt = "";
+  goal.supersededReason = "";
+  goal.status = "active";
+  goal.updatedAt = now();
+  addAudit(state, "goal.supersede.undo", "Вытеснение цели «" + goal.title + "» отменено владельцем", goal.noteId || "");
+  return true;
+}
+
 function addGoal(state, title, options) {
   const cleanTitle = cleanLine(title);
   if (!cleanTitle) return "";
@@ -10828,6 +10950,11 @@ function addGoal(state, title, options) {
   state.goals[id] = {
     id,
     title: cleanTitle,
+    // О7: поля вытеснения заводятся В МОМЕНТ СОЗДАНИЯ. Полагаться на цикл миграции нельзя —
+    // commit() рендерит до того, как normalizeState отработает на новом объекте.
+    supersededBy: "",
+    supersededAt: "",
+    supersededReason: "",
     noteId: options && options.noteId ? options.noteId : state.activeNoteId || "",
     sourceId: options && options.sourceId ? options.sourceId : "",
     targetAmount: Number.isFinite(Number(options && options.targetAmount)) ? Number(options.targetAmount) : 0,
@@ -10885,7 +11012,7 @@ function ensureInsight(state, title, reason, options) {
 }
 
 function refreshDeterministicInsights(state) {
-  const openGoals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status === "active");
+  const openGoals = Object.values(state.goals || {}).filter((goal) => isLiveGoal(goal) && goal.status === "active");
   const habits = Object.values(state.habits || {}).filter((habit) => !habit.deleted && habit.status === "active");
   const today = todayKey();
   for (const habit of habits.filter((habit) => !(habit.checkins && habit.checkins[today]))) {
@@ -15115,7 +15242,7 @@ function spaceRelevanceBoost(space, text) {
 function computeLifeFocus(state) {
   const today = todayKey();
   const activeSpace = LIFE_SPACES.some((row) => row[0] === state.activeSpace) ? state.activeSpace : "all";
-  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+  const goals = Object.values(state.goals || {}).filter((goal) => isLiveGoal(goal) && goal.status !== "done");
   const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done");
   const openProposals = Object.values(state.proposals || {}).filter(isOwnerDecisionProposal);
   const rawCaptures = Object.values(state.sources || {}).filter((item) => !item.deleted && String(item.createdAt || "").slice(0, 10) === today);
@@ -16961,7 +17088,7 @@ function computeAgentPlan(state, agentId) {
     };
   }
   if (agent.id === "goal-watcher") {
-    const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+    const goals = Object.values(state.goals || {}).filter((goal) => isLiveGoal(goal) && goal.status !== "done");
     return {
       agentId,
       name: agent.name,
@@ -17082,7 +17209,7 @@ function runAgentStep(state, agentId, step) {
       return flow.known ? "поток " + formatObjectMoney(flow.perMonth) + " в месяц" : "движения по счетам нет";
     }
     if (step.id === "compare") {
-      const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+      const goals = Object.values(state.goals || {}).filter((goal) => isLiveGoal(goal) && goal.status !== "done");
       return goals.length + " " + pluralRu(goals.length, "цель сверена", "цели сверены", "целей сверено");
     }
     const findings = [];
@@ -18537,7 +18664,7 @@ function computeContradictions(state) {
   const rows = [];
   const flow = objectMonthlyFreeFlow(state);
   const today = todayKey();
-  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+  const goals = Object.values(state.goals || {}).filter((goal) => isLiveGoal(goal) && goal.status !== "done");
 
   // 1. Две денежные цели тянут один поток. Считаем требуемый месячный взнос каждой и сравниваем
   //    с реальным свободным потоком — это ровно тот случай из канона «накопления против августа».
@@ -19231,7 +19358,7 @@ function computeGraphAnswers(state) {
     });
   }
 
-  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status !== "done");
+  const goals = Object.values(state.goals || {}).filter((goal) => isLiveGoal(goal) && goal.status !== "done");
   const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done");
   const blockers = [];
   for (const goal of goals) {
@@ -26018,11 +26145,11 @@ async function handleAction(action, id) {
     const title = titleInput ? titleInput.value : "";
     const targetAmount = amountInput ? Number(amountInput.value || 0) : 0;
     const targetDate = dateInput ? dateInput.value : "";
-    await store.commit("Goal added", (state) => addGoal(state, title, {
-      targetAmount,
-      targetDate,
-      noteId: state.activeNoteId
-    }));
+    await store.commit("Goal added", (state) => {
+      const goalId = addGoal(state, title, { targetAmount, targetDate, noteId: state.activeNoteId });
+      // Тот же путь, что и у разбора: цель, заведённая руками, тоже могла вытеснить прежнюю.
+      if (goalId) proposeGoalSupersede(state, goalId);
+    });
     return;
   }
   if (action === "add-goal-progress") {
@@ -27346,6 +27473,26 @@ window.__lifeosKnowledgeBase = {
   // проверить их без недели ожидания и без живого владельца.
   computeCalibration,
   calibratedConfidence,
+  // О7: вытеснение проверяется целиком — обнаружение, предложение, применение, откат.
+  addGoalForTest(title) {
+    if (!store) return Promise.resolve("");
+    let id = "";
+    return store.commit("Цель заведена для теста", (state) => {
+      id = addGoal(state, String(title || ""), { noteId: state.activeNoteId });
+      if (id) proposeGoalSupersede(state, id);
+    }).then(() => id);
+  },
+  liveGoalsForTest() {
+    return store ? Object.values(store.state.goals || {}).filter(isLiveGoal) : [];
+  },
+  findSupersededGoalForTest(goalId) {
+    return store ? findSupersededGoal(store.state, store.state.goals[cleanLine(goalId)]) : null;
+  },
+  undoGoalSupersedeForTest(goalId) {
+    if (!store) return Promise.resolve(false);
+    let done = false;
+    return store.commit("Вытеснение отменено", (state) => { done = undoGoalSupersede(state, goalId); }).then(() => done);
+  },
   backfillDecisionsFromAudit,
   forgetDecisions,
   recordOwnerDecisionForTest(proposalId, decision, options) {
