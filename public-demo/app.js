@@ -259,10 +259,6 @@ function normalizeRuText(value) {
   return repairMojibake(String(value || "")).toLocaleLowerCase("ru-RU");
 }
 
-function hasRuWordSafe(text, word) {
-  return new RegExp("(^|[^0-9a-zа-яё])" + word + "(?=$|[^0-9a-zа-яё])", "iu").test(text);
-}
-
 function parseDateFromTextHumanSafe(text) {
   const lower = normalizeRuText(text);
   if (hasRuWord(lower, "послезавтра")) return dateKeyFromOffset(2);
@@ -316,41 +312,6 @@ const RU_WEEKDAY_PATTERNS = [
 
 function hasRuWord(text, word) {
   return new RegExp("(^|[^0-9a-z\\u0430-\\u044f\\u0451])" + word + "(?=$|[^0-9a-z\\u0430-\\u044f\\u0451])", "iu").test(text);
-}
-
-function parseDateFromTextHuman(text) {
-  const lower = normalizeRuText(text);
-  if (hasRuWordSafe(lower, "\u043f\u043e\u0441\u043b\u0435\u0437\u0430\u0432\u0442\u0440\u0430")) return dateKeyFromOffset(2);
-  if (hasRuWordSafe(lower, "\u0437\u0430\u0432\u0442\u0440\u0430")) return dateKeyFromOffset(1);
-  if (hasRuWordSafe(lower, "\u0441\u0435\u0433\u043e\u0434\u043d\u044f")) return todayKey();
-  const throughDays = lower.match(/\u0447\u0435\u0440\u0435\u0437\s+(\d{1,2})\s+(?:\u0434\u0435\u043d\u044c|\u0434\u043d\u044f|\u0434\u043d\u0435\u0439|\u0434)/u);
-  if (throughDays) return dateKeyFromOffset(Number(throughDays[1]));
-  if (/\btomorrow\b/.test(lower)) return dateKeyFromOffset(1);
-  if (/\btoday\b/.test(lower)) return todayKey();
-  const iso = lower.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
-  if (iso) return iso[1] + "-" + iso[2] + "-" + iso[3];
-  const dotted = lower.match(/\b(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?\b/);
-  if (dotted) {
-    const currentYear = new Date(todayKey() + "T00:00:00").getUTCFullYear();
-    const year = dotted[3] ? Number(dotted[3].length === 2 ? "20" + dotted[3] : dotted[3]) : currentYear;
-    return String(year).padStart(4, "0") + "-" + String(Number(dotted[2])).padStart(2, "0") + "-" + String(Number(dotted[1])).padStart(2, "0");
-  }
-  const weekdays = [
-    ["\u0432\u043e\u0441\u043a\u0440\u0435\u0441\u0435\u043d\u044c\u0435", "sunday"],
-    ["\u043f\u043e\u043d\u0435\u0434\u0435\u043b\u044c\u043d\u0438\u043a", "monday"],
-    ["\u0432\u0442\u043e\u0440\u043d\u0438\u043a", "tuesday"],
-    ["\u0441\u0440\u0435\u0434\u0430", "wednesday"],
-    ["\u0447\u0435\u0442\u0432\u0435\u0440\u0433", "thursday"],
-    ["\u043f\u044f\u0442\u043d\u0438\u0446\u0430", "friday"],
-    ["\u0441\u0443\u0431\u0431\u043e\u0442\u0430", "saturday"]
-  ];
-  const today = new Date(todayKey() + "T00:00:00Z");
-  for (let index = 0; index < weekdays.length; index += 1) {
-    if (!weekdays[index].some((word) => lower.includes(word))) continue;
-    const offset = (index - today.getUTCDay() + 7) % 7 || 7;
-    return dateKeyFromOffset(offset);
-  }
-  return "";
 }
 
 function parseDateFromText(text) {
@@ -415,75 +376,6 @@ function parseDateFromText(text) {
     return dateKeyFromOffset(offset);
   }
   return "";
-}
-
-function parseTimeFromTextHuman(text) {
-  const source = String(text || "");
-  const lower = normalizeRuText(source);
-  const makeTime = (hour, minute = 0) => {
-    const cleanHour = ((Number(hour) % 24) + 24) % 24;
-    const startTime = String(cleanHour).padStart(2, "0") + ":" + String(Number(minute || 0)).padStart(2, "0");
-    return { startTime, endTime: addMinutesToTime(startTime, 45) };
-  };
-  const ambiguous = (hour, reason, options, suggestedTime) => ({
-    startTime: "",
-    endTime: "",
-    ambiguousTime: true,
-    timeOptions: options || [String(hour).padStart(2, "0") + ":00", String((hour % 12) + 12).padStart(2, "0") + ":00"],
-    suggestedTime: suggestedTime || "",
-    ambiguityReason: reason
-  });
-  const range = lower.match(/(?:^|[^\d])([01]?\d|2[0-3])[:.](\d{2})\s*[-–]\s*([01]?\d|2[0-3])[:.](\d{2})(?:[^\d]|$)/u);
-  if (range) return { startTime: range[1].padStart(2, "0") + ":" + range[2], endTime: range[3].padStart(2, "0") + ":" + range[4] };
-  const clock = lower.match(/(?:^|[^\d])([01]?\d|2[0-3])[:.](\d{2})(?:[^\d]|$)/u);
-  if (clock) return makeTime(Number(clock[1]), Number(clock[2]));
-  if (/\b(вечером|к вечеру|вечерний слот)\b/u.test(lower)) {
-    return ambiguous(20, "Сказано только «вечером»: LifeOS предлагает 20:00, но ждёт подтверждения.", ["19:00", "20:00", "21:00"], "20:00");
-  }
-  if (/\b(утром|с утра)\b/u.test(lower)) return makeTime(9, 0);
-  if (/\b(днем|днём|после обеда)\b/u.test(lower)) return makeTime(14, 0);
-  const marked = lower.match(/(?:^|\s)(?:в|к|at)\s+([01]?\d|2[0-3])\s*(утра|дня|вечера|ночи|am|pm)(?=$|\s|[,.;:!?])/u);
-  if (marked) {
-    let hour = Number(marked[1]);
-    const marker = marked[2];
-    if ((marker === "вечера" || marker === "дня" || marker === "pm") && hour < 12) hour += 12;
-    if (marker === "ночи" && hour >= 5 && hour < 12) hour += 12;
-    if ((marker === "утра" || marker === "am") && hour === 12) hour = 0;
-    return makeTime(hour, 0);
-  }
-  const wordMap = {
-    один: 1,
-    два: 2,
-    три: 3,
-    четыре: 4,
-    пять: 5,
-    шесть: 6,
-    семь: 7,
-    восемь: 8,
-    девять: 9,
-    десять: 10,
-    одиннадцать: 11,
-    двенадцать: 12
-  };
-  const wordHour = lower.match(/\b(?:в|к)\s+(один|два|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать)(?:\s+(утра|дня|вечера|ночи))?\b/u);
-  if (wordHour) {
-    let hour = wordMap[wordHour[1]] || 0;
-    const marker = wordHour[2] || "";
-    if (!marker) return ambiguous(hour, "Время словами без части суток: нужно уточнить утро или вечер.");
-    if ((marker === "вечера" || marker === "дня") && hour < 12) hour += 12;
-    if (marker === "ночи" && hour >= 5 && hour < 12) hour += 12;
-    if (marker === "утра" && hour === 12) hour = 0;
-    return makeTime(hour, 0);
-  }
-  const plainHour = lower.match(/(?:^|\s)(?:в|к|at)\s+([01]?\d|2[0-3])(?=$|\s|[,.;:!?])/u);
-  if (plainHour) {
-    const hour = Number(plainHour[1]);
-    if (hour > 12) return makeTime(hour, 0);
-    const morningContext = /(встать|подъ[её]м|завтрак|утро|утром|зарядк|morning|breakfast)/u.test(lower);
-    if (morningContext || (hour >= 1 && hour <= 7)) return makeTime(hour, 0);
-    return ambiguous(hour, "Время без части суток: уточните 11:00 или 23:00 перед созданием.");
-  }
-  return { startTime: "", endTime: "" };
 }
 
 function parseTimeFromTextHumanSafe(text) {
@@ -653,17 +545,6 @@ function parseTaskSchedule(title, fallbackHint, overrides) {
     endTime,
     dateHint: cleanLine(fallbackHint || "")
   };
-}
-
-function formatDayLabel(dayKey) {
-  const date = new Date(dayKey + "T00:00:00");
-  const week = new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(date);
-  return week + " " + dayKey.slice(5);
-}
-
-function formatSchedule(item) {
-  if (!item || !item.startTime) return "В любое время";
-  return item.endTime ? item.startTime + "-" + item.endTime : item.startTime;
 }
 
 function makeId(prefix) {
@@ -3629,62 +3510,6 @@ function renderMarkdown(body, state) {
     .replace(/\n/g, "<br>");
 }
 
-function buildFolderTree(state) {
-  const folders = Object.values(state.folders).sort((a, b) => {
-    if (a.order !== b.order) return a.order - b.order;
-    return a.name.localeCompare(b.name);
-  });
-  const childrenByParent = {};
-  for (const folder of folders) {
-    const parent = folder.parentId || "root";
-    if (!childrenByParent[parent]) childrenByParent[parent] = [];
-    childrenByParent[parent].push(folder);
-  }
-  const notes = Object.values(state.notes).filter((note) => !note.deleted);
-  function countNotes(folderId, visited) {
-    if (visited.has(folderId)) return 0;
-    visited.add(folderId);
-    let count = notes.filter((note) => note.folderId === folderId).length;
-    const children = childrenByParent[folderId] || [];
-    for (const child of children) count += countNotes(child.id, visited);
-    return count;
-  }
-  function makeNode(folder, depth, visited) {
-    if (visited.has(folder.id)) {
-      return {
-        id: folder.id,
-        name: folder.name,
-        depth,
-        noteCount: notes.filter((note) => note.folderId === folder.id).length,
-        children: []
-      };
-    }
-    visited.add(folder.id);
-    const childFolders = childrenByParent[folder.id] || [];
-    return {
-      id: folder.id,
-      name: folder.name,
-      depth,
-      noteCount: countNotes(folder.id, new Set()),
-      children: childFolders.map((child) => makeNode(child, depth + 1, new Set(visited)))
-    };
-  }
-  const roots = childrenByParent.root || folders.filter((folder) => !state.folders[folder.parentId]);
-  return roots.map((folder) => makeNode(folder, 0, new Set()));
-}
-
-function flattenFolderTree(nodes) {
-  const output = [];
-  function walk(list) {
-    for (const node of list) {
-      output.push(node);
-      walk(node.children);
-    }
-  }
-  walk(nodes);
-  return output;
-}
-
 function searchNotes(state, query) {
   const liveNotes = Object.values(state.notes).filter((note) => !note.deleted);
   const clean = normalizeTitle(query || "");
@@ -4883,20 +4708,6 @@ function inferArtifactType(source) {
   return source.kind === "text" ? "текст" : source.kind || "файл";
 }
 
-function extractActionLines(text) {
-  const lines = String(text || "").split(/\r?\n/);
-  return uniqueCleanItems(lines.filter((line) => {
-    const value = cleanLine(line).toLocaleLowerCase();
-    return /(^[-*]\s*\[?\s?]?\s*)?(task|action|нужно|надо|сделать|важно|проверить|создать|подготовить|купить|написать|позвонить|исправить|добавить)/.test(value);
-  }).map((line) => line.replace(/^[-*]\s*\[?\s?]?\s*/, "")), 5);
-}
-
-function extractDateHints(text) {
-  const source = String(text || "");
-  const matches = source.match(/\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b|\b(today|tomorrow|сегодня|завтра|понедельник|вторник|среда|четверг|пятница|суббота|воскресенье)\b/gi) || [];
-  return uniqueCleanItems(matches, 5);
-}
-
 function extractActionLinesV5(text) {
   const lines = String(text || "").split(/\r?\n/);
   const actionPattern = /(^[-*]\s*\[?\s?]?\s*)?(task|action|t[o]do|need|нужно|надо|сделать|важно|проверить|создать|подготовить|купить|написать|позвонить|исправить|добавить|встреча|созвон|запланировать|разобрать|прочитать|послушать|отправить|ответить|назначить|обсудить|решить|РЅСѓР¶РЅРѕ|РЅР°РґРѕ|СЃРґРµлать|РІР°Р¶РЅРѕ|РїСЂРѕРІРµСЂРёС‚СЊ|СЃРѕР·Рґать|РїРѕРґРіРѕС‚РѕРІРёС‚СЊ|РєСѓРїРёС‚СЊ|РЅР°РїРёСЃР°С‚СЊ|РїРѕР·РІРѕРЅРёС‚СЊ|РёСЃРїСЂР°РІРёС‚СЊ|РґРѕР±Р°РІРёС‚СЊ)/;
@@ -4922,11 +4733,6 @@ function extractEmails(text) {
 function extractHeadings(text) {
   const lines = String(text || "").split(/\r?\n/);
   return uniqueCleanItems(lines.filter((line) => /^#{1,4}\s+/.test(line)).map((line) => line.replace(/^#{1,4}\s+/, "")), 5);
-}
-
-function proposalGroupLabel(groupKey) {
-  const row = PROPOSAL_GROUPS.find((item) => item[0] === groupKey);
-  return row ? row[1] : "Действия";
 }
 
 function groupForProposalType(type) {
@@ -7565,98 +7371,6 @@ function chatContextSentence(context) {
   return text ? "В фокусе «" + title + "»: " + text + "." : "В фокусе «" + title + "».";
 }
 
-function chatLocalEngineSummaryLegacy(state) {
-  const status = state.ollama && state.ollama.status ? state.ollama.status : "unchecked";
-  if (status === "models_found") return "Ollama найдена, но чат всё равно не отправляет данные наружу без явного действия.";
-  if (status === "reachable") return "Ollama доступна, модель выбирается отдельно; локальный чат уже работает без неё.";
-  return "Ollama сейчас не нужна для этого ответа: он собран локально из состояния LifeOS в браузере.";
-}
-
-function buildLocalChatAnswerLegacy(state, text) {
-  const raw = cleanLine(repairMojibake(text));
-  if (!raw) return "Напиши сообщение, и я отвечу по текущему контексту LifeOS.";
-  const q = normalizeRuText(raw).toLocaleLowerCase();
-  const context = activeChatContext(state);
-  const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done");
-  const openProposals = Object.values(state.proposals || {}).filter(isOwnerDecisionProposal);
-  const systemsCount = Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted).length;
-  const databasesCount = Object.values(state.customDatabases || {}).filter((item) => !item.deleted).length;
-  const modelsCount = Object.values(state.modelProfiles || {}).filter((item) => !item.deleted).length;
-  const contextLine = chatContextSentence(context);
-  const found = localChatSearchLines(state, raw).filter(Boolean);
-
-  if (/\b(привет|hello|hi|здравствуй|здарова)\b/i.test(q)) {
-    return "Привет. Я на месте: сообщение сохранено в локальном чате и ответ строится прямо внутри LifeOS. " + contextLine;
-  }
-
-  if (chatHasAny(q, ["enter", "энтер", "клавиш", "отправить нужно", "только кнопкой", "shift+enter"])) {
-    return "Enter должен отправлять сообщение, Shift+Enter оставляет перенос строки. Если после обновления страницы это не так, значит открыт старый кэш сборки, а не текущий код. Я не меняю данные молча: сообщение сохраняется, ответ добавляется, затем чат прокручивается к последнему сообщению.";
-  }
-
-  if (chatHasAny(q, ["шаблон", "заглушк", "будешь отвечать", "только шаблон", "не рабоч", "нерабоч", "тупо", "не отвеч", "ответишь", "ответь", "чат работает"])) {
-    return [
-      "Да, буду отвечать на вопросы, а не повторять одну фразу.",
-      "Текущий режим честный: это локальный контекстный движок, не свободный LLM, поэтому я распознаю намерение, беру активный артефакт, задачи, предложения, системы, граф и отвечаю по тому, что реально есть в хранилище.",
-      chatLocalEngineSummary(state),
-      contextLine
-    ].join(" ");
-  }
-
-  if (chatHasAny(q, ["локально", "желез", "компьютер", "браузер", "за счет", "за сч", "работаеш", "работаешь", "ollama", "оллама", "модель", "ai", "ии"])) {
-    return [
-      "Сейчас ответ работает локально: браузер читает состояние LifeOS из IndexedDB/localStorage и строит ответ без отправки твоих данных во внешний сервис.",
-      chatLocalEngineSummary(state),
-      "Когда Ollama будет реально поднята и проверена, её можно использовать как отдельный локальный LLM-слой, но отсутствие Ollama больше не должно превращать чат в мёртвую заглушку."
-    ].join(" ");
-  }
-
-  if (chatHasAny(q, ["что умеешь", "что можешь", "как работает", "функц", "возможн", "сценар"])) {
-    return [
-      "Могу объяснить активный артефакт, найти связанные заметки, предложить следующий шаг, посчитать открытые задачи/предложения, связать сообщение с графом и превратить твоё сообщение в задачу или план через явную кнопку.",
-      "Сейчас в системе: открытых задач " + openTasks.length + ", открытых предложений " + openProposals.length + ", систем " + systemsCount + ", баз " + databasesCount + ".",
-      "Никаких скрытых действий: сначала ответ или предложение, потом твоё подтверждение."
-    ].join(" ");
-  }
-
-  if (chatHasAny(q, ["что это", "что за", "контекст", "артефакт", "ввод", "связано"])) {
-    return contextLine + " В LifeOS это не просто поле ввода: сообщение хранится локально, получает связь с активным артефактом и может стать задачей, планом или предложением, но без твоего явного действия я ничего не меняю.";
-  }
-
-  if (chatHasAny(q, ["что делать", "дальше", "следующ", "план", "next", "порядок"])) {
-    const next = [];
-    if (openProposals.length) next.push("разобрать " + openProposals.length + " открытых предложений во Входящих");
-    if (openTasks.length) next.push("закрыть или запланировать " + openTasks.length + " открытых задач");
-    if (context.source) next.push("превратить активный источник в задачу или календарный блок");
-    if (!next.length) next.push("захватить новый источник или создать систему под текущий процесс");
-    return contextLine + " Следующий практичный порядок: " + next.slice(0, 3).join("; ") + ". Быстрый путь: кнопка «Сделать задачей» рядом с твоим сообщением или раздел «Входящие» для применения предложений.";
-  }
-
-  if (chatHasAny(q, ["задач", "напомин", "календар"])) {
-    return "По текущему контексту можно создать задачу или календарный шаг. Я не создаю его молча: нажми «Сделать задачей» у своего сообщения, либо перейди во «Входящие» и примени предложение. Открытых задач сейчас: " + openTasks.length + ".";
-  }
-
-  if (chatHasAny(q, ["найди", "поиск", "искать", "search"])) {
-    return found.length
-      ? "Нашёл в локальной базе: " + found.join("; ") + ". Открой «База» или «Граф», чтобы перейти к связанным артефактам."
-      : "В локальной базе по этому запросу явных совпадений не нашёл. Можно сохранить запрос через «Команды» или добавить источник во «Входящие».";
-  }
-
-  if (chatHasAny(q, ["деньг", "финанс", "расход", "баланс"])) {
-    const summary = financeSummary(state);
-    return "По финансам сейчас: баланс " + Math.round(summary.balance || 0).toLocaleString("ru-RU") + " ₽, расходы сегодня " + Math.round(summary.todaySpend || 0).toLocaleString("ru-RU") + " ₽. Для записи расхода открой «Деньги» или введи во «Входящие»: Расход: название сумма.";
-  }
-
-  if (chatHasAny(q, ["систем", "v34", "маркет", "пак", "баз"])) {
-    return "В v34 уже есть " + systemsCount + " систем, " + databasesCount + " баз и " + modelsCount + " маршрутов моделей. Системы и базы создаются как локальные артефакты: они видны в Графе, Контроле и экспорте. Marketplace ставит только local-definition пакеты без запуска чужого кода.";
-  }
-
-  if (found.length) {
-    return "Похоже, это связано с локальными артефактами: " + found.join("; ") + ". " + contextLine + " Я бы сначала открыл связь в «Графе», а действие оформил как предложение, чтобы ничего не поменять без подтверждения.";
-  }
-
-  return "Прямого факта по этому вопросу в локальном контексте не вижу. " + contextLine + " Могу безопасно сделать следующее: оставить это как сообщение, превратить в задачу/план через кнопку рядом с сообщением или использовать текст как запрос по Базе и Графу. Данные сам не меняю.";
-}
-
 function chatSurfaceLabel(surface) {
   const labels = {
     inbox: "Дом",
@@ -10165,24 +9879,10 @@ function transcriptSegmentsForSource(state, sourceId) {
     .sort((a, b) => a.index - b.index);
 }
 
-function audioCheckpointsForSource(state, sourceId) {
-  return Object.values(state.audioCheckpoints || {})
-    .filter((checkpoint) => !checkpoint.deleted && checkpoint.sourceId === sourceId)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
-
-// U5 READER: checkpoints are typed free-form ("00:30", "1:23:45", or bare seconds); this is
-// the one place that turns that text back into a seekable number.
 function parseTimecodeToSeconds(timecode) {
   const parts = String(timecode || "").trim().split(":").map((part) => Number(part));
   if (!parts.length || parts.some((part) => !Number.isFinite(part))) return NaN;
   return parts.reduce((total, part) => total * 60 + part, 0);
-}
-
-function playerNotesForSource(state, sourceId) {
-  return Object.values(state.playerNotes || {})
-    .filter((playerNote) => !playerNote.deleted && playerNote.sourceId === sourceId)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 function addAudioCheckpoint(state, sourceId, title, timecode, noteText, options) {
@@ -15023,285 +14723,8 @@ function renderAppRibbon(state) {
   ].join("");
 }
 
-function renderOwnerAppRibbon(state) {
-  const humanSurfaces = primaryOwnerSurfaces().map((surface) => [surface[0], surface[1]]);
-  const extraSurfaces = secondaryOwnerSurfaces();
-  return [
-    "<nav class=\"app-ribbon human-app-ribbon\" data-testid=\"app-ribbon\">",
-    humanSurfaces.map((surface) => {
-      const active = state.activeSurface === surface[0] ? " active" : "";
-      return "<button class=\"surface-button" + active + "\" data-action=\"set-surface\" data-id=\"" + surface[0] + "\" data-testid=\"surface-" + surface[0] + "\">" + escapeHtml(surface[1]) + "</button>";
-    }).join(""),
-    "<details class=\"surface-more\"><summary>Ещё</summary><div>" + extraSurfaces.map((surface) => "<button class=\"surface-button\" data-action=\"set-surface\" data-id=\"" + surface[0] + "\" data-testid=\"surface-" + surface[0] + "\">" + escapeHtml(surface[1]) + "</button>").join("") + "</div></details>",
-    "</nav>"
-  ].join("");
-  const surfaces = [
-    ["inbox", "Дом"],
-    ["capture", "Вход"],
-    ["library", "Библиотека"],
-    ["reader", "Reader"],
-    ["today", "Сегодня"],
-    ["calendar", "Календарь"],
-    ["finance", "Финансы"],
-    ["habits", "Привычки"],
-    ["goals", "Цели"],
-    ["chat", "Чат"],
-    ["agents", "Агенты"],
-    ["flows", "Flow"],
-    ["player", "Плеер"],
-    ["graph", "Граф"],
-    ["mail", "Почта"],
-    ["control", "Контроль"],
-    ["providers", "Провайдеры"]
-  ];
-  return [
-    "<nav class=\"app-ribbon\" data-testid=\"app-ribbon\">",
-    surfaces.map((surface) => {
-      const active = state.activeSurface === surface[0] ? " active" : "";
-      return "<button class=\"surface-button" + active + "\" data-action=\"set-surface\" data-id=\"" + surface[0] + "\" data-testid=\"surface-" + surface[0] + "\">" + surface[1] + "</button>";
-    }).join(""),
-    "</nav>"
-  ].join("");
-}
-
-function renderSidebar(state) {
-  if (state.activeSurface === "inbox") return renderInboxRail(state);
-  if (state.activeSurface === "capture") return renderCaptureRail(state);
-  const tree = flattenFolderTree(buildFolderTree(state));
-  const notes = searchNotes(state, state.searchQuery);
-  return [
-    "<aside class=\"sidebar\">",
-    "<section class=\"rail-section\">",
-    "<div class=\"section-title\">Folders</div>",
-    "<div class=\"folder-tree\" data-testid=\"folder-tree\">",
-    tree.map((folder) => renderFolderRow(state, folder)).join(""),
-    "</div>",
-    "</section>",
-    "<section class=\"rail-section notes-section\">",
-    "<div class=\"section-title\">Notes</div>",
-    "<div class=\"note-list\" data-testid=\"note-list\">",
-    notes.length ? notes.map((note) => renderNoteRow(state, note)).join("") : "<div class=\"empty compact\">No notes match the query.</div>",
-    "</div>",
-    "</section>",
-    "</aside>"
-  ].join("");
-}
-
-function renderInboxRail(state) {
-  return renderHumanNavRail(state);
-  const railSource = latestSource(state);
-  const railSurfaces = [
-    ["inbox", "Дом", "день"],
-    ["capture", "Вход", "разбор"],
-    ["today", "Сегодня", "день"],
-    ["calendar", "Календарь", "неделя"],
-    ["finance", "Финансы", "бюджет"],
-    ["habits", "Привычки", "ритмы"],
-    ["goals", "Цели", "прогресс"],
-    ["library", "Библиотека", "знания"],
-    ["reader", "Reader", "книги"],
-    ["player", "Плеер", "аудио"],
-    ["chat", "Чат", "локально"],
-    ["agents", "Агенты", "проверка"],
-    ["flows", "Flow", "авто"],
-    ["graph", "Граф", "связи"],
-    ["control", "Контроль", "аудит"],
-    ["providers", "Провайдеры", "статус"]
-  ];
-  const railRecentSources = Object.values(state.sources || {})
-    .filter((item) => !item.deleted && item.name !== "daily-capture.md")
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 4);
-  const today = ownerTodaySummary(state);
-  const money = financeSummary(state);
-  return [
-    "<aside class=\"sidebar inbox-rail home-workspace-rail\" data-testid=\"home-workspace-rail\">",
-    "<section class=\"rail-section rail-primary-nav\">",
-    "<div class=\"section-title\">LifeOS</div>",
-    "<div class=\"rail-flow\">",
-    railSurfaces.map((surface) => {
-      const active = state.activeSurface === surface[0] ? " active" : "";
-      return "<button class=\"flow-step" + active + "\" data-action=\"set-surface\" data-id=\"" + surface[0] + "\" data-testid=\"rail-surface-" + surface[0] + "\"><strong>" + escapeHtml(surface[1]) + "</strong><span>" + escapeHtml(surface[2]) + "</span></button>";
-    }).join(""),
-    "</div>",
-    "</section>",
-    "<section class=\"rail-section rail-now\">",
-    "<div class=\"section-title\">Сейчас</div>",
-    railSource && railSource.name !== "daily-capture.md" ? [
-      "<button class=\"source-name rail-artifact\" data-action=\"open-source-note\" data-id=\"" + escapeHtml(railSource.id) + "\">" + escapeHtml(railSource.name) + "</button>",
-      "<div class=\"rail-meta\">" + escapeHtml([railSource.kind, railSource.status, railSource.parserStatus].filter(Boolean).join(" / ")) + "</div>"
-    ].join("") : "<div class=\"empty compact\">Сначала кинь данные в большое поле. Разбор появится рядом с действиями.</div>",
-    "</section>",
-    "<section class=\"rail-section rail-quick-state\">",
-    "<div class=\"section-title\">Коротко</div>",
-    "<div class=\"rail-stats compact-stats\">",
-    "<div><strong>" + today.todayCount + "</strong><span>сегодня</span></div>",
-    "<div><strong>" + today.tomorrowCount + "</strong><span>завтра</span></div>",
-    "<div><strong>" + Math.round(money.todaySpend) + "</strong><span>₽ сегодня</span></div>",
-    "<div><strong>" + today.habitDone + "/" + today.habitTotal + "</strong><span>привычки</span></div>",
-    "</div>",
-    "</section>",
-    "<section class=\"rail-section rail-recent-sources\">",
-    "<div class=\"section-title\">Последние входы</div>",
-    railRecentSources.length ? railRecentSources.map((item) => {
-      return "<button class=\"rail-source\" data-action=\"open-source-note\" data-id=\"" + escapeHtml(item.id) + "\"><strong>" + escapeHtml(item.name) + "</strong><span>" + escapeHtml(item.kind + " / " + item.status) + "</span></button>";
-    }).join("") : "<div class=\"empty compact\">Источники появятся после первого ввода или файла.</div>",
-    "</section>",
-    "</aside>"
-  ].join("");
-  const source = latestSource(state);
-  const graph = mapGraph(state);
-  const openProposals = Object.values(state.proposals || {}).filter(isOwnerDecisionProposal).length;
-  const openTasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.status !== "done").length;
-  const recentSources = Object.values(state.sources || {}).filter((item) => !item.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
-  const recentNotes = Object.values(state.notes || {}).filter((item) => !item.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
-  const steps = [
-    ["inbox", "1", "Вход"],
-    ["library", "2", "База"],
-    ["today", "3", "План"],
-    ["chat", "4", "Чат"],
-    ["agents", "5", "Агент"],
-    ["graph", "6", "Граф"],
-    ["control", "7", "Контроль"]
-  ];
-  return [
-    "<aside class=\"sidebar inbox-rail\" data-testid=\"inbox-rail\">",
-    "<section class=\"rail-section\">",
-    "<div class=\"section-title\">Поток артефакта</div>",
-    "<div class=\"rail-flow\">",
-    steps.map((step) => "<button class=\"flow-step\" data-action=\"set-surface\" data-id=\"" + step[0] + "\"><strong>" + step[1] + "</strong><span>" + step[2] + "</span></button>").join(""),
-    "</div>",
-    "</section>",
-    "<section class=\"rail-section rail-now\">",
-    "<div class=\"section-title\">Сейчас в работе</div>",
-    source ? [
-      "<button class=\"source-name rail-artifact\" data-action=\"open-source-note\" data-id=\"" + escapeHtml(source.id) + "\">" + escapeHtml(source.name) + "</button>",
-      "<div class=\"rail-meta\">" + escapeHtml([source.kind, source.status, source.parserStatus].filter(Boolean).join(" / ")) + "</div>"
-    ].join("") : "<div class=\"empty compact\">Брось текст, файл, книгу или аудио в центр экрана.</div>",
-    "</section>",
-    "<section class=\"rail-section\">",
-    "<div class=\"section-title\">Живые связи</div>",
-    "<div class=\"rail-stats\">",
-    "<div><strong>" + graph.nodes.length + "</strong><span>узлов</span></div>",
-    "<div><strong>" + graph.links.length + "</strong><span>связей</span></div>",
-    "<div><strong>" + openTasks + "</strong><span>задач</span></div>",
-    "<div><strong>" + openProposals + "</strong><span>действий</span></div>",
-    "</div>",
-    "</section>",
-    "<section class=\"rail-section\">",
-    "<div class=\"section-title\">Последние источники</div>",
-    recentSources.length ? recentSources.map((item) => {
-      return "<button class=\"rail-source\" data-action=\"open-source-note\" data-id=\"" + escapeHtml(item.id) + "\"><strong>" + escapeHtml(item.name) + "</strong><span>" + escapeHtml(item.kind + " / " + item.status) + "</span></button>";
-    }).join("") : "<div class=\"empty compact\">Источники появятся после импорта.</div>",
-    "</section>",
-    "<section class=\"rail-section\">",
-    "<div class=\"section-title\">Быстрый доступ</div>",
-    recentNotes.map((item) => "<button class=\"note-row\" data-action=\"open-note\" data-id=\"" + escapeHtml(item.id) + "\"><span class=\"note-title\">" + escapeHtml(item.title) + "</span><span class=\"note-meta\">" + item.links.length + " links</span></button>").join(""),
-    "</section>",
-    "</aside>"
-  ].join("");
-}
-
-function renderCaptureRail(state) {
-  const sources = Object.values(state.sources || {})
-    .filter((item) => !item.deleted && item.name !== "daily-capture.md")
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const openProposals = Object.values(state.proposals || {}).filter(isOwnerDecisionProposal);
-  const readySources = sources.filter((source) => source.status === "captured" || source.status === "text-ready" || source.status === "audio-stored" || source.parserStatus);
-  return [
-    "<aside class=\"sidebar inbox-rail capture-rail\" data-testid=\"capture-rail\">",
-    "<section class=\"rail-section rail-primary-nav\">",
-    "<div class=\"section-title\">Вечерний разбор</div>",
-    "<div class=\"rail-stats compact-stats\">",
-    "<div><strong>" + sources.length + "</strong><span>источников</span></div>",
-    "<div><strong>" + openProposals.length + "</strong><span>предложений</span></div>",
-    "<div><strong>" + readySources.length + "</strong><span>ждут решения</span></div>",
-    "<div><strong>" + state.auditLog.length + "</strong><span>событий</span></div>",
-    "</div>",
-    "</section>",
-    "<section class=\"rail-section\">",
-    "<div class=\"section-title\">Маршрут</div>",
-    "<div class=\"rail-flow\">",
-    [["inbox", "Дом", "итог"], ["capture", "Вход", "очередь"], ["graph", "Граф", "связи"], ["control", "Контроль", "аудит"]].map((surface) => {
-      const active = state.activeSurface === surface[0] ? " active" : "";
-      return "<button class=\"flow-step" + active + "\" data-action=\"set-surface\" data-id=\"" + surface[0] + "\" data-testid=\"surface-" + surface[0] + "\"><strong>" + escapeHtml(surface[1]) + "</strong><span>" + escapeHtml(surface[2]) + "</span></button>";
-    }).join(""),
-    "</div>",
-    "</section>",
-    "<section class=\"rail-section rail-recent-sources\">",
-    "<div class=\"section-title\">Последние источники</div>",
-    sources.slice(0, 6).map((item) => "<button class=\"rail-source\" data-action=\"open-source-note\" data-id=\"" + escapeHtml(item.id) + "\"><strong>" + escapeHtml(item.name) + "</strong><span>" + escapeHtml([item.kind, item.status, item.parserStatus].filter(Boolean).join(" / ")) + "</span></button>").join("") || "<div class=\"empty compact\">Очередь появится после текста, файла, скрина, аудио или книги.</div>",
-    "</section>",
-    "</aside>"
-  ].join("");
-}
-
-function renderFolderRow(state, folder) {
-  const active = state.activeFolderId === folder.id ? " active" : "";
-  return [
-    "<button class=\"folder-row" + active + "\" data-action=\"select-folder\" data-id=\"" + escapeHtml(folder.id) + "\" style=\"--depth:" + folder.depth + "\">",
-    "<span>" + escapeHtml(folder.name) + "</span>",
-    "<strong>" + folder.noteCount + "</strong>",
-    "</button>"
-  ].join("");
-}
-
-function renderNoteRow(state, note) {
-  const active = state.activeNoteId === note.id ? " active" : "";
-  const folder = state.folders[note.folderId];
-  return [
-    "<button class=\"note-row" + active + "\" data-action=\"open-note\" data-id=\"" + escapeHtml(note.id) + "\" data-testid=\"note-row\">",
-    "<span class=\"note-title\">" + escapeHtml(note.title) + "</span>",
-    "<span class=\"note-meta\">" + escapeHtml(folder ? folder.name : "Vault") + " · " + note.links.length + " links</span>",
-    "</button>"
-  ].join("");
-}
-
 function latestSource(state) {
   return Object.values(state.sources || {}).filter((source) => !source.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null;
-}
-
-function latestAgentRun(state) {
-  return Object.values(state.agentRuns || {}).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null;
-}
-
-function latestChatMessage(state) {
-  return Object.values(state.chatMessages || {}).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] || null;
-}
-
-function renderArtifactAnalysisPanelV2(state, source) {
-  const analysis = source ? normalizeArtifactAnalysis(source.analysis, source) : null;
-  const classes = analysis ? analysis.detectedClasses || [] : [];
-  const drafts = analysis ? analysis.drafts || [] : [];
-  const rows = analysis ? [
-    ["Тип", analysis.type],
-    ["Классы", classes.length],
-    ["Задачи / drafts", drafts.length],
-    ["Confidence", Math.round((analysis.confidence || 0) * 100) + "%"],
-    ["Даты", analysis.dateHints.length],
-    ["Деньги", analysis.entities && analysis.entities.money ? analysis.entities.money.length : 0]
-  ] : [
-    ["Тип", "ждет вход"],
-    ["Классы", 0],
-    ["Задачи / drafts", 0],
-    ["Confidence", "0%"],
-    ["Даты", 0],
-    ["Деньги", 0]
-  ];
-  return [
-    "<section class=\"analysis-panel\" data-testid=\"analysis-panel\">",
-    "<div class=\"analysis-copy\">",
-    "<div class=\"section-title\">Что LifeOS понял</div>",
-    "<strong>" + escapeHtml(analysis ? analysis.summary : "Пока ничего не разобрано. Вставь текст или файл в главный ввод.") + "</strong>",
-    analysis ? "<p>" + escapeHtml(analysis.reason) + "</p>" : "",
-    "</div>",
-    "<div class=\"analysis-stats\">",
-    rows.map((row) => "<div><span>" + escapeHtml(row[0]) + "</span><strong>" + escapeHtml(row[1]) + "</strong></div>").join(""),
-    "</div>",
-    analysis ? "<div class=\"analysis-tags\">" + classes.slice(0, 12).map((item) => "<span>" + escapeHtml(item) + "</span>").join("") + "</div>" : "",
-    drafts.length ? "<div class=\"analysis-tags destinations\">" + uniqueCleanItems(drafts.map((item) => item.destination), 8).map((item) => "<span>" + escapeHtml(item) + "</span>").join("") + "</div>" : "",
-    "</section>"
-  ].join("");
 }
 
 function renderArtifactAnalysisPanel(state, source) {
@@ -15351,17 +14774,6 @@ function renderReceiptPanel(state) {
       ].join("");
     }).join("") : "<div class=\"empty compact\">Действия появятся после первого изменения.</div>",
     "</section>"
-  ].join("");
-}
-
-function renderAnalysisList(title, items) {
-  const values = uniqueCleanItems(items, 5);
-  if (!values.length) return "";
-  return [
-    "<div class=\"analysis-list\">",
-    "<span>" + escapeHtml(title) + "</span>",
-    values.map((item) => "<strong>" + escapeHtml(shorten(item, 48)) + "</strong>").join(""),
-    "</div>"
   ].join("");
 }
 
@@ -15468,16 +14880,6 @@ function renderCommandCenter(state, note) {
     renderCalendarPanel(state),
     renderProviderPanelV2(state),
     "</section>"
-  ].join("");
-}
-
-function renderCommandCard(surface, title, metric, caption, button, testId) {
-  return [
-    "<article class=\"command-card\" data-testid=\"command-card-" + surface + "\">",
-    "<div><strong>" + escapeHtml(title) + "</strong><span>" + escapeHtml(metric) + "</span></div>",
-    "<p>" + escapeHtml(caption) + "</p>",
-    "<button data-action=\"set-surface\" data-id=\"" + escapeHtml(surface) + "\" data-testid=\"" + escapeHtml(testId) + "\">" + escapeHtml(button) + "</button>",
-    "</article>"
   ].join("");
 }
 
@@ -20271,58 +19673,6 @@ function renderProductBrainChatContext(state) {
   ].join("");
 }
 
-function primaryOwnerSurfaces() {
-  return [
-    ["inbox", "Дом", "старт"],
-    ["today", "Сегодня", "дела"],
-    ["capture", "Входящие", "разбор"],
-    ["calendar", "Календарь", "время"],
-    ["finance", "Деньги", "бюджет"],
-    ["library", "База", "знания"],
-    ["chat", "Чат", "диалог"],
-    ["graph", "Граф", "связи"],
-    ["control", "Контроль", "данные"]
-  ];
-}
-
-function secondaryOwnerSurfaces() {
-  return [
-    ["reader", "Чтение"],
-    ["player", "Аудио"],
-    ["habits", "Привычки"],
-    ["goals", "Цели"],
-    ["agents", "Агенты"],
-    ["flows", "Сценарии"],
-    ["providers", "Подключения"]
-  ];
-}
-
-function renderHumanNavRail(state) {
-  const primary = primaryOwnerSurfaces();
-  const secondary = secondaryOwnerSurfaces();
-  return [
-    "<aside class=\"sidebar human-nav-rail\" data-testid=\"home-workspace-rail\">",
-    "<section class=\"rail-section rail-primary-nav\">",
-    "<div class=\"section-title\">LifeOS</div>",
-    "<div class=\"rail-flow human-nav-list\">",
-    primary.map((surface) => {
-      const active = state.activeSurface === surface[0] ? " active" : "";
-      return "<button class=\"flow-step human-nav-item" + active + "\" data-action=\"set-surface\" data-id=\"" + surface[0] + "\" data-testid=\"rail-surface-" + surface[0] + "\"><strong>" + escapeHtml(surface[1]) + "</strong><span>" + escapeHtml(surface[2]) + "</span></button>";
-    }).join(""),
-    "</div>",
-    "</section>",
-    "<details class=\"rail-section human-more-nav\"><summary>Ещё</summary>",
-    "<div class=\"rail-flow human-nav-list secondary\">",
-    secondary.map((surface) => {
-      const active = state.activeSurface === surface[0] ? " active" : "";
-      return "<button class=\"flow-step human-nav-item" + active + "\" data-action=\"set-surface\" data-id=\"" + surface[0] + "\"><strong>" + escapeHtml(surface[1]) + "</strong></button>";
-    }).join(""),
-    "</div>",
-    "</details>",
-    "</aside>"
-  ].join("");
-}
-
 function humanVisibleSource(state) {
   const source = latestSource(state);
   return source && source.name !== "daily-capture.md" ? source : null;
@@ -20850,16 +20200,6 @@ function renderCommandCenterV5(state, note) {
   ].join("");
 }
 
-function renderCommandCardV5(surface, title, metric, caption, button, testId) {
-  const cardTestId = surface === "control" ? "command-card-control" : testId;
-  return [
-    "<button class=\"command-card\" data-action=\"set-surface\" data-id=\"" + escapeHtml(surface) + "\" data-testid=\"" + escapeHtml(cardTestId) + "\">",
-    "<strong>" + escapeHtml(title) + "</strong>",
-    "<span>" + escapeHtml(metric) + "</span>",
-    "</button>"
-  ].join("");
-}
-
 function renderArtifactPipeline(state) {
   const source = latestSource(state);
   const hasSource = Boolean(source);
@@ -20877,63 +20217,6 @@ function renderArtifactPipeline(state) {
     "<section class=\"artifact-pipeline\" data-testid=\"artifact-pipeline\">",
     steps.map((step) => "<div><strong>" + escapeHtml(step[0]) + "</strong><span>" + escapeHtml(step[1]) + "</span></div>").join(""),
     "</section>"
-  ].join("");
-}
-
-function knowledgeObjectsForNote(state, noteId) {
-  const claims = Object.values(state.claims || {}).filter((claim) => !claim.deleted && claim.noteId === noteId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const questions = Object.values(state.questions || {}).filter((question) => !question.deleted && question.noteId === noteId && question.status !== "ignored").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const reviewItems = Object.values(state.reviewItems || {}).filter((reviewItem) => !reviewItem.deleted && reviewItem.noteId === noteId).sort((a, b) => a.day.localeCompare(b.day) || b.updatedAt.localeCompare(a.updatedAt));
-  const insights = Object.values(state.insights || {}).filter((insight) => insight.noteId === noteId && insight.status !== "ignored").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  return { claims, questions, reviewItems, insights };
-}
-
-function renderClaimRow(claim) {
-  return [
-    "<article class=\"knowledge-row claim-row\" data-testid=\"claim-row\">",
-    "<div class=\"knowledge-row-main\">",
-    "<strong>" + escapeHtml(claim.title) + "</strong>",
-    claim.body ? "<span>" + escapeHtml(shorten(claim.body, 160)) + "</span>" : "",
-    "</div>",
-    "<div class=\"knowledge-actions\">",
-    "<button data-action=\"claim-to-insight\" data-id=\"" + escapeHtml(claim.id) + "\" data-testid=\"claim-to-insight\">Инсайт</button>",
-    "<button data-action=\"claim-to-task\" data-id=\"" + escapeHtml(claim.id) + "\" data-testid=\"claim-to-task\">Создать задачу</button>",
-    "<button data-action=\"open-knowledge-control\" data-id=\"" + escapeHtml(claim.id) + "\">Контроль</button>",
-    "</div>",
-    "</article>"
-  ].join("");
-}
-
-function renderQuestionRow(question) {
-  return [
-    "<article class=\"knowledge-row question-row " + escapeHtml(question.status) + "\" data-testid=\"question-row\">",
-    "<div class=\"knowledge-row-main\">",
-    "<strong>" + escapeHtml(question.title) + "</strong>",
-    question.body ? "<span>" + escapeHtml(shorten(question.body, 160)) + "</span>" : "",
-    "</div>",
-    "<div class=\"knowledge-actions\">",
-    "<button data-action=\"question-to-task\" data-id=\"" + escapeHtml(question.id) + "\" data-testid=\"question-to-task\">Создать задачу</button>",
-    "<button data-action=\"ignore-question\" data-id=\"" + escapeHtml(question.id) + "\">Пропустить</button>",
-    "<button data-action=\"open-knowledge-control\" data-id=\"" + escapeHtml(question.id) + "\">Контроль</button>",
-    "</div>",
-    "</article>"
-  ].join("");
-}
-
-function renderReviewRow(reviewItem) {
-  const done = reviewItem.status === "done";
-  return [
-    "<article class=\"knowledge-row review-row " + (done ? "done" : "open") + "\" data-testid=\"review-row\">",
-    "<div class=\"knowledge-row-main\">",
-    "<strong>" + escapeHtml(reviewItem.title) + "</strong>",
-    "<span>" + escapeHtml(reviewItem.day) + " / " + escapeHtml(reviewItem.status) + "</span>",
-    "</div>",
-    "<div class=\"knowledge-actions\">",
-    "<button data-action=\"toggle-review-item\" data-id=\"" + escapeHtml(reviewItem.id) + "\" data-testid=\"toggle-review-item\">" + (done ? "Вернуть" : "Готово") + "</button>",
-    "<button data-action=\"review-reminder\" data-id=\"" + escapeHtml(reviewItem.id) + "\" data-testid=\"review-reminder\">Напомнить</button>",
-    "<button data-action=\"open-knowledge-control\" data-id=\"" + escapeHtml(reviewItem.id) + "\">Контроль</button>",
-    "</div>",
-    "</article>"
   ].join("");
 }
 
@@ -20956,142 +20239,6 @@ function renderProductBrainLibraryCard(state, note) {
     related.map((item) => "<button data-action=\"open-note\" data-id=\"" + escapeHtml(item.id) + "\">" + escapeHtml(item.title) + "</button>").join(""),
     "</div>",
     "<div class=\"knowledge-actions\"><button data-action=\"set-surface\" data-id=\"graph\" data-testid=\"product-brain-open-graph\">Показать связи</button><button data-action=\"set-surface\" data-id=\"control\" data-testid=\"product-brain-open-control\">Контроль</button><button data-action=\"set-surface\" data-id=\"chat\" data-testid=\"product-brain-open-chat\">Спросить в чате</button></div>",
-    "</section>"
-  ].join("");
-}
-
-function renderKnowledgeWorkbench(state, note) {
-  if (!note) return "";
-  const source = sourceForNote(state, note.id);
-  const knowledge = knowledgeObjectsForNote(state, note.id);
-  const backlinks = incomingBacklinks(state, note.id).length;
-  const outlinks = outgoingLinks(state, note).length;
-  const reviewDay = dateKeyFromOffset(7);
-  return [
-    "<section class=\"knowledge-workbench\" data-testid=\"knowledge-workbench\">",
-    "<div class=\"knowledge-head\">",
-    "<div>",
-    "<span class=\"section-title\">Second Brain</span>",
-    "<h2>" + escapeHtml(note.title) + "</h2>",
-    "<p>" + escapeHtml(source ? "source-backed: " + source.name : "local note") + "</p>",
-    "</div>",
-    "<div class=\"knowledge-head-actions\">",
-    "<button class=\"primary\" data-action=\"extract-knowledge\" data-id=\"" + escapeHtml(note.id) + "\" data-testid=\"extract-knowledge\">Извлечь смысл</button>",
-    "<button data-action=\"open-knowledge-control\" data-id=\"" + escapeHtml(note.id) + "\" data-testid=\"open-knowledge-control\">Связи / Контроль</button>",
-    "</div>",
-    "</div>",
-    "<div class=\"knowledge-metrics\">",
-    "<span>выводы <strong>" + knowledge.claims.length + "</strong></span>",
-    "<span>вопросы <strong>" + knowledge.questions.length + "</strong></span>",
-    "<span>повторение <strong>" + knowledge.reviewItems.filter((item) => item.status !== "done").length + "</strong></span>",
-    "<span>обратные <strong>" + backlinks + "</strong></span>",
-    "<span>ссылки <strong>" + outlinks + "</strong></span>",
-    "</div>",
-    renderProductBrainLibraryCard(state, note),
-    "<div class=\"knowledge-forms\">",
-    "<label>Вывод<input id=\"claim-title\" data-testid=\"claim-title\" autocomplete=\"off\" aria-label=\"Вывод\"></label>",
-    "<button data-action=\"add-claim-entry\" data-testid=\"add-claim-entry\">Добавить</button>",
-    "<label>Вопрос<input id=\"question-title\" data-testid=\"question-title\" autocomplete=\"off\" aria-label=\"Вопрос\"></label>",
-    "<button data-action=\"add-question-entry\" data-testid=\"add-question-entry\">Добавить</button>",
-    "<label>Повторение<input id=\"review-title\" data-testid=\"review-title\" autocomplete=\"off\" aria-label=\"Повторение\"></label>",
-    "<input id=\"review-day\" data-testid=\"review-day\" type=\"date\" value=\"" + escapeHtml(reviewDay) + "\" aria-label=\"Review date\">",
-    "<button data-action=\"add-review-entry\" data-testid=\"add-review-entry\">Добавить</button>",
-    "</div>",
-    "<div class=\"knowledge-columns\">",
-    "<div><h3>Выводы</h3>" + (knowledge.claims.length ? knowledge.claims.map(renderClaimRow).join("") : "<div class=\"empty compact\">Нажми извлечение или добавь вывод вручную.</div>") + "</div>",
-    "<div><h3>Вопросы</h3>" + (knowledge.questions.length ? knowledge.questions.map(renderQuestionRow).join("") : "<div class=\"empty compact\">Вопросы станут задачами без потери источника.</div>") + "</div>",
-    "<div><h3>Повторение</h3>" + (knowledge.reviewItems.length ? knowledge.reviewItems.map(renderReviewRow).join("") : "<div class=\"empty compact\">Карточка повторения появится после извлечения смысла.</div>") + "</div>",
-    "</div>",
-    knowledge.insights.length ? "<div class=\"knowledge-insights\"><h3>Инсайты</h3>" + knowledge.insights.slice(0, 4).map((insight) => "<div class=\"insight-row\"><strong>" + escapeHtml(insight.title) + "</strong><span>" + escapeHtml(shorten(insight.reason, 140)) + "</span></div>").join("") + "</div>" : "",
-    "</section>"
-  ].join("");
-}
-
-function highlightsForSource(state, sourceId) {
-  return Object.values(state.highlights || {})
-    .filter((highlight) => !highlight.deleted && highlight.sourceId === sourceId)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
-
-function readingItemForSource(state, sourceId) {
-  return Object.values(state.readingItems || {}).find((item) => !item.deleted && item.sourceId === sourceId) || null;
-}
-
-function renderHighlightRow(highlight) {
-  return [
-    "<article class=\"knowledge-row highlight-row\" data-testid=\"highlight-row\">",
-    "<div class=\"knowledge-row-main\">",
-    "<strong>" + escapeHtml(highlight.title) + "</strong>",
-    "<span>" + escapeHtml(shorten(highlight.text, 150)) + "</span>",
-    "</div>",
-    "<div class=\"knowledge-actions\">",
-    "<button data-action=\"highlight-to-claim\" data-id=\"" + escapeHtml(highlight.id) + "\" data-testid=\"highlight-to-claim\">Вывод</button>",
-    "<button data-action=\"highlight-to-task\" data-id=\"" + escapeHtml(highlight.id) + "\" data-testid=\"highlight-to-task\">Создать задачу</button>",
-    "<button data-action=\"open-knowledge-control\" data-id=\"" + escapeHtml(highlight.id) + "\">Контроль</button>",
-    "</div>",
-    "</article>"
-  ].join("");
-}
-
-function renderBookSourceCard(state, source) {
-  const readingItem = readingItemForSource(state, source.id);
-  const highlights = highlightsForSource(state, source.id);
-  const gated = source.parserStatus && source.parserStatus.includes("parser-required") && !source.text;
-  const extraction = gated ? [
-    "<div class=\"book-gate\" data-testid=\"book-parser-gate\">",
-    "<div><strong>Формат ждёт парсер</strong><span>" + escapeHtml(humanStatus(source.parserStatus)) + "</span></div>",
-    "<p>Автопарсер не включён. Источник сохранён локально; можно вставить извлечённый текст вручную.</p>",
-    "<textarea id=\"book-extraction-" + escapeHtml(source.id) + "\" data-testid=\"book-extraction\" aria-label=\"Manual extracted text\" spellcheck=\"true\"></textarea>",
-    "<button data-action=\"save-source-extraction\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-source-extraction\">Сохранить текст</button>",
-    "</div>"
-  ].join("") : "";
-  const readableTools = source.text ? [
-    "<div class=\"book-tools\">",
-    "<button data-action=\"extract-highlights\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"extract-highlights\">Найти цитаты</button>",
-    "<input id=\"highlight-title-" + escapeHtml(source.id) + "\" data-testid=\"highlight-title\" autocomplete=\"off\" aria-label=\"Текст цитаты\">",
-    "<button data-action=\"add-highlight-entry\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"add-highlight-entry\">Добавить цитату</button>",
-    "</div>"
-  ].join("") : "";
-  const progress = readingItem ? [
-    "<div class=\"reading-progress\">",
-    "<label>Прогресс<input id=\"reading-progress-" + escapeHtml(readingItem.id) + "\" data-testid=\"reading-progress\" type=\"number\" min=\"0\" max=\"100\" value=\"" + escapeHtml(readingItem.progress) + "\" aria-label=\"Прогресс чтения\"></label>",
-    "<button data-action=\"update-reading-progress\" data-id=\"" + escapeHtml(readingItem.id) + "\" data-testid=\"update-reading-progress\">Сохранить</button>",
-    "</div>"
-  ].join("") : "";
-  return [
-    "<article class=\"book-source-card\" data-testid=\"book-source-card\">",
-    "<div class=\"book-source-head\">",
-    "<div>",
-    "<strong>" + escapeHtml(source.name) + "</strong>",
-    "<span>" + escapeHtml(sourceMetaLabel(source)) + "</span>",
-    "</div>",
-    "<div class=\"knowledge-actions\">",
-    "<button data-action=\"open-source-note\" data-id=\"" + escapeHtml(source.id) + "\">Открыть</button>",
-    "<button data-action=\"open-knowledge-control\" data-id=\"" + escapeHtml(readingItem ? readingItem.id : source.id) + "\">Контроль</button>",
-    "</div>",
-    "</div>",
-    readingItem ? "<div class=\"knowledge-metrics\"><span>статус <strong>" + escapeHtml(humanStatus(readingItem.status)) + "</strong></span><span>прогресс <strong>" + escapeHtml(readingItem.progress) + "%</strong></span><span>цитаты <strong>" + highlights.length + "</strong></span></div>" : "",
-    extraction,
-    readableTools,
-    progress,
-    highlights.length ? "<div class=\"highlight-stack\">" + highlights.slice(0, 5).map(renderHighlightRow).join("") + "</div>" : "<div class=\"empty compact\">Цитаты появятся после импорта текста или ручного извлечения.</div>",
-    "</article>"
-  ].join("");
-}
-
-function renderBookWorkbench(state, note) {
-  const sources = Object.values(state.sources || {}).filter(isBookSource).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 6);
-  return [
-    "<section class=\"book-workbench\" data-testid=\"book-workbench\">",
-    "<div class=\"knowledge-head\">",
-    "<div>",
-    "<span class=\"section-title\">Книги и файлы</span>",
-    "<h2>Источники для чтения</h2>",
-    "<p>TXT/MD читаются сразу. PDF/EPUB хранятся локально и ждут парсер или ручной текст.</p>",
-    "</div>",
-    "<button data-action=\"import-file\" data-testid=\"book-import\">Импорт</button>",
-    "</div>",
-    sources.length ? "<div class=\"book-source-grid\">" + sources.map((source) => renderBookSourceCard(state, source)).join("") + "</div>" : "<div class=\"empty compact\">Импортируй TXT, MD, PDF или EPUB, чтобы создать источник чтения.</div>",
     "</section>"
   ].join("");
 }
@@ -21357,93 +20504,6 @@ function graphNodeTypeLabel(type) {
   if (key.includes("audio") || key.includes("transcript") || key.includes("player")) return "медиа";
   if (key === "ghost") return "ghost link";
   return key || "узел";
-}
-
-function graphLinkedEdges(graph, nodeId) {
-  if (!nodeId) return [];
-  return graph.links.filter((link) => link.source === nodeId || link.target === nodeId).slice(0, 12);
-}
-
-function graphConnectionSummary(graph, nodeId) {
-  const edges = graph.links.filter((link) => link.source === nodeId || link.target === nodeId);
-  const incoming = edges.filter((link) => link.target === nodeId).length;
-  const outgoing = edges.filter((link) => link.source === nodeId).length;
-  const reasonCount = new Set(edges.map((edge) => edge.label || "linked")).size;
-  return { edges, incoming, outgoing, reasonCount };
-}
-
-function graphSearchReason(node, query) {
-  if (!query) return "Вес узла " + String(node.val || 0);
-  const hayTitle = normalizeTitle(node.label || "");
-  const hayType = normalizeTitle(node.type || "");
-  if (hayTitle.includes(query)) return "Совпало название";
-  if (hayType.includes(query)) return "Совпал тип";
-  return "Связан с найденным узлом";
-}
-
-function renderGraphResults(state, graph) {
-  const query = normalizeTitle((state.graphView || {}).searchQuery || "");
-  const nodes = graph.nodes.slice().sort((a, b) => (b.val || 0) - (a.val || 0)).slice(0, 10);
-  if (!nodes.length) return "<div class=\"empty compact\" data-testid=\"graph-empty\">Нет узлов графа под текущие фильтры.</div>";
-  return [
-    "<div class=\"graph-results\" data-testid=\"graph-results\">",
-    nodes.map((node) => [
-      "<button class=\"graph-result-row\" data-action=\"focus-graph-node\" data-id=\"" + escapeHtml(node.id) + "\" data-testid=\"graph-result-row\">",
-      "<strong>" + escapeHtml(node.label) + "</strong>",
-      "<span>" + escapeHtml(graphNodeTypeLabel(node.type)) + " / " + escapeHtml(graphSearchReason(node, query)) + "</span>",
-      "</button>"
-    ].join("")).join(""),
-    "</div>"
-  ].join("");
-}
-
-function renderGraphInspector(state, graph) {
-  const selectedId = state.graphView.selectedNodeId || state.activeNoteId;
-  const node = graph.nodes.find((item) => item.id === selectedId) || graph.nodes[0] || null;
-  const resolved = graphNodeObject(state, node ? node.id : selectedId);
-  const kind = resolved ? resolved.kind : (node ? node.type : "none");
-  const object = resolved ? resolved.object : null;
-  const title = graphNodeTitle(kind, object, node ? node.label : "No node selected");
-  const meta = graphNodeMeta(kind, object);
-  const workspace = graphNodeWorkspace(kind, object);
-  const edges = graphLinkedEdges(graph, node ? node.id : selectedId);
-  const summary = graphConnectionSummary(graph, node ? node.id : selectedId);
-  return [
-    "<aside class=\"graph-inspector\" data-testid=\"graph-inspector\">",
-    "<div class=\"section-title\">Выбранный узел</div>",
-    "<div class=\"graph-node-card\">",
-    "<strong data-testid=\"graph-selected-title\">" + escapeHtml(title) + "</strong>",
-    "<span>" + escapeHtml(kind) + " / " + escapeHtml(meta) + "</span>",
-    "<div class=\"graph-node-actions\">",
-    "<button data-action=\"open-graph-node\" data-id=\"" + escapeHtml(node ? node.id : selectedId) + "\" data-testid=\"graph-open-node\">Открыть</button>",
-    "<button data-action=\"focus-graph-node\" data-id=\"" + escapeHtml(node ? node.id : selectedId) + "\" data-testid=\"graph-focus-local\">Локально</button>",
-    "<button data-action=\"set-surface\" data-id=\"control\" data-testid=\"graph-open-control\">Контроль</button>",
-    "</div>",
-    "<em>Рабочее место: " + escapeHtml(workspace) + "</em>",
-    "</div>",
-    "<div class=\"graph-connection-summary\" data-testid=\"graph-connection-summary\">",
-    "<div><span>Связей</span><strong>" + summary.edges.length + "</strong></div>",
-    "<div><span>Входящие</span><strong>" + summary.incoming + "</strong></div>",
-    "<div><span>Исходящие</span><strong>" + summary.outgoing + "</strong></div>",
-    "<div><span>Причин</span><strong>" + summary.reasonCount + "</strong></div>",
-    "</div>",
-    "<div class=\"graph-edge-list\" data-testid=\"graph-edge-list\">",
-    edges.length ? edges.map((edge) => {
-      const currentId = node ? node.id : selectedId;
-      const otherId = edge.source === currentId ? edge.target : edge.source;
-      const otherNode = graph.nodes.find((item) => item.id === otherId);
-      const direction = edge.source === currentId ? "исходит к" : "входит от";
-      return [
-        "<button class=\"graph-edge-row\" data-action=\"focus-graph-node\" data-id=\"" + escapeHtml(otherId) + "\" data-testid=\"graph-edge-row\">",
-        "<span>Причина: " + escapeHtml(graphEdgeReasonLabel(edge.label)) + "</span>",
-        "<strong>" + escapeHtml(otherNode ? otherNode.label : otherId) + "</strong>",
-        "<em>" + escapeHtml(direction + " / " + graphNodeTypeLabel(otherNode ? otherNode.type : "")) + "</em>",
-        "</button>"
-      ].join("");
-    }).join("") : "<div class=\"empty compact\">У этого узла нет видимых связей под текущие фильтры.</div>",
-    "</div>",
-    "</aside>"
-  ].join("");
 }
 
 function renderGraphWorkbench(state) {
@@ -21754,58 +20814,6 @@ function renderCaptureCockpit(state) {
   ].join("");
 }
 
-function renderInspector(state, note) {
-  if (["inbox", "capture", "graph", "control", "providers"].includes(state.activeSurface)) return "";
-  const graph = mapGraph(state);
-  const backlinks = note ? incomingBacklinks(state, note.id) : [];
-  const outlinks = note ? outgoingLinks(state, note) : [];
-  const selectedNode = state.graphView.selectedNodeId;
-  const selectedGhost = selectedNode && state.ghosts[selectedNode] ? state.ghosts[selectedNode] : null;
-  const activeSource = latestSource(state);
-  const selected = selectedNode ? graphNodeObject(state, selectedNode) : null;
-  const selectedTitle = selected ? graphNodeTitle(selected.kind, selected.object, selectedNode) : (activeSource ? activeSource.name : note ? note.title : "нет активного объекта");
-  const graphPanel = [
-    "<section class=\"graph-panel\">",
-    "<div class=\"card-head\"><h2>Локальные связи</h2><span data-testid=\"graph-counts\">" + graph.nodes.length + " nodes · " + graph.links.length + " edges</span></div>",
-    renderGraphFilters(state),
-    "<canvas id=\"graph-canvas\" data-testid=\"graph-canvas\" aria-label=\"Force directed note graph\"></canvas>",
-    "</section>"
-  ].join("");
-  const proposalRows = activeSource
-    ? Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open" && proposal.sourceId === activeSource.id).slice(0, 4)
-    : [];
-  const proposalPanel = proposalRows.length ? [
-    "<section class=\"info-panel compact-context-panel\" data-testid=\"context-proposals\">",
-    "<div class=\"section-title\">Предложения артефакта</div>",
-    proposalRows.map((proposal) => "<div class=\"audit-row\"><strong>" + escapeHtml(proposalGroupLabel(proposal.group || groupForProposalType(proposal.type))) + "</strong><span>" + escapeHtml(shorten(proposal.title, 92)) + "</span></div>").join(""),
-    "<button data-action=\"set-surface\" data-id=\"capture\">Разобрать очередь</button>",
-    "</section>"
-  ].join("") : "";
-  const auditTrail = state.auditLog.slice(-4).reverse().map((entry) => {
-    return "<div class=\"audit-row\"><strong>" + escapeHtml(entry.type) + "</strong><span>" + escapeHtml(shorten(entry.summary, 98)) + "</span></div>";
-  }).join("");
-  return [
-    "<aside class=\"inspector contextual-inspector\" data-testid=\"context-inspector\">",
-    "<section class=\"info-panel active-context-card\" data-testid=\"active-context-card\">",
-    "<div class=\"section-title\">Контекст</div>",
-    "<strong>" + escapeHtml(selectedTitle) + "</strong>",
-    "<span>" + escapeHtml(activeSource ? [activeSource.kind, activeSource.status, activeSource.parserStatus].filter(Boolean).join(" / ") : "workspace projection") + "</span>",
-    "<div class=\"context-actions\"><button data-action=\"set-surface\" data-id=\"graph\">Показать связи</button><button data-action=\"set-surface\" data-id=\"control\">Контроль</button></div>",
-    "</section>",
-    graphPanel,
-    proposalPanel,
-    "<section class=\"info-panel\" id=\"link-panels\">",
-    renderBacklinkPanel(backlinks),
-    renderOutlinkPanel(outlinks, state),
-    state.activeSurface === "library" ? renderGhostPanel(state, selectedGhost) : "",
-    "</section>",
-    renderSourcePanel(state, note),
-    state.activeSurface === "library" ? renderLibraryControlTrail(state, note) : "",
-    "<section class=\"info-panel compact-context-panel\"><div class=\"section-title\">Последние изменения</div>" + (auditTrail || "<div class=\"empty compact\">Пока нет изменений.</div>") + "</section>",
-    "</aside>"
-  ].join("");
-}
-
 function renderBacklinkPanel(backlinks) {
   return [
     "<div class=\"section-title\">Backlinks</div>",
@@ -21835,25 +20843,6 @@ function renderGhostPanel(state, selectedGhost) {
     ghosts.length ? ghosts.map((ghost) => {
       return "<button class=\"link-row ghost\" data-action=\"create-from-ghost\" data-id=\"" + escapeHtml(ghost.id) + "\">" + escapeHtml(ghost.title) + "<span>" + ghost.inboundNoteIds.length + "</span></button>";
     }).join("") : "<div class=\"empty compact\">No broken wikilinks.</div>"
-  ].join("");
-}
-
-function renderLibraryControlTrail(state, note) {
-  const noteId = note ? note.id : "";
-  const counts = [
-    ["claims", Object.values(state.claims || {}).filter((item) => !item.deleted && item.noteId === noteId).length],
-    ["questions", Object.values(state.questions || {}).filter((item) => !item.deleted && item.noteId === noteId).length],
-    ["review", Object.values(state.reviewItems || {}).filter((item) => !item.deleted && item.noteId === noteId).length],
-    ["sources", Object.values(state.sources || {}).filter((item) => !item.deleted && item.noteId === noteId).length]
-  ];
-  const trail = state.auditLog.filter((entry) => !noteId || entry.noteId === noteId).slice(-5).reverse();
-  return [
-    "<section class=\"info-panel workflow-panel library-control-trail\" data-testid=\"library-control-trail\">",
-    "<div class=\"section-title\">Control trail</div>",
-    "<div class=\"storage-map\">" + counts.map((row) => "<span>" + escapeHtml(row[0]) + " <strong>" + row[1] + "</strong></span>").join("") + "</div>",
-    trail.length ? trail.map((entry) => "<div class=\"audit-row\"><strong>" + escapeHtml(entry.type) + "</strong><span>" + escapeHtml(shorten(entry.summary, 110)) + "</span></div>").join("") : "<div class=\"empty compact\">Control trail ждет действий по заметке.</div>",
-    "<button data-action=\"set-surface\" data-id=\"control\" data-testid=\"library-open-control\">Открыть контроль</button>",
-    "</section>"
   ].join("");
 }
 
@@ -21887,95 +20876,9 @@ function renderProposalPanelV2(state, filterSourceId) {
   ].join("");
 }
 
-function renderProposalFieldList(fields) {
-  const entries = Object.entries(fields || {}).filter((entry) => entry[1] !== "" && entry[1] !== null && entry[1] !== undefined);
-  if (!entries.length) return "";
-  return "<dl class=\"proposal-fields\">" + entries.slice(0, 6).map(([key, value]) => {
-    return "<div><dt>" + escapeHtml(key) + "</dt><dd>" + escapeHtml(Array.isArray(value) ? value.join(", ") : String(value)) + "</dd></div>";
-  }).join("") + "</dl>";
-}
-
 function proposalNeedsOwnerChoice(proposal) {
   const fields = proposal && proposal.fields && typeof proposal.fields === "object" ? proposal.fields : {};
   return Boolean(fields.timeAmbiguous || fields.needsOwnerChoice);
-}
-
-function proposalApplyLabel(proposal, visibleCount) {
-  if (proposalNeedsOwnerChoice(proposal)) return "Уточнить время";
-  if (visibleCount === 1 && (proposal.type === "task" || proposal.type === "calendar" || proposal.type === "plan")) {
-    const fields = proposal.fields && typeof proposal.fields === "object" ? proposal.fields : {};
-    const day = fields.day || "";
-    const time = fields.startTime || fields.time || "";
-    const dayLabel = day === dateKeyFromOffset(1) ? "на завтра" : day === todayKey() ? "на сегодня" : day ? "на " + day : "";
-    return "Создать задачу" + (dayLabel ? " " + dayLabel : "") + (time ? " " + time : "");
-  }
-  if (proposal.type === "finance_expense") return "Сохранить расход";
-  return "Принять";
-}
-
-function chooseRecommendedProposal(proposals) {
-  const rows = Array.isArray(proposals) ? proposals : [];
-  const mutationTypes = new Set(["task", "calendar", "plan", "reminder"]);
-  const supportTypes = new Set(["knowledge", "chat", "control", "agent"]);
-  const mutating = rows.filter((proposal) => !supportTypes.has(proposal.type));
-  if (!mutating.length || !mutating.every((proposal) => mutationTypes.has(proposal.type))) return null;
-  const scheduledTask = mutating.find((proposal) => {
-    const fields = proposal.fields && typeof proposal.fields === "object" ? proposal.fields : {};
-    return proposal.type === "task" && (fields.day || fields.startTime || fields.time);
-  });
-  if (scheduledTask) return scheduledTask;
-  return mutating.find((proposal) => proposal.type === "task") || mutating.find((proposal) => proposal.type === "calendar") || mutating[0] || null;
-}
-
-function renderRecommendedProposal(proposal) {
-  if (!proposal) return "";
-  const fields = proposal.fields && typeof proposal.fields === "object" ? proposal.fields : {};
-  const blocked = proposalNeedsOwnerChoice(proposal);
-  const meta = [
-    fields.day ? "Дата: " + fields.day : "",
-    fields.startTime || fields.time ? "Время: " + (fields.startTime || fields.time) : "",
-    fields.timeAmbiguous ? "Нужно уточнить: " + (fields.timeOptions || []).join(" / ") : "",
-    proposal.destination ? "Куда: " + proposal.destination : ""
-  ].filter(Boolean);
-  return [
-    "<div class=\"recommended-proposal\" data-testid=\"recommended-action\">",
-    "<div>",
-    "<span>Рекомендуемое действие</span>",
-    "<strong>" + escapeHtml(proposal.title) + "</strong>",
-    meta.length ? "<p>" + escapeHtml(meta.join(" · ")) + "</p>" : "",
-    "</div>",
-    "<div class=\"recommended-actions\">",
-    "<button class=\"primary\" data-action=\"apply-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\" data-testid=\"recommended-primary-action\"" + (blocked ? " disabled title=\"" + escapeHtml(fields.ambiguityReason || fields.needsOwnerChoice || "Нужно уточнение") + "\"" : "") + ">" + escapeHtml(proposalApplyLabel(proposal, 1)) + "</button>",
-    "<button data-action=\"edit-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\">Изменить</button>",
-    "<button data-action=\"open-proposal-control\" data-id=\"" + escapeHtml(proposal.id) + "\">Детали</button>",
-    "</div>",
-    "</div>"
-  ].join("");
-}
-
-function renderProposalCard(proposal, visibleCount) {
-  const percent = Math.round((proposal.confidence || 0) * 100);
-  const blocked = proposalNeedsOwnerChoice(proposal);
-  const fields = proposal.fields && typeof proposal.fields === "object" ? proposal.fields : {};
-  return [
-    "<article class=\"proposal-card\" data-testid=\"proposal-row\">",
-    "<div class=\"proposal-card-main\">",
-    "<div class=\"proposal-type\"><span>" + escapeHtml(proposal.type) + "</span><strong>" + escapeHtml(proposal.destination || destinationForProposalType(proposal.type)) + "</strong></div>",
-    "<h4>" + escapeHtml(proposal.title) + "</h4>",
-    "<p>" + escapeHtml(proposal.reason || "Найдено в источнике") + "</p>",
-    proposal.quote ? "<blockquote>" + escapeHtml(proposal.quote) + "</blockquote>" : "",
-    renderProposalFieldList(proposal.fields),
-    "</div>",
-    "<div class=\"proposal-actions\">",
-    "<span class=\"confidence\">" + percent + "%</span>",
-    "<button data-action=\"apply-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\"" + (blocked ? " disabled title=\"" + escapeHtml(fields.ambiguityReason || fields.needsOwnerChoice || "Нужно уточнение") + "\"" : "") + ">" + escapeHtml(proposalApplyLabel(proposal, visibleCount || 0)) + "</button>",
-    "<button data-action=\"edit-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\">Изменить</button>",
-    "<button data-action=\"dismiss-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\">Пропустить</button>",
-    "<button data-action=\"open-proposal-source\" data-id=\"" + escapeHtml(proposal.id) + "\">Источник</button>",
-    "<button data-action=\"open-proposal-control\" data-id=\"" + escapeHtml(proposal.id) + "\">Связи / Контроль</button>",
-    "</div>",
-    "</article>"
-  ].join("");
 }
 
 function renderGraphFilters(state) {
@@ -22002,165 +20905,10 @@ function renderGraphFilters(state) {
   ].join("");
 }
 
-function renderProposalPanel(state) {
-  return renderProposalPanelV2(state);
-  const proposals = Object.values(state.proposals || {}).filter((proposal) => proposal.status === "open").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 7);
-  return [
-    "<section class=\"info-panel workflow-panel\" data-testid=\"proposal-panel\">",
-    "<div class=\"section-title\">Действия</div>",
-    proposals.length ? proposals.map((proposal) => {
-      return [
-        "<div class=\"proposal-row\" data-testid=\"proposal-row\">",
-        "<span>" + escapeHtml(proposal.title) + "</span>",
-        "<button data-action=\"apply-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\">Взять</button>",
-        "<button data-action=\"dismiss-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\">Скрыть</button>",
-        "</div>"
-      ].join("");
-    }).join("") : "<div class=\"empty compact\">Добавь текст или файл, чтобы получить локальные действия.</div>",
-    "</section>"
-  ].join("");
-}
-
-function calendarDays(state) {
-  const days = [];
-  const start = new Date(todayKey() + "T00:00:00");
-  for (let index = 0; index < 7; index += 1) {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
-    const key = date.toISOString().slice(0, 10);
-    const tasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.day === key).sort(sortScheduledItems);
-    const plans = Object.values(state.planBlocks || {}).filter((block) => !block.deleted && block.day === key).sort(sortScheduledItems);
-    days.push({ key, label: key.slice(5), tasks, plans });
-  }
-  return days;
-}
-
 function sortScheduledItems(a, b) {
   const timeDiff = timeToMinutes(a.startTime) - timeToMinutes(b.startTime);
   if (timeDiff !== 0) return timeDiff;
   return String(a.updatedAt || "").localeCompare(String(b.updatedAt || ""));
-}
-
-function calendarItemsForDay(day) {
-  return day.tasks.map((task) => Object.assign({ kind: "task" }, task))
-    .concat(day.plans.map((block) => Object.assign({ kind: "plan" }, block)))
-    .sort(sortScheduledItems);
-}
-
-function remindersForDay(state, dayKey) {
-  return Object.values(state.reminders || {})
-    .filter((reminder) => !reminder.deleted && reminder.day === dayKey)
-    .map((reminder) => Object.assign({ kind: "reminder", startTime: reminder.time, endTime: "" }, reminder));
-}
-
-function calendarItemsWithReminders(state, day) {
-  return calendarItemsForDay(day).concat(remindersForDay(state, day.key)).sort(sortScheduledItems);
-}
-
-function weekAgendaItems(state, days) {
-  return days.flatMap((day) => calendarItemsWithReminders(state, day).map((item) => Object.assign({ dayKey: day.key }, item)))
-    .filter((item) => item.status !== "done")
-    .sort((a, b) => {
-      const dayDiff = String(a.dayKey || a.day || "").localeCompare(String(b.dayKey || b.day || ""));
-      if (dayDiff !== 0) return dayDiff;
-      return sortScheduledItems(a, b);
-    });
-}
-
-function scheduleKindLabel(kind) {
-  if (kind === "plan") return "План";
-  if (kind === "reminder") return "Напоминание";
-  return "Задача";
-}
-
-function scheduleStatusLabel(item) {
-  if (item.kind === "plan") return item.status === "done" ? "Готово" : "План";
-  return item.status === "done" ? "Готово" : "Открыто";
-}
-
-function scheduleSourceHint(state, item) {
-  const source = item.sourceId && state.sources[item.sourceId] ? state.sources[item.sourceId] : null;
-  const note = item.noteId && state.notes[item.noteId] ? state.notes[item.noteId] : null;
-  if (source) return "Источник: " + source.name;
-  if (note) return "Заметка: " + note.title;
-  return "Источник не привязан";
-}
-
-function renderScheduleActions(item) {
-  if (item.kind === "plan") {
-    return [
-      "<button class=\"toggle-button\" data-action=\"toggle-plan-block\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"plan-toggle\">" + escapeHtml(scheduleStatusLabel(item)) + "</button>",
-      "<button class=\"mini-button\" data-action=\"edit-plan\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"edit-plan\">Изменить</button>",
-      "<button class=\"mini-button\" data-action=\"plan-tomorrow\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"plan-tomorrow\">На завтра</button>",
-      "<button class=\"mini-button\" data-action=\"plan-reminder\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"plan-reminder\">Напомнить</button>",
-      "<button class=\"mini-button\" data-action=\"open-plan-source\" data-id=\"" + escapeHtml(item.id) + "\">Источник</button>",
-      "<button class=\"mini-button\" data-action=\"open-plan-control\" data-id=\"" + escapeHtml(item.id) + "\">Контроль</button>",
-      "<button class=\"mini-button\" data-action=\"archive-plan\" data-id=\"" + escapeHtml(item.id) + "\">Архив</button>"
-    ].join("");
-  }
-  if (item.kind === "reminder") {
-    return [
-      "<button class=\"toggle-button\" data-action=\"toggle-reminder\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"reminder-toggle\">" + escapeHtml(scheduleStatusLabel(item)) + "</button>",
-      "<button class=\"mini-button\" data-action=\"edit-reminder\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"edit-reminder\">Изменить</button>",
-      "<button class=\"mini-button\" data-action=\"reminder-tomorrow\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"reminder-tomorrow\">На завтра</button>",
-      "<button class=\"mini-button\" data-action=\"open-reminder-source\" data-id=\"" + escapeHtml(item.id) + "\">Источник</button>",
-      "<button class=\"mini-button\" data-action=\"open-reminder-control\" data-id=\"" + escapeHtml(item.id) + "\">Контроль</button>",
-      "<button class=\"mini-button\" data-action=\"archive-reminder\" data-id=\"" + escapeHtml(item.id) + "\">Архив</button>"
-    ].join("");
-  }
-  return [
-    "<button class=\"toggle-button\" data-action=\"toggle-task\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"task-toggle\">" + escapeHtml(scheduleStatusLabel(item)) + "</button>",
-    "<button class=\"mini-button\" data-action=\"edit-task\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"edit-task\">Изменить</button>",
-    "<button class=\"mini-button\" data-action=\"task-tomorrow\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"task-tomorrow\">На завтра</button>",
-    "<button class=\"mini-button\" data-action=\"task-reminder\" data-id=\"" + escapeHtml(item.id) + "\" data-testid=\"task-reminder\">Напомнить</button>",
-    "<button class=\"mini-button\" data-action=\"open-task-source\" data-id=\"" + escapeHtml(item.id) + "\">Источник</button>",
-    "<button class=\"mini-button\" data-action=\"open-task-control\" data-id=\"" + escapeHtml(item.id) + "\">Контроль</button>",
-    "<button class=\"mini-button\" data-action=\"archive-task\" data-id=\"" + escapeHtml(item.id) + "\">Архив</button>"
-  ].join("");
-}
-
-function renderScheduleItem(state, item) {
-  const done = item.status === "done" ? " done" : "";
-  return [
-    "<article class=\"schedule-item " + escapeHtml(item.kind || "task") + done + "\" data-testid=\"calendar-item\" data-kind=\"" + escapeHtml(item.kind || "task") + "\">",
-    "<div class=\"schedule-main\">",
-    "<time>" + escapeHtml(formatSchedule(item)) + "</time>",
-    "<strong>" + escapeHtml(item.title) + "</strong>",
-    "<span>" + escapeHtml(scheduleKindLabel(item.kind) + " · " + scheduleSourceHint(state, item)) + "</span>",
-    "</div>",
-    "<div class=\"schedule-actions\">",
-    renderScheduleActions(item),
-    "</div>",
-    "</article>"
-  ].join("");
-}
-
-function renderTimeRowsForDay(state, day, items) {
-  const rows = [];
-  const noTime = items.filter((item) => !item.startTime);
-  const timedItems = items.filter((item) => item.startTime);
-  rows.push([
-    "<div class=\"time-row no-time\" data-testid=\"no-time-bucket\">",
-    "<time>Без времени</time>",
-    "<div class=\"time-row-items\">",
-    noTime.length ? noTime.map((item) => renderScheduleItem(state, item)).join("") : "<div class=\"empty compact\">Нет задач без времени.</div>",
-    "</div>",
-    "</div>"
-  ].join(""));
-  if (!timedItems.length) return rows.join("");
-  for (let hour = 5; hour <= 23; hour += 1) {
-    const key = String(hour).padStart(2, "0") + ":00";
-    const rowItems = items.filter((item) => item.startTime && timeToMinutes(item.startTime) >= hour * 60 && timeToMinutes(item.startTime) < (hour + 1) * 60);
-    rows.push([
-      "<div class=\"time-row" + (rowItems.length ? "" : " empty-hour") + "\" data-testid=\"time-row-" + key + "\">",
-      "<time>" + key + "</time>",
-      "<div class=\"time-row-items\">",
-      rowItems.length ? rowItems.map((item) => renderScheduleItem(state, item)).join("") : "<span class=\"time-empty\"></span>",
-      "</div>",
-      "</div>"
-    ].join(""));
-  }
-  return rows.join("");
 }
 
 function renderCalendarPanelLegacy(state) {
@@ -22172,26 +20920,6 @@ function renderCalendarPanelLegacy(state) {
     days.map((day) => {
       const count = day.tasks.length + day.plans.length;
       return "<div class=\"calendar-day" + (day.key === todayKey() ? " today" : "") + "\"><strong>" + escapeHtml(day.label) + "</strong><span>" + count + "</span></div>";
-    }).join(""),
-    "</div>",
-    "</section>"
-  ].join("");
-}
-
-function renderCalendarPanelV5(state) {
-  const days = calendarDays(state);
-  return [
-    "<section class=\"info-panel workflow-panel\" data-testid=\"calendar-panel\">",
-    "<div class=\"section-title\">Календарь</div>",
-    "<div class=\"calendar-grid\">",
-    days.map((day) => {
-      const items = calendarItemsWithReminders(state, day);
-      const chips = items.slice(0, 3).map((item) => {
-        const done = item.status === "done" ? " done" : "";
-        return "<span class=\"calendar-chip" + done + "\" data-testid=\"calendar-item\"><em>" + escapeHtml(formatSchedule(item)) + "</em>" + escapeHtml(shorten(item.title, 44)) + "</span>";
-      }).join("");
-      const overflow = items.length > 3 ? "<small>+" + (items.length - 3) + "</small>" : "";
-      return "<button class=\"calendar-day" + (day.key === todayKey() ? " today" : "") + "\" data-action=\"set-surface\" data-id=\"today\" data-day=\"" + escapeHtml(day.key) + "\"><strong><em>" + escapeHtml(formatDayLabel(day.key).split(" ")[0]) + "</em>" + escapeHtml(day.label) + "</strong><span>" + items.length + "</span><div class=\"calendar-stack\">" + chips + overflow + "</div></button>";
     }).join(""),
     "</div>",
     "</section>"
@@ -22252,50 +20980,6 @@ function renderCalendarWorkbench(state) {
   ].join("");
 }
 
-function financeAccountName(state, accountId) {
-  const account = accountId && state.financeAccounts[accountId] ? state.financeAccounts[accountId] : null;
-  return account ? account.name : "Основной счет";
-}
-
-function renderFinanceAccountOptions(accounts, selectedName) {
-  const names = accounts.length ? accounts.map((account) => account.name) : ["Основной счет"];
-  const selected = cleanLine(selectedName || names[0] || "Основной счет");
-  return names.map((name) => {
-    const isSelected = normalizeTitle(name) === normalizeTitle(selected) ? " selected" : "";
-    return "<option value=\"" + escapeHtml(name) + "\"" + isSelected + ">" + escapeHtml(name) + "</option>";
-  }).join("");
-}
-
-function financeReceiptSources(state) {
-  return Object.values(state.sources || {})
-    .filter((source) => !source.deleted && source.kind === "image")
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 6);
-}
-
-function renderReceiptExpenseCard(state, source, accounts) {
-  const image = source.dataUrl
-    ? "<img class=\"receipt-preview\" src=\"" + escapeHtml(source.dataUrl) + "\" alt=\"Receipt preview\">"
-    : "<div class=\"empty compact\">Файл сохранен, превью недоступно для большого размера.</div>";
-  return [
-    "<article class=\"receipt-expense-card\" data-testid=\"receipt-expense-card\">",
-    "<div class=\"receipt-media\">",
-    image,
-    "<div><strong>" + escapeHtml(source.name) + "</strong><span>OCR не настроен — ручное заполнение работает и сохраняет источник.</span></div>",
-    "</div>",
-    "<div class=\"receipt-form\">",
-    "<input id=\"receipt-merchant-" + escapeHtml(source.id) + "\" aria-label=\"Receipt merchant\" value=\"" + escapeHtml(stripExtension(source.name)) + "\">",
-    "<input id=\"receipt-amount-" + escapeHtml(source.id) + "\" aria-label=\"Receipt amount\" type=\"number\" min=\"0\" step=\"0.01\">",
-    "<input id=\"receipt-category-" + escapeHtml(source.id) + "\" aria-label=\"Receipt category\" value=\"Разное\">",
-    "<select id=\"receipt-account-" + escapeHtml(source.id) + "\" aria-label=\"Receipt account\">" + renderFinanceAccountOptions(accounts, "") + "</select>",
-    "<input id=\"receipt-day-" + escapeHtml(source.id) + "\" aria-label=\"Receipt day\" type=\"date\" value=\"" + escapeHtml(todayKey()) + "\">",
-    "<input id=\"receipt-note-" + escapeHtml(source.id) + "\" aria-label=\"Receipt note\" value=\"\">",
-    "<button data-action=\"save-receipt-expense\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-receipt-expense\">Сохранить расход</button>",
-    "</div>",
-    "</article>"
-  ].join("");
-}
-
 function renderFinancePanel(state) {
   return renderFinancePanelV2(state);
   const summary = financeSummary(state);
@@ -22323,75 +21007,6 @@ function renderFinancePanel(state) {
     "<div><h3>Счета</h3>" + (accounts.length ? accounts.map((account) => "<div class=\"money-row\"><span>" + escapeHtml(account.name) + "</span><strong>" + Math.round(account.balance) + " ₽</strong></div>").join("") : "<div class=\"empty compact\">Задай баланс: “баланс карта 15200”.</div>") + "</div>",
     "<div><h3>Бюджеты / подписки</h3>" + budgets.map((budget) => "<div class=\"money-row\"><span>" + escapeHtml(budget.category) + "</span><strong>" + Math.round(budget.limit) + " ₽</strong></div>").join("") + subs.map((sub) => "<div class=\"money-row\"><span>" + escapeHtml(sub.title) + "</span><strong>" + Math.round(sub.amount) + " ₽</strong></div>").join("") + (!budgets.length && !subs.length ? "<div class=\"empty compact\">Бюджеты и подписки появятся из разбора текста.</div>" : "") + "</div>",
     "</div>",
-    "</section>"
-  ].join("");
-}
-
-function renderFinancePanelV2(state) {
-  const summary = financeSummary(state);
-  const accounts = Object.values(state.financeAccounts || {}).filter((item) => !item.deleted).sort((a, b) => a.name.localeCompare(b.name));
-  const txs = Object.values(state.financeTransactions || {}).filter((item) => !item.deleted).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 18);
-  const budgets = Object.values(state.budgets || {}).filter((item) => !item.deleted).sort((a, b) => a.category.localeCompare(b.category));
-  const subs = Object.values(state.subscriptions || {}).filter((item) => !item.deleted && item.status === "active").sort(sortScheduledItems);
-  const receiptSources = financeReceiptSources(state);
-  const accountOptions = renderFinanceAccountOptions(accounts, "");
-  const monthSpendByCategory = {};
-  const monthKey = todayKey().slice(0, 7);
-  for (const tx of Object.values(state.financeTransactions || {}).filter((item) => !item.deleted && item.kind === "expense" && String(item.day || "").startsWith(monthKey))) {
-    monthSpendByCategory[tx.category] = (monthSpendByCategory[tx.category] || 0) + tx.amount;
-  }
-  return [
-    "<section class=\"info-panel finance-workbench finance-workbench-v2\" data-testid=\"finance-panel\">",
-    "<div class=\"card-head\"><h2>Финансы</h2><span>Счета, расходы, бюджет, подписки и скрины чеков как связанные части одной системы.</span></div>",
-    "<div class=\"finance-metrics\">",
-    "<div><span>Баланс</span><strong>" + Math.round(summary.balance) + " ₽</strong></div>",
-    "<div><span>Сегодня</span><strong>" + Math.round(summary.todaySpend) + " ₽</strong></div>",
-    "<div><span>Месяц</span><strong>" + Math.round(summary.monthSpend) + " ₽</strong></div>",
-    "<div><span>Бюджет</span><strong>" + (summary.budgetLimit ? Math.round(summary.budgetLeft) + " ₽" : "не задан") + "</strong></div>",
-    "</div>",
-    "<div class=\"finance-action-grid\">",
-    "<section class=\"finance-tool\" data-testid=\"finance-entry-form\"><h3>Операция</h3><div class=\"finance-form detailed\">",
-    "<input id=\"finance-title\" data-testid=\"finance-title\" aria-label=\"Finance title\" autocomplete=\"off\">",
-    "<input id=\"finance-amount\" data-testid=\"finance-amount\" type=\"number\" min=\"0\" step=\"0.01\" aria-label=\"Finance amount\">",
-    "<input id=\"finance-category\" data-testid=\"finance-category\" aria-label=\"Finance category\" value=\"Разное\">",
-    "<select id=\"finance-account\" data-testid=\"finance-account\" aria-label=\"Finance account\">" + accountOptions + "</select>",
-    "<input id=\"finance-day\" data-testid=\"finance-day\" type=\"date\" aria-label=\"Finance day\" value=\"" + escapeHtml(todayKey()) + "\">",
-    "<select id=\"finance-kind\" data-testid=\"finance-kind\"><option value=\"expense\">Расход</option><option value=\"income\">Доход</option><option value=\"transfer\">Перевод</option><option value=\"balance\">Баланс</option></select>",
-    "<button data-action=\"add-finance\" data-testid=\"add-finance\">Записать</button>",
-    "</div></section>",
-    "<section class=\"finance-tool\" data-testid=\"finance-account-form\"><h3>Счет / баланс</h3><div class=\"finance-form compact-finance-form\">",
-    "<input id=\"account-name\" data-testid=\"account-name\" aria-label=\"Account name\" value=\"" + escapeHtml(accounts[0] ? accounts[0].name : "Основной счет") + "\">",
-    "<input id=\"account-balance\" data-testid=\"account-balance\" aria-label=\"Account balance\" type=\"number\" step=\"0.01\" value=\"" + escapeHtml(accounts[0] ? String(Math.round(accounts[0].balance)) : "0") + "\">",
-    "<button data-action=\"set-finance-balance\" data-testid=\"set-finance-balance\">Сохранить баланс</button>",
-    "</div></section>",
-    "<section class=\"finance-tool\" data-testid=\"finance-budget-form\"><h3>Бюджет</h3><div class=\"finance-form compact-finance-form\">",
-    "<input id=\"budget-category\" data-testid=\"budget-category\" aria-label=\"Budget category\" value=\"Продукты\">",
-    "<input id=\"budget-limit\" data-testid=\"budget-limit\" aria-label=\"Budget limit\" type=\"number\" min=\"0\" step=\"0.01\">",
-    "<button data-action=\"add-budget-entry\" data-testid=\"add-budget-entry\">Добавить бюджет</button>",
-    "</div></section>",
-    "<section class=\"finance-tool\" data-testid=\"finance-subscription-form\"><h3>Подписка / счет</h3><div class=\"finance-form compact-finance-form subscription-form\">",
-    "<input id=\"subscription-title\" data-testid=\"subscription-title\" aria-label=\"Subscription title\" value=\"\">",
-    "<input id=\"subscription-amount\" data-testid=\"subscription-amount\" aria-label=\"Subscription amount\" type=\"number\" min=\"0\" step=\"0.01\">",
-    "<input id=\"subscription-day\" data-testid=\"subscription-day\" aria-label=\"Subscription day\" type=\"date\" value=\"" + escapeHtml(todayKey()) + "\">",
-    "<input id=\"subscription-category\" data-testid=\"subscription-category\" aria-label=\"Subscription category\" value=\"Подписки\">",
-    "<button data-action=\"add-subscription-entry\" data-testid=\"add-subscription-entry\">Добавить</button>",
-    "</div></section>",
-    "</div>",
-    "<div class=\"finance-columns\">",
-    "<div><h3>Операции</h3>" + (txs.length ? txs.map((tx) => {
-      const sign = tx.kind === "income" ? "+" : tx.kind === "transfer" ? "±" : "-";
-      return "<div class=\"money-row detailed\" data-testid=\"finance-transaction\"><span><strong>" + escapeHtml(tx.title) + "</strong><em>" + escapeHtml(tx.day + " · " + tx.category + " · " + financeAccountName(state, tx.accountId)) + "</em></span><strong>" + sign + Math.round(tx.amount) + " ₽</strong></div>";
-    }).join("") : "<div class=\"empty compact\">Добавь расход вручную, вставь текст траты или импортируй скрин чека.</div>") + "</div>",
-    "<div><h3>Счета</h3>" + (accounts.length ? accounts.map((account) => "<div class=\"money-row\" data-testid=\"finance-account-row\"><span>" + escapeHtml(account.name) + "</span><strong>" + Math.round(account.balance) + " ₽</strong></div>").join("") : "<div class=\"empty compact\">Сохрани баланс счета, например карта или наличные.</div>") + "</div>",
-    "<div><h3>Бюджеты / подписки</h3>" + (budgets.length || subs.length ? budgets.map((budget) => {
-      const spent = monthSpendByCategory[budget.category] || 0;
-      const left = budget.limit - spent;
-      return "<div class=\"money-row detailed\" data-testid=\"budget-row\"><span><strong>" + escapeHtml(budget.category) + "</strong><em>" + Math.round(spent) + " ₽ потрачено</em></span><strong>" + Math.round(left) + " ₽</strong></div>";
-    }).join("") + subs.map((sub) => "<div class=\"money-row detailed\" data-testid=\"subscription-row\"><span><strong>" + escapeHtml(sub.title) + "</strong><em>" + escapeHtml(sub.day + " · " + sub.category) + "</em></span><strong>" + Math.round(sub.amount) + " ₽</strong></div>").join("") : "<div class=\"empty compact\">Задай лимит категории или регулярный платеж.</div>") + "</div>",
-    "</div>",
-    "<section class=\"receipt-workbench\" data-testid=\"receipt-workbench\"><div class=\"card-head\"><h3>Скрины чеков</h3><span>OCR не включается без движка; ручное извлечение сохраняет источник, транзакцию, граф и контроль</span></div>",
-    receiptSources.length ? receiptSources.map((source) => renderReceiptExpenseCard(state, source, accounts)).join("") : "<div class=\"empty compact\">Импортируй изображение чека через Вход или кнопку Файл. Оно появится здесь для ручного заполнения.</div>",
-    "</section>",
     "</section>"
   ].join("");
 }
@@ -22500,202 +21115,6 @@ function lifeDomainStats(state) {
   }).sort((a, b) => b.score - a.score);
 }
 
-function domainArtifactStats(state) {
-  const tasks = Object.values(state.tasks || {}).filter((item) => !item.deleted);
-  const notes = Object.values(state.notes || {}).filter((item) => !item.deleted);
-  const sources = Object.values(state.sources || {}).filter((item) => !item.deleted);
-  const goals = Object.values(state.goals || {}).filter((item) => !item.deleted);
-  const habits = Object.values(state.habits || {}).filter((item) => !item.deleted);
-  const txs = Object.values(state.financeTransactions || {}).filter((item) => !item.deleted);
-  const pools = [
-    ["tasks", tasks, (item) => item.title + " " + (item.sourceId || "")],
-    ["notes", notes, (item) => item.title + " " + item.body],
-    ["sources", sources, (item) => item.name + " " + item.text],
-    ["goals", goals, (item) => item.title],
-    ["habits", habits, (item) => item.title + " " + item.frequency],
-    ["money", txs, (item) => item.title + " " + item.category + " " + item.kind]
-  ];
-  const definitions = [
-    {
-      key: "health",
-      title: "Здоровье",
-      accent: "#0d9488",
-      keywords: ["здоров", "сон", "энерг", "зал", "спорт", "вода", "мед", "аптек", "боль"],
-      nextAction: "мягкий check-in здоровья",
-      route: "habits"
-    },
-    {
-      key: "home",
-      title: "Дом",
-      accent: "#a855f7",
-      keywords: ["дом", "ремонт", "уборк", "полк", "ламп", "инвент", "кварт", "сем"],
-      nextAction: "один бытовой шаг",
-      route: "today"
-    },
-    {
-      key: "relationships",
-      title: "Отношения",
-      accent: "#ec4899",
-      keywords: ["друг", "мам", "пап", "сем", "отнош", "позвон", "встреч", "сообщ"],
-      nextAction: "касание с человеком",
-      route: "today"
-    },
-    {
-      key: "food",
-      title: "Еда",
-      accent: "#f97316",
-      keywords: ["еда", "завтрак", "ужин", "обед", "продукт", "магаз", "пятер", "протеин", "рецепт"],
-      nextAction: "план еды или покупки",
-      route: "finance"
-    },
-    {
-      key: "shopping",
-      title: "Покупки",
-      accent: "#16a34a",
-      keywords: ["купить", "чек", "товар", "маркет", "доставка", "покуп", "магаз", "список"],
-      nextAction: "проверить список покупок",
-      route: "finance"
-    },
-    {
-      key: "travel",
-      title: "Поездки",
-      accent: "#0284c7",
-      keywords: ["поезд", "рейс", "билет", "отель", "такси", "дорог", "путеш", "аэропорт"],
-      nextAction: "собрать travel object",
-      route: "calendar"
-    },
-    {
-      key: "admin",
-      title: "Документы",
-      accent: "#64748b",
-      keywords: ["документ", "паспорт", "договор", "счет", "акт", "налог", "страх", "админ"],
-      nextAction: "открыть один документ",
-      route: "library"
-    },
-    {
-      key: "energy",
-      title: "Сон / энергия",
-      accent: "#14b8a6",
-      keywords: ["сон", "энерг", "устал", "отдых", "режим", "утро", "вечер", "встать"],
-      nextAction: "упростить день по энергии",
-      route: "today"
-    }
-  ];
-  return definitions.map((definition) => {
-    const matches = [];
-    for (const [kind, items, getText] of pools) {
-      for (const item of items) {
-        if (domainTextMatches(getText(item), definition.keywords)) {
-          matches.push({
-            kind,
-            title: item.title || item.name || item.category || item.kind || definition.title,
-            id: item.id || ""
-          });
-        }
-      }
-    }
-    const unique = [];
-    const seen = new Set();
-    for (const match of matches) {
-      const key = match.kind + ":" + match.id + ":" + match.title;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      unique.push(match);
-    }
-    const evidence = unique.length;
-    const primary = unique[0];
-    return Object.assign({}, definition, {
-      evidence,
-      primaryTitle: primary ? primary.title : "нет связанных артефактов",
-      reason: evidence
-        ? evidence + " связанных объектов: " + unique.slice(0, 3).map((item) => item.kind + " / " + shorten(item.title, 34)).join("; ")
-        : "Пока это пустой доменный артефакт: он виден заранее, но не притворяется заполненным.",
-      stateLabel: evidence ? "связано" : "пусто"
-    });
-  }).sort((a, b) => b.evidence - a.evidence || a.title.localeCompare(b.title));
-}
-
-function renderDomainArtifactBoard(state) {
-  const artifacts = domainArtifactStats(state);
-  return [
-    "<section class=\"domain-artifact-board\" data-testid=\"domain-artifact-board\">",
-    "<div class=\"domain-artifact-head\">",
-    "<div><span>Доменные артефакты</span><h3>Здоровье, дом, еда, поездки и отношения как проекции графа</h3></div>",
-    "<p>Это не отдельные приложения. LifeOS собирает сигналы из задач, источников, заметок, привычек, целей и финансов, а потом показывает один следующий шаг.</p>",
-    "</div>",
-    "<div class=\"domain-artifact-grid\">",
-    artifacts.map((artifact) => [
-      "<article class=\"domain-artifact-card\" data-testid=\"domain-artifact-card\" style=\"--domain-color:" + escapeHtml(artifact.accent) + "\">",
-      "<div><span>" + escapeHtml(artifact.stateLabel) + "</span><strong>" + escapeHtml(artifact.title) + "</strong></div>",
-      "<p>" + escapeHtml(artifact.reason) + "</p>",
-      "<em>Следующий шаг: " + escapeHtml(artifact.nextAction) + "</em>",
-      "<div class=\"domain-artifact-actions\">",
-      "<button data-action=\"quick-task\" data-testid=\"domain-artifact-next\">Создать шаг</button>",
-      "<button data-action=\"set-surface\" data-id=\"" + escapeHtml(artifact.route) + "\">Открыть</button>",
-      "<button data-action=\"set-surface\" data-id=\"graph\">Связи</button>",
-      "<button data-action=\"set-surface\" data-id=\"control\">Контроль</button>",
-      "</div>",
-      "</article>"
-    ].join("")).join(""),
-    "</div>",
-    "</section>"
-  ].join("");
-}
-
-function renderBalanceWheel(state) {
-  const domains = lifeDomainStats(state);
-  const ordered = domains.slice().sort((a, b) => a.key.localeCompare(b.key));
-  const angleStep = (Math.PI * 2) / ordered.length;
-  const points = ordered.map((domain, index) => {
-    const angle = -Math.PI / 2 + index * angleStep;
-    const radius = 28 + domain.score * 0.78;
-    return {
-      x: Math.cos(angle) * radius,
-      y: Math.sin(angle) * radius,
-      labelX: Math.cos(angle) * 110,
-      labelY: Math.sin(angle) * 110,
-      domain
-    };
-  });
-  const polygon = points.map((point) => point.x.toFixed(1) + "," + point.y.toFixed(1)).join(" ");
-  const weak = domains.slice().sort((a, b) => a.score - b.score || a.title.localeCompare(b.title))[0] || domains[0];
-  const average = Math.round(domains.reduce((sum, domain) => sum + domain.score, 0) / Math.max(1, domains.length));
-  return [
-    "<section class=\"balance-dashboard\" data-testid=\"balance-wheel-panel\">",
-    "<div class=\"balance-copy\">",
-    "<div class=\"section-title\">Колесо баланса</div>",
-    "<h3>Не еще одна форма, а карта доменов дня</h3>",
-    "<p>LifeOS выводит домены из реальных артефактов: привычек, целей, задач, денег, источников и знаний.</p>",
-    "<div class=\"balance-score\"><span>Средний тонус</span><strong>" + average + "%</strong></div>",
-    "</div>",
-    "<div class=\"balance-wheel\" data-testid=\"balance-wheel\">",
-    "<svg class=\"balance-wheel-svg\" viewBox=\"-126 -126 252 252\" role=\"img\" aria-label=\"Колесо баланса LifeOS\">",
-    [32, 58, 84].map((radius) => "<circle cx=\"0\" cy=\"0\" r=\"" + radius + "\" />").join(""),
-    points.map((point) => "<line x1=\"0\" y1=\"0\" x2=\"" + point.labelX.toFixed(1) + "\" y2=\"" + point.labelY.toFixed(1) + "\" />").join(""),
-    "<polygon points=\"" + polygon + "\" />",
-    points.map((point) => "<text x=\"" + point.labelX.toFixed(1) + "\" y=\"" + point.labelY.toFixed(1) + "\">" + escapeHtml(point.domain.title) + "</text>").join(""),
-    "</svg>",
-    "</div>",
-    "<div class=\"weak-domain-card\" data-testid=\"weak-domain-card\">",
-    "<span>Самый тихий домен</span>",
-    "<strong>" + escapeHtml(weak.title) + " · " + weak.score + "%</strong>",
-    "<em>" + escapeHtml(weak.reason) + "</em>",
-    "<button data-action=\"quick-task\" data-testid=\"domain-next-action\">Добавить шаг: " + escapeHtml(weak.nextAction) + "</button>",
-    "</div>",
-    "<div class=\"domain-list\" data-testid=\"domain-list\">",
-    domains.map((domain) => [
-      "<div class=\"domain-row\" data-testid=\"domain-row\" style=\"--domain-color:" + escapeHtml(domain.color) + "\">",
-      "<span>" + escapeHtml(domain.title) + "</span>",
-      "<div><i style=\"width:" + domain.score + "%\"></i></div>",
-      "<strong>" + domain.score + "%</strong>",
-      "<em>" + escapeHtml(domain.reason) + "</em>",
-      "</div>"
-    ].join("")).join(""),
-    "</div>",
-    "</section>"
-  ].join("");
-}
-
 function renderHabitsGoalsPanel(state) {
   return renderHabitsGoalsPanelV2(state);
   const habits = Object.values(state.habits || {}).filter((item) => !item.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -22727,50 +21146,6 @@ function renderHabitsGoalsPanel(state) {
   ].join("");
 }
 
-function renderHabitsGoalsPanelV2(state) {
-  const habits = Object.values(state.habits || {}).filter((item) => !item.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const goals = Object.values(state.goals || {}).filter((item) => !item.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const insights = Object.values(state.insights || {}).filter((item) => item.status === "open").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 10);
-  return [
-    "<section class=\"info-panel habits-goals-workbench habits-goals-v2\" data-testid=\"habits-goals-panel\">",
-    "<div class=\"card-head\"><h2>Привычки и цели</h2><span>Check-ins, прогресс, next actions и локальные инсайты связаны с артефактами</span></div>",
-    "<div class=\"habit-goal-compose\">",
-    "<section class=\"habit-tool\" data-testid=\"habit-form\"><h3>Новая привычка</h3><div class=\"habit-form-grid\"><input id=\"habit-title\" data-testid=\"habit-title\" aria-label=\"Habit title\"><select id=\"habit-frequency\" data-testid=\"habit-frequency\" aria-label=\"Habit frequency\"><option value=\"daily\">каждый день</option><option value=\"weekly\">еженедельно</option><option value=\"weekdays\">по будням</option></select><button data-action=\"add-habit-entry\" data-testid=\"add-habit-entry\">Добавить</button></div></section>",
-    "<section class=\"habit-tool\" data-testid=\"goal-form\"><h3>Новая цель</h3><div class=\"goal-form-grid\"><input id=\"goal-title-entry\" data-testid=\"goal-title-entry\" aria-label=\"Goal title\"><input id=\"goal-target-amount\" data-testid=\"goal-target-amount\" aria-label=\"Goal target amount\" type=\"number\" min=\"0\" step=\"0.01\"><input id=\"goal-target-date\" data-testid=\"goal-target-date\" aria-label=\"Goal target date\" type=\"date\"><button data-action=\"add-goal-entry\" data-testid=\"add-goal-entry\">Добавить</button></div></section>",
-    "</div>",
-    renderBalanceWheel(state),
-    renderDomainArtifactBoard(state),
-    "<div class=\"habit-goal-grid\">",
-    "<div><h3>Привычки</h3>",
-    habits.length ? habits.map((habit) => {
-      const checked = habit.checkins && habit.checkins[todayKey()];
-      return "<div class=\"habit-row detailed\" data-testid=\"habit-row\"><button data-action=\"toggle-habit\" data-id=\"" + escapeHtml(habit.id) + "\" data-testid=\"habit-toggle\">" + (checked ? "✓" : "○") + "</button><span><strong>" + escapeHtml(habit.title) + "</strong><em>" + escapeHtml(habit.frequency) + " · " + habitStreak(habit) + " дн.</em></span><button class=\"mini-button\" data-action=\"archive-habit\" data-id=\"" + escapeHtml(habit.id) + "\">Archive</button></div>";
-    }).join("") : "<div class=\"empty compact\">Добавь привычку или напиши ее во Вход.</div>",
-    "</div>",
-    "<div><h3>Цели</h3>",
-    goals.length ? goals.map((goal) => {
-      const progressInfo = goalProgress(state, goal.id);
-      const target = Number(goal.targetAmount || 0);
-      const progressValue = Number(goal.progress || 0);
-      const progress = target ? Math.min(100, Math.round(progressValue / target * 100)) : progressInfo.total ? Math.round(progressInfo.done / progressInfo.total * 100) : 0;
-      return [
-        "<div class=\"goal-row detailed\" data-testid=\"goal-row\">",
-        "<button class=\"toggle-button\" data-action=\"toggle-goal\" data-id=\"" + escapeHtml(goal.id) + "\">" + (goal.status === "done" ? "Done" : "Active") + "</button>",
-        "<span><strong>" + escapeHtml(goal.title) + "</strong><em>" + (target ? Math.round(progressValue) + " / " + Math.round(target) + " ₽" : progressInfo.done + "/" + progressInfo.total + " задач") + (goal.targetDate ? " · до " + escapeHtml(goal.targetDate) : "") + "</em></span>",
-        "<strong>" + progress + "%</strong>",
-        "<div class=\"goal-actions\"><input id=\"goal-progress-" + escapeHtml(goal.id) + "\" aria-label=\"Goal progress\" type=\"number\" min=\"0\" step=\"0.01\"><button class=\"mini-button\" data-action=\"add-goal-progress\" data-id=\"" + escapeHtml(goal.id) + "\" data-testid=\"add-goal-progress\">+Прогресс</button><button class=\"mini-button\" data-action=\"goal-next-task\" data-id=\"" + escapeHtml(goal.id) + "\" data-testid=\"goal-next-task\">Next task</button><button class=\"mini-button\" data-action=\"archive-goal\" data-id=\"" + escapeHtml(goal.id) + "\">Archive</button></div>",
-        "</div>"
-      ].join("");
-    }).join("") : "<div class=\"empty compact\">Добавь цель с числом или датой.</div>",
-    "</div>",
-    "<div><h3>Инсайты</h3><button data-action=\"refresh-insights\" data-testid=\"refresh-insights\">Обновить инсайты</button>",
-    insights.length ? insights.map((insight) => "<div class=\"insight-row detailed\" data-testid=\"insight-row\"><span><strong>" + escapeHtml(insight.title) + "</strong><em>" + escapeHtml(shorten(insight.reason, 150)) + "</em></span><div class=\"insight-actions\"><button data-action=\"insight-to-task\" data-id=\"" + escapeHtml(insight.id) + "\" data-testid=\"insight-to-task\">Создать задачу</button><button data-action=\"ignore-insight\" data-id=\"" + escapeHtml(insight.id) + "\" data-testid=\"ignore-insight\">Пропустить</button></div></div>").join("") : "<div class=\"empty compact\">Нажми обновить: LifeOS найдет привычки без отметки, цели без next action и повторяющиеся расходы.</div>",
-    "</div>",
-    "</div>",
-    "</section>"
-  ].join("");
-}
-
 function renderChatPanel(state) {
   const messages = Object.values(state.chatMessages || {}).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(-6);
   return [
@@ -22788,65 +21163,6 @@ function renderChatPanel(state) {
     "<textarea id=\"chat-input\" data-testid=\"chat-input\" rows=\"2\" autocomplete=\"off\" aria-label=\"Chat message\"></textarea>",
     "<button data-action=\"send-chat\" data-testid=\"send-chat\">Отправить</button>",
     "</div>",
-    "</section>"
-  ].join("");
-}
-
-function renderFlowStepNode(kind, title, value, detail) {
-  return [
-    "<div class=\"flow-builder-node flow-builder-node-" + escapeHtml(kind) + "\" data-testid=\"flow-builder-node\">",
-    "<span>" + escapeHtml(title) + "</span>",
-    "<strong>" + escapeHtml(value || "не задано") + "</strong>",
-    detail ? "<em>" + escapeHtml(detail) + "</em>" : "",
-    "</div>"
-  ].join("");
-}
-
-function renderAgentRunCard(run) {
-  return [
-    "<article class=\"agent-run\" data-testid=\"agent-run\">",
-    "<div><strong>" + escapeHtml(run.name + " · " + humanStatus(run.status)) + "</strong><span>" + escapeHtml(shorten(run.summary, 140)) + "</span></div>",
-    "<div class=\"agent-run-meta\">",
-    "<span>Контекст: " + escapeHtml((run.scopes || []).join(", ") || "только предложения") + "</span>",
-    "<span>Риск: локально, без внешней отправки</span>",
-    "<span>Требуется Принять</span>",
-    "</div>",
-    "<button data-action=\"focus-graph-node\" data-id=\"" + escapeHtml(run.id) + "\">Показать связи</button>",
-    "</article>"
-  ].join("");
-}
-
-function renderFlowRunCard(state, run) {
-  const proposalTitles = (run.proposalIds || []).map((proposalId) => {
-    const proposal = state.proposals[proposalId];
-    return proposal ? proposal.title : proposalId;
-  });
-  return [
-    "<article class=\"flow-run-card\" data-testid=\"flow-run-row\">",
-    "<div><strong>" + escapeHtml(humanStatus(run.status)) + "</strong><span>" + escapeHtml(shorten(run.summary, 140)) + "</span></div>",
-    proposalTitles.length ? "<em>Предложение: " + escapeHtml(proposalTitles.map((title) => shorten(title, 54)).join(" / ")) + "</em>" : "<em>Предложение не создано</em>",
-    "<div class=\"agent-run-meta\"><span>Проверка без изменений</span><span>Требуется подтверждение</span><span>Откат и контроль видны</span></div>",
-    "<button data-action=\"focus-graph-node\" data-id=\"" + escapeHtml(run.id) + "\">Показать связи</button>",
-    "</article>"
-  ].join("");
-}
-
-function renderApprovalQueue(state) {
-  const proposals = Object.values(state.proposals || {})
-    .filter((proposal) => proposal.status === "open" && ["actions", "calendar", "money", "habits", "goals", "knowledge"].includes(proposal.group || groupForProposalType(proposal.type)))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 6);
-  return [
-    "<section class=\"approval-queue\" data-testid=\"approval-queue\">",
-    "<div class=\"section-title\">Очередь согласования</div>",
-    proposals.length ? proposals.map((proposal) => [
-      "<div class=\"approval-row\" data-testid=\"approval-row\">",
-      "<span>" + escapeHtml(proposalGroupLabel(proposal.group || groupForProposalType(proposal.type))) + "</span>",
-      "<strong>" + escapeHtml(shorten(proposal.title, 82)) + "</strong>",
-      "<button data-action=\"apply-proposal\" data-id=\"" + escapeHtml(proposal.id) + "\">Принять</button>",
-      "<button data-action=\"open-proposal-control\" data-id=\"" + escapeHtml(proposal.id) + "\">Контроль</button>",
-      "</div>"
-    ].join("")).join("") : "<div class=\"empty compact\">Проверка создаст предложение здесь. Никаких скрытых изменений до «Принять».</div>",
     "</section>"
   ].join("");
 }
@@ -22891,68 +21207,6 @@ function renderAgentPanel(state) {
   ].join("");
 }
 
-function renderTranscriptSegmentRow(segment) {
-  return [
-    "<div class=\"transcript-segment-row\" data-testid=\"transcript-segment-row\">",
-    "<strong>" + escapeHtml(segment.timecode || String(segment.index + 1)) + "</strong>",
-    "<span>" + escapeHtml(shorten(segment.text, 160)) + "</span>",
-    "</div>"
-  ].join("");
-}
-
-function renderAudioCheckpointRow(checkpoint) {
-  return [
-    "<div class=\"audio-checkpoint-row\" data-testid=\"audio-checkpoint-row\">",
-    "<strong>" + escapeHtml(checkpoint.timecode || "без времени") + "</strong>",
-    "<span>" + escapeHtml(checkpoint.title) + "</span>",
-    checkpoint.note ? "<em>" + escapeHtml(shorten(checkpoint.note, 90)) + "</em>" : "",
-    "</div>"
-  ].join("");
-}
-
-function renderPlayerNoteRow(playerNote) {
-  return [
-    "<div class=\"player-note-row\" data-testid=\"player-note-row\">",
-    "<strong>" + escapeHtml(playerNote.title) + "</strong>",
-    "<span>" + escapeHtml(shorten(playerNote.text, 120)) + "</span>",
-    "</div>"
-  ].join("");
-}
-
-function renderAudioSourceCard(state, source) {
-  const segments = transcriptSegmentsForSource(state, source.id);
-  const checkpoints = audioCheckpointsForSource(state, source.id);
-  const playerNotes = playerNotesForSource(state, source.id);
-  const player = source.dataUrl
-    ? "<audio controls src=\"" + escapeHtml(source.dataUrl) + "\"></audio>"
-    : "<div class=\"empty compact\">Файл сохранён как источник. Для встроенного проигрывания импортируй аудио до 8 MB; расшифровка всё равно работает.</div>";
-  const meta = sourceMetaLabel(source);
-  return [
-    "<article class=\"audio-card\" data-testid=\"audio-card\">",
-    "<div class=\"audio-card-head\">",
-    "<div><strong>" + escapeHtml(source.name) + "</strong><span>" + escapeHtml(meta) + "</span></div>",
-    "<div class=\"knowledge-actions\"><button data-action=\"open-source-note\" data-id=\"" + escapeHtml(source.id) + "\">Открыть заметку</button><button data-action=\"request-stt-gate\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"request-stt-gate\">Настроить STT</button></div>",
-    "</div>",
-    player,
-    "<div class=\"knowledge-metrics\"><span>фрагменты <strong>" + segments.length + "</strong></span><span>закладки <strong>" + checkpoints.length + "</strong></span><span>заметки <strong>" + playerNotes.length + "</strong></span></div>",
-    "<label class=\"transcript-editor-label\">Ручная расшифровка<textarea class=\"transcript-box\" data-testid=\"transcript-input-" + escapeHtml(source.id) + "\" id=\"transcript-" + escapeHtml(source.id) + "\" spellcheck=\"true\">" + escapeHtml(source.transcriptText || "") + "</textarea></label>",
-    "<div class=\"audio-actions\">",
-    "<button data-action=\"save-transcript\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-transcript-" + escapeHtml(source.id) + "\">Сохранить расшифровку</button>",
-    "<input id=\"checkpoint-time-" + escapeHtml(source.id) + "\" data-testid=\"checkpoint-time\" autocomplete=\"off\" aria-label=\"Время закладки\">",
-    "<input id=\"checkpoint-title-" + escapeHtml(source.id) + "\" data-testid=\"checkpoint-title\" autocomplete=\"off\" aria-label=\"Название закладки\">",
-    "<button data-action=\"add-audio-checkpoint\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"add-audio-checkpoint\">Добавить закладку</button>",
-    "</div>",
-    "<div class=\"transcript-selection-tools\">",
-    "<textarea id=\"transcript-snippet-" + escapeHtml(source.id) + "\" data-testid=\"transcript-snippet\" aria-label=\"Transcript snippet\"></textarea>",
-    "<div class=\"knowledge-actions\"><button data-action=\"transcript-to-note\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"transcript-to-note\">Заметка</button><button data-action=\"transcript-to-task\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"transcript-to-task\">Задача</button><button data-action=\"transcript-to-claim\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"transcript-to-claim\">Вывод</button><button data-action=\"transcript-to-highlight\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"transcript-to-highlight\">Цитата</button></div>",
-    "</div>",
-    segments.length ? "<div class=\"transcript-segment-stack\">" + segments.slice(0, 10).map(renderTranscriptSegmentRow).join("") + "</div>" : "<div class=\"empty compact\">Сохрани ручную расшифровку, и LifeOS сделает её searchable и связанной с задачами/заметками.</div>",
-    checkpoints.length ? "<div class=\"audio-checkpoint-stack\">" + checkpoints.slice(0, 6).map(renderAudioCheckpointRow).join("") + "</div>" : "<div class=\"empty compact\">Добавь закладки, чтобы быстро вернуться к важным местам.</div>",
-    playerNotes.length ? "<div class=\"player-note-stack\">" + playerNotes.slice(0, 6).map(renderPlayerNoteRow).join("") + "</div>" : "",
-    "</article>"
-  ].join("");
-}
-
 function renderPlayerPanel(state) {
   const audios = Object.values(state.sources || {}).filter((source) => !source.deleted && source.kind === "audio").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 8);
   const stt = state.providers.stt || { status: "not-configured", requiredAction: "Manual transcript is available now." };
@@ -22983,148 +21237,6 @@ function renderProviderPanel(state) {
   ].join("");
 }
 
-function providerPassportCopy(key, provider) {
-  const map = {
-    ollama: {
-      setup: "Запусти Ollama локально и нажми Проверить Ollama.",
-      local: "Чат и заметки работают без модели.",
-      sends: "Только активный артефакт после явного запуска.",
-      fallback: "Локальные ответы и предложения без внешней модели."
-    },
-    mail: {
-      setup: "Подготовить OAuth; до этого вставляй письмо как источник.",
-      local: "Вставленное письмо сохраняется как источник и разбирается локально.",
-      sends: "Доступы OAuth только после явного разрешения владельца.",
-      fallback: "Вставка текста письма во Вход."
-    },
-    calendar: {
-      setup: "Локальный календарь уже работает без внешних аккаунтов.",
-      local: "Задачи, напоминания и блоки времени остаются в локальной базе.",
-      sends: "Ничего не уходит во внешний календарь.",
-      fallback: "План дня и локальный календарь."
-    },
-    calendarSync: {
-      setup: "Подготовить OAuth для синхронизации внешнего календаря.",
-      local: "Локальные блоки остаются источником правды.",
-      sends: "Доступы чтения/записи календаря только после явного разрешения владельца.",
-      fallback: "Экспорт или ручной перенос из календаря."
-    },
-    automation: {
-      setup: "Локальный сценарий: событие, условие, действие, проверка.",
-      local: "Создаются только предложения и история проверок.",
-      sends: "Ничего не уходит наружу.",
-      fallback: "Очередь согласования и Контроль."
-    },
-    player: {
-      setup: "Аудиоплеер локальный; STT подключается отдельно.",
-      local: "Проигрывание, ручная расшифровка и закладки локальны.",
-      sends: "Аудио не отправляется без подключения STT.",
-      fallback: "Редактор ручной расшифровки."
-    },
-    pwa: {
-      setup: "Проверить офлайн-оболочку и установку.",
-      local: "Shell кэшируется; данные остаются IndexedDB/localStorage.",
-      sends: "Ничего наружу; установку решает браузер.",
-      fallback: "Обычный режим браузера."
-    },
-    stt: {
-      setup: "Подключить браузерный или локальный STT.",
-      local: "Ручная расшифровка работает сейчас.",
-      sends: "Аудио только после отдельного разрешения STT.",
-      fallback: "Редактор ручной расшифровки."
-    },
-    ocr: {
-      setup: "Подключить OCR для чеков.",
-      local: "Скрин чека сохраняется и заполняется вручную.",
-      sends: "Изображение не отправляется без OCR provider.",
-      fallback: "Ручное извлечение чека."
-    },
-    pdf: {
-      setup: "Установить PDF-парсер.",
-      local: "Файл хранится как источник; экран честно объясняет ограничение.",
-      sends: "PDF не парсится и не отправляется без парсера.",
-      fallback: "Чтение TXT/MD."
-    },
-    epub: {
-      setup: "Установить EPUB-парсер.",
-      local: "Книга хранится как источник; TXT/MD читаются сейчас.",
-      sends: "EPUB не парсится и не отправляется без парсера.",
-      fallback: "Чтение TXT/MD."
-    },
-    notifications: {
-      setup: "Запросить browser notification permission только явно.",
-      local: "Reminders видны в Today/Calendar без permission.",
-      sends: "Ничего наружу; permission контролирует браузер.",
-      fallback: "Внутренние reminders и Control."
-    },
-    bank: {
-      setup: "Прямое OAuth-подключение банка пока не реализовано.",
-      local: "CSV/OFX выписка разбирается локально; строки становятся предложениями.",
-      sends: "Файл выписки никуда не отправляется; разбор идёт в браузере.",
-      fallback: "Импорт CSV/OFX выписки в Финансах."
-    }
-  };
-  return map[key] || {
-    setup: provider.requiredAction || "Провайдер требует явной настройки владельцем.",
-    local: "Локальное состояние Artifact OS остаётся доступным.",
-    sends: "Данные не отправляются без явного подтверждения.",
-    fallback: "Используй локальный workspace-flow."
-  };
-}
-
-function providerStatusLabel(status) {
-  const labels = {
-    "local-only": "локально",
-    "not-connected": "не подключено",
-    "not-configured": "нужна настройка",
-    "permission-required": "нужно разрешение",
-    "parser-required": "нужен парсер",
-    "needs-owner-credentials": "нужны данные владельца",
-    "unchecked": "не проверено",
-    "reachable": "endpoint доступен",
-    "offline": "офлайн",
-    "models_found": "модели найдены",
-    "not-run": "не запускалось",
-    "blocked_by_browser_or_cors": "заблокировано браузером/CORS",
-    "degraded": "частично работает",
-    "generation_ok": "генерация прошла",
-    "service-worker-ready": "готово локально",
-    "revoked": "отключено"
-  };
-  return labels[String(status || "")] || String(status || "unknown");
-}
-
-function renderProviderPassport(state, key, provider) {
-  const copy = providerPassportCopy(key, provider);
-  const scopes = provider.scopes && provider.scopes.length ? provider.scopes.map((scope) => scope.replace(/[-_]/g, " ")).join(", ") : "локально";
-  const status = provider.status || "unknown";
-  const canPrepare = ["mail", "calendarSync", "ocr", "stt", "pdf", "epub", "notifications"].includes(key);
-  const canProbe = key === "ollama" || key === "pwa";
-  const setupAction = canPrepare ? "<button data-action=\"prepare-provider\" data-id=\"" + escapeHtml(key) + "\" data-testid=\"prepare-provider-" + escapeHtml(key) + "\">Подготовить</button>" : "";
-  const probeAction = key === "ollama"
-    ? "<button data-action=\"probe-ollama\" data-testid=\"probe-provider-ollama\">Проверить Ollama</button><button data-action=\"test-ollama-generation\" data-testid=\"test-provider-ollama-generation\">Тест генерации</button>"
-    : key === "pwa"
-      ? "<button data-action=\"check-pwa\" data-testid=\"probe-provider-pwa\">Проверить PWA</button>"
-      : "";
-  const revoke = status !== "local-only" && status !== "revoked" ? "<button data-action=\"revoke-provider\" data-id=\"" + escapeHtml(key) + "\">Отключить</button>" : "";
-  const lastRun = Object.values(state.providerRuns || {}).filter((run) => run.providerId === key).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-  return [
-    "<article class=\"provider-passport\" data-testid=\"provider-row-" + escapeHtml(key) + "\" data-provider=\"" + escapeHtml(key) + "\">",
-    "<div class=\"provider-passport-head\"><div><span>Подключение</span><strong>" + escapeHtml(provider.label || key) + "</strong></div><mark data-status=\"" + escapeHtml(status) + "\">" + escapeHtml(providerStatusLabel(status)) + "</mark></div>",
-    "<div class=\"provider-passport-grid\">",
-    "<div><span>Настройка</span><strong>" + escapeHtml(copy.setup) + "</strong></div>",
-    "<div><span>Локальная замена</span><strong>" + escapeHtml(copy.local) + "</strong></div>",
-    "<div><span>Граница данных</span><strong>" + escapeHtml(copy.sends) + "</strong></div>",
-    "<div><span>Доступы</span><strong>" + escapeHtml(scopes) + "</strong></div>",
-    "</div>",
-    provider.requiredAction ? "<p class=\"provider-required\">" + escapeHtml(provider.requiredAction) + "</p>" : "",
-    provider.lastError ? "<div class=\"provider-error\">" + escapeHtml(shorten(provider.lastError, 140)) + "</div>" : "",
-    lastRun ? "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(providerRunLabel(lastRun)) + "</strong><span>" + escapeHtml(shorten(lastRun.summary, 120)) + "</span></div>" : "<div class=\"empty compact\">Пока нет проверки подключения. Действие будет записано в Контроль.</div>",
-    "<div class=\"provider-actions\">" + [setupAction, probeAction, revoke].filter(Boolean).join("") + "</div>",
-    "</article>"
-  ].join("");
-}
-
 function renderProviderPanelV2(state) {
   const providers = state.providers || {};
   const preferred = ["ollama", "mail", "calendar", "calendarSync", "ocr", "stt", "pdf", "epub", "notifications", "pwa", "automation", "player"];
@@ -23135,30 +21247,6 @@ function renderProviderPanelV2(state) {
     "<div class=\"provider-passport-grid-list\">",
     keys.map((key) => renderProviderPassport(state, key, providers[key])).join(""),
     "</div>",
-    "</section>"
-  ].join("");
-}
-
-function renderPwaPanel(state) {
-  const env = state.environment || {};
-  const provider = (state.providers || {}).pwa || {};
-  const manifest = env.manifestHref || "./manifest.webmanifest";
-  const swStatus = env.serviceWorkerStatus || provider.status || "unchecked";
-  const installStatus = env.installPromptStatus || "not-seen";
-  const displayMode = env.displayMode || "browser";
-  const displayLabel = displayMode === "browser" ? "браузер" : displayMode === "standalone" ? "как приложение" : displayMode === "minimal-ui" ? "минимальный режим" : displayMode;
-  const error = env.pwaLastError ? "<div class=\"provider-error\">" + escapeHtml(shorten(env.pwaLastError, 140)) + "</div>" : "";
-  return [
-    "<section class=\"info-panel workflow-panel pwa-panel\" data-testid=\"pwa-panel\">",
-    "<div class=\"section-title\">Офлайн и установка</div>",
-    "<div class=\"provider-row\"><span>Файл приложения</span><strong data-testid=\"pwa-manifest\">" + escapeHtml(manifest) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Офлайн-оболочка</span><strong data-testid=\"pwa-service-worker-status\" data-raw-status=\"" + escapeHtml(swStatus) + "\">" + escapeHtml(humanStatus(swStatus)) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Область</span><strong data-testid=\"pwa-service-worker-scope\">" + escapeHtml(env.serviceWorkerScope || "ещё не зарегистрирована") + "</strong></div>",
-    "<div class=\"provider-row\"><span>Установка</span><strong data-testid=\"pwa-install-status\" data-raw-status=\"" + escapeHtml(installStatus) + "\">" + escapeHtml(humanStatus(installStatus)) + "</strong></div>",
-    "<div class=\"provider-row\"><span>Режим окна</span><strong data-testid=\"pwa-display-mode\" data-raw-status=\"" + escapeHtml(displayMode) + "\">" + escapeHtml(displayLabel) + "</strong></div>",
-    "<div class=\"provider-send-box\" data-testid=\"pwa-boundary\"><strong>Что честно работает</strong><span>Оболочка кэшируется локально. Данные остаются в браузерном хранилище. Установка зависит от браузера и не подделывается.</span></div>",
-    "<div class=\"provider-actions\"><button data-action=\"check-pwa\" data-testid=\"check-pwa\">Проверить PWA</button><button data-action=\"show-pwa-install\" data-testid=\"show-pwa-install\">Установить</button></div>",
-    error,
     "</section>"
   ].join("");
 }
@@ -23407,96 +21495,6 @@ function controlObjectCounts(state) {
     ["databases", Object.values(state.customDatabases || {}).filter((item) => !item.deleted).length],
     ["twin snapshots", Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted).length]
   ];
-}
-
-function ownerReadinessRows(state) {
-  const graph = mapGraph(state);
-  const liveSources = Object.values(state.sources || {}).filter((item) => !item.deleted);
-  const liveTasks = Object.values(state.tasks || {}).filter((item) => !item.deleted);
-  const liveFinance = Object.values(state.financeTransactions || {}).filter((item) => !item.deleted);
-  const liveHabits = Object.values(state.habits || {}).filter((item) => !item.deleted);
-  const liveGoals = Object.values(state.goals || {}).filter((item) => !item.deleted);
-  const liveChatMessages = visibleChatMessages(state);
-  const liveKnowledge = [
-    Object.values(state.claims || {}).filter((item) => !item.deleted).length,
-    Object.values(state.questions || {}).filter((item) => !item.deleted).length,
-    Object.values(state.reviewItems || {}).filter((item) => !item.deleted).length,
-    Object.values(state.insights || {}).filter((item) => !item.deleted).length
-  ].reduce((sum, value) => sum + value, 0);
-  const providerStatuses = Object.values(state.providers || {}).map((provider) => provider.status || "unknown");
-  const fakeReadyProvider = providerStatuses.some((status) => ["ready", "connected"].includes(status));
-  const appliedObjectCount = liveTasks.length + liveFinance.length + liveHabits.length + liveGoals.length + liveKnowledge + liveChatMessages.length;
-  const v34Count = [
-    Object.values(state.channels || {}).filter((item) => !item.deleted).length,
-    Object.values(state.systemDefinitions || {}).filter((item) => !item.deleted).length,
-    Object.values(state.marketplacePacks || {}).filter((item) => !item.deleted).length,
-    Object.values(state.modelProfiles || {}).filter((item) => !item.deleted).length,
-    Object.values(state.customDatabases || {}).filter((item) => !item.deleted).length,
-    Object.values(state.screenCompanionSessions || {}).filter((item) => !item.deleted).length,
-    Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted).length
-  ].reduce((sum, value) => sum + value, 0);
-  return [
-    {
-      id: "artifact-chain",
-      label: "Цепочка артефакта",
-      status: liveSources.length && appliedObjectCount && graph.nodes.length ? "ok" : "needs-data",
-      detail: liveSources.length + " источников · " + appliedObjectCount + " проекций · " + graph.nodes.length + " узлов"
-    },
-    {
-      id: "repository",
-      label: "Сохранение базы",
-      status: repository && repository.storageMode ? "ok" : "error",
-      detail: (repository && repository.storageMode ? repository.storageMode : "недоступно") + " · следов " + state.auditLog.length
-    },
-    {
-      id: "graph-control",
-      label: "Связи и Контроль",
-      status: graph.nodes.length && graph.links.length && state.auditLog.length ? "ok" : "needs-data",
-      detail: graph.nodes.length + " узлов · " + graph.links.length + " связей · " + state.auditLog.length + " следов"
-    },
-    {
-      id: "v34-platform",
-      label: "Платформа v34",
-      status: v34Count >= 10 && state.providers.screen && state.providers.smartHome && state.providers.marketplace ? "ok" : "needs-data",
-      detail: v34Count + " v34 объектов · каналы/системы/паки/модели/базы/разрешения"
-    },
-    {
-      id: "offline",
-      label: "Локальный режим",
-      status: state.environment.online ? "online" : "offline-ready",
-      detail: state.environment.online ? "сеть доступна; локальная база остаётся главной" : "сеть недоступна; локальная база остаётся usable"
-    },
-    {
-      id: "provider-gates",
-      label: "Честность подключений",
-      status: fakeReadyProvider ? "review" : "ok",
-      detail: fakeReadyProvider ? "есть спорный статус готовности; нужно проверить" : "внешние подключения явно локальные, отключены или ждут настройки"
-    },
-    {
-      id: "error-boundary",
-      label: "Восстановление интерфейса",
-      status: bootError ? "error" : "ready",
-      detail: bootError ? shorten(bootError.message || String(bootError), 120) : "при ошибке показывается экран восстановления, база не портится"
-    }
-  ];
-}
-
-function renderOwnerReadinessPanel(state) {
-  const rows = ownerReadinessRows(state);
-  return [
-    "<div class=\"owner-readiness\" data-testid=\"owner-readiness-panel\">",
-    "<div class=\"subsection-title\">Готовность для владельца</div>",
-    rows.map((row) => {
-      return [
-        "<div class=\"readiness-row\" data-testid=\"readiness-row\" data-readiness-id=\"" + escapeHtml(row.id) + "\" data-status=\"" + escapeHtml(row.status) + "\">",
-        "<span>" + escapeHtml(row.label) + "</span>",
-        "<strong data-testid=\"readiness-state\">" + escapeHtml(humanStatus(row.status) || row.status) + "</strong>",
-        "<em>" + escapeHtml(row.detail) + "</em>",
-        "</div>"
-      ].join("");
-    }).join(""),
-    "</div>"
-  ].join("");
 }
 
 function buildVaultExportPayload(state) {
@@ -23933,170 +21931,6 @@ function formatBytes(size) {
   return Math.round(value / 1024 / 102.4) / 10 + " MB";
 }
 
-function humanObjectLabel(kind) {
-  const labels = {
-    source: "Источник",
-    note: "Заметка",
-    task: "Задача",
-    reminder: "Напоминание",
-    habit: "Привычка",
-    goal: "Цель",
-    plan: "План",
-    finance: "Деньги",
-    backup: "Бэкап",
-    image: "Скрин",
-    audio: "Аудио",
-    book: "Книга",
-    text: "Текст",
-    mail: "Письмо",
-    file: "Файл",
-    channel: "Канал",
-    system: "Система",
-    "system-record": "Запись системы",
-    project: "Проект",
-    "project-item": "Пункт проекта",
-    "model-profile": "Маршрут модели",
-    "smart-home-device": "Устройство дома",
-    "smart-home-event": "Событие дома",
-    "marketplace-pack": "Пакет системы",
-    "installed-pack": "Установка пакета",
-    "design-profile": "Профиль дизайна",
-    database: "База",
-    "database-row": "Строка базы",
-    "screen-session": "Screen Companion",
-    "twin-snapshot": "Снимок памяти"
-  };
-  return labels[String(kind || "")] || String(kind || "Объект");
-}
-
-function humanStatus(value) {
-  const labels = {
-    captured: "ждёт разбора",
-    "text-ready": "текст готов",
-    "audio-stored": "аудио сохранено",
-    stored: "сохранено",
-    reading: "в чтении",
-    gated: "нужно подключение",
-    queued: "в очереди",
-    "manual-transcript-required": "нужна расшифровка",
-    "manual-transcript-ready": "расшифровка готова",
-    "transcript-ready": "расшифровка готова",
-    "needs-owner-transcript": "нужна расшифровка",
-    "stt-provider-gated": "STT подключается отдельно",
-    "whisper-done": "расшифровано локально (Whisper)",
-    "whisper-transcribing": "идёт расшифровка (Whisper)",
-    "ocr-manual-required": "чек заполняется вручную",
-    "manual-extraction-ready": "извлечение готово",
-    "pdf-parser-required": "PDF ждёт парсер",
-    "epub-parser-required": "EPUB ждёт парсер",
-    "parser-required": "нужен парсер",
-    "backup-preview": "предпросмотр бэкапа",
-    "backup-imported": "бэкап загружен",
-    open: "открыто",
-    applied: "принято",
-    done: "готово",
-    active: "активно",
-    revoked: "отключено",
-    unchecked: "не проверено",
-    reachable: "endpoint доступен",
-    "models_found": "модели найдены",
-    "blocked_by_browser_or_cors": "заблокировано браузером/CORS",
-    degraded: "частично работает",
-    offline: "офлайн",
-    online: "онлайн",
-    blocked: "заблокировано",
-    "service-worker-ready": "офлайн-оболочка готова",
-    supported: "поддерживается",
-    unsupported: "не поддерживается",
-    "service-worker-error": "ошибка service worker",
-    "not-seen": "браузер не предложил",
-    available: "можно установить",
-    accepted: "установка принята",
-    dismissed: "установка отклонена",
-    prompted: "запрос показан",
-    "browser-menu-required": "через меню браузера",
-    "permission-required": "нужно разрешение",
-    "not-connected": "не подключено",
-    "not-configured": "нужна настройка",
-    "needs-owner-credentials": "нужны данные владельца",
-    "local-only": "локально",
-    "proposal_created": "предложение создано",
-    "dry-run": "черновой прогон",
-    "test-generation": "тест генерации",
-    "generation_ok": "генерация прошла",
-    "not-run": "не запускалось",
-    "needs-data": "нужно действие",
-    "offline-ready": "готово офлайн",
-    ready: "готово",
-    ok: "ок",
-    review: "проверить",
-    error: "ошибка",
-    selected: "выбрано"
-  };
-  return labels[String(value || "")] || String(value || "");
-}
-
-function sourceMetaLabel(source) {
-  if (!source) return "";
-  const parts = [
-    humanObjectLabel(source.kind),
-    humanStatus(source.status),
-    humanStatus(source.parserStatus),
-    humanStatus(source.transcriptStatus),
-    source.size ? formatBytes(source.size) : ""
-  ].filter(Boolean);
-  return Array.from(new Set(parts)).join(" · ");
-}
-
-function providerRunLabel(run) {
-  if (!run) return "";
-  const kindLabels = {
-    prepare: "подготовка",
-    probe: "проверка",
-    revoke: "отключение",
-    "dry-run": "черновой прогон",
-    "proposal-dry-run": "предложения",
-    "test-generation": "тест генерации",
-    "model-select": "модель",
-    "service-worker-check": "проверка PWA",
-    "owner-check": "проверка владельца",
-    "install-prompt": "установка"
-  };
-  return (kindLabels[run.kind] || humanStatus(run.kind) || run.kind) + " / " + humanStatus(run.status || "");
-}
-
-function controlCountLabel(key) {
-  const labels = {
-    sources: "источники",
-    tasks: "задачи",
-    finance: "деньги",
-    habits: "привычки",
-    goals: "цели",
-    insights: "инсайты",
-    claims: "выводы",
-    questions: "вопросы",
-    review: "повторение",
-    reading: "чтение",
-    highlights: "цитаты",
-    transcript: "расшифровка",
-    "audio checkpoints": "аудио-закладки",
-    "player notes": "заметки плеера",
-    "chat messages": "сообщения чата",
-    "saved searches": "поиски",
-    "provider runs": "проверки провайдеров",
-    "flow runs": "прогоны потоков",
-    channels: "каналы",
-    systems: "системы",
-    projects: "проекты",
-    models: "модели",
-    "home devices": "устройства дома",
-    "marketplace packs": "пакеты систем",
-    databases: "базы",
-    "twin snapshots": "снимки памяти"
-  };
-  return labels[key] || key;
-}
-
 function auditTypeLabel(type) {
   const value = String(type || "");
   if (!value) return "Событие";
@@ -24111,44 +21945,6 @@ function auditTypeLabel(type) {
   if (value.includes("agent") || value.includes("flow")) return "Сценарий";
   if (value.includes("reader") || value.includes("highlight") || value.includes("knowledge")) return "Знание";
   return value.split(".").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").join(" ");
-}
-
-function sourcesForPanel(state, note) {
-  const sources = Object.values(state.sources || {}).filter((source) => !source.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  if (!note) return sources.slice(0, 6);
-  const attached = sources.filter((source) => source.noteId === note.id);
-  const recent = sources.filter((source) => source.noteId !== note.id).slice(0, 4);
-  return attached.concat(recent).slice(0, 8);
-}
-
-function renderSourcePanel(state, note) {
-  const sources = sourcesForPanel(state, note);
-  return [
-    "<section class=\"info-panel workflow-panel\" data-testid=\"sources-panel\">",
-    "<div class=\"section-title\">Источники</div>",
-    sources.length ? sources.map((source) => renderSourceRow(source, state)).join("") : "<div class=\"empty compact\">Импортируй текст, книгу, файл или аудио.</div>",
-    "</section>"
-  ].join("");
-}
-
-function renderSourceRow(source, state) {
-  const note = source.noteId ? state.notes[source.noteId] : null;
-  const meta = sourceMetaLabel(source);
-  const transcript = source.kind === "audio" ? [
-    "<textarea class=\"transcript-box\" data-testid=\"transcript-input-" + escapeHtml(source.id) + "\" id=\"transcript-" + escapeHtml(source.id) + "\" spellcheck=\"true\">" + escapeHtml(source.transcriptText || "") + "</textarea>",
-    "<button data-action=\"save-transcript\" data-id=\"" + escapeHtml(source.id) + "\" data-testid=\"save-transcript-" + escapeHtml(source.id) + "\">Сохранить расшифровку</button>"
-  ].join("") : "";
-  return [
-    "<div class=\"source-row\" data-testid=\"source-row\">",
-    "<div class=\"source-main\">",
-    "<button class=\"source-name\" data-action=\"open-source-note\" data-id=\"" + escapeHtml(source.id) + "\">" + escapeHtml(source.name) + "</button>",
-    "<span>" + escapeHtml(meta) + "</span>",
-    note ? "<span>Связано с " + escapeHtml(note.title) + "</span>" : "<span>Сохранено без заметки-проекции</span>",
-    "</div>",
-    transcript,
-    "<button data-action=\"archive-source\" data-id=\"" + escapeHtml(source.id) + "\">Архив</button>",
-    "</div>"
-  ].join("");
 }
 
 function goalProgress(state, goalId) {
@@ -24184,95 +21980,6 @@ function renderTodayPanel(state, note) {
   ].join("");
 }
 
-function renderTaskRow(task) {
-  const done = task.status === "done";
-  return [
-    "<div class=\"task-row" + (done ? " done" : "") + "\" data-testid=\"task-row\">",
-    "<button class=\"toggle-button\" data-action=\"toggle-task\" data-id=\"" + escapeHtml(task.id) + "\" data-testid=\"task-toggle\">" + (done ? "Готово" : "Открыто") + "</button>",
-    "<span>" + escapeHtml(task.title) + "</span>",
-    "<button class=\"mini-button\" data-action=\"archive-task\" data-id=\"" + escapeHtml(task.id) + "\">Архив</button>",
-    "</div>"
-  ].join("");
-}
-
-function renderPlanRow(block) {
-  const done = block.status === "done";
-  return [
-    "<div class=\"task-row plan-row" + (done ? " done" : "") + "\" data-testid=\"plan-row\">",
-    "<button class=\"toggle-button\" data-action=\"toggle-plan-block\" data-id=\"" + escapeHtml(block.id) + "\" data-testid=\"plan-toggle\">" + (done ? "Готово" : "План") + "</button>",
-    "<span>" + escapeHtml(block.title) + "</span>",
-    "<button class=\"mini-button\" data-action=\"archive-plan\" data-id=\"" + escapeHtml(block.id) + "\">Архив</button>",
-    "</div>"
-  ].join("");
-}
-
-function renderGoalRow(goal, state) {
-  const progress = goalProgress(state, goal.id);
-  const done = goal.status === "done";
-  return [
-    "<div class=\"goal-row" + (done ? " done" : "") + "\" data-testid=\"goal-row\">",
-    "<button class=\"toggle-button\" data-action=\"toggle-goal\" data-id=\"" + escapeHtml(goal.id) + "\" data-testid=\"goal-toggle\">" + (done ? "Done" : "Active") + "</button>",
-    "<span>" + escapeHtml(goal.title) + "</span>",
-    "<strong>" + progress.done + "/" + progress.total + "</strong>",
-    "<button class=\"mini-button\" data-action=\"archive-goal\" data-id=\"" + escapeHtml(goal.id) + "\">Archive</button>",
-    "</div>"
-  ].join("");
-}
-
-function renderTodayPanelV5(state, note) {
-  const today = todayKey();
-  const tasks = Object.values(state.tasks || {}).filter((task) => !task.deleted && task.day === today).sort(sortScheduledItems);
-  const goals = Object.values(state.goals || {}).filter((goal) => !goal.deleted).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).slice(0, 5);
-  const blocks = Object.values(state.planBlocks || {}).filter((block) => !block.deleted && block.day === today).sort(sortScheduledItems);
-  return [
-    "<section class=\"info-panel workflow-panel today-workbench\" data-testid=\"today-panel\">",
-    "<div class=\"section-title\">Сегодня</div>",
-    "<div class=\"task-composer\">",
-    "<input id=\"task-input\" data-testid=\"task-input\" autocomplete=\"off\" aria-label=\"Task\" value=\"\">",
-    "<input id=\"task-day\" data-testid=\"task-day\" type=\"date\" aria-label=\"Task date\" value=\"" + escapeHtml(today) + "\">",
-    "<input id=\"task-time\" data-testid=\"task-time-input\" type=\"time\" aria-label=\"Task time\" value=\"\">",
-    "<button data-action=\"add-task\" data-testid=\"add-task\">Добавить</button>",
-    "</div>",
-    "<div class=\"goal-composer\">",
-    "<input id=\"goal-input\" data-testid=\"goal-input\" autocomplete=\"off\" aria-label=\"Goal\" value=\"\">",
-    "<button data-action=\"add-goal\" data-testid=\"add-goal\">Цель</button>",
-    "</div>",
-    "<div class=\"plan-composer\">",
-    "<input id=\"plan-input\" data-testid=\"plan-input\" autocomplete=\"off\" aria-label=\"Plan block\" value=\"\">",
-    "<input id=\"plan-day\" data-testid=\"plan-day\" type=\"date\" aria-label=\"Plan date\" value=\"" + escapeHtml(today) + "\">",
-    "<input id=\"plan-time\" data-testid=\"plan-time-input\" type=\"time\" aria-label=\"Plan time\" value=\"\">",
-    "<button data-action=\"add-plan-block\" data-testid=\"add-plan-block\">План</button>",
-    "</div>",
-    "<div class=\"timeline\" data-testid=\"day-timeline\">",
-    blocks.length || tasks.length ? blocks.map((block) => renderPlanRowV5(state, block)).concat(tasks.map((task) => renderTaskRowV5(state, task))).join("") : "<div class=\"empty compact\">На сегодня пока пусто.</div>",
-    "</div>",
-    goals.length ? "<div class=\"goal-stack\">" + goals.map((goal) => renderGoalRow(goal, state)).join("") + "</div>" : "",
-    "</section>"
-  ].join("");
-}
-
-function renderTaskRowV5(state, task) {
-  const done = task.status === "done";
-  const item = Object.assign({ kind: "task" }, task);
-  return [
-    "<div class=\"task-row" + (done ? " done" : "") + "\" data-testid=\"task-row\">",
-    "<div class=\"task-main\"><time data-testid=\"task-time\">" + escapeHtml(formatSchedule(task)) + "</time><span>" + escapeHtml(task.title) + "</span><small>" + escapeHtml(scheduleSourceHint(state, item)) + "</small></div>",
-    "<div class=\"task-actions\">" + renderScheduleActions(item) + "</div>",
-    "</div>"
-  ].join("");
-}
-
-function renderPlanRowV5(state, block) {
-  const done = block.status === "done";
-  const item = Object.assign({ kind: "plan" }, block);
-  return [
-    "<div class=\"task-row plan-row" + (done ? " done" : "") + "\" data-testid=\"plan-row\">",
-    "<div class=\"task-main\"><time>" + escapeHtml(formatSchedule(block)) + "</time><span>" + escapeHtml(block.title) + "</span><small>" + escapeHtml(scheduleSourceHint(state, item)) + "</small></div>",
-    "<div class=\"task-actions\">" + renderScheduleActions(item) + "</div>",
-    "</div>"
-  ].join("");
-}
-
 function renderOllamaPanel(state) {
   const models = state.ollama.models && state.ollama.models.length ? state.ollama.models.join(", ") : "модели не найдены";
   const error = state.ollama.lastError ? "<div class=\"provider-error\">" + escapeHtml(shorten(state.ollama.lastError, 120)) + "</div>" : "";
@@ -24302,13 +22009,6 @@ function renderOllamaPanel(state) {
     runs.length ? "<div class=\"provider-run-list\" data-testid=\"provider-run-list\">" + runs.map((run) => "<div class=\"provider-run-row\" data-testid=\"provider-run-row\"><strong>" + escapeHtml(providerRunLabel(run)) + "</strong><span>" + escapeHtml(shorten(run.summary, 120)) + "</span></div>").join("") + "</div>" : "<div class=\"empty compact\">Ollama ещё не проверялся. Проверка всегда явная.</div>",
     "</section>"
   ].join("");
-}
-
-function renderAudit(state) {
-  const rows = state.auditLog.slice(-8).reverse();
-  return rows.length ? rows.map((row) => {
-    return "<div class=\"audit-row\"><strong>" + escapeHtml(auditTypeLabel(row.type)) + "</strong><span>" + escapeHtml(shorten(row.summary, 74)) + "</span></div>";
-  }).join("") : "<div class=\"empty compact\">Изменений пока нет.</div>";
 }
 
 function mountGraph() {

@@ -3,740 +3,230 @@
   "report": [
     {
       "file": "app.js",
-      "total": 847,
-      "reachable": 702,
+      "total": 773,
+      "reachable": 730,
       "guards": 2,
       "unreachable": [
         {
           "name": "renderEditor",
-          "line": 20654,
+          "line": 20540,
           "lines": 252
         },
         {
-          "name": "renderInboxRail",
-          "line": 14287,
-          "lines": 115
-        },
-        {
-          "name": "domainArtifactStats",
-          "line": 21677,
-          "lines": 115
-        },
-        {
-          "name": "providerPassportCopy",
-          "line": 22160,
-          "lines": 89
-        },
-        {
-          "name": "buildLocalChatAnswerLegacy",
-          "line": 7518,
-          "lines": 85
-        },
-        {
-          "name": "ownerReadinessRows",
-          "line": 22586,
-          "lines": 72
-        },
-        {
-          "name": "parseTimeFromTextHuman",
-          "line": 420,
-          "lines": 69
-        },
-        {
-          "name": "renderFinancePanelV2",
-          "line": 21504,
-          "lines": 69
-        },
-        {
-          "name": "humanStatus",
-          "line": 23146,
-          "lines": 67
-        },
-        {
-          "name": "renderDataControlPanelV2",
-          "line": 22999,
-          "lines": 65
-        },
-        {
-          "name": "renderCalendarWorkbench",
-          "line": 21375,
-          "lines": 54
-        },
-        {
-          "name": "renderBalanceWheel",
-          "line": 21819,
-          "lines": 54
-        },
-        {
-          "name": "renderInspector",
-          "line": 20931,
-          "lines": 52
-        },
-        {
-          "name": "renderGraphInspector",
-          "line": 20574,
-          "lines": 49
-        },
-        {
-          "name": "renderKnowledgeWorkbench",
-          "line": 20137,
-          "lines": 47
-        },
-        {
-          "name": "renderBookSourceCard",
-          "line": 20210,
-          "lines": 46
-        },
-        {
-          "name": "buildFolderTree",
-          "line": 3608,
-          "lines": 44
-        },
-        {
-          "name": "renderTopbar",
-          "line": 14046,
-          "lines": 44
-        },
-        {
-          "name": "renderHabitsGoalsPanelV2",
-          "line": 21904,
-          "lines": 44
-        },
-        {
-          "name": "renderOwnerAppRibbon",
-          "line": 14223,
-          "lines": 41
-        },
-        {
-          "name": "renderHumanChatHome",
-          "line": 19745,
-          "lines": 41
-        },
-        {
           "name": "renderAgentPanel",
-          "line": 22028,
+          "line": 21170,
           "lines": 40
         },
         {
-          "name": "humanObjectLabel",
-          "line": 23110,
-          "lines": 36
-        },
-        {
-          "name": "parseDateFromTextHuman",
-          "line": 321,
-          "lines": 35
-        },
-        {
-          "name": "renderArtifactAnalysisPanelV2",
-          "line": 14469,
-          "lines": 35
-        },
-        {
-          "name": "renderCaptureRail",
-          "line": 14402,
-          "lines": 34
-        },
-        {
-          "name": "renderAudioSourceCard",
-          "line": 22096,
-          "lines": 34
-        },
-        {
-          "name": "renderScheduleActions",
-          "line": 21263,
-          "lines": 33
-        },
-        {
-          "name": "controlObjectCounts",
-          "line": 22554,
-          "lines": 32
-        },
-        {
-          "name": "controlCountLabel",
-          "line": 23242,
-          "lines": 32
-        },
-        {
-          "name": "renderTodayPanelV5",
-          "line": 23396,
-          "lines": 32
-        },
-        {
-          "name": "renderFinancePanel",
-          "line": 21473,
-          "lines": 31
-        },
-        {
-          "name": "renderHabitsGoalsPanel",
-          "line": 21873,
-          "lines": 31
-        },
-        {
-          "name": "renderProviderPassport",
-          "line": 22271,
-          "lines": 31
-        },
-        {
           "name": "renderOllamaPanel",
-          "line": 23450,
+          "line": 21983,
           "lines": 31
-        },
-        {
-          "name": "renderProposalPanelV2",
-          "line": 21034,
-          "lines": 30
-        },
-        {
-          "name": "renderTimeRowsForDay",
-          "line": 21312,
-          "lines": 28
-        },
-        {
-          "name": "renderDomainArtifactBoard",
-          "line": 21792,
-          "lines": 27
         },
         {
           "name": "renderTodayPanel",
-          "line": 23334,
+          "line": 21956,
           "lines": 27
         },
         {
-          "name": "renderHumanNavRail",
-          "line": 19497,
-          "lines": 26
-        },
-        {
-          "name": "renderRecommendedProposal",
-          "line": 21104,
-          "lines": 26
-        },
-        {
-          "name": "renderProposalCard",
-          "line": 21130,
-          "lines": 25
-        },
-        {
-          "name": "renderHumanUnderstanding",
-          "line": 19721,
-          "lines": 24
-        },
-        {
-          "name": "renderGraphFilters",
-          "line": 21155,
-          "lines": 24
-        },
-        {
-          "name": "renderPwaPanel",
-          "line": 22316,
-          "lines": 24
-        },
-        {
-          "name": "renderSidebar",
-          "line": 14264,
-          "lines": 23
-        },
-        {
-          "name": "renderProductBrainLibraryCard",
-          "line": 20114,
-          "lines": 23
-        },
-        {
-          "name": "renderReceiptExpenseCard",
-          "line": 21450,
-          "lines": 23
-        },
-        {
-          "name": "providerStatusLabel",
-          "line": 22249,
-          "lines": 22
-        },
-        {
           "name": "renderChatPanel",
-          "line": 21948,
+          "line": 21149,
           "lines": 21
         },
         {
-          "name": "renderReaderWorkspace",
-          "line": 19410,
-          "lines": 20
-        },
-        {
-          "name": "renderCalendarPanelV5",
-          "line": 21355,
-          "lines": 20
-        },
-        {
-          "name": "renderApprovalQueue",
-          "line": 22008,
-          "lines": 20
-        },
-        {
-          "name": "renderProductBrainControlCard",
-          "line": 22979,
-          "lines": 20
-        },
-        {
-          "name": "renderSourceRow",
-          "line": 23308,
-          "lines": 20
-        },
-        {
-          "name": "renderLibraryControlTrail",
-          "line": 21015,
-          "lines": 19
-        },
-        {
-          "name": "renderProposalPanel",
-          "line": 21179,
-          "lines": 19
-        },
-        {
-          "name": "renderOwnerReadinessPanel",
-          "line": 22658,
-          "lines": 18
-        },
-        {
-          "name": "renderReviewRow",
-          "line": 20097,
-          "lines": 17
-        },
-        {
-          "name": "renderBookWorkbench",
-          "line": 20256,
-          "lines": 17
-        },
-        {
           "name": "renderProviderPanel",
-          "line": 22143,
+          "line": 21223,
           "lines": 17
-        },
-        {
-          "name": "providerRunLabel",
-          "line": 23225,
-          "lines": 17
-        },
-        {
-          "name": "renderProductBrainChatContext",
-          "line": 19455,
-          "lines": 16
-        },
-        {
-          "name": "renderClaimRow",
-          "line": 20065,
-          "lines": 16
-        },
-        {
-          "name": "renderQuestionRow",
-          "line": 20081,
-          "lines": 16
-        },
-        {
-          "name": "renderHighlightRow",
-          "line": 20194,
-          "lines": 16
-        },
-        {
-          "name": "renderGraphResults",
-          "line": 20558,
-          "lines": 16
-        },
-        {
-          "name": "renderScheduleItem",
-          "line": 21296,
-          "lines": 16
         },
         {
           "name": "renderCalendarPanelLegacy",
-          "line": 21340,
+          "line": 20914,
           "lines": 15
-        },
-        {
-          "name": "renderFlowRunCard",
-          "line": 21993,
-          "lines": 15
-        },
-        {
-          "name": "primaryOwnerSurfaces",
-          "line": 19471,
-          "lines": 14
-        },
-        {
-          "name": "chooseRecommendedProposal",
-          "line": 21090,
-          "lines": 14
-        },
-        {
-          "name": "calendarDays",
-          "line": 21198,
-          "lines": 14
-        },
-        {
-          "name": "renderAgentRunCard",
-          "line": 21979,
-          "lines": 14
-        },
-        {
-          "name": "proposalApplyLabel",
-          "line": 21077,
-          "lines": 13
-        },
-        {
-          "name": "renderPlayerPanel",
-          "line": 22130,
-          "lines": 13
-        },
-        {
-          "name": "renderGoalRow",
-          "line": 23383,
-          "lines": 13
-        },
-        {
-          "name": "flattenFolderTree",
-          "line": 3652,
-          "lines": 12
-        },
-        {
-          "name": "secondaryOwnerSurfaces",
-          "line": 19485,
-          "lines": 12
-        },
-        {
-          "name": "sourceMetaLabel",
-          "line": 23213,
-          "lines": 12
-        },
-        {
-          "name": "renderNoteRow",
-          "line": 14446,
-          "lines": 11
-        },
-        {
-          "name": "renderAnalysisList",
-          "line": 14554,
-          "lines": 11
-        },
-        {
-          "name": "renderTaskRow",
-          "line": 23361,
-          "lines": 11
-        },
-        {
-          "name": "renderPlanRow",
-          "line": 23372,
-          "lines": 11
-        },
-        {
-          "name": "renderTaskRowV5",
-          "line": 23428,
-          "lines": 11
-        },
-        {
-          "name": "renderPlanRowV5",
-          "line": 23439,
-          "lines": 11
-        },
-        {
-          "name": "renderFolderRow",
-          "line": 14436,
-          "lines": 10
-        },
-        {
-          "name": "renderCommandCard",
-          "line": 14671,
-          "lines": 10
-        },
-        {
-          "name": "renderCommandCardV5",
-          "line": 20027,
-          "lines": 10
-        },
-        {
-          "name": "weekAgendaItems",
-          "line": 21234,
-          "lines": 10
-        },
-        {
-          "name": "renderFlowStepNode",
-          "line": 21969,
-          "lines": 10
-        },
-        {
-          "name": "renderAudioCheckpointRow",
-          "line": 22077,
-          "lines": 10
-        },
-        {
-          "name": "renderSourcePanel",
-          "line": 23298,
-          "lines": 10
-        },
-        {
-          "name": "graphSearchReason",
-          "line": 20549,
-          "lines": 9
-        },
-        {
-          "name": "renderFinanceAccountOptions",
-          "line": 21434,
-          "lines": 9
-        },
-        {
-          "name": "renderTranscriptSegmentRow",
-          "line": 22068,
-          "lines": 9
-        },
-        {
-          "name": "renderPlayerNoteRow",
-          "line": 22087,
-          "lines": 9
-        },
-        {
-          "name": "extractActionLines",
-          "line": 4862,
-          "lines": 8
-        },
-        {
-          "name": "knowledgeObjectsForNote",
-          "line": 20057,
-          "lines": 8
-        },
-        {
-          "name": "graphConnectionSummary",
-          "line": 20541,
-          "lines": 8
-        },
-        {
-          "name": "renderProposalFieldList",
-          "line": 21064,
-          "lines": 8
-        },
-        {
-          "name": "scheduleSourceHint",
-          "line": 21255,
-          "lines": 8
-        },
-        {
-          "name": "sourcesForPanel",
-          "line": 23290,
-          "lines": 8
-        },
-        {
-          "name": "chatLocalEngineSummaryLegacy",
-          "line": 7511,
-          "lines": 7
-        },
-        {
-          "name": "financeReceiptSources",
-          "line": 21443,
-          "lines": 7
-        },
-        {
-          "name": "renderAudit",
-          "line": 23481,
-          "lines": 7
-        },
-        {
-          "name": "formatDayLabel",
-          "line": 658,
-          "lines": 6
-        },
-        {
-          "name": "extractDateHints",
-          "line": 4870,
-          "lines": 6
-        },
-        {
-          "name": "audioCheckpointsForSource",
-          "line": 9490,
-          "lines": 6
-        },
-        {
-          "name": "playerNotesForSource",
-          "line": 9504,
-          "lines": 6
-        },
-        {
-          "name": "highlightsForSource",
-          "line": 20184,
-          "lines": 6
-        },
-        {
-          "name": "calendarItemsForDay",
-          "line": 21218,
-          "lines": 6
-        },
-        {
-          "name": "remindersForDay",
-          "line": 21224,
-          "lines": 6
-        },
-        {
-          "name": "scheduleKindLabel",
-          "line": 21244,
-          "lines": 6
-        },
-        {
-          "name": "formatSchedule",
-          "line": 664,
-          "lines": 5
-        },
-        {
-          "name": "proposalGroupLabel",
-          "line": 4903,
-          "lines": 5
-        },
-        {
-          "name": "graphLinkedEdges",
-          "line": 20536,
-          "lines": 5
-        },
-        {
-          "name": "scheduleStatusLabel",
-          "line": 21250,
-          "lines": 5
-        },
-        {
-          "name": "financeAccountName",
-          "line": 21429,
-          "lines": 5
-        },
-        {
-          "name": "hasRuWordSafe",
-          "line": 262,
-          "lines": 4
-        },
-        {
-          "name": "latestAgentRun",
-          "line": 14461,
-          "lines": 4
-        },
-        {
-          "name": "latestChatMessage",
-          "line": 14465,
-          "lines": 4
-        },
-        {
-          "name": "readingItemForSource",
-          "line": 20190,
-          "lines": 4
-        },
-        {
-          "name": "calendarItemsWithReminders",
-          "line": 21230,
-          "lines": 4
         },
         {
           "name": "recoveryItems",
-          "line": 22441,
+          "line": 21355,
           "lines": 4
         }
       ],
       "pinnedByGates": [
         {
           "name": "renderOwnerHome",
-          "line": 19808,
+          "line": 19984,
           "lines": 159
         },
         {
+          "name": "renderDataControlPanelV2",
+          "line": 21823,
+          "lines": 65
+        },
+        {
           "name": "renderCommandCenter",
-          "line": 14607,
+          "line": 14822,
           "lines": 64
         },
         {
           "name": "renderCommandCenterV5",
-          "line": 19967,
+          "line": 20143,
           "lines": 60
         },
         {
+          "name": "renderCalendarWorkbench",
+          "line": 20929,
+          "lines": 54
+        },
+        {
+          "name": "renderTopbar",
+          "line": 14549,
+          "lines": 44
+        },
+        {
           "name": "renderInboxReviewWorkspace",
-          "line": 19343,
+          "line": 19548,
           "lines": 43
         },
         {
           "name": "renderConnectedAppNetwork",
-          "line": 14565,
+          "line": 14780,
           "lines": 42
         },
         {
+          "name": "renderHumanChatHome",
+          "line": 19921,
+          "lines": 41
+        },
+        {
           "name": "renderDataControlPanel",
-          "line": 23064,
+          "line": 21888,
           "lines": 39
         },
         {
           "name": "renderHomeQuickRibbon",
-          "line": 14167,
+          "line": 14670,
           "lines": 32
         },
         {
           "name": "renderArtifactAnalysisPanel",
-          "line": 14504,
+          "line": 14730,
+          "lines": 32
+        },
+        {
+          "name": "controlObjectCounts",
+          "line": 21468,
           "lines": 32
         },
         {
           "name": "renderGraphWorkbench",
-          "line": 20623,
+          "line": 20509,
           "lines": 31
         },
         {
+          "name": "renderFinancePanel",
+          "line": 20983,
+          "lines": 31
+        },
+        {
+          "name": "renderHabitsGoalsPanel",
+          "line": 21118,
+          "lines": 31
+        },
+        {
+          "name": "renderProposalPanelV2",
+          "line": 20849,
+          "lines": 30
+        },
+        {
           "name": "renderChatWorkspace",
-          "line": 19430,
+          "line": 19635,
           "lines": 25
         },
         {
           "name": "renderCaptureCockpit",
-          "line": 20906,
+          "line": 20792,
           "lines": 25
         },
         {
           "name": "renderAppRibbon",
-          "line": 14199,
+          "line": 14702,
           "lines": 24
         },
         {
           "name": "renderTodayWorkspace",
-          "line": 19386,
+          "line": 19591,
           "lines": 24
         },
         {
+          "name": "renderHumanUnderstanding",
+          "line": 19897,
+          "lines": 24
+        },
+        {
+          "name": "renderGraphFilters",
+          "line": 20884,
+          "lines": 24
+        },
+        {
+          "name": "renderProductBrainLibraryCard",
+          "line": 20223,
+          "lines": 23
+        },
+        {
           "name": "renderAgentsWorkspace",
-          "line": 19786,
+          "line": 19962,
           "lines": 22
         },
         {
+          "name": "renderReaderWorkspace",
+          "line": 19615,
+          "lines": 20
+        },
+        {
           "name": "renderArtifactPipeline",
-          "line": 20037,
+          "line": 20203,
+          "lines": 20
+        },
+        {
+          "name": "renderProductBrainControlCard",
+          "line": 21803,
           "lines": 20
         },
         {
           "name": "renderSurfaceWorkspace",
-          "line": 19324,
+          "line": 19529,
           "lines": 19
         },
         {
           "name": "renderReceiptPanel",
-          "line": 14536,
+          "line": 14762,
           "lines": 18
         },
         {
           "name": "renderWorkspaceHero",
-          "line": 19307,
+          "line": 19512,
           "lines": 17
         },
         {
+          "name": "renderProductBrainChatContext",
+          "line": 19660,
+          "lines": 16
+        },
+        {
           "name": "renderProviderPanelV2",
-          "line": 22302,
+          "line": 21240,
           "lines": 14
         },
         {
+          "name": "renderPlayerPanel",
+          "line": 21210,
+          "lines": 13
+        },
+        {
           "name": "chatLocalEngineSummary",
-          "line": 7675,
+          "line": 7446,
           "lines": 4
         }
       ],
-      "deadLines": 3173,
-      "pinnedLines": 714
+      "deadLines": 407,
+      "pinnedLines": 1182
     }
   ]
 }

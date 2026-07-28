@@ -105,6 +105,13 @@ updated: 2026-07-28
 `ollama-real-daemon` · `ollama-live-chat` · `byok-vault-routing` · `failure-injection` ·
 `audio-any-format` · `audio-alac-decode`.
 
+## 6.1. Мост Telegram (П35)
+
+Живёт не здесь, а в `server.mjs`: он транспорт, а не провайдер модели. Приносит байты и отдаёт
+их приложению, которое пропускает их через СВОЙ `importFilesFromInput`. Whitelist по user_id
+проверяется до любой обработки; без токена мост честно не поднимается. Разбор донора —
+`docs/context/donors/voice-from-phone.donor.md`.
+
 ## 7. Открытые долги
 
 - Слой намерений на модели проверяется только на машине владельца — метка

@@ -17,7 +17,7 @@
 // Поэтому в отчёте — «кандидаты», и перед удалением каждый проверяется поиском по репозиторию.
 // Ослаблять аудит ради зелёного нельзя (И-8): если кандидат живой, удаляется не он, а ошибка
 // в разборе — и это правится здесь, в инструменте.
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const TARGETS = ["app.js"];
 const BASELINE_PATH = "docs/qc/dead-code-baseline.json";
@@ -144,16 +144,40 @@ for (const target of TARGETS) {
   const guards = ["smoke.mjs"].concat(
     (existsSync("tools") ? readFileSync("tools/audit-no-cockpit-first-screen.mjs", "utf8") : "") ? ["tools"] : []
   );
+  // Гейты читаем ВСЕ, а не выборочно. Список из четырёх аудитов был написан по памяти, и на
+  // удалении выяснилось, чего он стоит: `audit-architecture-contract`, `audit-workspace-links`
+  // и `audit-product-brain` тоже требуют конкретных функций — и три из них уехали в «свободные»,
+  // а потом упали красным. Правило простое: файл в `tools/` называется аудитом — значит он гейт,
+  // и его требования обязательны, даже если мы про него забыли.
   const guardText = [
     existsSync("smoke.mjs") ? readFileSync("smoke.mjs", "utf8") : "",
-    ...(existsSync("tools") ? ["audit-visual-hierarchy", "audit-no-cockpit-first-screen", "audit-buttons", "audit-human-ux-final"]
-      .map((name) => (existsSync("tools/" + name + ".mjs") ? readFileSync("tools/" + name + ".mjs", "utf8") : "")) : [])
+    ...(existsSync("tools")
+      ? readdirSync("tools")
+        .filter((name) => /^audit-.*\.mjs$/.test(name) && name !== "audit-dead-code.mjs")
+        .map((name) => readFileSync("tools/" + name, "utf8"))
+      : [])
   ].join("\n");
+  // Проверять одно только ИМЯ функции недостаточно, и это выяснилось удалением: `smoke.mjs`
+  // требует не только «function renderCalendarPanel», но и строки ВНУТРИ тел — например
+  // `data-testid="global-search"`. Удалив такую функцию, я снял 12 маркеров сразу, хотя по
+  // именам она числилась свободной. Поэтому мёртвая функция свободна только когда ни имя, ни
+  // один требуемый гейтом фрагмент не исчезнет вместе с ней.
+  const guardStrings = [...guardText.matchAll(/"((?:[^"\\]|\\.){6,})"/g)]
+    .map((match) => match[1].replace(/\\"/g, "\""))
+    .filter((value) => value.length >= 8);
   const pinned = [];
   const free = [];
   for (const item of unreachable) {
-    const pattern = new RegExp("(?<![\\w$])" + item.name + "(?![\\w$])");
-    (pattern.test(guardText) ? pinned : free).push({ name: item.name, line: item.line, lines: item.lines });
+    const declaration = declarations.find((row) => row.name === item.name);
+    const body = declaration ? declaration.body : "";
+    const namePinned = new RegExp("(?<![\\w$])" + item.name + "(?![\\w$])").test(guardText);
+    // Фрагмент, который гейт требует и который БОЛЬШЕ НИГДЕ в файле не встречается: удалив эту
+    // функцию, мы унесём его с собой и молча погасим проверку.
+    const contentPinned = !namePinned && guardStrings.some((needle) => {
+      if (!body.includes(needle)) return false;
+      return source.indexOf(needle) === source.lastIndexOf(needle);
+    });
+    ((namePinned || contentPinned) ? pinned : free).push({ name: item.name, line: item.line, lines: item.lines });
   }
 
   report.push({
