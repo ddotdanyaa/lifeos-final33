@@ -3,7 +3,7 @@
 // запускает исполнителя, гоняет гейт и мержит только по зелёному.
 //
 // Он намеренно скучный и трусливый. Автономность без тормозов — это не скорость, а способ
-// быстро наделать того, что потом никто не разберёт. Отсюда пять ограничителей:
+// быстро наделать того, что потом никто не разберёт. Отсюда шесть ограничителей:
 //
 //   1. ОКНО. Работает только в заданные часы (по умолчанию 01:00–07:00). Вне окна — молча выходит.
 //   2. СТОП-ФАЙЛ. Перед КАЖДЫМ пакетом проверяется `.dispatcher-stop`. Появился — работа
@@ -12,6 +12,9 @@
 //   4. ВЕТКА. Каждый пакет — своя ветка от текущей. Merge только после зелёного гейта.
 //   5. ТРИ ПРОВАЛА. Пакет, упавший трижды, помечается BLOCKED, и диспетчер идёт дальше, а не
 //      бьётся в него до утра.
+//   6. ПОЛИТИКА ПРИЁМКИ (П29). Зелёный гейт доказывает, что ничего не сломано, но НЕ доказывает,
+//      что сделано нужное. Сливается сам только тот вид работы, который владелец включил
+//      политикой; необратимое — никогда.
 //
 // Владелец в петле остаётся всегда (И-1): диспетчер не решает, что делать, — он исполняет
 // очередь, которую составил владелец, и отчитывается о том, что вышло.
@@ -27,6 +30,7 @@ const CONFIG = {
   queueFile: "docs/LIFEOS_V1_5_SELF_BUILDING_PLAN.md",
   ledgerFile: "PROGRESS.md",
   chronicleFile: "docs/qc/DISPATCHER_CHRONICLE.jsonl",
+  policyFile: "docs/qc/acceptance-policy.json",
   stopFile: ".dispatcher-stop",
   windowStartHour: 1,
   windowEndHour: 7,
@@ -115,6 +119,31 @@ function chronicle(entry) {
   const row = Object.assign({ at: new Date().toISOString() }, entry);
   appendFileSync(CONFIG.chronicleFile, JSON.stringify(row) + "\n", "utf8");
   return row;
+}
+
+// ─── Ограничитель 6: политика приёмки (П29) ───────────────────────────────────────────────
+// Зелёный гейт доказывает, что ничего не сломано. Он НЕ доказывает, что сделано то, что нужно.
+// Поэтому авто-слияние разрешено только для видов работы, которые владелец явно включил, и
+// никогда — для необратимого.
+function autoMergeAllowed(title) {
+  if (!existsSync(CONFIG.policyFile)) {
+    return { ok: false, why: "политики приёмки нет — по умолчанию решает владелец" };
+  }
+  let policy = null;
+  try {
+    policy = JSON.parse(readFileSync(CONFIG.policyFile, "utf8"));
+  } catch {
+    return { ok: false, why: "политика приёмки не читается — считаем, что её нет" };
+  }
+  if (!policy.approvedByOwner) {
+    return { ok: false, why: "политика записана, но владелец её не утвердил" };
+  }
+  const text = String(title || "").toLocaleLowerCase("ru-RU");
+  const risky = (policy.neverAutomatic || []).find((kind) => text.includes(String(kind).toLocaleLowerCase("ru-RU").split(" ")[0]));
+  if (risky) return { ok: false, why: "необратимое («" + risky + "») — всегда через владельца, при любой истории" };
+  const kinds = policy.autoMergeKinds || [];
+  if (!kinds.length) return { ok: false, why: "в политике нет ни одного разрешённого вида работы" };
+  return { ok: true, why: "вид работы разрешён политикой владельца" };
 }
 
 // ─── Гейт ─────────────────────────────────────────────────────────────────────────────────
@@ -238,6 +267,16 @@ for (const task of queue) {
   }
 
   if (green) {
+    // Зелёный гейт — необходимое условие, но не достаточное (П29). Автоматически сливается
+    // только тот ВИД работы, который владелец разрешил политикой; всё остальное ждёт его,
+    // сколько бы зелёного ни было. Политику включает он, а не история.
+    const allowed = autoMergeAllowed(task.title);
+    if (!allowed.ok) {
+      sh("git checkout -q " + baseBranch);
+      log("зелёный, но слияние ждёт владельца: " + allowed.why);
+      chronicle({ event: "awaiting-owner", task: task.title, branch, attempts: attempt, why: allowed.why });
+      continue;
+    }
     // Merge только по зелёному. Никаких «почти прошло».
     sh("git checkout -q " + baseBranch);
     sh("git merge -q --no-ff " + branch + " -m \"Пакет диспетчера: " + task.title.slice(0, 60).replace(/"/g, "'") + "\"");
