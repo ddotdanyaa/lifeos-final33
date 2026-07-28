@@ -32,12 +32,12 @@ Receipt screenshot shows an image/manual extraction path with an honest OCR gate
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 6,
+  "proposalsOpen": 4,
   "proposalsApplied": 0,
   "auditEvents": 4,
-  "graphNodes": 10,
-  "graphEdges": 20,
-  "graphEdgeReasons": 20
+  "graphNodes": 8,
+  "graphEdges": 16,
+  "graphEdgeReasons": 16
 }
 ```
 

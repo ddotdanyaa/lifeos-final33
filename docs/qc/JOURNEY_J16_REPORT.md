@@ -42,7 +42,7 @@ Local chat history persists without AI and messages can become proposal objects.
 ```
 
 ## Graph Edges
-After: 738 edges, 738 with visible reasons.
+After: 700 edges, 700 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: capability.grant: Capability granted: ollama/probe (local) | provider.run: ollama probe: Ollama models_found at http://127.0.0.1:11434 | ollama.probe: Ollama models_found at http://127.0.0.1:11434 | chat.input.artifact: Твоё сообщение сохранено: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.answer.artifact: Ответ сохранён: Похоже, это связано с локальными артефактами: вечерний обзор: голосом записал идею про сон,...; journey-voice Расшифр... | chat.local.answer: Local chat answered: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready

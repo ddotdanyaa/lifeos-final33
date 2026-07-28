@@ -9,7 +9,7 @@ Player stores audio, shows controls, accepts manual transcript, creates checkpoi
 ```json
 {
   "sources": 1,
-  "notes": 2,
+  "notes": 1,
   "tasks": 1,
   "calendarBlocks": 0,
   "reminders": 0,
@@ -19,12 +19,12 @@ Player stores audio, shows controls, accepts manual transcript, creates checkpoi
   "subscriptions": 0,
   "habits": 0,
   "goals": 0,
-  "insights": 2,
-  "claims": 5,
-  "questions": 1,
-  "reviewItems": 6,
+  "insights": 0,
+  "claims": 1,
+  "questions": 0,
+  "reviewItems": 1,
   "readingItems": 0,
-  "highlights": 2,
+  "highlights": 0,
   "transcriptSegments": 2,
   "audioCheckpoints": 2,
   "playerNotes": 2,
@@ -32,17 +32,17 @@ Player stores audio, shows controls, accepts manual transcript, creates checkpoi
   "agentRuns": 0,
   "flowRuns": 0,
   "providerRuns": 1,
-  "proposalsOpen": 14,
+  "proposalsOpen": 9,
   "proposalsApplied": 0,
   "auditEvents": 0,
-  "graphNodes": 44,
-  "graphEdges": 83,
-  "graphEdgeReasons": 83
+  "graphNodes": 24,
+  "graphEdges": 45,
+  "graphEdgeReasons": 45
 }
 ```
 
 ## Graph Edges
-After: 709 edges, 709 with visible reasons.
+After: 671 edges, 671 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: review.create: Review item created: Вернуться к аудио checkpoint: Audio checkpoint | audio.checkpoint: Audio checkpoint created: Audio checkpoint | task.create: Задача создана: Из аудио: Audio insight should become a task and claim. | player.note: Player note created: Audio insight should become a task and claim. | transcript.task: Transcript snippet became task: Audio insight should become a task and claim. | claim.create: Утверждение записано: Вывод из аудио: Создать задачу проверить граф. | player.note: Player note created: Создать задачу проверить граф. | transcript.claim: Transcript snippet became claim: Создать задачу проверить граф.

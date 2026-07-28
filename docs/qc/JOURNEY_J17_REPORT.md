@@ -42,7 +42,7 @@ Agent dry-run is attached to the current artifact, shows safety boundaries, reco
 ```
 
 ## Graph Edges
-After: 746 edges, 746 with visible reasons.
+After: 708 edges, 708 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: chat.input.artifact: Твоё сообщение сохранено: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.answer.artifact: Ответ сохранён: Похоже, это связано с локальными артефактами: вечерний обзор: голосом записал идею про сон,...; journey-voice Расшифр... | chat.local.answer: Local chat answered: NO_AI_LOCAL_CHAT_MARKER без AI: преврати это сообщение в заметку и задачу | chat.proposal: Chat message became proposal: вечерний обзор: голосом записал идею про сон, деньги и граф | provider.run: pwa boot: PWA shell checked: service-worker-ready | capability.grant: Capability granted: agent/run (local) | chat.answer.artifact: Ответ сохранён: Локальный организатор подготовил действия для вечерний обзор: голосом записал идею про сон,.... | agent.run: Local organizer completed: вечерний обзор: голосом записал идею про сон,...

@@ -812,6 +812,20 @@ function cleanLine(value) {
   return String(value == null ? "" : value).replace(/\s+/g, " ").trim();
 }
 
+// Расшифровка приходит РАЗБИТОЙ ПО ПАУЗАМ говорящего: whisper отдаёт каждый сегмент отдельной
+// строкой. Это единственные границы смысла, которые есть у надиктованной речи — знаков препинания
+// в ней часто нет вовсе. Раньше текст прогонялся через cleanLine, который схлопывает любые
+// пробельные символы, включая переводы строк, — и двести слов превращались в одну строку, а
+// значит в одну задачу с названием во весь экран. Здесь чистится каждая строка, а сами границы
+// сохраняются.
+function cleanTranscript(value) {
+  return String(value == null ? "" : value)
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 function shorten(value, maxLength) {
   const clean = cleanLine(value);
   if (clean.length <= maxLength) return clean;
@@ -5194,7 +5208,11 @@ function draft(id, type, title, group, reason, quote, fields, confidence) {
   return {
     draftId: id,
     type,
-    title: cleanLine(title),
+    // Название объекта не бывает длиной в абзац. Ограничение стоит ЗДЕСЬ, в одной точке на все
+    // типы: иначе его приходится помнить в каждом месте, и достаточно забыть один раз, чтобы
+    // надиктованные двадцать минут стали именем цели во весь экран (так и случилось).
+    // Сам текст не теряется: он лежит в расшифровке, в источнике и в цитате черновика.
+    title: shorten(cleanLine(title), 90),
     group: group || groupForProposalType(type),
     destination: destinationForProposalType(type),
     reason: cleanLine(reason || "Найдено в источнике"),
@@ -5522,21 +5540,32 @@ function parseShiftEntry(text) {
 // до среды» одним куском, и whisper.cpp отдаёт расшифровку ровно так же — по предложениям.
 // Режем по границе предложения (точка/восклицание/вопрос/перевод строки): это единственная
 // граница, которую владелец действительно проговаривает паузой.
-// Режем только КОРОТКУЮ запись: длинный документ (книга, письмо, конспект) — не диктовка, и
-// дробить его на десятки предложений значило бы завалить владельца предложениями.
+// Ограничение по объёму нужно ОДНОМУ случаю: вставленному сплошным куском документу (книга,
+// письмо, конспект) — его дробление на десятки предложений завалило бы владельца предложениями.
+// К надиктовке оно не относится вовсе: двадцатиминутная запись — это и есть много смыслов, и
+// именно её резать нужнее всего. Различаем их не длиной, а тем, размечен ли текст ПАУЗАМИ:
+// whisper отдаёт каждый сегмент отдельной строкой, а вставленный документ приходит сплошняком.
 const CAPTURE_SPLIT_MAX_LENGTH = 600;
 const CAPTURE_SPLIT_MAX_CLAUSES = 8;
+// У размеченной паузами речи предел выше: столько кусков за раз владелец ещё в состоянии
+// просмотреть, а всё сверх этого честнее показать как «слишком длинная запись», чем молча
+// склеить в одну задачу с названием во весь экран.
+const TRANSCRIPT_SPLIT_MAX_CLAUSES = 40;
 
 function splitCaptureClauses(text) {
   const source = String(text || "").trim();
-  if (!source || source.length > CAPTURE_SPLIT_MAX_LENGTH) return [];
+  if (!source) return [];
+  // Размеченная паузами речь: строки поставил не человек, а сам движок расшифровки.
+  const spokenPauses = /\r?\n/.test(source);
+  if (!spokenPauses && source.length > CAPTURE_SPLIT_MAX_LENGTH) return [];
   const parts = source
     .split(/(?<=[.!?…])\s+|[\r\n]+/u)
     .map((part) => cleanLine(part))
     // Обрывок в одно слово смыслом не является: у него нет ни глагола, ни суммы, а разбирать
     // его отдельно значило бы плодить черновики из «Ага» и «Всё».
     .filter((part) => part && part.split(/\s+/).length >= 2);
-  if (parts.length < 2 || parts.length > CAPTURE_SPLIT_MAX_CLAUSES) return [];
+  const limit = spokenPauses ? TRANSCRIPT_SPLIT_MAX_CLAUSES : CAPTURE_SPLIT_MAX_CLAUSES;
+  if (parts.length < 2 || parts.length > limit) return [];
   return parts;
 }
 
@@ -5611,7 +5640,12 @@ function analyzeArtifactInput(input, fileMeta, options) {
   // isRecurring, поэтому отдельного правила им не нужно.
   const HABIT_SIGNAL_RE = /(?<![А-Яа-яЁё])(привычк[а-яё]*|тренировк[а-яё]*|медитаци[а-яё]*|зарядк[а-яё]*)(?![А-Яа-яЁё])/i;
   const isHabit = isRecurring || HABIT_SIGNAL_RE.test(lower) || /\b(routine|habit)\b/i.test(lower);
-  const isGoal = hasAnyText(lower, ["цель", "хочу", "накопить", "достичь"]) || /до\s+\d{1,2}\s+[а-я]+|\b(goal|target)\b/i.test(lower);
+  // «До <число> <слово>» — это срок цели только когда слово МЕСЯЦ. Иначе под правило попадало
+  // «поработал с 8 до 3 часа»: рабочая смена объявлялась целью, потому что «3 часа» подошло под
+  // «число и слово». У владельца так и вышло — смена стала целью с названием во весь экран.
+  const isGoal = hasAnyText(lower, ["цель", "хочу", "накопить", "достичь"])
+    || /до\s+\d{1,2}\s+(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр)/i.test(lower)
+    || /\b(goal|target)\b/i.test(lower);
   // Наблюдение о себе — НЕ дело. «После тренировки закрываю больше задач» попадало в список дел
   // как задача (слово «задач» включало isTask), а «Английский снова откладываю» не попадало
   // никуда и терялось как непонятый захват. И то и другое — описание собственного поведения:
@@ -5710,7 +5744,11 @@ function analyzeArtifactInput(input, fileMeta, options) {
     }, 0.7));
   }
 
-  const actionTitle = capitalizeFirstLetter(stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text) || stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг");
+  // Название задачи — это НАЗВАНИЕ, а не пересказ записи. Владелец надиктовал двадцать минут без
+  // единой точки, и весь текст стал именем одной задачи: карточка на пол-экрана, которую нельзя
+  // ни прочитать, ни закрыть. Режем по границе слова — сам текст никуда не девается, он лежит в
+  // расшифровке и в источнике.
+  const actionTitle = shorten(capitalizeFirstLetter(stripOwnerActionTitleUnicode(text) || stripOwnerActionTitle(text) || stripCommandNoise(text) || shorten(text, 64) || "Следующий шаг"), 90);
   // isExpense deliberately excluded here (U2 MONEY_FAST fix): a pure expense/income entry
   // with no task-language and no date/time shouldn't also spawn a redundant task-main draft
   // just because it happens to mention money (found via "Расход: 350 бензин" creating both a
@@ -6585,7 +6623,16 @@ const RU_CAPTURE_STOPWORDS = new Set([
   "отчёт", "отчет", "письмо", "звонок", "поездка", "билет", "аптека", "врач", "спорт",
   "английский", "немецкий", "испанский", "французский", "вода", "еда", "сон", "здоровье",
   // Слова чужой позиции: они и так разбираются отдельным правилом, а человеком не бывают.
-  "против", "согласен", "согласна", "готов", "готова", "просит", "требует", "настаивает"
+  "против", "согласен", "согласна", "готов", "готова", "просит", "требует", "настаивает",
+  // Зачины живой речи. В надиктовке почти каждая фраза начинается с одного из них, и с большой
+  // буквы: «Так короче я поработал…», «Сейчас еду к Володе». Людьми они не бывают никогда.
+  "так", "сейчас", "теперь", "потом", "короче", "вообще", "кстати", "ладно", "значит", "слушай",
+  "блин", "ну", "вот", "давай", "надо", "буду", "было", "получается", "походу", "типа",
+  // Сами слова-подсказки. «Встретил Дмитрия» в начале фразы давало ДВУХ людей — Дмитрия и
+  // «Встретил»: правило «заглавное слово — имя» не отличает глагол в начале от имени, а
+  // окончание «-ил» не отсечь по форме, не отсекая заодно Павла и Михаила.
+  "встретил", "встретила", "встретили", "звонил", "звонила", "звонили",
+  "говорил", "говорила", "говорили", "писал", "писала", "писали"
 ]);
 
 function extractEntitiesFromText(text) {
@@ -6637,7 +6684,11 @@ function extractEntitiesFromText(text) {
   // People: names captured from person-cues (the cue must be a whole word - lookbehind guards the
   // front, the required \s+ guards the back, so "система" is never read as the cue "с"). A run
   // joined by "и"/"," yields multiple names ("с Иваном и Сергеем" -> Иван, Сергей).
-  const personRe = /(?<![А-Яа-яЁё])(?:с|со|у|от|встретил[аи]?|звонил[аи]?|говорил[аи]?|писал[аи]?)\s+([А-ЯЁ][а-яё]+(?:\s*(?:,|(?<![А-Яа-яЁё])и(?![А-Яа-яЁё]))\s*[А-ЯЁ][а-яё]+)*)/gi;
+  // Флага `i` здесь быть НЕ ДОЛЖНО: он отменяет требование заглавной буквы у имени, и подсказка
+  // начинала цеплять любое слово — «с вычетом налогов» давало человека по имени «вычетом».
+  // Регистронезависимость нужна только самим словам-подсказкам (они бывают в начале фразы),
+  // поэтому она задана в них явно, а имя обязано начинаться с большой буквы.
+  const personRe = /(?<![А-Яа-яЁё])(?:[Сс]|[Сс]о|[Уу]|[Оо]т|[Вв]стретил[аи]?|[Зз]вонил[аи]?|[Гг]оворил[аи]?|[Пп]исал[аи]?)\s+([А-ЯЁ][а-яё]+(?:\s*(?:,|(?<![А-Яа-яЁё])и(?![А-Яа-яЁё]))\s*[А-ЯЁ][а-яё]+)*)/g;
   const placeSet = new Set(entities.places);
   const projectSet = new Set(entities.projects);
   // Название проекта из нескольких слов («Новая Платформа») в projectSet лежит целиком, а
@@ -6657,7 +6708,11 @@ function extractEntitiesFromText(text) {
   // в середине предложения, поэтому заглавное слово не в начале фразы — почти наверняка имя
   // собственное. Для слова в начале фразы этого признака нет, поэтому там работает стоп-лист
   // частых зачинов захвата; всё остальное считается кандидатом.
-  for (const sentence of String(text).split(/(?<=[.!?…\n])\s+/)) {
+  // Перевод строки — это конец фразы САМ ПО СЕБЕ, а не только когда за ним ещё и пробел.
+  // Расшифровка приходит строками без пробела после переноса, поэтому все двадцать минут речи
+  // считались ОДНИМ предложением: правило «заглавное слово не в начале фразы — почти наверняка
+  // имя» применялось к каждому «Так» и «Сейчас» посреди текста, и они уезжали в люди.
+  for (const sentence of String(text).split(/(?<=[.!?…])\s+|\r?\n/)) {
     const words = sentence.trim().split(/\s+/);
     // В записи про трату последнее заглавное слово — это почти всегда магазин, а не человек
     // («Потратил 4380 продукты Лента»). Отличить организацию от имени без словаря нельзя,
@@ -9579,7 +9634,7 @@ async function runWhisperCppTranscribe(sourceId) {
     const response = await fetch(endpoint.replace(/\/+$/, "") + "/inference", { method: "POST", body: formData });
     if (!response.ok) throw new Error("HTTP " + response.status);
     const payload = await response.json();
-    const text = cleanLine(payload.text || "");
+    const text = cleanTranscript(payload.text || "");
     await store.commit("whisper.cpp transcription saved", (state) => {
       const noteId = saveSourceTranscript(state, sourceId, text, { mode: "whispercpp" });
       recordProviderRun(state, "whispercpp", "transcribe", "whispercpp-done", "whisper.cpp расшифровал: " + source.name, { sourceId, noteId });

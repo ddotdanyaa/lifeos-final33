@@ -42,7 +42,7 @@ Chat/Providers expose Ollama status, explicit probe, model list and proposal-onl
 ```
 
 ## Graph Edges
-After: 729 edges, 729 with visible reasons.
+After: 691 edges, 691 with visible reasons.
 
 ## Data Control Events
 After: 300 audit events. Tail: provider.run: import file: Импорт: вечерний обзор: голосом записал идею про сон,....md (text) | source.import: Source imported: вечерний обзор: голосом записал идею про сон,....md (text) | chat.input.artifact: Твоё сообщение сохранено: вечерний обзор: голосом записал идею про сон, деньги и граф | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток | capability.grant: Capability granted: ollama/probe (local) | provider.run: ollama probe: Ollama models_found at http://127.0.0.1:11434 | ollama.probe: Ollama models_found at http://127.0.0.1:11434
