@@ -8,11 +8,17 @@ function renderAttachments(attachments) {
   return [
     `<div class="capture-attachments" data-testid="capture-attachments">`,
     `<span class="capture-attachments-title">Прикреплено: ${attachments.length}</span>`,
+    // У каждого файла своя кнопка «убрать»: «Очистить» снимало разом ВСЁ, и чтобы отцепить один
+    // случайно добавленный файл, приходилось начинать заново. Убирается только из списка
+    // прикреплённого — сама запись остаётся в Базе, поэтому действие не разрушительное.
     attachments.map((item) => [
+      `<span class="capture-attachment-wrap">`,
       `<button class="capture-attachment" data-action="open-source-note" data-id="${escapeHtml(item.id)}" data-testid="capture-attachment" title="Открыть запись">`,
       `<strong>${escapeHtml(item.name || "Файл")}</strong>`,
       `<span>${escapeHtml(formatAttachmentSize(item.size))} · ${escapeHtml(item.status)}</span>`,
-      `</button>`
+      `</button>`,
+      `<button class="capture-attachment-remove" data-action="detach-capture-file" data-id="${escapeHtml(item.id)}" data-testid="detach-capture-file" title="Убрать из прикреплённого. Запись останется в Базе" aria-label="Убрать ${escapeHtml(item.name || "файл")} из прикреплённого">×</button>`,
+      `</span>`
     ].join("")).join(""),
     `</div>`
   ].join("");

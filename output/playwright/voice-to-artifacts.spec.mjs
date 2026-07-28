@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 function findLocalChromium() {
@@ -55,7 +55,7 @@ test("голос: одна диктовка с тремя смыслами ст�
   await reset(page);
   await openPlayer(page);
 
-  await page.locator("input#audio-import").setInputFiles(VOICE_FIXTURE);
+  await page.locator("input#audio-import").setInputFiles({ name: "owner-voice-ru.wav", mimeType: "audio/wav", buffer: readFileSync(VOICE_FIXTURE) });
   await expect.poll(async () => page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources || {}).some((item) => item.kind === "audio")), { timeout: 20000 }).toBe(true);
   const audioId = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).find((item) => item.kind === "audio").id);
 

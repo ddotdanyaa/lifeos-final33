@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 function findLocalChromium() {
@@ -35,7 +35,7 @@ test("файл .m4a с телефона доходит от импорта до 
   await expect(page.locator(".lifeos-shell-v2")).toBeVisible({ timeout: 30000 });
   await page.waitForLoadState("networkidle");
 
-  await page.locator("input#file-import").setInputFiles(M4A_FIXTURE);
+  await page.locator("input#file-import").setInputFiles({ name: "owner-voice-ru.m4a", mimeType: "audio/mp4", buffer: readFileSync(M4A_FIXTURE) });
   await expect(page.getByTestId("capture-attachment").first()).toBeVisible({ timeout: 45000 });
 
   const sourceId = await page.evaluate(() => {

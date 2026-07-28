@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 function findLocalChromium() {
@@ -39,10 +40,15 @@ test("прикреплённый файл виден в композиторе �
   await reset(page, "attach-visible");
 
   await expect(page.getByTestId("capture-attachments")).toHaveCount(0);
-  await page.locator("input#file-import").setInputFiles(VOICE_FIXTURE);
+  // Файл передаём буфером с именем: в пути к проекту есть знак процента (папка «LIFEOS FINAL
+  // 33%»), и на таком пути Playwright молча не прикрепляет файл — выглядит это как дефект
+  // приложения, хотя приложение о файле даже не узнаёт.
+  await page.locator("input#file-import").setInputFiles({ name: "owner-voice-ru.wav", mimeType: "audio/wav", buffer: readFileSync(VOICE_FIXTURE) });
 
   const chip = page.getByTestId("capture-attachment").filter({ hasText: "owner-voice-ru.wav" });
-  await expect(chip).toBeVisible({ timeout: 15000 });
+  // Первый прогон в свежем браузере ставит service worker и прогревает страницу — терпения
+  // нужно столько же, сколько и остальным проверкам файла.
+  await expect(chip).toBeVisible({ timeout: 45000 });
   // Статус — человеческий и правдивый: звук сохранён, дальше его можно расшифровать.
   await expect(chip).toContainText("сохранено");
 });
@@ -50,7 +56,7 @@ test("прикреплённый файл виден в композиторе �
 // Б2: кнопка при пустом поле и прикреплённых файлах не имеет права молчать.
 test("«Разобрать» при пустом поле не молчит о прикреплённых файлах", async ({ page }) => {
   await reset(page, "attach-parse");
-  await page.locator("input#file-import").setInputFiles(VOICE_FIXTURE);
+  await page.locator("input#file-import").setInputFiles({ name: "owner-voice-ru.wav", mimeType: "audio/wav", buffer: readFileSync(VOICE_FIXTURE) });
   await expect(page.getByTestId("capture-attachment").first()).toBeVisible({ timeout: 45000 });
 
   const before = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot().commandMessage || "");
@@ -71,22 +77,25 @@ test("файл больше 8 МБ сохраняется целиком и ос
 
   // Настоящий WAV чуть выше порога инлайна (8 МБ): заголовок реальной записи + тишина до нужного
   // размера. Проверяется именно граница — файл, который в снимок состояния уже не помещается.
+  // Файл кладём НА ДИСК и передаём путём: девять мегабайт в виде буфера Playwright тянет через
+  // CDP, и на этом объёме передача срывалась молча — прикрепления не происходило вовсе, а
+  // выглядело это как дефект приложения (в живом браузере тот же импорт отрабатывает за 12 с).
   const real = readFileSync(VOICE_FIXTURE);
-  const padding = Buffer.alloc(9 * 1024 * 1024 - real.length, 0);
-  const big = Buffer.concat([real, padding]);
-  await page.locator("input#file-import").setInputFiles({ name: "long-dictation.wav", mimeType: "audio/wav", buffer: big });
+  const bigPath = join(tmpdir(), "lifeos-long-dictation.wav");
+  writeFileSync(bigPath, Buffer.concat([real, Buffer.alloc(9 * 1024 * 1024 - real.length, 0)]));
+  await page.locator("input#file-import").setInputFiles(bigPath);
 
   // Импорт одиннадцати мегабайт на занятой машине идёт десятки секунд: файл читается, состояние
   // пересобирается и дважды сохраняется, блоб пишется в IndexedDB. Бюджет здесь большой намеренно
   // и он же измеряет реальность — если запись не появляется и за три минуты, это не медленный
   // тест, а неприемлемо медленный импорт, и чинить надо импорт.
   await expect.poll(async () => page.evaluate(() => {
-    const source = Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).find((item) => item.name === "long-dictation.wav");
+    const source = Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).find((item) => /long-dictation.wav$/i.test(item.name));
     return source ? Boolean(source.mediaStored) : false;
   }), { timeout: 180000, intervals: [3000] }).toBe(true);
 
   const stored = await page.evaluate(() => {
-    const source = Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).find((item) => item.name === "long-dictation.wav");
+    const source = Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).find((item) => /long-dictation.wav$/i.test(item.name));
     return source ? { size: source.size, dataUrl: source.dataUrl.length, mediaStored: Boolean(source.mediaStored) } : null;
   });
 
@@ -99,11 +108,33 @@ test("файл больше 8 МБ сохраняется целиком и ос
   // И они действительно читаются обратно: адрес для плеера и расшифровки существует.
   const resolvable = await page.evaluate(async () => {
     const state = window.__lifeosKnowledgeBase.getStateSnapshot();
-    const source = Object.values(state.sources).find((item) => item.name === "long-dictation.wav");
+    const source = Object.values(state.sources).find((item) => /long-dictation.wav$/i.test(item.name));
     const url = await window.__lifeosKnowledgeBase.resolveSourceMediaUrlForTest(source.id);
     return typeof url === "string" && url.startsWith("blob:");
   });
   expect(resolvable, "сохранённые байты должны читаться обратно").toBe(true);
+});
+
+// Один лишний файл убирается отдельно. «Очистить» снимало разом ВСЁ, и чтобы отцепить один
+// случайно добавленный, приходилось начинать заново.
+test("прикреплённый файл убирается по одному, а запись остаётся в Базе", async ({ page }) => {
+  await reset(page, "attach-detach");
+
+  await page.locator("input#file-import").setInputFiles({ name: "первая.wav", mimeType: "audio/wav", buffer: readFileSync(VOICE_FIXTURE) });
+  await expect(page.getByTestId("capture-attachment")).toHaveCount(1, { timeout: 45000 });
+  await page.locator("input#file-import").setInputFiles({ name: "вторая.wav", mimeType: "audio/wav", buffer: readFileSync(VOICE_FIXTURE) });
+  await expect(page.getByTestId("capture-attachment")).toHaveCount(2, { timeout: 45000 });
+
+  const sourcesBefore = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).filter((item) => !item.deleted).length);
+
+  await page.getByTestId("detach-capture-file").first().click();
+  await expect(page.getByTestId("capture-attachment")).toHaveCount(1, { timeout: 20000 });
+  // Второй остался прикреплённым — убрали ровно один, а не всё.
+  await expect(page.getByTestId("capture-attachment").first()).toContainText("вторая.wav");
+
+  // И это не удаление: сама запись со звуком осталась в Базе.
+  const sourcesAfter = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).filter((item) => !item.deleted).length);
+  expect(sourcesAfter, "открепление не должно удалять запись").toBe(sourcesBefore);
 });
 
 // Б5: перерисовка заменяет весь DOM, и поле поиска умирало после первой буквы.

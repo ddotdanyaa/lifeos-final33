@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 function findLocalChromium() {
@@ -32,7 +32,7 @@ test("в карточке объекта видно сам исходник: п�
   await expect(page.locator(".lifeos-shell-v2")).toBeVisible({ timeout: 30000 });
   await page.waitForLoadState("networkidle");
 
-  await page.locator("input#file-import").setInputFiles(VOICE_FIXTURE);
+  await page.locator("input#file-import").setInputFiles({ name: "owner-voice-ru.wav", mimeType: "audio/wav", buffer: readFileSync(VOICE_FIXTURE) });
   await expect.poll(async () => page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources || {}).some((item) => item.kind === "audio")), { timeout: 20000 }).toBe(true);
 
   const sourceId = await page.evaluate(() => Object.values(window.__lifeosKnowledgeBase.getStateSnapshot().sources).find((item) => item.kind === "audio").id);

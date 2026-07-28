@@ -12026,3 +12026,26 @@ button.graph-growth-day.open i { outline: 2px solid var(--accent); outline-offse
   font-size: var(--text-sm);
   line-height: 1.5;
 }
+
+/* Прикреплённый файл: сам чип и крестик «убрать». Раньше можно было снять только всё сразу. */
+.capture-attachment-wrap {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.capture-attachment-remove {
+  align-self: stretch;
+  padding: 0 9px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.capture-attachment-remove:hover {
+  color: var(--text-main);
+}

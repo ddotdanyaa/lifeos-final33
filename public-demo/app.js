@@ -23259,6 +23259,16 @@ async function handleAction(action, id) {
     await store.commit("Сохраненный поиск удален", (state) => deleteSavedSearch(state, id));
     return;
   }
+  if (action === "detach-capture-file") {
+    // Снимаем ТОЛЬКО из списка прикреплённого. Сама запись со звуком и расшифровкой остаётся в
+    // Базе: «убрать из композитора» и «удалить запись» — разные действия, и путать их нельзя.
+    await store.commit("Файл откреплён", (state) => {
+      const record = state.sources[id];
+      state.captureAttachments = (state.captureAttachments || []).filter((sourceId) => sourceId !== id);
+      state.commandMessage = record ? "«" + shorten(record.name, 40) + "» убран из прикреплённого. Сама запись осталась в Базе." : "Файл убран из прикреплённого.";
+    });
+    return;
+  }
   if (action === "toggle-nav-more") {
     await store.commit("Вторичное меню переключено", (state) => {
       state.navMoreOpen = !state.navMoreOpen;
