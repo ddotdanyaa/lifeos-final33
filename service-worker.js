@@ -1,4 +1,4 @@
-const LIFEOS_CACHE = "lifeos-v34-5fba7db";
+const LIFEOS_CACHE = "lifeos-v34-4ccaf02";
 const SHELL_ASSETS = [
   "/",
   "/index.html",

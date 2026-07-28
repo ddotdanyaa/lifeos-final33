@@ -12002,3 +12002,27 @@ button.graph-growth-day.open i { outline: 2px solid var(--accent); outline-offse
   font-size: var(--text-sm);
   line-height: 1.5;
 }
+
+/* Честная подпись раздела-каркаса и заголовок группы «В разработке» в меню. Канон §9: пункт с
+   ready:false живёт отдельной группой, а не вперемешку с рабочими — иначе с виду одинаковые
+   строки, а половина ведёт в пустую комнату. */
+.nav-group-label {
+  margin: 12px 0 4px 0;
+  padding: 0 10px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.workspace-draft-note {
+  margin: 0 0 14px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}

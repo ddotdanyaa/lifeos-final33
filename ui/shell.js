@@ -39,11 +39,28 @@ const primaryNav = [
   ["control", "Контроль"]
 ];
 
+// Вторичное меню разделено по ЧЕСТНОСТИ, а не по алфавиту: сверху то, что работает и куда
+// владелец ходит каждый день; ниже — черновики, у которых есть экран, но нет наполнения.
+// Список черновиков не выдуман: он взят из docs/design/LIFEOS_DESIGN_CANON.md §9, где
+// зафиксирован по итогам собственного UX-аудита владельца. Смешивать их с рабочими пунктами
+// нельзя: именно это и создаёт ощущение, что «сайт перегружен мусором» — с виду одинаковые
+// строки, а половина ведёт в пустую комнату.
 const secondaryNav = [
   ["capture", "Входящие"],
-  ["projects", "Проекты"],
   ["chat", "Чат"],
+  ["reader", "Чтение"],
+  ["player", "Аудио"],
+  // «Цели» и «Привычки» рисовали ОДИН И ТОТ ЖЕ экран (проверено обходом: 1097 знаков и 6 кнопок
+  // у обоих). Канон §9 велит объединить — два пункта в меню на один экран это не выбор, а шум.
+  ["goals", "Цели и привычки"],
   ["agents", "Сценарии"],
+  ["providers", "Подключения"]
+];
+
+// Экраны-каркасы: заголовок, описание и пара кнопок без работающего сценария за ними. Держим их
+// доступными (они не сломаны, они не дописаны) и подписываем прямо — «в разработке».
+const draftNav = [
+  ["projects", "Проекты"],
   ["models", "Модели"],
   ["smart-home", "Умный дом"],
   ["marketplace", "Паки"],
@@ -51,13 +68,10 @@ const secondaryNav = [
   ["design", "Дизайн"],
   ["databases", "Таблицы"],
   ["screen", "Экран"],
-  ["twin", "Двойник"],
-  ["goals", "Цели"],
-  ["habits", "Привычки"],
-  ["reader", "Чтение"],
-  ["player", "Аудио"],
-  ["providers", "Подключения"]
+  ["twin", "Двойник"]
 ];
+
+export const DRAFT_SURFACES = new Set(draftNav.map((row) => row[0]));
 
 function navButton(ctx, row, testPrefix = "surface") {
   const [id, label] = row;
@@ -75,7 +89,10 @@ function renderNav(ctx) {
     `<nav data-testid="home-workspace-rail">${primaryNav.map((row) => navButton(ctx, row)).join("")}</nav>`,
     // Раскрытие «Ещё» держится состоянием, а не браузером: родной <details> теряет открытость на
     // каждой перерисовке, а она случается после любого действия — меню закрывалось под рукой.
-    `<details class="nav-more" data-testid="app-ribbon"${ctx.navMoreOpen ? " open" : ""}><summary data-action="toggle-nav-more">Ещё</summary><div>${secondaryNav.map((row) => navButton(ctx, row)).join("")}</div></details>`,
+    `<details class="nav-more" data-testid="app-ribbon"${ctx.navMoreOpen ? " open" : ""}><summary data-action="toggle-nav-more">Ещё</summary><div>${secondaryNav.map((row) => navButton(ctx, row)).join("")}`
+      + `<p class="nav-group-label" data-testid="nav-draft-label">🚧 В разработке</p>`
+      + draftNav.map((row) => navButton(ctx, row)).join("")
+      + `</div></details>`,
     button("open-command-palette", "Команды", { kind: "ghost", testId: "open-command-palette" }),
     // V3-DESIGN: блок владельца внизу панели — «всё локально» как постоянное напоминание границы (§7).
     `<div class="nav-owner-v3" data-testid="nav-owner-v3"><span class="nav-owner-dot"></span><div><strong>Данил</strong><em>всё локально</em></div></div>`,
@@ -86,7 +103,7 @@ function renderNav(ctx) {
 function renderMobileNav(ctx) {
   const items = [["inbox", "Дом"], ["feed", "Лента"], ["today", "Сегодня"], ["systems", "Системы"], ["capture", "Ввод"]];
   const remainingPrimary = primaryNav.filter(([id]) => !items.some(([itemId]) => itemId === id));
-  const mobileMoreItems = remainingPrimary.concat(secondaryNav);
+  const mobileMoreItems = remainingPrimary.concat(secondaryNav, draftNav);
   return [
     `<nav class="mobile-bottom-nav">${items.map((row) => navButton(ctx, row, "mobile-surface")).join("")}</nav>`,
     `<details class="mobile-more-nav" data-testid="mobile-more-nav"><summary>Ещё</summary><div>${mobileMoreItems.map((row) => navButton(ctx, row, "mobile-more")).join("")}</div></details>`

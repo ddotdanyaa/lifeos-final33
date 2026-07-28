@@ -22,12 +22,15 @@ test.setTimeout(120000);
 
 const appUrl = "http://127.0.0.1:4173";
 
-// Every surface registered in ui/shell.js's primaryNav/secondaryNav (mirrors the nav
+// Every surface registered in ui/shell.js's primaryNav/secondaryNav/draftNav (mirrors the nav
 // source of truth so this test can't silently drift from what the app actually ships).
+// "habits" ушёл из меню намеренно: он рисовал ТОТ ЖЕ экран, что и "goals" (проверено обходом —
+// 1097 знаков и 6 кнопок у обоих), и канон §9 велит объединять одинаковые экраны. Сама
+// поверхность жива и открывается программно — из меню исчез только второй пункт-двойник.
 const ALL_NAV_SURFACES = [
   "inbox", "today", "calendar", "finance", "feed", "systems", "library", "graph", "control",
   "capture", "projects", "chat", "agents", "models", "smart-home", "marketplace", "builder",
-  "design", "databases", "screen", "twin", "goals", "habits", "reader", "player", "providers"
+  "design", "databases", "screen", "twin", "goals", "reader", "player", "providers"
 ];
 
 test("mobile navigation reaches every v34 surface, not just the bottom-bar five", async ({ page }) => {
