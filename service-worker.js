@@ -1,4 +1,4 @@
-const LIFEOS_CACHE = "lifeos-v34-3fe3034";
+const LIFEOS_CACHE = "lifeos-v34-ec784d5";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -18,6 +18,7 @@ const SHELL_ASSETS = [
   // импорте, а не «работает без сети».
   "/core/donor-intake.mjs",
   "/core/day-correlations.mjs",
+  "/core/on-this-day.mjs",
   "/artifact-os-architecture.mjs",
   "/manifest.webmanifest",
   "/assets/lifeos-icon.svg",

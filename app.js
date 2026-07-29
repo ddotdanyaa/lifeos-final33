@@ -90,6 +90,7 @@ import {
 } from "./core/text.mjs";
 import { ownerThemeInsights } from "./core/owner-themes.mjs";
 import { dayCorrelationInsights } from "./core/day-correlations.mjs";
+import { onThisDay } from "./core/on-this-day.mjs";
 import {
   classifyLicense,
   classifyStack,
@@ -7647,9 +7648,13 @@ const MACHINERY_DRAFT_IDS = new Set(["knowledge-summary", "control-graph", "auto
 // пишем готовое. `done: true` — уже работает у нас; `done: false` — названо, но не сделано,
 // и вот ради этого донора стоит разбирать. Список пополняется по мере закрытия пакетов.
 const OUR_FUNCTIONS_FOR_DONORS = [
-  { keyword: "louvain", title: "Louvain кластеры", done: false },
-  { keyword: "pagerank", title: "PageRank веса узлов", done: false },
-  { keyword: "betweenness", title: "Мосты по betweenness", done: false },
+  // Сверено с кодом 2026-07-29, а не по памяти: Louvain живёт в core/graph-math.mjs
+  // (`louvainPartition`), betweenness — в `computeBetweenness`, PageRank — в расчёте влияния.
+  // Пометить их «у нас нет» значит посоветовать внедрять готовое: ровно та ошибка, ради которой
+  // этот список и заведён.
+  { keyword: "louvain", title: "Louvain кластеры", done: true },
+  { keyword: "pagerank", title: "PageRank веса узлов", done: true },
+  { keyword: "betweenness", title: "Мосты по betweenness", done: true },
   { keyword: "bi-temporal", title: "Две временные оси факта", done: false },
   { keyword: "lemmat", title: "Русская лемматизация", done: false },
   { keyword: "spearman", title: "Корреляции по дням", done: false },
@@ -18173,6 +18178,24 @@ function computeInsights(state) {
   // П41: выводы о времени — связи между показателями дня. Идут сразу за темами: это тоже
   // наблюдение о владельце, а не состояние базы. Поправка на множественность внутри.
   for (const row of dayCorrelationInsights(dayNumberSeries(state)).insights) insights.push(row);
+  // П42 «В этот день»: то самое «ощущение движения», которого владелец не находит. Данные уже
+  // есть — дата создания у каждой записи; новой коллекции не понадобилось. Служебные записи
+  // платформы (`systemType`) в это не входят: это его жизнь, а не наша документация о себе.
+  const ownRecords = Object.values(state.notes || {})
+    .filter((note) => note && !note.deleted && !note.systemType && note.title)
+    .map((note) => ({ id: note.id, title: shorten(note.title, 70), day: String(note.createdAt || "").slice(0, 10) }));
+  const anniversary = onThisDay(ownRecords, todayKey());
+  if (anniversary) {
+    insights.push({
+      id: "on-this-day-" + anniversary.milestone,
+      type: "anniversary",
+      icon: "🕰",
+      title: anniversary.title,
+      detail: anniversary.detail,
+      confidence: "высокая",
+      refs: anniversary.refs
+    });
+  }
   const today = todayKey();
   const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted);
   // 1. Повторяющиеся расходы по названию/категории.
