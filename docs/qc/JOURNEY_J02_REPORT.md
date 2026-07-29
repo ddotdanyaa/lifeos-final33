@@ -31,21 +31,21 @@ A simple capture surfaces one primary Russian action plus Изменить and �
   "chatMessages": 2,
   "agentRuns": 0,
   "flowRuns": 0,
-  "providerRuns": 1,
+  "providerRuns": 2,
   "proposalsOpen": 3,
   "proposalsApplied": 2,
-  "auditEvents": 14,
-  "graphNodes": 11,
-  "graphEdges": 20,
-  "graphEdgeReasons": 20
+  "auditEvents": 16,
+  "graphNodes": 12,
+  "graphEdges": 22,
+  "graphEdgeReasons": 22
 }
 ```
 
 ## Graph Edges
-After: 37 edges, 37 with visible reasons.
+After: 39 edges, 39 with visible reasons.
 
 ## Data Control Events
-After: 33 audit events. Tail: capability.grant: Capability granted: import/file (local) | provider.run: import file: Импорт: завтра в 6 встать и приготовить завтрак.md (text) | source.import: Source imported: завтра в 6 встать и приготовить завтрак.md (text) | chat.input.artifact: Твоё сообщение сохранено: завтра в 6 встать и приготовить завтрак | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток | task.create: Задача создана: Встать и приготовить завтрак | proposal.apply: Applied proposal: Встать и приготовить завтрак
+After: 35 audit events. Tail: source.import: Source imported: завтра в 6 встать и приготовить завтрак.md (text) | chat.input.artifact: Твоё сообщение сохранено: завтра в 6 встать и приготовить завтрак | chat.answer.artifact: Ответ сохранён: Артефакт связан с Библиотекой, Графом и предложениями на Сегодня. | inbox.capture: Запись принята в поток | task.create: Задача создана: Встать и приготовить завтрак | proposal.apply: Applied proposal: Встать и приготовить завтрак | capability.grant: Capability granted: pwa/boot (local) | provider.run: pwa boot: PWA shell checked: service-worker-ready
 
 ## Remaining Gated
 None for this local journey.

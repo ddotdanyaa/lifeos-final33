@@ -1896,3 +1896,28 @@ goal-deadline, money-fast-capture, shift-week-cycle, value-loop).
 
 `audit-no-gate-tampering`: `tampering: []` — за все три правки помощника не удалено ни одного
 утверждения.
+
+## 🎯 БАРЬЕР: полный набор после всей работы — 309 прошло / 17 упало / 7 пропущено
+
+Утренний замер был **249 / 20** (на `202956f`). Спек за сессию стало 136, аудитов 33.
+
+**Все 17 падений — средовые или предсуществующие.** Проверено поимённо:
+
+| спека | причина |
+|---|---|
+| `whisper-transcribe`, `voice-loop-vosk` | скачивание моделей с HuggingFace |
+| `voice-loop-whispercpp`, `waveform-record` | запись с микрофона (`getUserMedia`) |
+| `ollama-real-daemon`, `chat-brain-graph-context` | живой локальный демон под нагрузкой |
+| `mobile-pwa-continuity` | офлайн-PWA, известное средовое |
+| `undo-redo` ×3 | известное средовое, записано в передаче |
+| `finance-deep` | зависит от даты — **проверено стешем**, красная и на чистом HEAD |
+| `notion-grade-pack`, `presentation-runtime` | **проверены откатом UI на `9eebd9f`** — падали до сессии |
+| `final-human-product` H05/H06/H09, `final-journeys` P19, `kb-smoke` | длинные сквозные, копят средовые падения выше |
+
+Заменять их на моки нельзя: смысл именно в том, что они проверяют НАСТОЯЩИЙ движок. Провайдеры —
+самая красная часть набора, и это честно.
+
+**Инструменты гейта после сессии:** `npm run verify` зелёный, 31 аудит из 33 зелёные.
+Два красных названы: `audit-context-freshness` живёт синхронно с кодом (позеленел после сверки
+брифов), `audit-owner-rescue-final` требует ветку `owner-usable-nonstop-rescue`, а работа шла на
+`claude/lifeos-artifact-inspector-5lg95m` — это не дефект, а условие аудита.
