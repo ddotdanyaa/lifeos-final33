@@ -327,7 +327,9 @@ export function renderNewShell(ctx) {
     // рекламный заголовок. Переключение меняет ранжирование фокуса, данные те же (закон №1).
     `<div class="space-tabs-v3" data-testid="space-tabs">`,
     (ctx.lifeSpaces || []).map((space) => `<button class="space-tab-v3${space.active ? " active" : ""}" data-action="set-space" data-id="${escapeHtml(space.id)}" data-testid="space-tab-${escapeHtml(space.id)}">${escapeHtml(space.label)}</button>`).join(""),
-    `<span class="space-tabs-note">одна модель данных · ${(ctx.lifeSpaces || []).length} представления</span>`,
+    // «одна модель данных · 4 представления» — фраза о том, как устроен движок. Владельцу она
+    // ничего не говорит, а место в самой заметной строке экрана занимала и обрезалась на
+    // полуслове. Убрана: линзы и так подписаны словами, за которые он их нажимает.
     `</div>`,
     `<label class="global-search-v2"><span>Найти</span><input id="global-search" data-testid="global-search" value="${escapeHtml(ctx.searchQuery || "")}" autocomplete="off" aria-label="Поиск"></label>`,
     `<div class="header-actions-v2">`,
@@ -337,8 +339,10 @@ export function renderNewShell(ctx) {
     `<button class="top-capture-v2 top-control-v2" data-action="set-surface" data-id="control" data-testid="top-control">Что изменилось</button>`,
     ctx.activeSurface && ctx.activeSurface !== "inbox" && ctx.activeSurface !== "library" ? `<button class="top-capture-v2 top-new-note-v2" data-action="new-note" data-testid="new-note">Заметка</button>` : "",
     `<button class="top-capture-v2 top-theme-toggle-v2" data-action="toggle-theme" data-testid="theme-toggle" data-raw-theme="${escapeHtml(ctx.theme || "system")}" title="Сменить тему">Тема: ${escapeHtml(ctx.theme === "dark" ? "тёмная" : ctx.theme === "light" ? "светлая" : "системная")}</button>`,
-    `<span id="save-status" class="save-status-v2" role="status" aria-live="polite">сохранено</span>`,
-    `<span class="build-version-v2" data-testid="build-version" title="Хеш сборки: если он не совпадает с последним коммитом, ты смотришь на закэшированную старую версию">${escapeHtml((typeof document !== "undefined" && document.querySelector('meta[name="build-version"]')?.content) || "dev")}</span>`,
+    `<span id="save-status" class="save-status-v2" role="status" aria-live="polite" data-testid="build-version" title="Сборка: ${escapeHtml((typeof document !== "undefined" && document.querySelector('meta[name="build-version"]')?.content) || "dev")}">сохранено</span>`,
+    // Хеш сборки нужен ровно в одном случае — когда владелец подозревает старый кэш. Это
+    // отладка, а не постоянная часть экрана: живёт в подсказке к статусу сохранения.
+    ``,
     `</div>`,
     `</header>`,
     `<div class="lifeos-frame-v2">`,

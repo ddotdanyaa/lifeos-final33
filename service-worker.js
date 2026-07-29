@@ -12,6 +12,8 @@ const SHELL_ASSETS = [
   "/core/graph-math.mjs",
   "/core/ru-money.mjs",
   "/core/ru-entities.mjs",
+  "/core/owner-themes.mjs",
+  "/core/format.mjs",
   "/artifact-os-architecture.mjs",
   "/manifest.webmanifest",
   "/assets/lifeos-icon.svg",

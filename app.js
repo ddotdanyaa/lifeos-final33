@@ -1,4 +1,16 @@
 import {
+  OBJECT_MONTH_NAMES,
+  RU_MONTHS,
+  RU_WEEKDAYS,
+  formatBytes,
+  formatGraphEdgeSince,
+  formatObjectDay,
+  formatObjectMoney,
+  formatObjectStamp,
+  formatTimelineDayLabel,
+  humanDayLabel
+} from "./core/format.mjs";
+import {
   RU_CAPTURE_STOPWORDS,
   extractEntitiesFromText,
   extractPeopleNames
@@ -76,6 +88,7 @@ import {
   secondsToTimecode,
   parseTimecodeToSeconds
 } from "./core/text.mjs";
+import { ownerThemeInsights } from "./core/owner-themes.mjs";
 import {
   ARTIFACT_SCHEMA_VERSION,
   RENDERER_MODES,
@@ -1330,6 +1343,10 @@ function ensureV34ArtifactNote(state, key, title, body, tags) {
     return existing.id;
   }
   const noteId = createNote(state, title, state.activeFolderId, body);
+  // Эта заметка описывает структуру САМОГО LifeOS (канал, систему, узел карты), а не мысль
+  // владельца. Пометка нужна выводам: без неё «сегодня ты думаешь об одном» считалось по
+  // семнадцати заметкам, которые продукт завёл о себе при первом запуске.
+  if (state.notes[noteId]) state.notes[noteId].origin = "system";
   if (state.notes[noteId]) {
     state.notes[noteId].systemType = "v34_platform";
     state.notes[noteId].v34Key = key;
@@ -1359,6 +1376,7 @@ function ensureProductMapNote(state, mapNodeId, title, body, kind) {
     return existing.id;
   }
   const noteId = createNote(state, title, state.activeFolderId, body);
+  if (state.notes[noteId]) state.notes[noteId].origin = "system";
   state.notes[noteId].systemType = "product_brain";
   state.notes[noteId].productMapKey = key;
   state.notes[noteId].productBrainKind = kind;
@@ -13075,13 +13093,7 @@ function timelineTimeFromIso(iso) {
   const value = String(iso || "");
   return value.length >= 16 && value[10] === "T" ? value.slice(11, 16) : "";
 }
-function formatTimelineDayLabel(day) {
-  if (day === todayKey()) return "Сегодня";
-  if (day === dateKeyFromOffset(-1)) return "Вчера";
-  const date = new Date(day + "T00:00:00Z");
-  if (!Number.isNaN(date.getTime())) return date.getUTCDate() + " " + RU_MONTHS[date.getUTCMonth()] + ", " + RU_WEEKDAYS[date.getUTCDay()];
-  return day;
-}
+
 function collectTimelineEvents(state) {
   const events = [];
   const add = (type, day, iso, title, extra) => {
@@ -14093,29 +14105,14 @@ function objectProvenanceLine(state, object) {
   return "введено вручную " + formatObjectStamp(objectRecordDate(object));
 }
 
-const OBJECT_MONTH_NAMES = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+
 const OBJECT_MONTH_FULL = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 
-function formatObjectStamp(iso) {
-  const date = new Date(iso);
-  if (!iso || isNaN(date.getTime())) return "без даты";
-  const day = date.getDate() + " " + OBJECT_MONTH_NAMES[date.getMonth()];
-  const time = String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
-  return day + " " + time;
-}
 
-// Год показываем всегда, когда он не текущий: «24 авг» для даты 2028 года — это обман,
-// на нём легко принять решение, которого не принимал бы, увидев настоящий срок.
-function formatObjectDay(iso) {
-  const date = new Date(iso);
-  if (!iso || isNaN(date.getTime())) return "—";
-  const head = date.getDate() + " " + OBJECT_MONTH_NAMES[date.getMonth()];
-  return date.getFullYear() === new Date().getFullYear() ? head : head + " " + date.getFullYear();
-}
 
-function formatObjectMoney(amount) {
-  return Math.round(Number(amount) || 0).toLocaleString("ru-RU") + " ₽";
-}
+
+
+
 
 // Свободный поток: сколько реально остаётся в месяц по движению за 90 дней. Считаем по фактам
 // (донор-идея Mem0: важность из наблюдений, а не из оценки владельца), иначе «нет данных».
@@ -17685,8 +17682,8 @@ function ownerTodaySummary(state) {
   };
 }
 
-const RU_WEEKDAYS = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
-const RU_MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+
+
 
 // Срез 4 (v1.4): утренняя сводка - только из реальных данных, никаких заглушек. Дата +
 // день недели, прогресс к недельной цели (из среза 3), задачи на сегодня, итоги вчера.
@@ -18038,7 +18035,9 @@ function detectDominantThemes(state) {
 // может «Закрепить» инсайт - тогда создаётся постоянный insight-артефакт (addInsight + receipt),
 // молчаливой memory-write нет.
 function computeInsights(state) {
-  const insights = [];
+  // Выводы о мышлении владельца идут ПЕРВЫМИ: «третий день подряд про память» важнее, чем
+  // «частый расход: такси». Деньги он и так видит в деньгах.
+  const insights = ownerThemeInsights(state, PRODUCT_BRAIN_FOLDER_ID);
   const today = todayKey();
   const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted);
   // 1. Повторяющиеся расходы по названию/категории.
@@ -18452,13 +18451,7 @@ function firstProposalOfType(proposals, types) {
   return proposals.find((proposal) => allowed.has(proposal.type)) || null;
 }
 
-function humanDayLabel(day) {
-  if (!day) return "";
-  if (day === todayKey()) return "сегодня";
-  if (day === dateKeyFromOffset(1)) return "завтра";
-  if (day === dateKeyFromOffset(2)) return "послезавтра";
-  return day;
-}
+
 
 function humanScheduleLine(fields) {
   const day = humanDayLabel(fields.day || fields.targetDate || "");
@@ -19153,13 +19146,7 @@ function graphNodeMeta(kind, object) {
   return [object.status || "", object.updatedAt || object.createdAt || ""].filter(Boolean).join(" / ") || kind;
 }
 
-// I-пачка (донор-идея Graphiti): ISO-дата валидности ребра → человекочитаемое «с DD.MM.YYYY».
-function formatGraphEdgeSince(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "";
-  return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear();
-}
+
 
 function graphEdgeReasonLabel(label) {
   const key = String(label || "linked");
@@ -20681,12 +20668,7 @@ function renderDataControlPanel(state) {
   ].join("");
 }
 
-function formatBytes(size) {
-  const value = Number(size || 0);
-  if (value < 1024) return value + " B";
-  if (value < 1024 * 1024) return Math.round(value / 102.4) / 10 + " KB";
-  return Math.round(value / 1024 / 102.4) / 10 + " MB";
-}
+
 
 function auditTypeLabel(type) {
   const value = String(type || "");
@@ -24381,9 +24363,36 @@ function armServiceWorkerAutoReload() {
   // при первом знакомстве с продуктом и в каждом прогоне e2e.
   const hadController = Boolean(navigator.serviceWorker.controller);
   let reloaded = false;
+  // ЗАЩЁЛКА ОТ ЦИКЛА. Владелец поймал живьём: страница перезагружалась сама каждые 5–7 секунд.
+  // Причина — не в одном спусковом крючке, а в самой конструкции: каждая новая версия оболочки
+  // даёт `controllerchange`, а флаг `reloaded` живёт ровно до перезагрузки и обнуляется вместе
+  // с ней. Достаточно, чтобы воркер обновлялся чаще, чем грузится страница, — и продукт входит
+  // в вечный цикл, из которого владелец не может выйти вообще ничем.
+  //
+  // Поэтому запрет живёт ДОЛЬШЕ страницы: отметка в sessionStorage переживает перезагрузку и
+  // не даёт сделать вторую в том же окне раньше, чем через минуту. Цикл становится невозможен
+  // структурно, а не «маловероятен».
+  const RELOAD_GUARD_KEY = "lifeos-sw-reload-at";
+  const RELOAD_GUARD_MS = 60000;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!hadController || reloaded) return;
+    let lastAt = 0;
+    try {
+      lastAt = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
+    } catch {
+      lastAt = 0;
+    }
+    if (Date.now() - lastAt < RELOAD_GUARD_MS) {
+      // Уже перезагружались только что. Новая версия подхватится при следующем открытии —
+      // это хуже мгновенного обновления, но несравнимо лучше страницы, которая живёт 6 секунд.
+      return;
+    }
     reloaded = true;
+    try {
+      sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
+    } catch {
+      // Хранилище недоступно — перезагружаемся один раз за жизнь страницы, как и раньше.
+    }
     window.location.reload();
   });
 }
@@ -24484,6 +24493,21 @@ window.__lifeosKnowledgeBase = {
   // календаря в спеке расходится с ним в окне после полуночи и ловит часовой пояс, а не дефект.
   todayKeyForTest() {
     return todayKey();
+  },
+  // Выводы о мышлении владельца проверяются без недели ожидания: записи заводятся напрямую с
+  // нужными датами, дальше чистая логика (сам computeInsightsForTest уже есть ниже).
+  seedOwnerNoteForTest(text, dayOffset) {
+    if (!store) return Promise.resolve("");
+    let id = "";
+    return store.commit("Запись владельца для теста", (state) => {
+      id = createNote(state, String(text || "").slice(0, 40), state.activeFolderId, String(text || ""));
+      const note = state.notes[id];
+      if (note) {
+        const stamp = new Date(Date.now() + Number(dayOffset || 0) * 86400000).toISOString();
+        note.createdAt = stamp;
+        note.updatedAt = stamp;
+      }
+    }).then(() => id);
   },
   computeValueLoopForTest() {
     return store ? computeValueLoop(store.state) : [];
