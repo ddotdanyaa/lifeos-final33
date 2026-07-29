@@ -89,6 +89,7 @@ import {
   parseTimecodeToSeconds
 } from "./core/text.mjs";
 import { ownerThemeInsights } from "./core/owner-themes.mjs";
+import { dayCorrelationInsights } from "./core/day-correlations.mjs";
 import {
   classifyLicense,
   classifyStack,
@@ -18111,10 +18112,67 @@ function detectDominantThemes(state) {
 // со стабильным id (для закрепления), уверенностью и ссылками на источники (noteIds). Владелец
 // может «Закрепить» инсайт - тогда создаётся постоянный insight-артефакт (addInsight + receipt),
 // молчаливой memory-write нет.
+// П41 · ВЫВОДЫ О ВРЕМЕНИ. Числовые ряды по дням строятся из того, что УЖЕ есть в хранилище —
+// новых записей не заводим. Ряда про сон здесь нет намеренно: продукт его не собирает, и
+// выдумывать показатель ради красивого вывода нельзя.
+function dayNumberSeries(state) {
+  const days = [];
+  for (let offset = -29; offset <= 0; offset += 1) days.push(dateKeyFromOffset(offset));
+  const index = new Map(days.map((day, i) => [day, i]));
+  const zeros = () => days.map(() => 0);
+
+  const captures = zeros();
+  const spent = zeros();
+  const closed = zeros();
+  const shiftHours = zeros();
+  const habitMarks = zeros();
+
+  for (const note of Object.values(state.notes || {})) {
+    if (!note || note.deleted || note.systemType) continue;
+    const i = index.get(String(note.createdAt || "").slice(0, 10));
+    if (i !== undefined) captures[i] += 1;
+  }
+  for (const tx of Object.values(state.financeTransactions || {})) {
+    if (!tx || tx.deleted) continue;
+    const i = index.get(String(tx.day || "").slice(0, 10));
+    if (i === undefined) continue;
+    if (tx.kind === "expense") spent[i] += Math.round(Number(tx.amount) || 0);
+    if (tx.kind === "income" && Number(tx.shiftHours) > 0) shiftHours[i] += Number(tx.shiftHours);
+  }
+  for (const task of Object.values(state.tasks || {})) {
+    if (!task || task.deleted || task.status !== "done") continue;
+    const i = index.get(String(task.updatedAt || task.day || "").slice(0, 10));
+    if (i !== undefined) closed[i] += 1;
+  }
+  // Отметки привычек живут ВНУТРИ привычки (`habit.checkins`), отдельной коллекции нет.
+  // Читать несуществующий `state.habitEntries` было бы молча пустым рядом — и вывод про
+  // привычки не появился бы никогда, без единой ошибки на экране.
+  for (const habit of Object.values(state.habits || {})) {
+    if (!habit || habit.deleted) continue;
+    for (const day of Object.keys(habit.checkins || {})) {
+      const i = index.get(String(day).slice(0, 10));
+      if (i !== undefined) habitMarks[i] += 1;
+    }
+  }
+
+  // Постоянный ряд (все нули) корреляции не несёт и только увеличивает число проверенных пар,
+  // ужесточая поправку остальным. Отбрасываем до счёта, а не после.
+  return [
+    { key: "captures", label: "Записей за день", values: captures },
+    { key: "spent", label: "Потрачено за день", values: spent },
+    { key: "closed", label: "Закрыто дел", values: closed },
+    { key: "shift", label: "Часы смен", values: shiftHours },
+    { key: "habits", label: "Отметок привычек", values: habitMarks }
+  ].filter((row) => new Set(row.values).size > 1);
+}
+
 function computeInsights(state) {
   // Выводы о мышлении владельца идут ПЕРВЫМИ: «третий день подряд про память» важнее, чем
   // «частый расход: такси». Деньги он и так видит в деньгах.
   const insights = ownerThemeInsights(state, PRODUCT_BRAIN_FOLDER_ID);
+  // П41: выводы о времени — связи между показателями дня. Идут сразу за темами: это тоже
+  // наблюдение о владельце, а не состояние базы. Поправка на множественность внутри.
+  for (const row of dayCorrelationInsights(dayNumberSeries(state)).insights) insights.push(row);
   const today = todayKey();
   const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted);
   // 1. Повторяющиеся расходы по названию/категории.

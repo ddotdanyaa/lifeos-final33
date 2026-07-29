@@ -1,4 +1,4 @@
-const LIFEOS_CACHE = "lifeos-v34-af87a4d";
+const LIFEOS_CACHE = "lifeos-v34-f8852ba";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -14,6 +14,10 @@ const SHELL_ASSETS = [
   "/core/ru-entities.mjs",
   "/core/owner-themes.mjs",
   "/core/format.mjs",
+  // П40/П41: новые чистые слои обязаны быть в precache — иначе офлайн падает на первом
+  // импорте, а не «работает без сети».
+  "/core/donor-intake.mjs",
+  "/core/day-correlations.mjs",
   "/artifact-os-architecture.mjs",
   "/manifest.webmanifest",
   "/assets/lifeos-icon.svg",
