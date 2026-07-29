@@ -62,7 +62,9 @@ test("human public chat-first flow", async ({ page }) => {
 
   await expect(page.getByTestId("command-center")).toBeVisible();
   await expect(page.getByTestId("mega-dropzone")).toContainText("Что добавить в LifeOS?");
-  await expect(page.getByTestId("lifeos-understanding")).toContainText("LifeOS понял");
+  // Заголовок карточки изменён намеренно: «LifeOS понял» — рассказ системы о себе, а владелец
+  // спрашивает, что стало с тем, что он сказал. Проверка та же, слово человеческое.
+  await expect(page.getByTestId("lifeos-understanding")).toContainText("Что я понял из записи");
   await expect(page.getByTestId("home-workspace-rail").getByRole("button")).toHaveCount(9);
   await expect(page.getByTestId("command-center")).not.toContainText("Product Brain");
   await expect(page.getByTestId("command-center")).not.toContainText("ledger");

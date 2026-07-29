@@ -69,7 +69,7 @@ test("local-first knowledge base supports wikilinks, ghosts, rename cascade, sea
   const captureNeedle = "Universal inbox capture " + token;
   await page.getByTestId("capture-input").fill(captureNeedle + "\n\nРќСѓР¶РЅРѕ РїРѕРґРіРѕС‚РѕРІРёС‚СЊ РїР»Р°РЅ РїСЂРѕРІРµСЂРєРё " + token + ".\nР—Р°РІС‚СЂР° РїСЂРѕРІРµСЂРёС‚СЊ РєР°Р»РµРЅРґР°СЂСЊ.\nLinks to [[Inbox Concept " + token + "]].");
   await page.getByTestId("capture-text").click();
-  await expect(page.getByTestId("lifeos-understanding")).toContainText("LifeOS понял");
+  await expect(page.getByTestId("lifeos-understanding")).toContainText("Что я понял из записи");
   await expect(page.getByTestId("human-primary-action")).toBeVisible();
   await page.getByTestId("home-open-source").click();
   await expect(page.getByTestId("note-body")).toContainText(captureNeedle);

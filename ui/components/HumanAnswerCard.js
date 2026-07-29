@@ -10,7 +10,9 @@ export function renderHumanAnswerCard(ctx) {
   return [
     `<section class="human-answer-card" data-testid="lifeos-understanding">`,
     `<div class="human-answer-copy" data-testid="active-artifact-card">`,
-    `<span>LifeOS понял</span>`,
+    // «LifeOS понял» — система рассказывает о себе. Владелец спрашивает не «что понял LifeOS»,
+    // а «что стало с тем, что я сказал». Заголовок говорит от его лица, а не от лица движка.
+    `<span>Что я понял из записи</span>`,
     `<ul>${facts.map((fact) => `<li>${escapeHtml(fact)}</li>`).join("")}</ul>`,
     `</div>`,
     `<div class="human-main-action" data-testid="owner-review-stage">`,

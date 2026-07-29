@@ -338,33 +338,63 @@ function renderLifeFocus(ctx) {
 }
 
 export function renderAssistantHome(ctx) {
+  // ДОМ ОТВЕЧАЕТ НА ТРИ ВОПРОСА: где я, что происходит, что делать дальше. Всё, что не отвечает
+  // ни на один из них, с первого экрана убрано — не спрятано «поменьше», а убрано.
+  //
+  // Что здесь было и почему ушло:
+  //   • Плитки Сегодня/Деньги/Привычки — данные заранее. Владелец их не спрашивал, а они
+  //     конкурировали за внимание с тем, что он только что надиктовал.
+  //   • Сетка виджетов внизу — второй дашборд под первым.
+  //   • «Сейчас важнее всего» И карточка разбора одновременно — ДВА главных действия на экране.
+  //     Мозгу не за что зацепиться, и он не цепляется ни за что.
+  //
+  // Главное правило экрана: **ровно одно главное действие**. Есть свежий разбор — экран про него.
+  // Разбора нет — экран про то, что важнее всего сегодня. Никогда оба сразу.
+  const quietHours = isQuietHours(ctx.nowTime);
+  const hasFreshUnderstanding = Boolean(ctx.answer && Array.isArray(ctx.answer.facts) && ctx.answer.facts.length && ctx.latestSource);
+  return [
+    `<section class="assistant-home-v2${quietHours ? " quiet-hours" : ""}" data-testid="command-center" data-quiet-hours="${quietHours ? "true" : "false"}">`,
+    // Одна колонка. Экран читается сверху вниз как история, а не выбирается глазами между
+    // двумя колонками: «куда смотреть первым» — это вопрос, которого у владельца быть не должно.
+    `<div class="assistant-home-story">`,
+    // 1. С чего всё начинается. Ввод стоит первым, потому что продукт начинается со сказанного,
+    //    а не с отчёта о том, что уже лежит в базе.
+    renderAssistantInput(ctx),
+    // 2. Что произошло с последним сказанным. Ответ на вопрос владельца «ну и что?».
+    renderGroundedAnswer(ctx),
+    renderHumanAnswerCard(ctx),
+    // 3. Что делать дальше — только когда разбирать нечего. Иначе это второе главное действие.
+    hasFreshUnderstanding ? "" : renderLifeFocus(ctx),
+    `</div>`,
+    ctx.commandMessage ? `<div class="human-toast" data-testid="home-command-message">${escapeHtml(ctx.commandMessage)}</div>` : "",
+    // «Мой день» остаётся на экране всегда — это ответ на вопрос «что сейчас происходит», один
+    // из трёх, ради которых экран существует. Пробовал показывать его только при наличии
+    // содержимого: сценарий сразу стал хуже — после быстрого действия владелец должен видеть,
+    // что созданное ДОЛЕТЕЛО, а не искать подтверждение. Пустой «Мой день» честно говорит
+    // «сегодня пусто», и это тоже ответ.
+    renderDashboardWidgets(ctx),
+    // Цифры денег и привычек живут в своих разделах и открываются по нажатию. На первом экране
+    // они были ответом на вопрос, которого владелец не задавал.
+    `<details class="home-glance" data-testid="home-glance">`,
+    `<summary>Показать цифры дня</summary>`,
+    renderHomeGlance(ctx),
+    `</details>`,
+    `</section>`
+  ].join("");
+}
+
+// Цифры дня — за одним нажатием. Они не исчезли: исчезло их право занимать первый экран.
+function renderHomeGlance(ctx) {
   const today = ctx.todaySummary || {};
   const finance = ctx.financeSummary || {};
   const habitsDone = `${today.habitDone || 0}/${today.habitTotal || 0}`;
   const streak = today.habitStreak || 0;
-  const quietHours = isQuietHours(ctx.nowTime);
   return [
-    `<section class="assistant-home-v2${quietHours ? " quiet-hours" : ""}" data-testid="command-center" data-quiet-hours="${quietHours ? "true" : "false"}">`,
-    // V3-DESIGN: в каноне (design-system/Home.dc.html) героя нет — экран сразу начинается с
-    // состояния жизни и главного действия. Рекламный блок съедал первый экран и не отвечал
-    // на вопрос «что сейчас важнее всего».
-    renderLifeFocus(ctx),
-    `<div class="assistant-home-grid">`,
-    renderAssistantInput(ctx),
-    // Закон №7: если последним был вопрос — сначала ответ с цитатами, а не карточка разбора.
-    renderGroundedAnswer(ctx),
-    renderHumanAnswerCard(ctx),
-    // V3-DESIGN: плитки Сегодня/Деньги/Привычки — старый дашборд, в каноне их нет: первый
-    // экран отвечает на «что сейчас важнее всего», а цифры живут в своих разделах. Свёрнуты
-    // в компактную строку-статус, чтобы данные остались доступны, но не шумели.
-    `<aside class="home-mini-summary home-mini-summary-compact">`,
+    `<div class="home-mini-summary home-mini-summary-compact">`,
     `<button class="mini-summary-card today" data-action="set-surface" data-id="today" data-testid="owner-next-zone"><span>Сегодня ${progressRing(today.doneToday || 0, (today.doneToday || 0) + (today.todayCount || 0), "today-ring")}</span><strong>${escapeHtml(today.next?.title || "Нет следующего действия")}</strong><em>${today.todayCount || 0} сегодня · ${today.unscheduled || 0} без времени</em></button>`,
     `<button class="mini-summary-card money" data-action="set-surface" data-id="finance" data-testid="owner-money-zone"><span>Деньги ${sparklineSvg(finance.sparkline, "money-sparkline")}</span><strong>${money(finance.balance)}</strong><em>${money(finance.todaySpend)} сегодня</em></button>`,
     `<button class="mini-summary-card habits" data-action="set-surface" data-id="habits" data-testid="owner-habit-zone"><span>Привычки ${streak >= 2 ? `<em class="streak-flame" data-testid="habit-streak">🔥${streak}</em>` : ""}</span><strong>${escapeHtml(habitsDone)}</strong><em>${ctx.goals?.length || 0} целей</em></button>`,
-    `</aside>`,
-    `</div>`,
-    renderDashboardWidgets(ctx),
-    ctx.commandMessage ? `<div class="human-toast" data-testid="home-command-message">${escapeHtml(ctx.commandMessage)}</div>` : "",
-    `</section>`
+    `</div>`
   ].join("");
 }
+

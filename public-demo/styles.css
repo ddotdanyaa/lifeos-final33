@@ -6183,6 +6183,43 @@ audio {
   font-size: var(--text-base);
 }
 
+/* Дом — одна колонка и одна история. Две колонки заставляли глаз выбирать, с чего начать, а
+   выбор «куда смотреть первым» — это вопрос, которого у владельца быть не должно. Ширина
+   ограничена: строка длиной во весь монитор не читается, она сканируется. */
+.assistant-home-story {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* Внутри истории карточки идут потоком: старые grid-area из двухколоночной раскладки их бы
+   растащили обратно. */
+.assistant-home-story > .human-answer-card,
+.assistant-home-story > .life-focus,
+.assistant-home-story > .grounded-answer {
+  grid-area: auto;
+}
+
+/* Цифры дня за раскрытием: они не исчезли, исчезло их право занимать первый экран. */
+.home-glance {
+  max-width: 760px;
+  margin: 18px auto 0 auto;
+}
+
+.home-glance > summary {
+  padding: 8px 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.home-glance .home-mini-summary {
+  grid-area: auto;
+  margin-top: 8px;
+}
+
 .assistant-home-grid {
   display: grid;
   grid-template-columns: minmax(340px, 1.08fr) minmax(320px, 0.92fr);

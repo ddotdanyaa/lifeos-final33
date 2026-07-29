@@ -27,6 +27,11 @@ import {
 } from "./v34-platform.js";
 import { button, escapeHtml } from "./components/shared.js";
 
+// Меню названо словами ВЛАДЕЛЬЦА, а не частями движка. «База», «Граф», «Контроль» — это имена
+// подсистем: так думает разработчик, а не человек, который надиктовал мысль и хочет понять, что
+// с ней стало. Он думает «мои записи», «с чем это связано», «что изменилось».
+//
+// Идентификаторы не тронуты: меняются подписи, а не маршруты. Экран тот же, имя человеческое.
 const primaryNav = [
   ["inbox", "Дом"],
   ["today", "Сегодня"],
@@ -34,9 +39,9 @@ const primaryNav = [
   ["finance", "Деньги"],
   ["feed", "Лента"],
   ["systems", "Системы"],
-  ["library", "База"],
-  ["graph", "Граф"],
-  ["control", "Контроль"]
+  ["library", "Записи"],
+  ["graph", "Связи"],
+  ["control", "Что изменилось"]
 ];
 
 // Экраны-каркасы: заголовок, описание и пара кнопок без работающего сценария за ними. Держим их
@@ -327,7 +332,9 @@ export function renderNewShell(ctx) {
     `<label class="global-search-v2"><span>Найти</span><input id="global-search" data-testid="global-search" value="${escapeHtml(ctx.searchQuery || "")}" autocomplete="off" aria-label="Поиск"></label>`,
     `<div class="header-actions-v2">`,
     `<button class="top-capture-v2" data-action="set-surface" data-id="capture" data-testid="top-capture">Ввод</button>`,
-    `<button class="top-capture-v2 top-control-v2" data-action="set-surface" data-id="control" data-testid="top-control">Контроль</button>`,
+    // «Контроль» — имя подсистемы. Владелец приходит сюда спросить «что изменилось», а не
+    // «проконтролировать данные». Идентификатор тот же, слово человеческое.
+    `<button class="top-capture-v2 top-control-v2" data-action="set-surface" data-id="control" data-testid="top-control">Что изменилось</button>`,
     ctx.activeSurface && ctx.activeSurface !== "inbox" && ctx.activeSurface !== "library" ? `<button class="top-capture-v2 top-new-note-v2" data-action="new-note" data-testid="new-note">Заметка</button>` : "",
     `<button class="top-capture-v2 top-theme-toggle-v2" data-action="toggle-theme" data-testid="theme-toggle" data-raw-theme="${escapeHtml(ctx.theme || "system")}" title="Сменить тему">Тема: ${escapeHtml(ctx.theme === "dark" ? "тёмная" : ctx.theme === "light" ? "светлая" : "системная")}</button>`,
     `<span id="save-status" class="save-status-v2" role="status" aria-live="polite">сохранено</span>`,
