@@ -58,6 +58,9 @@ for (const [from, to] of files) {
 }
 
 await copyDir(resolve(root, "ui"), resolve(outDir, "ui"));
+// П7: app.js больше не один — чистый слой живёт в core/. Забыть его здесь значит собрать
+// публичную демку, которая падает на первом же импорте.
+await copyDir(resolve(root, "core"), resolve(outDir, "core"));
 
 await writeFile(resolve(outDir, "README.md"), [
   "# LifeOS v34 Public Demo",
