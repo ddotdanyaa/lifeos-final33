@@ -4,7 +4,7 @@
   "files": [
     {
       "file": "app.js",
-      "kb": 1468
+      "kb": 1438
     },
     {
       "file": "ui/v34-platform.js",
@@ -45,6 +45,10 @@
     {
       "file": "ui/graph.js",
       "kb": 20
+    },
+    {
+      "file": "core/ru-entities.mjs",
+      "kb": 18
     },
     {
       "file": "ui/today.js",
@@ -91,6 +95,14 @@
       "kb": 8
     },
     {
+      "file": "core/graph-math.mjs",
+      "kb": 7
+    },
+    {
+      "file": "core/ru-money.mjs",
+      "kb": 7
+    },
+    {
       "file": "ui/calendar.js",
       "kb": 7
     },
@@ -103,12 +115,12 @@
       "kb": 6
     },
     {
-      "file": "ui/components/InspectorDrawer.js",
+      "file": "smoke.mjs",
       "kb": 5
     },
     {
-      "file": "smoke.mjs",
-      "kb": 4
+      "file": "ui/components/InspectorDrawer.js",
+      "kb": 5
     },
     {
       "file": "ui/components/AssistantInput.js",

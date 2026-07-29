@@ -1,4 +1,23 @@
 import {
+  RU_CAPTURE_STOPWORDS,
+  extractEntitiesFromText,
+  extractPeopleNames
+} from "./core/ru-entities.mjs";
+import {
+  extractBalanceAmount,
+  extractFirstAmount,
+  extractMerchant,
+  extractMerchantHuman,
+  extractMoneyEntities,
+  extractMoneyEntitiesHuman,
+  inferFinanceCategory,
+  looksLikeBareMoneyEntry
+} from "./core/ru-money.mjs";
+import {
+  applyForceTick,
+  louvainPartition
+} from "./core/graph-math.mjs";
+import {
   CAPTURE_SPLIT_MAX_LENGTH,
   SPEECH_EXPENSE_RE,
   SPEECH_HOURS_RE,
@@ -4390,100 +4409,17 @@ function sourceQuote(text, pattern) {
   return shorten(cleanLine(source), 140);
 }
 
-// U2 MONEY_FAST: a bare "amount + short category" entry ("350 бензин") or "заработал 4200
-// смена" has no currency sign and no keyword the older heuristics below recognize (they only
-// know a fixed merchant/category word list). Reading it unambiguously by word order alone -
-// 2-6 digit number next to <=3 short words total, and NOT a date/time (so "15 июля" or "в 15"
-// aren't mistaken for money) - is the honest, non-ML way to cover arbitrary categories without
-// enumerating every possible one.
-function looksLikeBareMoneyEntry(text) {
-  const source = String(text || "").trim();
-  if (!source) return null;
-  const wordCount = source.split(/\s+/).filter(Boolean).length;
-  if (wordCount === 0 || wordCount > 4) return null;
-  if (parseTimeFromText(source).startTime || parseDateFromText(source)) return null;
-  const leading = source.match(/^(\d{2,6})(?:[.,]\d{1,2})?\s+\S/);
-  const trailing = source.match(/\S\s+(\d{2,6})(?:[.,]\d{1,2})?\s*[.!]?$/);
-  const match = leading || trailing;
-  return match ? Number(match[1]) : null;
-}
 
-function extractMoneyEntities(text) {
-  const humanMatches = extractMoneyEntitiesHuman(text);
-  if (humanMatches.length) return humanMatches;
-  const source = String(text || "");
-  const matches = [];
-  const moneyPattern = /(?:^|[^\d])(\d{2,9})(?:\s*)(₽|руб(?:\.|лей|ля|ль)?|р\b|rub\b)/gi;
-  let match = moneyPattern.exec(source);
-  while (match) {
-    matches.push({ amount: Number(match[1]), currency: "RUB", raw: cleanLine(match[0]) });
-    match = moneyPattern.exec(source);
-  }
-  const fallback = source.match(/\b(\d{3,9})\b/);
-  if (!matches.length && fallback && /(купить|оплатить|потратил|списал|списалось|стоил|цена|баланс|зарплата|лимит|подписка|долг|expense|income|budget|subscription)/i.test(source)) {
-    matches.push({ amount: Number(fallback[1]), currency: "RUB", raw: fallback[1] });
-  }
-  if (!matches.length) {
-    const bareAmount = looksLikeBareMoneyEntry(source);
-    if (bareAmount) matches.push({ amount: bareAmount, currency: "RUB", raw: String(bareAmount) });
-  }
-  return matches.slice(0, 6);
-}
 
-function extractFirstAmount(text) {
-  const money = extractMoneyEntities(text);
-  return money.length ? money[0].amount : 0;
-}
 
-function extractMoneyEntitiesHuman(text) {
-  const source = repairMojibake(String(text || ""));
-  const lower = normalizeRuText(source);
-  const hasMoneyContext = /(пят[её]рочк|перекр[её]сток|магнит|продукт|еда|кофе|расход|потрат|купил|купить|оплат|баланс|карта|сч[её]т|зарплат|доход|заработал|пришл|получил|подписк|бюджет|лимит|перев[её]л|накоплен|руб|₽|expense|income|budget|subscription)/iu.test(lower);
-  if (!hasMoneyContext) return [];
-  const matches = [];
-  const seen = new Set();
-  const pattern = /(^|[^\d])(\d{2,9})(?:\s*)(₽|руб(?:\.|лей|ля|ль)?|р\b|rub\b)?/giu;
-  let match = pattern.exec(source);
-  while (match) {
-    const amount = Number(match[2]);
-    const numEnd = match.index + match[1].length + match[2].length;
-    const after = source.slice(numEnd, numEnd + 6);
-    // Число из времени/длительности — не деньги: "16:00", "16 часов", "16ч" (без валюты рядом).
-    const isTimeLike = !match[3] && (/^\s*[:.]\d/u.test(after) || /^\s*ч(ас|\.|\b)/iu.test(after));
-    if (Number.isFinite(amount) && amount > 0 && !isTimeLike && !seen.has(match.index + ":" + amount)) {
-      seen.add(match.index + ":" + amount);
-      matches.push({ amount, currency: "RUB", raw: cleanLine(match[0]) || String(amount) });
-    }
-    match = pattern.exec(source);
-  }
-  return matches.slice(0, 6);
-}
 
-function extractBalanceAmount(text) {
-  const source = repairMojibake(String(text || ""));
-  const balanceMatch = source.match(/(?:баланс|остаток|на\s+карте|карта|сч[её]т)[^\d]{0,40}(\d{3,9})/iu);
-  return balanceMatch ? Number(balanceMatch[1]) : 0;
-}
 
-function extractMerchantHuman(text) {
-  const lower = normalizeRuText(text);
-  const known = [
-    [/пят[её]рочк/u, "Пятёрочка"],
-    [/перекр[её]сток/u, "Перекрёсток"],
-    [/магнит/u, "Магнит"],
-    [/яндекс/u, "Яндекс"],
-    [/ozon/u, "Ozon"],
-    [/wildberries/u, "Wildberries"],
-    [/кофе/u, "Кофе"],
-    [/аптек/u, "Аптека"],
-    [/такси/u, "Такси"],
-    [/метро/u, "Метро"],
-    [/протеин/u, "Протеин"],
-    [/зал|gym/u, "Зал"]
-  ];
-  const row = known.find((item) => item[0].test(lower));
-  return row ? row[1] : "";
-}
+
+
+
+
+
+
 
 // Срок из слов владельца: «до августа», «к декабрю», «в сентябре». Разбор дат работает по
 // конкретным дням, и цель «Хочу купить машину до августа» оставалась вообще без срока — а без
@@ -4568,30 +4504,9 @@ function extractGoalAmount(text) {
   return numbers.length ? numbers[numbers.length - 1] : 0;
 }
 
-function extractMerchant(text) {
-  const humanMerchant = extractMerchantHuman(text);
-  if (humanMerchant) return humanMerchant;
-  const source = cleanLine(text);
-  const known = source.match(/\b(пятерочка|перекресток|яндекс|ozon|wildberries|кофе|аптека|такси|метро|протеин|gym|зал)\b/i);
-  if (known) return known[1];
-  return shorten(source.replace(/\d{2,9}\s*(₽|руб(?:\.|лей|ля|ль)?|р\b|rub\b)?/gi, "").replace(/\b(купить|оплатить|потратил|списалось|баланс|зарплата|лимит|подписка)\b/gi, ""), 48) || "Расход";
-}
 
-function inferFinanceCategory(text) {
-  const humanLower = normalizeRuText(text);
-  if (/продукт|еда|кофе|пят[её]рочк|перекр[её]сток|магнит|grocery|food|meal|ужин|обед|завтрак/u.test(humanLower)) return "Еда";
-  if (/такси|метро|билет|дорог|travel|поезд|бензин|заправ/u.test(humanLower)) return "Транспорт";
-  if (/протеин|зал|gym|спорт/u.test(humanLower)) return "Спорт";
-  if (/подписк|яндекс|netflix|spotify|icloud/u.test(humanLower)) return "Подписки";
-  if (/дом|лампоч|ремонт|полк/u.test(humanLower)) return "Дом";
-  const lower = String(text || "").toLocaleLowerCase();
-  if (/продукт|еда|кофе|пятерочка|перекресток|grocery|food|meal|ужин|обед/.test(lower)) return "Еда";
-  if (/такси|метро|билет|дорога|travel|поезд/.test(lower)) return "Транспорт";
-  if (/протеин|зал|gym|спорт/.test(lower)) return "Спорт";
-  if (/подписк|яндекс|netflix|spotify|icloud/.test(lower)) return "Подписки";
-  if (/дом|лампоч|ремонт|полк/.test(lower)) return "Дом";
-  return "Разное";
-}
+
+
 
 function stripOwnerActionTitle(text) {
   const source = repairMojibake(String(text || ""));
@@ -4679,14 +4594,7 @@ function hasAnyText(lower, words) {
 // пропускает начала предложений; entity resolution (Женя=Жека) - отдельный срез 10.
 const PEOPLE_STOPWORDS = new Set(["LifeOS", "Задача", "Расход", "Доход", "Мысль", "Смена", "Заметка", "Напомни", "Сегодня", "Завтра", "Вчера", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь", "Москва", "Ollama", "Whisper", "Vosk"]);
 
-// В системе было ДВА параллельных извлекателя людей: этот (по заглавным словам, только не с
-// начала предложения) и extractEntitiesFromText (по словам-подсказкам). Из-за этого «Марина
-// против кредита» не давала человека ни там, ни там: для одного слово стояло первым, для
-// другого не было подсказки. Теперь извлекатель один — здесь остаётся только его вызов,
-// чтобы analyzeArtifactInput и разбор захвата видели одних и тех же людей.
-function extractPeopleNames(text) {
-  return uniqueCleanItems(extractEntitiesFromText(String(text || "")).people, 6);
-}
+
 
 // Срез 10: разрешение сущностей-людей. Одно лицо в разных формах («Данил»/«Даня») - одна
 // каноническая сущность. Известные уменьшительные резолвятся авто (высокая уверенность);
@@ -6156,163 +6064,8 @@ function captureTextArtifact(state, text) {
   return sourceId;
 }
 
-// I3 (Tana typed nodes + Graphiti entity-extraction): honest lexical entity extractor - regex +
-// morphological stems + cue words, NOT ML/cloud (Canon stack-filter). Precision over recall: it
-// only surfaces names it has a real signal for, so a proposal is worth the owner's confirm (§7),
-// never a wall of two-word junk. People are captured from person-cues ("с Анной", "встретил
-// Ивана"), places from a canonical stem dictionary (any case form -> canonical name), projects
-// from a project-keyword followed by consecutive Capitalized words, dates from months/ISO/relative.
-// Частые зачины захвата: с них владелец начинает фразу, и заглавная буква тут — знак начала
-// предложения, а не имени собственного. Без этого списка «Хочу купить машину» дало бы человека
-// по имени «Хочу». Список закрывает глаголы, местоимения, наречия времени и слова-типы записи.
-const RU_CAPTURE_STOPWORDS = new Set([
-  "хочу", "хотел", "надо", "нужно", "нужен", "нужна", "буду", "будет", "было", "если", "когда",
-  "потом", "сегодня", "завтра", "вчера", "утром", "днём", "днем", "вечером", "ночью", "потратил",
-  "потратила", "заработал", "заработала", "купил", "купила", "купить", "продать", "сделать",
-  "сделал", "позвонить", "позвонил", "написать", "написал", "ответить", "отвечу", "спросить",
-  "посчитать", "посчитал", "оценить", "оценил", "разобрать", "разобрал", "проверить", "проверил",
-  "встреча", "встретиться", "задача", "мысль", "идея", "заметка", "напоминание", "план", "цель",
-  "проект", "работа", "работать", "работаю", "тренировка", "тренировался", "после", "перед",
-  "может", "можно", "стоит", "пора", "почему", "зачем", "какой", "какая", "сколько", "это",
-  "этот", "эта", "мне", "меня", "мой", "моя", "мои", "там", "тут", "здесь", "очень", "просто",
-  "тоже", "ещё", "еще", "уже", "весь", "вся", "все", "всё", "они", "она", "оно", "как", "что",
-  "чтобы", "пока", "весной", "летом", "осенью", "зимой", "деньги", "смета", "счёт", "счет",
-  // Частые ЗАЧИНЫ захвата — нарицательные с большой буквы в начале фразы. Правило «заглавное
-  // слово не в начале предложения — почти наверняка имя» на первом слове не работает вовсе,
-  // и «Ремонт кухни аванс подрядчику» давало человека по имени Ремонт. Словарь узкий и только
-  // для этого класса: это предметы записей владельца, людьми они не бывают никогда.
-  "ремонт", "кухня", "кухни", "квартира", "машина", "аванс", "оплата", "покупка", "продажа",
-  "доход", "расход", "зарплата", "бензин", "продукты", "подписка", "договор", "документы",
-  "отчёт", "отчет", "письмо", "звонок", "поездка", "билет", "аптека", "врач", "спорт",
-  "английский", "немецкий", "испанский", "французский", "вода", "еда", "сон", "здоровье",
-  // Слова чужой позиции: они и так разбираются отдельным правилом, а человеком не бывают.
-  "против", "согласен", "согласна", "готов", "готова", "просит", "требует", "настаивает",
-  // Зачины живой речи. В надиктовке почти каждая фраза начинается с одного из них, и с большой
-  // буквы: «Так короче я поработал…», «Сейчас еду к Володе». Людьми они не бывают никогда.
-  "так", "сейчас", "теперь", "потом", "короче", "вообще", "кстати", "ладно", "значит", "слушай",
-  "блин", "ну", "вот", "давай", "надо", "буду", "было", "получается", "походу", "типа",
-  // Сами слова-подсказки. «Встретил Дмитрия» в начале фразы давало ДВУХ людей — Дмитрия и
-  // «Встретил»: правило «заглавное слово — имя» не отличает глагол в начале от имени, а
-  // окончание «-ил» не отсечь по форме, не отсекая заодно Павла и Михаила.
-  "встретил", "встретила", "встретили", "звонил", "звонила", "звонили",
-  "говорил", "говорила", "говорили", "писал", "писала", "писали",
-  // Глаголы движения и намерения от первого лица. Владелец надиктовал «Еду к Володе сегодня
-  // вечером» — и в людях появилось ДВОЕ: «Еду» и «Володе». Формой это не отсечь: окончание
-  // «-у» в начале фразы принадлежит и глаголу («еду», «иду»), и имени в винительном падеже
-  // («Марину», «Анну»), а терять имена ради глаголов нельзя. Поэтому список узкий и точечный:
-  // это ровно те глаголы, с которых человек начинает фразу вслух.
-  "еду", "едем", "иду", "идём", "идем", "поеду", "поедем", "пойду", "пойдём", "пойдем",
-  "заеду", "зайду", "съезжу", "схожу", "беру", "возьму", "жду", "хочу", "могу", "думаю",
-  "помню", "забыл", "забыла", "успею", "успел", "плачу", "плачу́", "отдам", "верну"
-]);
 
-function extractEntitiesFromText(text) {
-  const empty = { people: [], projects: [], places: [], dates: [] };
-  if (!text) return empty;
-  const entities = { people: [], projects: [], places: [], dates: [] };
 
-  // Places: stem dictionary tolerant to Russian case endings, normalized to a canonical label.
-  const placeDict = [
-    [/Москв[а-яё]*/gi, "Москва"], [/Питер[а-яё]*|Санкт-Петербург[а-яё]*|СПб/gi, "Санкт-Петербург"],
-    [/Армен[а-яё]*/gi, "Армения"], [/Ереван[а-яё]*/gi, "Ереван"], [/Севан[а-яё]*/gi, "Севан"],
-    [/Росси[а-яё]*/gi, "Россия"], [/Франци[а-яё]*/gi, "Франция"], [/Англи[а-яё]*/gi, "Англия"],
-    [/Испани[а-яё]*/gi, "Испания"], [/Итали[а-яё]*/gi, "Италия"], [/Греци[а-яё]*/gi, "Греция"],
-    [/Япони[а-яё]*/gi, "Япония"], [/Кита[йея-яё]*/gi, "Китай"], [/Инди[йея-яё]*/gi, "Индия"], [/США/g, "США"]
-  ];
-  // Прилагательное — не место. «Английский снова откладываю» давало место «Англия», потому что
-  // основа `Англи` совпадает с началом слова «Английский»; так же читались бы «испанский» и
-  // «китайский». Название языка или прилагательное отсекаем по суффиксу, а не по словарю: если
-  // совпавшее слово продолжается на -ск-/-йск-, это признак, а не страна.
-  // Суффикс именно прилагательного, а не любое «ск» внутри слова: «Москве» тоже содержит «ск»,
-  // и по грубому правилу столица пропадала бы из мест вместе с «английским».
-  const PLACE_ADJECTIVE_TAIL = /ск(ий|ая|ое|ие|ого|ому|ом|ую|ой|их|им|ими)$/i;
-  for (const [re, canonical] of placeDict) {
-    const match = text.match(re);
-    if (match && !match.every((word) => PLACE_ADJECTIVE_TAIL.test(word))) entities.places.push(canonical);
-  }
-  // Place-keyword + a Capitalized following word ("озеро Севан", "город Тбилиси").
-  const placeKeywordRe = /(?:озер[оа]|рек[аи]|город[еа]?|деревн[еяю]|остров[еа]?|гор[аеы]|мор[еяю]|залив[еа]?)\s+([А-ЯЁ][а-яё]+)/gi;
-  for (let m; (m = placeKeywordRe.exec(text)) !== null; ) entities.places.push(m[1].trim());
-
-  // Dates: month names, ISO dates, relative references.
-  // NB: JS \b is ASCII-only, so it never fires around Cyrillic letters - all word boundaries below
-  // use explicit Cyrillic lookarounds (?<![А-Яа-яЁё]) / (?![А-Яа-яЁё]) instead.
-  const months = ["январ", "феврал", "март", "апрел", "ма[йя]", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
-  const monthCanon = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
-  months.forEach((stem, i) => {
-    if (new RegExp("(?<![А-Яа-яЁё])" + stem + "[а-яё]*", "i").test(text)) entities.dates.push(monthCanon[i]);
-  });
-  entities.dates.push(...(text.match(/\d{4}-\d{2}-\d{2}/g) || []));
-  entities.dates.push(...(text.match(/сегодня|завтра|послезавтра|вчера|на следующей неделе|на следующем месяце/gi) || []));
-
-  // Projects: a project keyword (any case form) followed by consecutive Capitalized words.
-  const projectRe = /(?:проект|идея|систем|инициатив|платформ|сервис|приложени)[а-яё]*\s+([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)*)/gi;
-  for (let m; (m = projectRe.exec(text)) !== null; ) {
-    const name = m[1].trim();
-    if (name) entities.projects.push(name);
-  }
-
-  // People: names captured from person-cues (the cue must be a whole word - lookbehind guards the
-  // front, the required \s+ guards the back, so "система" is never read as the cue "с"). A run
-  // joined by "и"/"," yields multiple names ("с Иваном и Сергеем" -> Иван, Сергей).
-  // Флага `i` здесь быть НЕ ДОЛЖНО: он отменяет требование заглавной буквы у имени, и подсказка
-  // начинала цеплять любое слово — «с вычетом налогов» давало человека по имени «вычетом».
-  // Регистронезависимость нужна только самим словам-подсказкам (они бывают в начале фразы),
-  // поэтому она задана в них явно, а имя обязано начинаться с большой буквы.
-  const personRe = /(?<![А-Яа-яЁё])(?:[Сс]|[Сс]о|[Уу]|[Оо]т|[Вв]стретил[аи]?|[Зз]вонил[аи]?|[Гг]оворил[аи]?|[Пп]исал[аи]?)\s+([А-ЯЁ][а-яё]+(?:\s*(?:,|(?<![А-Яа-яЁё])и(?![А-Яа-яЁё]))\s*[А-ЯЁ][а-яё]+)*)/g;
-  const placeSet = new Set(entities.places);
-  const projectSet = new Set(entities.projects);
-  // Название проекта из нескольких слов («Новая Платформа») в projectSet лежит целиком, а
-  // заглавные слова проверяются по одному — и «Новая» с «Платформой» уезжали в люди по отдельности.
-  const projectWordSet = new Set([...projectSet].flatMap((name) => String(name).split(/\s+/)).filter(Boolean));
-  for (let m; (m = personRe.exec(text)) !== null; ) {
-    for (const raw of m[1].split(/\s*(?:,|\sи\s)\s*/)) {
-      const name = raw.trim();
-      if (name && !placeSet.has(name) && !projectWordSet.has(name)) entities.people.push(name);
-    }
-  }
-
-  // Имена БЕЗ слова-подсказки. Реальные голосовые владельца звучат как «Марина против кредита»
-  // и «Дмитрий ждёт ответа» — подсказки («с», «звонил») там нет, и такие имена терялись целиком,
-  // из-за чего люди почти не появлялись в графе.
-  // Опора на правило языка, а не на словарь имён: русский НЕ пишет нарицательные с большой буквы
-  // в середине предложения, поэтому заглавное слово не в начале фразы — почти наверняка имя
-  // собственное. Для слова в начале фразы этого признака нет, поэтому там работает стоп-лист
-  // частых зачинов захвата; всё остальное считается кандидатом.
-  // Перевод строки — это конец фразы САМ ПО СЕБЕ, а не только когда за ним ещё и пробел.
-  // Расшифровка приходит строками без пробела после переноса, поэтому все двадцать минут речи
-  // считались ОДНИМ предложением: правило «заглавное слово не в начале фразы — почти наверняка
-  // имя» применялось к каждому «Так» и «Сейчас» посреди текста, и они уезжали в люди.
-  for (const sentence of String(text).split(/(?<=[.!?…])\s+|\r?\n/)) {
-    const words = sentence.trim().split(/\s+/);
-    // В записи про трату последнее заглавное слово — это почти всегда магазин, а не человек
-    // («Потратил 4380 продукты Лента»). Отличить организацию от имени без словаря нельзя,
-    // поэтому опираемся на форму самой записи, а не гадаем.
-    const looksLikeSpending = /\d/.test(sentence) && /потрат|купил|оплат|чек|расход|заработ/i.test(sentence);
-    for (let index = 0; index < words.length; index += 1) {
-      const word = words[index].replace(/^[^А-ЯЁа-яё]+|[^А-ЯЁа-яё]+$/g, "");
-      if (!/^[А-ЯЁ][а-яё]{2,}$/.test(word)) continue;
-      const lower = word.toLocaleLowerCase("ru-RU");
-      if (placeSet.has(word) || projectWordSet.has(word)) continue;
-      // Место в косвенном падеже («Москву») в placeSet не попадает — сверяем по основе.
-      if ([...placeSet].some((place) => lower.startsWith(place.toLocaleLowerCase("ru-RU").slice(0, 4)))) continue;
-      if (RU_CAPTURE_STOPWORDS.has(lower)) continue;
-      if (monthCanon.some((month) => lower.startsWith(month.slice(0, 4)))) continue;
-      // В начале предложения заглавная буква не значит ничего, поэтому глагольные окончания
-      // отсекаем именно там: «Съездили в Москву» — это не человек по имени Съездили.
-      if (index === 0 && /(ли|ло|ла|ть|лся|лись|ем|ет|ешь|ю)$/.test(lower)) continue;
-      if (looksLikeSpending && index === words.length - 1) continue;
-      entities.people.push(word);
-    }
-  }
-
-  return {
-    people: [...new Set(entities.people)],
-    projects: [...new Set(entities.projects)],
-    places: [...new Set(entities.places)],
-    dates: [...new Set(entities.dates)]
-  };
-}
 
 function applySourceProposals(state, sourceId, acceptedTypes) {
   const allowed = Array.isArray(acceptedTypes) && acceptedTypes.length ? new Set(acceptedTypes) : null;
@@ -12197,75 +11950,7 @@ function runForceLayout(graph, width, height, iterations, forces) {
   return prepared;
 }
 
-// G2.5: сила отталкивания/длина связи/гравитация центра выведены слайдерами владельца
-// (Obsidian graph settings идея) - значения по умолчанию совпадают с прежними хардкодом,
-// так что без слайдеров поведение не меняется (backward-compatible default 5-й параметр).
-function applyForceTick(nodes, links, width, height, forces) {
-  // Срез 7 фикс: сильнее расталкивание и длиннее связи - узлы дышат, а не липнут в ком
-  // (владелец видел «клубок»). Центрирование слабее, чтобы хабы не стягивали всё в точку.
-  const repulsion = Number(forces && forces.repulsion) || 8600;
-  const spring = 0.016;
-  const desired = Number(forces && forces.linkDistance) || 158;
-  const centerStrength = Number(forces && forces.gravity) >= 0 ? Number(forces && forces.gravity) : 0.004;
-  for (let i = 0; i < nodes.length; i += 1) {
-    for (let j = i + 1; j < nodes.length; j += 1) {
-      const a = nodes[i];
-      const b = nodes[j];
-      let dx = b.x - a.x;
-      let dy = b.y - a.y;
-      let distSq = dx * dx + dy * dy;
-      if (distSq < 0.01) {
-        dx = 0.1 + i * 0.01;
-        dy = 0.1 + j * 0.01;
-        distSq = dx * dx + dy * dy;
-      }
-      const dist = Math.sqrt(distSq);
-      const force = repulsion / distSq;
-      const fx = force * dx / dist;
-      const fy = force * dy / dist;
-      a.vx -= fx;
-      a.vy -= fy;
-      b.vx += fx;
-      b.vy += fy;
-      const minDist = a.radius + b.radius + 14;
-      if (dist < minDist) {
-        const push = (minDist - dist) * 0.055;
-        const px = push * dx / dist;
-        const py = push * dy / dist;
-        a.vx -= px;
-        a.vy -= py;
-        b.vx += px;
-        b.vy += py;
-      }
-    }
-  }
-  for (const link of links) {
-    const a = link.sourceNode;
-    const b = link.targetNode;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-    const force = (dist - desired) * spring;
-    const fx = force * dx / dist;
-    const fy = force * dy / dist;
-    a.vx += fx;
-    a.vy += fy;
-    b.vx -= fx;
-    b.vy -= fy;
-  }
-  for (const node of nodes) {
-    node.vx += (width / 2 - node.x) * centerStrength;
-    node.vy += (height / 2 - node.y) * centerStrength;
-    node.vx *= 0.82;
-    node.vy *= 0.82;
-    if (!node.fixed) {
-      node.x += node.vx;
-      node.y += node.vy;
-    }
-    node.x = Math.max(node.radius, Math.min(width - node.radius, node.x));
-    node.y = Math.max(node.radius, Math.min(height - node.radius, node.y));
-  }
-}
+
 
 // Срез 7 (v1.4): тема-aware палитра графа - раньше фон был захардкожен тёмным независимо от
 // темы приложения. Читаем реальную тему (явный выбор владельца или системный сигнал).
@@ -16672,84 +16357,7 @@ function buildUndirectedAdjacency(graph) {
   return { adjacency, nodeById, edges, ids: [...adjacency.keys()].sort() };
 }
 
-// Louvain, первая фаза + агрегация (донор-алгоритм из cluster.py, там он вызывается через
-// networkx/graspologic). Прирост модулярности при переносе узла i в сообщество C:
-// ΔQ = k_i,in / m − Σtot · k_i / (2m²). Узлы обходим в отсортированном порядке, ничьи решаем
-// по id — иначе разбиение «плавает» от прогона к прогону и выглядит как churn сообществ.
-function louvainPartition(ids, adjacency) {
-  let nodes = ids.slice();
-  let neighbours = new Map(nodes.map((id) => [id, new Map([...adjacency.get(id)].map((other) => [other, 1]))]));
-  let membership = new Map(nodes.map((id) => [id, id]));
-  const rootOf = new Map(nodes.map((id) => [id, [id]]));
 
-  for (let level = 0; level < 6; level += 1) {
-    const degree = new Map(nodes.map((id) => [id, [...neighbours.get(id).values()].reduce((sum, weight) => sum + weight, 0)]));
-    const totalWeight = [...degree.values()].reduce((sum, value) => sum + value, 0) / 2;
-    if (!totalWeight) break;
-    const community = new Map(nodes.map((id) => [id, id]));
-    const communityTotal = new Map(nodes.map((id) => [id, degree.get(id)]));
-    let moved = false;
-    for (let pass = 0; pass < 8; pass += 1) {
-      let passMoved = false;
-      for (const id of nodes) {
-        const current = community.get(id);
-        const own = degree.get(id);
-        communityTotal.set(current, communityTotal.get(current) - own);
-        const weightTo = new Map();
-        for (const [other, weight] of neighbours.get(id)) {
-          if (other === id) continue;
-          const target = community.get(other);
-          weightTo.set(target, (weightTo.get(target) || 0) + weight);
-        }
-        let best = current;
-        let bestGain = (weightTo.get(current) || 0) - (communityTotal.get(current) * own) / (2 * totalWeight);
-        for (const [target, weight] of [...weightTo.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
-          const gain = weight - (communityTotal.get(target) * own) / (2 * totalWeight);
-          if (gain > bestGain + 1e-9) {
-            bestGain = gain;
-            best = target;
-          }
-        }
-        communityTotal.set(best, communityTotal.get(best) + own);
-        if (best !== current) {
-          community.set(id, best);
-          passMoved = true;
-          moved = true;
-        }
-      }
-      if (!passMoved) break;
-    }
-    for (const id of ids) {
-      const leaf = membership.get(id);
-      membership.set(id, community.get(leaf) !== undefined ? community.get(leaf) : leaf);
-    }
-    if (!moved) break;
-    // Агрегация: каждое сообщество становится узлом следующего уровня.
-    const groups = new Map();
-    for (const id of nodes) {
-      const cid = community.get(id);
-      if (!groups.has(cid)) groups.set(cid, []);
-      groups.get(cid).push(id);
-    }
-    const nextNodes = [...groups.keys()].sort();
-    const nextNeighbours = new Map(nextNodes.map((cid) => [cid, new Map()]));
-    for (const id of nodes) {
-      const from = community.get(id);
-      for (const [other, weight] of neighbours.get(id)) {
-        const to = community.get(other);
-        const bucket = nextNeighbours.get(from);
-        bucket.set(to, (bucket.get(to) || 0) + weight);
-      }
-    }
-    for (const [cid, members] of groups) {
-      rootOf.set(cid, members.flatMap((member) => rootOf.get(member) || [member]));
-    }
-    if (nextNodes.length === nodes.length) break;
-    nodes = nextNodes;
-    neighbours = nextNeighbours;
-  }
-  return membership;
-}
 
 // Доля реально существующих рёбер внутри сообщества от максимально возможных (cluster.py).
 function communityCohesion(members, adjacency) {

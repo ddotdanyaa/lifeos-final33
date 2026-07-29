@@ -1,4 +1,4 @@
-const LIFEOS_CACHE = "lifeos-v34-a34a1a6-s3";
+const LIFEOS_CACHE = "lifeos-v34-5f17890-s6";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -9,6 +9,9 @@ const SHELL_ASSETS = [
   "/core/text.mjs",
   "/core/ru-parse.mjs",
   "/core/speech-intents.mjs",
+  "/core/graph-math.mjs",
+  "/core/ru-money.mjs",
+  "/core/ru-entities.mjs",
   "/artifact-os-architecture.mjs",
   "/manifest.webmanifest",
   "/assets/lifeos-icon.svg",

@@ -1,4 +1,6 @@
 import { readFile } from "node:fs/promises";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 const files = {
   html: await readFile("index.html", "utf8"),
@@ -108,7 +110,13 @@ const forbidden = [
   "place" + "holder card"
 ];
 
-const joined = Object.values(files).join("\n");
+// П7: код больше не весь в app.js — чистые слои вынесены в core/*.mjs. Маркеры ищем и там.
+// Проверка осталась прежней («такая функция обязана существовать»), изменилось только место, где
+// она живёт. Ослаблением это не является: ослаблением было бы убрать маркер.
+const coreFiles = existsSync("core")
+  ? readdirSync("core").filter((name) => name.endsWith(".mjs")).map((name) => readFileSync(join("core", name), "utf8"))
+  : [];
+const joined = Object.values(files).concat(coreFiles).join("\n");
 const missing = required.filter((item) => !joined.includes(item));
 const blocked = forbidden.filter((item) => joined.toLowerCase().includes(item.toLowerCase()));
 

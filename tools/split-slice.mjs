@@ -75,7 +75,9 @@ for (const m of app.matchAll(/^const ([A-Za-z_$][\w$]*)\s*=/gm)) {
   if (opener) {
     // Закрывающая строка бывает не голой: `].join("\n");` — тоже конец объявления, и без этого
     // разбор считал его незакрытым и захватывал следующую функцию.
-    const closeRe = /^[)\]}](?:\.[A-Za-z_$][\w$]*\([^\n]*\))*\s*;?\s*$/m;
+    // Закрывающих скобок бывает НЕСКОЛЬКО подряд: `new Set([` кончается на `]);`. Первая версия
+    // ждала ровно одну, считала объявление незакрытым и захватывала следующую функцию.
+    const closeRe = /^[)\]}]+(?:\.[A-Za-z_$][\w$]*\([^\n]*\))*\s*;?\s*$/m;
     const rest = app.slice(lineEnd + 1);
     const found = rest.match(closeRe);
     end = found ? lineEnd + 1 + found.index + found[0].length : lineEnd;
