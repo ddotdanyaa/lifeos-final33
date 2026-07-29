@@ -333,10 +333,15 @@ export function renderNewShell(ctx) {
     `</div>`,
     `<label class="global-search-v2"><span>Найти</span><input id="global-search" data-testid="global-search" value="${escapeHtml(ctx.searchQuery || "")}" autocomplete="off" aria-label="Поиск"></label>`,
     `<div class="header-actions-v2">`,
-    `<button class="top-capture-v2" data-action="set-surface" data-id="capture" data-testid="top-capture">Ввод</button>`,
-    // «Контроль» — имя подсистемы. Владелец приходит сюда спросить «что изменилось», а не
-    // «проконтролировать данные». Идентификатор тот же, слово человеческое.
-    `<button class="top-capture-v2 top-control-v2" data-action="set-surface" data-id="control" data-testid="top-control">Что изменилось</button>`,
+    // Здесь стояли «Ввод» и «Что изменилось» — оба ДУБЛИРОВАЛИ навигацию, а не дополняли её.
+    // «Что изменилось» — дословно девятый пункт главного меню, тем же словом; «Ввод» — экран
+    // `capture`, до которого ведут и кластер «Ввод и разбор», и нижняя панель телефона. Две
+    // одинаковые кнопки в двух местах экрана — это не быстрый доступ, а вопрос «а эти две
+    // разные?». Убраны вместе с переводом четырёх спек на настоящую навигацию.
+    //
+    // Проверено, что сценарий не пострадал (§3: ухудшать путь ради чистоты запрещено):
+    // на большом экране `surface-control` виден в рейле всегда, на телефоне — `mobile-more-control`
+    // в «Ещё», а `capture` на телефоне лежит прямо в нижней панели.
     ctx.activeSurface && ctx.activeSurface !== "inbox" && ctx.activeSurface !== "library" ? `<button class="top-capture-v2 top-new-note-v2" data-action="new-note" data-testid="new-note">Заметка</button>` : "",
     `<button class="top-capture-v2 top-theme-toggle-v2" data-action="toggle-theme" data-testid="theme-toggle" data-raw-theme="${escapeHtml(ctx.theme || "system")}" title="Сменить тему">Тема: ${escapeHtml(ctx.theme === "dark" ? "тёмная" : ctx.theme === "light" ? "светлая" : "системная")}</button>`,
     `<span id="save-status" class="save-status-v2" role="status" aria-live="polite" data-testid="build-version" title="Сборка: ${escapeHtml((typeof document !== "undefined" && document.querySelector('meta[name="build-version"]')?.content) || "dev")}">сохранено</span>`,

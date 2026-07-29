@@ -225,7 +225,10 @@ test("mobile calm home keeps intake, graph and control usable", async ({ page })
   await expect(page.getByTestId("home-workspace-rail")).toBeHidden();
   await expect(page.getByTestId("command-center")).toBeVisible();
   await expect(page.getByTestId("mega-dropzone")).toBeVisible();
-  await page.getByTestId("top-control").click();
+  // На телефоне до «Что изменилось» ведёт «Ещё» нижней навигации — дубль в шапке убран.
+  // Проверка та же и даже строже: она подтверждает, что путь с телефона существует БЕЗ шапки.
+  await page.locator('[data-testid="mobile-more-nav"] summary').first().click();
+  await page.getByTestId("mobile-more-control").click();
   await expect(page.getByTestId("data-control-panel")).toBeVisible();
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(horizontalOverflow).toBe(false);

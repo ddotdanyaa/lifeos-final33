@@ -62,7 +62,10 @@ test("P1.1 undo: navigation between the mutation and Ctrl+Z is not what gets und
   // Switch surfaces (pure navigation) before undoing - this must NOT count as a separate
   // undo step. A single Ctrl+Z must remove the task in one press regardless of how much
   // navigating happened afterward (before the fix, the surface switch consumed the undo).
-  await page.getByTestId("top-control").click();
+  // Дубль-кнопка в шапке убрана: «Что изменилось» — девятый пункт главного меню, и переход
+  // проверяется по нему. Смысл спеки прежний — это ЧИСТАЯ навигация, она не должна съедать шаг
+  // отмены.
+  await page.getByTestId("surface-control").click();
   await page.waitForTimeout(200);
   await page.keyboard.press("Control+z");
 

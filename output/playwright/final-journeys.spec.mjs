@@ -242,7 +242,9 @@ async function writeFinalScreens(page) {
   await page.setViewportSize({ width: 390, height: 940 });
   await openSurface(page, "surface-inbox", "command-center");
   await page.screenshot({ path: `${FINAL_DIR}/final-mobile-home.png`, fullPage: true });
-  await page.getByTestId("top-capture").click();
+  // Дубль-кнопка «Ввод» в шапке убрана: на телефоне экран лежит в нижней панели, и openSurface
+  // сам берёт её (`mobile-surface-capture`). Проверка не ослаблена — она стала о настоящем пути.
+  await openSurface(page, "surface-capture", "workspace-capture");
   await expect(page.getByTestId("workspace-capture")).toBeVisible();
   await page.screenshot({ path: `${FINAL_DIR}/final-mobile-capture.png`, fullPage: true });
 }
@@ -492,7 +494,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
 
   before = await beginJourney(page, "J14");
   await capture(page, "вечерний обзор: голосом записал идею про сон, деньги и граф");
-  await page.getByTestId("top-capture").click();
+  await openSurface(page, "surface-capture", "workspace-capture");
   await expect(page.getByTestId("workspace-capture")).toBeVisible();
   await expect(page.getByTestId("inbox-review-board")).toBeVisible();
   await finishJourney(page, "J14", "Evening voice dump review", before, {
@@ -639,7 +641,7 @@ test("P19 final owner journey evidence J01-J24", async ({ page }) => {
   await openSurface(page, "surface-inbox", "command-center");
   const homeOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(homeOverflow).toBe(false);
-  await page.getByTestId("top-capture").click();
+  await openSurface(page, "surface-capture", "workspace-capture");
   await expect(page.getByTestId("workspace-capture")).toBeVisible();
   const captureOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(captureOverflow).toBe(false);

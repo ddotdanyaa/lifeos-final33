@@ -21,6 +21,25 @@ if (localChromium) {
 
 test.setTimeout(180000);
 
+// Дубль-кнопки «Ввод»/«Что изменилось» в шапке убраны — они повторяли навигацию. До экрана
+// ведут настоящие пути: на большом экране кластер «Ввод и разбор» за «Ещё», на телефоне —
+// нижняя панель. Спека ходит ими, а не сокращённой дорожкой, которой у владельца больше нет.
+async function openCaptureSurface(page) {
+  const mobile = page.getByTestId("mobile-surface-capture").first();
+  if (await mobile.isVisible().catch(() => false)) {
+    await mobile.click();
+    return;
+  }
+  const direct = page.getByTestId("surface-capture").first();
+  if (!(await direct.isVisible().catch(() => false))) {
+    await page.locator('[data-testid="app-ribbon"] summary').first().click();
+    // Раскрытие «Ещё» живёт в состоянии, а не в браузерном <details>: после клика идёт коммит
+    // и перерисовка, и без ожидания следующий шаг работает по старому DOM.
+    await page.waitForTimeout(350);
+  }
+  await page.getByTestId("surface-capture").first().click();
+}
+
 async function resetLifeOs(page) {
   await page.goto("http://127.0.0.1:4173");
   await page.evaluate(async () => {
@@ -93,7 +112,7 @@ test.skip("market-grade artifact OS rescue @market-owner @calendar @finance @rea
   expect(beforeApply.proposals).toBeGreaterThan(5);
   await page.screenshot({ path: "output/playwright/market-after-analysis.png", fullPage: true });
 
-  await page.getByTestId("top-capture").click();
+  await openCaptureSurface(page);
   await expect(page.getByTestId("workspace-capture")).toBeVisible();
   await expect(page.getByTestId("inbox-review-board")).toBeVisible();
   await page.screenshot({ path: "output/playwright/market-inbox-review.png", fullPage: true });
@@ -301,7 +320,7 @@ test.skip("market-grade artifact OS rescue @market-owner @calendar @finance @rea
   const homeOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(homeOverflow).toBe(false);
   await page.screenshot({ path: "output/playwright/market-mobile-home.png", fullPage: true });
-  await page.getByTestId("top-capture").click();
+  await openCaptureSurface(page);
   await expect(page.getByTestId("workspace-capture")).toBeVisible();
   const captureOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
   expect(captureOverflow).toBe(false);
