@@ -18,7 +18,7 @@ import { speechClauses } from "./speech-intents.mjs";
 const THEME_MIN_DAYS = 3;
 const THEME_WINDOW_DAYS = 7;
 
-export function ownerWordsByDay(state) {
+export function ownerWordsByDay(state, systemFolderId) {
   const byDay = new Map();
   const add = (day, text, noteId) => {
     const key = cleanLine(day);
@@ -69,7 +69,7 @@ export function themeWords(text) {
 }
 
 export function ownerThemeInsights(state, systemFolderId) {
-  const byDay = ownerWordsByDay(state);
+  const byDay = ownerWordsByDay(state, systemFolderId);
   const window = new Set();
   for (let offset = 0; offset > -THEME_WINDOW_DAYS; offset -= 1) window.add(dateKeyFromOffset(offset));
   const themeDays = new Map();

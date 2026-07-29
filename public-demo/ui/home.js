@@ -56,24 +56,28 @@ function renderMorningSummary(ctx) {
 // Пустое состояние (жалоба владельца «захожу — пусто, мёртвый экран»): вместо скрытой панели
 // показываем спокойную честную подсказку, ЧТО тут появится, когда накопятся данные - так
 // день-один не выглядит сломанным. Это не «кокпит проверок» (H01): одна тихая карточка.
+// П39: заголовок говорит о ВЛАДЕЛЬЦЕ, а не о механизме. «Инсайты» — слово продукта;
+// «Что я заметил» — то, зачем он сюда смотрит. И «уверенность: средняя» заменено на
+// человеческую оговорку «пока предположение»: у высокой уверенности оговорки нет вовсе,
+// потому что подпись к каждому выводу превращает вывод обратно в отчёт механизма.
 function renderInsightsPanel(ctx) {
   const insights = ctx.computedInsights || [];
   if (!insights.length) {
     return [
       `<section class="insights-panel insights-empty" data-testid="insights-panel">`,
-      `<div class="insights-head"><span>Инсайты</span><em>появятся сами</em></div>`,
+      `<div class="insights-head"><span>Что я заметил</span><em>появится само</em></div>`,
       `<p class="insights-empty-hint" data-testid="insights-empty-hint">Как только накопятся данные — покажу закономерности: повторяющиеся траты, просроченные задачи, тренд расходов за неделю, забытые цели. Запиши пару трат или задач, и они появятся здесь.</p>`,
       `</section>`
     ].join("");
   }
   return [
     `<section class="insights-panel" data-testid="insights-panel">`,
-    `<div class="insights-head"><span>Инсайты</span><em>замечено в твоих данных</em></div>`,
+    `<div class="insights-head"><span>Что я заметил</span><em>выводы из твоих записей</em></div>`,
     `<div class="insights-list">`,
     safeList(insights, (insight) => [
       `<div class="insight-card" data-testid="insight-card" data-insight="${escapeHtml(insight.id)}">`,
       `<span class="insight-icon" aria-hidden="true">${insight.icon}</span>`,
-      `<div class="insight-body"><strong>${escapeHtml(insight.title)}</strong><span>${escapeHtml(insight.detail)} · уверенность: ${escapeHtml(insight.confidence)}</span></div>`,
+      `<div class="insight-body"><strong>${escapeHtml(insight.title)}</strong><span>${escapeHtml(insight.detail)}${insight.confidence === "высокая" ? "" : " · пока предположение"}</span></div>`,
       // I2: у инсайта-связи ещё «Связать» - подтверждённо создаёт реальное ребро графа (Tana
       // proposals-before-write; §7 confirm+receipt). У остальных инсайтов - только «Закрепить».
       insight.type === "connection"
