@@ -1,4 +1,4 @@
-const LIFEOS_CACHE = "lifeos-v34-1310227";
+const LIFEOS_CACHE = "lifeos-v34-a34a1a6-s3";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -7,6 +7,8 @@ const SHELL_ASSETS = [
   // П7: чистый слой вынесен из app.js в модуль. Оболочка обязана его кэшировать — иначе офлайн
   // приложение падает на первом же импорте, а не работает без сети.
   "/core/text.mjs",
+  "/core/ru-parse.mjs",
+  "/core/speech-intents.mjs",
   "/artifact-os-architecture.mjs",
   "/manifest.webmanifest",
   "/assets/lifeos-icon.svg",

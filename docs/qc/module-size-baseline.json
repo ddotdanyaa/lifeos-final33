@@ -4,11 +4,15 @@
   "files": [
     {
       "file": "app.js",
-      "kb": 1519
+      "kb": 1468
     },
     {
       "file": "ui/v34-platform.js",
       "kb": 50
+    },
+    {
+      "file": "core/speech-intents.mjs",
+      "kb": 33
     },
     {
       "file": "ui/control.js",
@@ -33,6 +37,10 @@
     {
       "file": "ui/shell.js",
       "kb": 21
+    },
+    {
+      "file": "core/ru-parse.mjs",
+      "kb": 20
     },
     {
       "file": "ui/graph.js",
