@@ -1,4 +1,4 @@
-import { button, escapeHtml, highlightMatch, safeList } from "./shared.js";
+import { button, escapeHtml, highlightMatch, publicText, safeList } from "./shared.js";
 import { fuzzyMatch } from "../vendor/affine-fuzzy-match.js";
 
 // G2.5/G2.6: слайдеры сил раскладки (отталкивание/длина связи/гравитация центра, донор-идея
@@ -75,7 +75,8 @@ export function renderGraphCanvas(ctx) {
     `</div>`,
     `<aside class="graph-inspector" data-testid="graph-inspector">`,
     `<span data-testid="graph-counts">${graph.nodes.length} узлов · ${graph.links.length} связей</span>`,
-    selected.title ? `<strong>${escapeHtml(selected.title)}</strong><em>${escapeHtml(selected.meta || "")}</em>` : `<strong>Выбери узел</strong><em>Клик по узлу покажет причины связей и рабочее место.</em>`,
+    // §3: то же самое в инспекторе графа — имя подсистемы не должно быть заголовком выбранного узла.
+    selected.title ? `<strong>${escapeHtml(publicText(selected.title))}</strong><em>${escapeHtml(publicText(selected.meta || ""))}</em>` : `<strong>Выбери узел</strong><em>Клик по узлу покажет причины связей и рабочее место.</em>`,
     `<div class="graph-connection-summary" data-testid="graph-connection-summary">${selected.title ? "Локальные связи выбранного узла" : "Выбери узел, чтобы увидеть связи"}</div>`,
     `<div class="graph-edge-list" data-testid="graph-edge-list">${safeList((selected.edgeReasons || []).slice(0, 8), (reason) => `<button class="graph-edge-row" data-testid="graph-edge-row">Причина: ${escapeHtml(reason)}</button>`, `<button class="graph-edge-row" data-testid="graph-edge-row">Причина: связь объясняется источником, задачей, заметкой или действием.</button>`)}</div>`,
     selected.edgeReasons?.length ? `<div class="edge-reasons">${safeList(selected.edgeReasons.slice(0, 5), (reason) => `<p data-testid="edge-reason">${escapeHtml(reason)}</p>`, "")}</div>` : `<p data-testid="edge-reason">Связь объясняется источником, задачей, заметкой или действием.</p>`,

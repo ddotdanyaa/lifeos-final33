@@ -286,5 +286,9 @@ export function renderGraph(ctx) {
     renderMemoryImportance(ctx),
     renderPeoplePanel(ctx)
   ].join("");
-  return renderWorkspaceLayout("graph", "Граф связей", "Большой canvas: локальный и глобальный граф, фильтры, поиск, inspector и причины связей.", body, { testId: "workspace-graph", kicker: "Связи" });
+  // §3 канона: внутренние термины не могут быть подписями. Здесь стояло «Большой canvas:
+  // локальный и глобальный граф, фильтры, поиск, inspector и причины связей» — это опись
+  // устройства движка, а не ответ на вопрос «что здесь происходит». Экран отвечает тем, ради
+  // чего владелец на него заходит: что с чем связано и почему.
+  return renderWorkspaceLayout("graph", "Связи", "Что с чем связано в твоих записях и почему: темы, люди, мосты между ними и то, как всё это росло.", body, { testId: "workspace-graph", kicker: "Связи" });
 }
