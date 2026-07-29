@@ -1,6 +1,4 @@
-// Схема имени — из удалённой сессии (хеш сборки). Значение обязано измениться вместе со
-// списком ниже: в прекэш добавлен новый модуль, и старый кэш отдал бы оболочку без него.
-const LIFEOS_CACHE = "lifeos-v34-794a06b-donor";
+const LIFEOS_CACHE = "lifeos-v34-7eecfb3";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -15,7 +13,6 @@ const SHELL_ASSETS = [
   "/core/ru-money.mjs",
   "/core/ru-entities.mjs",
   "/core/owner-themes.mjs",
-  "/core/donor-intake.mjs",
   "/core/format.mjs",
   "/artifact-os-architecture.mjs",
   "/manifest.webmanifest",

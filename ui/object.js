@@ -226,6 +226,10 @@ function renderRelations(inspector) {
       `<span class="object-relation-strength" data-testid="object-relation-strength">${relation.strength}%</span>`,
       `</button>`
     ].join("")).join(""),
+    // Связь — следствие, а не место, куда ходят. Общая картина связей больше не отдельный пункт
+    // меню: до неё добираются ОТСЮДА, от конкретной связи конкретного объекта, когда её уже
+    // недостаточно. Это и есть «перенос», без которого пункт меню убирать было нельзя.
+    `<button class="object-relations-all" data-action="set-surface" data-id="graph" data-testid="object-relations-all">Вся картина связей</button>`,
     `</div>`
   ].join("");
 }
