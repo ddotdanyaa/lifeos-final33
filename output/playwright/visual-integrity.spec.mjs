@@ -94,6 +94,33 @@ test("строки задач не переполняют узкие колон�
   expect(overflowing).toEqual([]);
 });
 
+// V6: страница не имеет права ехать вбок ни на одном рабочем экране. Причина, ради которой
+// проверка написана: у панели «Сегодня» была жёсткая сетка из четырёх колонок, минимумы которой
+// вместе с зазорами дают 1142 px, а главная колонка при окне 1440 — около 1000. Сетка не могла
+// сжаться и распирала страницу, и за ней тянулись все соседние секции.
+//
+// Медиазапрос это не ловил и поймать не мог: он смотрит на ширину ОКНА, а зажата колонка внутри
+// рамы. Поэтому проверка меряет ИМЕННО перелив документа на широком экране — там, где владелец
+// работает каждый день, и где «широкий монитор» звучит как «проблем быть не должно».
+test("ни один рабочий экран не едет вбок на широком окне", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await reset(page);
+  await captureAndApply(page, [
+    "Отработал 8 часов заработал 5200 бензин 900",
+    "надо ответить Дмитрию до среды",
+    "хочу купить машину до августа"
+  ]);
+
+  const bad = [];
+  for (const surface of ["inbox", "today", "calendar", "finance", "feed", "systems", "library", "control"]) {
+    await page.evaluate((id) => window.__lifeosKnowledgeBase.setSurfaceForTest(id), surface);
+    await page.waitForTimeout(700);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (overflow > 2) bad.push(surface + ": +" + overflow + "px");
+  }
+  expect(bad).toEqual([]);
+});
+
 // V4: связь «об одном» не должна держаться на служебных словах. Шапка тела заметки
 // («Suggested actions:», «Source artifact:») одинакова у всех записей, и по ней инсайты
 // связывали цель про машину с задачей про Дмитрия.
