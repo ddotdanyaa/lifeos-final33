@@ -12315,6 +12315,23 @@ button.graph-growth-day.open i { outline: 2px solid var(--accent); outline-offse
   gap: 2px;
 }
 
+.capture-attachment-ocr {
+  align-self: stretch;
+  padding: 0 10px;
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.capture-attachment-ocr:hover {
+  color: var(--text-primary);
+  border-color: var(--line-strong);
+}
+
 .capture-attachment-remove {
   align-self: stretch;
   padding: 0 9px;

@@ -17,6 +17,11 @@ function renderAttachments(attachments) {
       `<strong>${escapeHtml(item.name || "Файл")}</strong>`,
       `<span>${escapeHtml(formatAttachmentSize(item.size))} · ${escapeHtml(item.status)}</span>`,
       `</button>`,
+      // Фото чека умеет стать расходом само — но только по нажатию. Кнопка стоит у самого файла, а
+      // не в общем меню: распознавать нужно КОНКРЕТНЫЙ снимок, и владелец видит, какой именно.
+      item.kind === "image"
+        ? `<button class="capture-attachment-ocr" data-action="recognize-receipt" data-id="${escapeHtml(item.id)}" data-testid="recognize-receipt-${escapeHtml(item.id)}" title="Прочитать сумму с фото локально. Ничего не запишется без подтверждения">Распознать чек</button>`
+        : "",
       `<button class="capture-attachment-remove" data-action="detach-capture-file" data-id="${escapeHtml(item.id)}" data-testid="detach-capture-file" title="Убрать из прикреплённого. Запись останется в Базе" aria-label="Убрать ${escapeHtml(item.name || "файл")} из прикреплённого">×</button>`,
       `</span>`
     ].join("")).join(""),

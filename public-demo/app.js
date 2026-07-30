@@ -16,6 +16,9 @@ import {
   extractPeopleNames
 } from "./core/ru-entities.mjs";
 import {
+  parseReceipt
+} from "./core/receipt-ocr.mjs";
+import {
   SPOKEN_UNIT_TAIL_RE,
   extractBalanceAmount,
   extractFirstAmount,
@@ -4188,6 +4191,41 @@ function loadPdfJs() {
     });
   }
   return pdfjsModulePromise;
+}
+
+// ─── OCR чеков (§2.4): движок и языковые данные ЛОКАЛЬНО ─────────────────────────────────────
+//
+// tesseract.js по умолчанию тянет `rus.traineddata` с `tessdata.projectnaptha.com` при каждом
+// холодном старте воркера. Это скрытый выход в сеть на каждый чек — прямое нарушение §7 CLAUDE.md,
+// и офлайн-режим при нём становится ложью. Поэтому все три пути указаны явно и ведут на свой же
+// сервер: движок из `node_modules`, данные из `vendor/tesseract-lang` (скачиваются один раз
+// `node tools/setup-tesseract-lang.mjs`, в git не лежат — как модель whisper).
+// Пути АБСОЛЮТНЫЕ, и это не стиль. Внутри Web Worker относительный путь считается от адреса
+// самого воркера, а не страницы: с `./vendor/...` движок искал данные не там, падал в catch, и
+// владелец получал «распознавание не удалось» при полностью готовых данных на диске.
+const TESSERACT_LANG_PATH = "/vendor/tesseract-lang/fast";
+let tesseractModulePromise = null;
+function loadTesseract() {
+  if (!tesseractModulePromise) {
+    // ESM-сборка tesseract.js 7 отдаёт ВСЁ через `default` — именованного `createWorker` в ней нет.
+    // Проверено запуском: без этой нормализации вызов уходит в `undefined`, OCR падает в catch, и
+    // владелец видит «распознавание не удалось» вместо суммы. Запасной путь на случай сборки с
+    // именованными экспортами оставлен намеренно.
+    tesseractModulePromise = import("./node_modules/tesseract.js/dist/tesseract.esm.min.js")
+      .then((module) => (module && module.default && module.default.createWorker ? module.default : module));
+  }
+  return tesseractModulePromise;
+}
+
+// Есть ли языковые данные — вопрос к диску, а не к надежде. Без них статус честный, и OCR не
+// запускается вовсе: движок в этом случае молча ушёл бы в сеть.
+async function receiptLangDataReady() {
+  try {
+    const response = await fetch(TESSERACT_LANG_PATH + "/rus.traineddata", { method: "HEAD" });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 let sortableModulePromise = null;
@@ -9724,6 +9762,109 @@ async function runWhisperCppTranscribe(sourceId) {
       }
       recordProviderRun(state, "whispercpp", "transcribe", "provider_unavailable", "whisper.cpp расшифровка не удалась: " + message, { sourceId, error: message });
       addAudit(state, "transcript.whispercpp.failed", "whisper.cpp расшифровка не удалась для " + source.name + ": " + message, source.noteId || "");
+    });
+  }
+}
+
+// ─── Чек с фотографии становится расходом (§2.4) ─────────────────────────────────────────────
+//
+// Путь тот же, что у голосовой: файл уже лежит в Базе, владелец нажимает «Распознать чек»,
+// движок работает ЛОКАЛЬНО, результат становится ПРЕДЛОЖЕНИЕМ с предпросмотром — не записью.
+// Ни одна сумма не попадает в деньги владельца без его подтверждения (§7), потому что OCR ошибается
+// в цифрах чаще, чем человек согласился бы терпеть молча.
+async function runReceiptOcr(sourceId) {
+  const source = store.state.sources[sourceId];
+  if (!source || source.deleted) return;
+  if (!(await receiptLangDataReady())) {
+    // Честный статус вместо тихого выхода в сеть: движок без локальных данных полез бы на CDN.
+    await store.commit("OCR чека невозможен: нет языковых данных", (state) => {
+      recordProviderRun(state, "tesseract", "receipt-ocr", "not-connected",
+        "Языковые данные для OCR не скачаны — распознавание не запускалось", { sourceId });
+      addAudit(state, "receipt.ocr.blocked", "OCR чека не запущен: нет vendor/tesseract-lang. Команда: node tools/setup-tesseract-lang.mjs", source.noteId || "");
+      state.commandMessage = "Распознавание чеков не готово: языковые данные не скачаны (node tools/setup-tesseract-lang.mjs).";
+    });
+    return;
+  }
+  const mediaUrl = await resolveSourceMediaUrl(sourceId);
+  if (!mediaUrl) {
+    await store.commit("OCR чека невозможен: файла нет", (state) => {
+      recordProviderRun(state, "tesseract", "receipt-ocr", "provider_unavailable", "Байтов файла нет локально: " + source.name, { sourceId });
+    });
+    return;
+  }
+  const startedAt = Date.now();
+  await store.commit("OCR чека начат", (state) => {
+    const live = state.sources[sourceId];
+    if (live) {
+      live.parserStatus = "ocr-running";
+      live.updatedAt = now();
+    }
+    recordProviderRun(state, "tesseract", "receipt-ocr", "running", "Распознавание чека начато: " + source.name, { sourceId });
+  });
+  try {
+    const tesseract = await loadTesseract();
+    const worker = await tesseract.createWorker("rus", 1, {
+      langPath: TESSERACT_LANG_PATH,
+      // Данные лежат распакованными: так их видно глазом и можно проверить размер. Без этого
+      // флага движок ищет `.traineddata.gz` и, не найдя, уходит в сеть.
+      gzip: false,
+      workerPath: "/node_modules/tesseract.js/dist/worker.min.js",
+      corePath: "/node_modules/tesseract.js-core"
+    });
+    let text = "";
+    try {
+      const result = await worker.recognize(mediaUrl);
+      text = String((result && result.data && result.data.text) || "");
+    } finally {
+      await worker.terminate();
+    }
+    const receipt = parseReceipt(text);
+    const latencyMs = Math.max(1, Date.now() - startedAt);
+    await store.commit("Чек распознан", (state) => {
+      const live = state.sources[sourceId];
+      if (!live || live.deleted) return;
+      live.parserStatus = receipt.understood ? "ocr-done" : "ocr-no-total";
+      live.ocrText = shorten(cleanLine(text), 4000);
+      live.updatedAt = now();
+      if (receipt.understood) {
+        // Подпись `addProposal` ПОЗИЦИОННАЯ: state, тип, название, sourceId, noteId, детали.
+        // Первая версия передала объект четвёртым аргументом — предложение создалось с типом
+        // «receipt-ocr» и без полей, то есть OCR отработал, а расхода владелец не увидел.
+        addProposal(state, "finance_expense", "Расход по чеку: " + receipt.amount + " ₽" + (receipt.merchant ? " · " + receipt.merchant : ""), sourceId, live.noteId, {
+          draftId: "receipt-ocr",
+          confidence: 0.7,
+          fields: {
+            title: receipt.merchant || "Покупка по чеку",
+            amount: receipt.amount,
+            category: inferFinanceCategory(receipt.merchant || text),
+            day: receipt.day || todayKey()
+          },
+          // Цитата — та строка чека, из которой взята сумма. Владелец должен видеть, ЧТО прочитано,
+          // потому что «382,40» и «382,49» на мятой бумаге отличаются одним пикселем.
+          reason: "Прочитано с фото: " + (receipt.quote || "строка итога") + (receipt.day ? " · дата чека " + receipt.day : " · даты на чеке не нашлось, поставлен сегодняшний день")
+        });
+        recordProviderRun(state, "tesseract", "receipt-ocr", "ok",
+          "Чек распознан: " + receipt.amount + " ₽ из " + receipt.lines + " строк за " + latencyMs + "мс", { sourceId, latencyMs, amount: receipt.amount });
+        addAudit(state, "receipt.ocr.done", "Чек распознан (" + receipt.amount + " ₽), предложение ждёт подтверждения: " + source.name, live.noteId || "");
+      } else {
+        // Чек прочитан, но слова итога в нём нет. Ставить любую цену позиции суммой покупки —
+        // значит соврать про деньги; честнее сказать, что не понято, и дать заполнить руками.
+        recordProviderRun(state, "tesseract", "receipt-ocr", "unparsed",
+          "Текст прочитан (" + receipt.lines + " строк), но суммы итога в нём нет", { sourceId, latencyMs });
+        addAudit(state, "receipt.ocr.no-total", "На фото не нашлось строки итога — сумма не выдумана, заполнение вручную: " + source.name, live.noteId || "");
+        state.commandMessage = "Текст с фото прочитан, но строки «Итого» в нём нет — сумму лучше вписать руками.";
+      }
+    });
+  } catch (error) {
+    const message = String((error && error.message) || error);
+    await store.commit("OCR чека не удался", (state) => {
+      const live = state.sources[sourceId];
+      if (live) {
+        live.parserStatus = "ocr-failed: " + message;
+        live.updatedAt = now();
+      }
+      recordProviderRun(state, "tesseract", "receipt-ocr", "provider_unavailable", "Распознавание чека не удалось: " + message, { sourceId, error: message });
+      addAudit(state, "receipt.ocr.failed", "Распознавание чека не удалось для " + source.name + ": " + message, source.noteId || "");
     });
   }
 }
@@ -23038,6 +23179,11 @@ async function handleAction(action, id) {
     }
     return;
   }
+  // Чек с фото: распознавание запускает только владелец, и только по этому нажатию.
+  if (action === "recognize-receipt") {
+    await runReceiptOcr(id);
+    return;
+  }
   if (action === "transcribe-whispercpp") {
     if (!store.state.providers.whispercpp || store.state.providers.whispercpp.status !== "reachable") return;
     await runWhisperCppTranscribe(id);
@@ -24879,6 +25025,8 @@ window.__lifeosKnowledgeBase = {
   addAudioCheckpoint,
   addPlayerNote,
   requestSttGate,
+  runReceiptOcr,
+  parseReceiptForTest: parseReceipt,
   probeOllama,
   normalizeTitle,
   productBrainStatusSummary,
