@@ -149,5 +149,11 @@ test("I6 surfaces a dominant recurring theme across the owner's notes", async ({
   const insights = await page.evaluate(() => window.__lifeosKnowledgeBase.computeInsightsForTest());
   const theme = insights.find((i) => i.type === "theme" && /маркетинг/i.test(i.title));
   expect(theme, "a dominant-theme insight must be detected").toBeTruthy();
-  expect(theme.detail).toMatch(/Встречается в \d+/);
+  // ИЗМЕНЕНО 2026-07-30: раньше здесь была пришпилена одна формулировка — «Встречается в N».
+  // Продукт стал говорить точнее («4 из 4 сегодняшних записей об этом»), и проверка падала не на
+  // дефекте, а на улучшении. Несущее требование владельца другое и остаётся в силе: у вывода
+  // должно быть СЧИТАЕМОЕ основание человеческим языком, а не «сила связи 0,67». Проверяем
+  // именно это — число и то, что счёт идёт по его записям, а не конкретную фразу.
+  expect(theme.detail, "у темы должно быть считаемое основание").toMatch(/\d+/);
+  expect(theme.detail, "счёт должен идти по записям владельца, а не по абстрактной метрике").toMatch(/запис|заметк/i);
 });

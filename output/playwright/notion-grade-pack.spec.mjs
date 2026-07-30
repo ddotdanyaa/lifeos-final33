@@ -48,6 +48,15 @@ async function openSurface(page, id) {
   await page.getByTestId(`surface-${id}`).first().click();
 }
 
+// Мини-карточки Дома лежат внутри раскрытия «обзор»: закрытый <details> для Playwright невидим.
+async function openHomeGlance(page) {
+  const glance = page.locator("details.home-glance").first();
+  if (!(await glance.count())) return;
+  const isOpen = await glance.evaluate((node) => node.open);
+  if (!isOpen) await glance.locator("summary").first().click();
+  await page.waitForTimeout(200);
+}
+
 test("notion-grade pack: chat markdown, fuzzy search, live mini-cards, snooze", async ({ page }) => {
   await reset(page);
 
@@ -63,6 +72,14 @@ test("notion-grade pack: chat markdown, fuzzy search, live mini-cards, snooze", 
   }).toBe(true);
 
   // D1.1: money mini-card shows a real 7-day sparkline (SVG polyline present after expense).
+  // ДОБАВЛЕНО 2026-07-30. Разбор занял три подхода, поэтому записан целиком: мини-карточки Дома
+  // лежат внутри ЗАКРЫТОГО раскрытия «обзор» (`details.home-glance`) — прогрессивное раскрытие,
+  // спокойный первый экран. Для Playwright содержимое закрытого <details> невидимо, поэтому
+  // проверка падала не на продукте, а на том, что её не открыли. Плюс отдельным правилом в
+  // styles.css гасились ВСЕ svg внутри компактных карточек, и вместе с украшениями исчезала
+  // настоящая недельная линия — это исправлено там же. Утверждение осталось прежним.
+  await openSurface(page, "inbox");
+  await openHomeGlance(page);
   await expect(page.getByTestId("money-sparkline")).toBeVisible();
 
   // C1.7: an owner chat message with markdown renders bold, not literal asterisks.
@@ -92,6 +109,9 @@ test("notion-grade pack: chat markdown, fuzzy search, live mini-cards, snooze", 
   }).toBe(true);
 
   // D1.2: the Today mini-card progress ring reflects done/total (complete a task first).
+  // Раскрытие «обзор» закрывается при уходе с Дома, поэтому открываем снова — та же причина,
+  // что и у линии расходов выше.
   await openSurface(page, "inbox");
+  await openHomeGlance(page);
   await expect(page.getByTestId("owner-next-zone")).toBeVisible();
 });
