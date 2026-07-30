@@ -347,6 +347,14 @@ export function renderControl(ctx) {
   const snapshots = ctx.control?.rollbackSnapshots || [];
   const corruptRecords = ctx.control?.corruptRecords || [];
   const mergeReview = ctx.mergeReview || [];
+  // Четыре механизма безопасности молчат одновременно — значит владельцу здесь делать нечего,
+  // и четырнадцать строк пустых заголовков ему об этом не сообщают, а мешают. Корзина сюда НЕ
+  // входит: у неё свой срок хранения и своя кнопка отмены, то есть там есть что делать и в
+  // пустом состоянии.
+  const quietRecovery = !snapshots.length
+    && !(ctx.deletedNotes || []).length
+    && !corruptRecords.length
+    && !mergeReview.length;
   const healthRegistry = ctx.healthRegistry || [];
   const obsidianScanReport = ctx.obsidianScanReport || null;
   const backupRestoreReport = ctx.backupRestoreReport || null;
@@ -382,12 +390,23 @@ export function renderControl(ctx) {
     button("import-backup", "Импорт бэкапа", { kind: "ghost", testId: "import-backup" }),
     button("create-rollback-snapshot", "Снимок отката", { kind: "ghost", testId: "create-rollback-snapshot" }),
     button("archive-selected-artifact", "В архив", { kind: "danger", testId: "archive-selected-artifact" }),
-    `<section class="recovery-list" data-testid="rollback-list"><h4>Снимки отката</h4>${rollbackRows(snapshots)}</section>`,
+    // ЧЕСТНАЯ ПУСТОТА. Четыре механизма безопасности молчат почти всегда — и раньше каждый
+    // занимал заголовок плюс строку «ничего нет». Четырнадцать строк, из которых владелец не
+    // узнавал НИЧЕГО: экран выглядел набором пустых обещаний, и это ровно его жалоба.
+    //
+    // Свернули не «в никуда»: пока все четыре пусты, они дают одну строку, где КАЖДОЕ состояние
+    // названо своими словами и своим маркером — скрытия данных здесь нет (§7 запрещает скрытое
+    // поведение и в показе тоже). Появилось хоть что-то в любом из них — секции возвращаются
+    // целиком, потому что тогда там есть что делать.
+    quietRecovery
+      ? `<section class="recovery-list recovery-quiet" data-testid="recovery-quiet"><h4>Ничего не ждёт внимания</h4><span data-testid="rollback-empty">Снимков отката пока нет.</span><span data-testid="recovery-empty">Удалённых заметок нет.</span><span data-testid="corrupt-record-empty">Изолированных повреждённых записей нет.</span><span data-testid="merge-review-empty">Дубликатов на рассмотрении нет.</span></section>`
+      : "",
+    quietRecovery ? "" : `<section class="recovery-list" data-testid="rollback-list"><h4>Снимки отката</h4>${rollbackRows(snapshots)}</section>`,
     `<section class="recovery-list" data-testid="trash-list"><h4>Корзина</h4><span>Восстановление доступно ${trashGraceDays} дней, затем удаление навсегда</span><strong data-testid="trash-count">${trashItems.length}</strong>${button("undo-last-trash", "Отменить последнее удаление", { kind: "ghost", testId: "undo-last-trash", disabled: !trashItems.length })}${trashRows(trashItems)}</section>`,
-    `<section class="recovery-list" data-testid="deleted-note-list"><h4>Удалённые заметки</h4>${deletedNoteRows(ctx.deletedNotes || [])}</section>`,
-    `<section class="recovery-list" data-testid="corrupt-record-list"><h4>Повреждённые записи</h4><strong data-testid="corrupt-record-count">${corruptRecords.length}</strong>${corruptRows(corruptRecords)}</section>`,
+    quietRecovery ? "" : `<section class="recovery-list" data-testid="deleted-note-list"><h4>Удалённые заметки</h4>${deletedNoteRows(ctx.deletedNotes || [])}</section>`,
+    quietRecovery ? "" : `<section class="recovery-list" data-testid="corrupt-record-list"><h4>Повреждённые записи</h4><strong data-testid="corrupt-record-count">${corruptRecords.length}</strong>${corruptRows(corruptRecords)}</section>`,
     `<section class="recovery-list" data-testid="capability-list"><h4>Способности провайдеров</h4><strong data-testid="capability-count">${capabilities.length}</strong>${capabilityRows(capabilities)}</section>`,
-    `<section class="recovery-list" data-testid="merge-review-list"><h4>Дубликаты на рассмотрении</h4><strong data-testid="merge-review-count">${mergeReview.length}</strong>${mergeReviewRows(mergeReview)}</section>`,
+    quietRecovery ? "" : `<section class="recovery-list" data-testid="merge-review-list"><h4>Дубликаты на рассмотрении</h4><strong data-testid="merge-review-count">${mergeReview.length}</strong>${mergeReviewRows(mergeReview)}</section>`,
     `<section class="recovery-list" data-testid="obsidian-bridge-section"><h4>Obsidian vault</h4>${button("import-obsidian-vault", "Импорт vault", { kind: "ghost", testId: "import-obsidian-vault" })}${button("export-obsidian-vault", "Экспорт в Obsidian", { kind: "ghost", testId: "export-obsidian-vault" })}${obsidianScanPreview(obsidianScanReport)}</section>`,
     `<section class="recovery-list" data-testid="backup-restore-section"><h4>Восстановление бэкапа</h4>${backupRestorePreview(backupRestoreReport)}</section>`,
     `<section class="recovery-list" data-testid="health-registry-section"><h4>Состояние подсистем</h4>${healthRows(healthRegistry)}</section>`,

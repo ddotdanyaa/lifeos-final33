@@ -1,5 +1,5 @@
 import { RENDERER_MODES, OBJECT_CONTRACT_V4_FIELDS, presentArtifact } from "../../artifact-os-architecture.mjs";
-import { button, compactText, escapeHtml, renderArtifactByMode, safeList } from "./shared.js";
+import { button, compactText, escapeHtml, publicText, renderArtifactByMode, safeList } from "./shared.js";
 
 function contractFieldRows(record) {
   return OBJECT_CONTRACT_V4_FIELDS.map((field) => {
@@ -42,7 +42,10 @@ export function renderInspectorDrawer(ctx) {
   const preview = mode === "table-row" ? `<table><tbody>${renderArtifactByMode(item, mode)}</tbody></table>` : mode === "timeline" ? `<ul>${renderArtifactByMode(item, mode)}</ul>` : renderArtifactByMode(item, mode);
   return [
     `<aside class="inspector-drawer" data-testid="inspector-drawer">`,
-    `<header><strong>${escapeHtml(selected.title || record.title)}</strong><span>${escapeHtml(selected.meta || record.type)}</span></header>`,
+    // §3 канона: внутреннее имя не может быть подписью на экране. Заголовок шёл сырым, поэтому
+    // владелец видел служебное имя нашей рабочей памяти разработки. `publicText` уже знает, как
+    // назвать это по-человечески, — его просто не звали на этом пути.
+    `<header><strong>${escapeHtml(publicText(selected.title || record.title))}</strong><span>${escapeHtml(publicText(selected.meta || record.type))}</span></header>`,
     `<section class="inspector-section" data-testid="inspector-contract-fields"><h4>Контракт объекта</h4>${contractFieldRows(record)}</section>`,
     `<section class="inspector-section" data-testid="inspector-renderer-section"><h4>Рендер</h4>${rendererSwitch(mode)}<div class="inspector-preview" data-testid="inspector-preview">${preview}</div></section>`,
     `<section class="inspector-section" data-testid="inspector-relations-section"><h4>Связи</h4>${relationRows(record, selected.edgeReasons || [])}</section>`,

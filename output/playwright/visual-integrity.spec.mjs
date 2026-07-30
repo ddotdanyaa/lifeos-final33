@@ -94,6 +94,66 @@ test("строки задач не переполняют узкие колон�
   expect(overflowing).toEqual([]);
 });
 
+// V6: страница не имеет права ехать вбок ни на одном рабочем экране. Причина, ради которой
+// проверка написана: у панели «Сегодня» была жёсткая сетка из четырёх колонок, минимумы которой
+// вместе с зазорами дают 1142 px, а главная колонка при окне 1440 — около 1000. Сетка не могла
+// сжаться и распирала страницу, и за ней тянулись все соседние секции.
+//
+// Медиазапрос это не ловил и поймать не мог: он смотрит на ширину ОКНА, а зажата колонка внутри
+// рамы. Поэтому проверка меряет ИМЕННО перелив документа на широком экране — там, где владелец
+// работает каждый день, и где «широкий монитор» звучит как «проблем быть не должно».
+test("ни один рабочий экран не едет вбок на широком окне", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await reset(page);
+  await captureAndApply(page, [
+    "Отработал 8 часов заработал 5200 бензин 900",
+    "надо ответить Дмитрию до среды",
+    "хочу купить машину до августа"
+  ]);
+
+  const bad = [];
+  for (const surface of ["inbox", "today", "calendar", "finance", "feed", "systems", "library", "control"]) {
+    await page.evaluate((id) => window.__lifeosKnowledgeBase.setSurfaceForTest(id), surface);
+    await page.waitForTimeout(700);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (overflow > 2) bad.push(surface + ": +" + overflow + "px");
+  }
+  expect(bad).toEqual([]);
+});
+
+// V7: строка с кнопками не имеет права задушить свой же текст. Причина: у `.v34-object-row`
+// была сетка `minmax(0, 1fr) auto`, и колонка кнопок с `auto` не могла стать уже своей
+// min-content ширины — в узкой панели «Каналы» она забирала 249 px из 290, тексту оставалось
+// пять, и заголовок переносился по одной букве. Экран «Лента» из-за этого занимал 9518 px.
+//
+// Меряем не пиксели раскладки, а СЛЕДСТВИЕ: короткий заголовок, вставший в столбик, всегда
+// выше своей строки в разы. Это переживёт любую смену вёрстки, в отличие от проверки на «grid».
+test("строки с кнопками не сжимают текст в столбик", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await reset(page);
+  await captureAndApply(page, ["Отработал 8 часов заработал 5200 бензин 900", "кофе 300"]);
+  await page.evaluate(() => window.__lifeosKnowledgeBase.setSurfaceForTest("feed"));
+  await page.waitForTimeout(900);
+
+  const squeezed = await page.evaluate(() => {
+    const out = [];
+    for (const row of document.querySelectorAll(".v34-object-row, .v34-feed-row")) {
+      const title = row.querySelector("strong");
+      if (!title) continue;
+      const rect = title.getBoundingClientRect();
+      const line = parseFloat(getComputedStyle(title).lineHeight) || 20;
+      // Заголовок в три строки и выше при коротком тексте — признак, что колонку задушили.
+      if (rect.height > line * 3) out.push(title.textContent.trim().slice(0, 40) + " → " + Math.round(rect.height) + "px");
+    }
+    return out;
+  });
+  expect(squeezed).toEqual([]);
+
+  // И сам экран не должен быть простынёй: 9518 px — это пять прокруток подряд.
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  expect(height).toBeLessThan(6000);
+});
+
 // V4: связь «об одном» не должна держаться на служебных словах. Шапка тела заметки
 // («Suggested actions:», «Source artifact:») одинакова у всех записей, и по ней инсайты
 // связывали цель про машину с задачей про Дмитрия.

@@ -92,6 +92,16 @@ import {
   parseTimecodeToSeconds
 } from "./core/text.mjs";
 import { ownerThemeInsights } from "./core/owner-themes.mjs";
+import { dayCorrelationInsights } from "./core/day-correlations.mjs";
+import { onThisDay } from "./core/on-this-day.mjs";
+import {
+  classifyLicense,
+  classifyStack,
+  compareWithOurs,
+  donorCard,
+  donorVerdict,
+  extractRepoRefs
+} from "./core/donor-intake.mjs";
 import {
   ARTIFACT_SCHEMA_VERSION,
   RENDERER_MODES,
@@ -788,6 +798,9 @@ function createInitialState() {
     commandPaletteQuery: "",
     commandPaletteRecents: [],
     savedSearches: {},
+    // П40: очередь на внедрение — что решено взять у доноров и почему. Конвейер заканчивается
+    // ЗДЕСЬ: код по очереди пишется в прогоне с гейтами, а не продуктом о себе самом.
+    donorQueue: {},
     // Q1: черновик среза — что именно владелец сейчас настраивает в Базе. Один черновик на
     // систему: срез либо строится, либо сохранён, третьего состояния нет.
     lensDraft: { from: "tasks", where: { field: "", op: "", value: "" }, render: "list" },
@@ -2275,6 +2288,7 @@ function normalizeState(input) {
     commandPaletteQuery: cleanLine(base.commandPaletteQuery || ""),
     commandPaletteRecents: Array.isArray(base.commandPaletteRecents) ? base.commandPaletteRecents.filter((id) => typeof id === "string").slice(0, 6) : [],
     savedSearches: base.savedSearches && typeof base.savedSearches === "object" ? base.savedSearches : {},
+    donorQueue: base.donorQueue && typeof base.donorQueue === "object" ? base.donorQueue : {},
     lensDraft: normalizeLensDraft(base.lensDraft),
     panelOpen: normalizePanelOpen(base.panelOpen),
     captureDraft: String(base.captureDraft || ""),
@@ -5144,6 +5158,32 @@ function analyzeArtifactInput(input, fileMeta, options) {
   if (isFood) mark("food/travel");
   if (detectedClasses.length <= 1) mark("unclear/mixed");
 
+  // П40 · ДОНОР ПРИХОДИТ САМ. Ссылка на репозиторий — не заметка: владелец кидает её в тот же
+  // поток, что и мысли, и продукт обязан отличить одно от другого сам. Разбор идёт по тому же
+  // правилу, что и всё остальное (§7): получается ПРЕДЛОЖЕНИЕ с решением и причиной, а не
+  // молчаливая запись.
+  //
+  // Лицензия здесь НЕ решает, работать ли с проектом: изучать можно любой, включая коммерческий.
+  // Она решает единственное — берём код дословно или пишем своё по итогам разбора.
+  for (const ref of extractRepoRefs(text)) {
+    const license = classifyLicense("");
+    const stack = classifyStack(text);
+    const comparison = compareWithOurs(text, OUR_FUNCTIONS_FOR_DONORS);
+    const verdict = donorVerdict({ license, stack, comparison });
+    const card = donorCard(ref, { license, stack, description: text }, verdict);
+    addDraftOnce(drafts, draft(
+      "donor-" + card.slug.replace(/[^a-z0-9]+/gi, "-").toLowerCase(),
+      "donor",
+      card.slug + " — " + verdict.title,
+      "knowledge",
+      verdict.why,
+      ref.url,
+      card,
+      0.9
+    ));
+    mark("donor/repo");
+  }
+
   addDraftOnce(drafts, draft("knowledge-summary", "knowledge", "Сохранить источник в библиотеку", "knowledge", "Любой ввод становится source-backed заметкой", quote, {
     summary: shorten(text || meta.name || "Пустой источник", 180),
     tags: detectedClasses.slice(0, 6)
@@ -7603,6 +7643,26 @@ function addReminderForReviewItem(state, reviewId) {
 // осознанное действие — сломались ai-memory-gate и chat-actions, и правильно сломались.
 const MACHINERY_DRAFT_IDS = new Set(["knowledge-summary", "control-graph", "automation-context"]);
 
+// П40 · «У НАС ИЛИ У НИХ?». Без этого списка любой донор выглядит заманчиво, и мы третий раз
+// пишем готовое. `done: true` — уже работает у нас; `done: false` — названо, но не сделано,
+// и вот ради этого донора стоит разбирать. Список пополняется по мере закрытия пакетов.
+const OUR_FUNCTIONS_FOR_DONORS = [
+  // Сверено с кодом 2026-07-29, а не по памяти: Louvain живёт в core/graph-math.mjs
+  // (`louvainPartition`), betweenness — в `computeBetweenness`, PageRank — в расчёте влияния.
+  // Пометить их «у нас нет» значит посоветовать внедрять готовое: ровно та ошибка, ради которой
+  // этот список и заведён.
+  { keyword: "louvain", title: "Louvain кластеры", done: true },
+  { keyword: "pagerank", title: "PageRank веса узлов", done: true },
+  { keyword: "betweenness", title: "Мосты по betweenness", done: true },
+  { keyword: "bi-temporal", title: "Две временные оси факта", done: false },
+  { keyword: "lemmat", title: "Русская лемматизация", done: false },
+  { keyword: "spearman", title: "Корреляции по дням", done: false },
+  { keyword: "adamic", title: "Предсказание связей Adamic-Adar", done: true },
+  { keyword: "dedup", title: "Сведение имён людей", done: true },
+  { keyword: "full-text search", title: "Полнотекстовый поиск", done: true },
+  { keyword: "tf-idf", title: "Похожее по тексту", done: true }
+];
+
 // Предложение владельца — то, по чему ОН принимает решение. Служебные шаги разбора («Сохранить
 // источник в библиотеку», «Записать связи и контроль», «Открыть контекст в чате») решения не
 // требуют: они описывают, что делает система, и применяются без последствий. Пока они лежали в
@@ -7815,6 +7875,29 @@ function applyProposal(state, proposalId) {
       sourceId: proposal.sourceId,
       noteId: proposal.noteId,
       day: fields.day || dateKeyFromOffset(7)
+    });
+  } else if (proposal.type === "donor") {
+    // П40: конвейер заканчивается ОЧЕРЕДЬЮ, а не кодом. Продукт не пишет себя сам — код по
+    // очереди пишется в прогоне, где есть гейты и внешний судья; система, правящая собственные
+    // проверки, перестаёт быть проверяемой. Здесь фиксируется решение и причина.
+    const decision = cleanLine(fields.decision || "разбор");
+    const queueTitle = cleanLine(fields.slug || proposal.title) + " — " + (decision === "код" ? "берём кодом" : "изучаем и делаем своё");
+    state.donorQueue[proposal.id] = {
+      id: proposal.id,
+      slug: cleanLine(fields.slug || ""),
+      url: cleanLine(fields.url || ""),
+      decision,
+      why: cleanLine(fields.why || proposal.reason || ""),
+      license: cleanLine(fields.license || "не прочитана"),
+      stack: cleanLine(fields.stack || "не определён"),
+      reasons: Array.isArray(fields.reasons) ? fields.reasons.slice(0, 6) : [],
+      status: "queued",
+      createdAt: now(),
+      updatedAt: now()
+    };
+    objectId = addInsight(state, queueTitle, cleanLine(fields.why || proposal.reason || ""), {
+      sourceId: proposal.sourceId,
+      noteId: proposal.noteId
     });
   } else if (proposal.type === "insight" || proposal.type === "knowledge" || proposal.type === "note") {
     objectId = addInsight(state, proposal.title, fields.reason || proposal.reason, {
@@ -18033,10 +18116,85 @@ function detectDominantThemes(state) {
 // со стабильным id (для закрепления), уверенностью и ссылками на источники (noteIds). Владелец
 // может «Закрепить» инсайт - тогда создаётся постоянный insight-артефакт (addInsight + receipt),
 // молчаливой memory-write нет.
+// П41 · ВЫВОДЫ О ВРЕМЕНИ. Числовые ряды по дням строятся из того, что УЖЕ есть в хранилище —
+// новых записей не заводим. Ряда про сон здесь нет намеренно: продукт его не собирает, и
+// выдумывать показатель ради красивого вывода нельзя.
+function dayNumberSeries(state) {
+  const days = [];
+  for (let offset = -29; offset <= 0; offset += 1) days.push(dateKeyFromOffset(offset));
+  const index = new Map(days.map((day, i) => [day, i]));
+  const zeros = () => days.map(() => 0);
+
+  const captures = zeros();
+  const spent = zeros();
+  const closed = zeros();
+  const shiftHours = zeros();
+  const habitMarks = zeros();
+
+  for (const note of Object.values(state.notes || {})) {
+    if (!note || note.deleted || note.systemType) continue;
+    const i = index.get(String(note.createdAt || "").slice(0, 10));
+    if (i !== undefined) captures[i] += 1;
+  }
+  for (const tx of Object.values(state.financeTransactions || {})) {
+    if (!tx || tx.deleted) continue;
+    const i = index.get(String(tx.day || "").slice(0, 10));
+    if (i === undefined) continue;
+    if (tx.kind === "expense") spent[i] += Math.round(Number(tx.amount) || 0);
+    if (tx.kind === "income" && Number(tx.shiftHours) > 0) shiftHours[i] += Number(tx.shiftHours);
+  }
+  for (const task of Object.values(state.tasks || {})) {
+    if (!task || task.deleted || task.status !== "done") continue;
+    const i = index.get(String(task.updatedAt || task.day || "").slice(0, 10));
+    if (i !== undefined) closed[i] += 1;
+  }
+  // Отметки привычек живут ВНУТРИ привычки (`habit.checkins`), отдельной коллекции нет.
+  // Читать несуществующий `state.habitEntries` было бы молча пустым рядом — и вывод про
+  // привычки не появился бы никогда, без единой ошибки на экране.
+  for (const habit of Object.values(state.habits || {})) {
+    if (!habit || habit.deleted) continue;
+    for (const day of Object.keys(habit.checkins || {})) {
+      const i = index.get(String(day).slice(0, 10));
+      if (i !== undefined) habitMarks[i] += 1;
+    }
+  }
+
+  // Постоянный ряд (все нули) корреляции не несёт и только увеличивает число проверенных пар,
+  // ужесточая поправку остальным. Отбрасываем до счёта, а не после.
+  return [
+    { key: "captures", label: "Записей за день", values: captures },
+    { key: "spent", label: "Потрачено за день", values: spent },
+    { key: "closed", label: "Закрыто дел", values: closed },
+    { key: "shift", label: "Часы смен", values: shiftHours },
+    { key: "habits", label: "Отметок привычек", values: habitMarks }
+  ].filter((row) => new Set(row.values).size > 1);
+}
+
 function computeInsights(state) {
   // Выводы о мышлении владельца идут ПЕРВЫМИ: «третий день подряд про память» важнее, чем
   // «частый расход: такси». Деньги он и так видит в деньгах.
   const insights = ownerThemeInsights(state, PRODUCT_BRAIN_FOLDER_ID);
+  // П41: выводы о времени — связи между показателями дня. Идут сразу за темами: это тоже
+  // наблюдение о владельце, а не состояние базы. Поправка на множественность внутри.
+  for (const row of dayCorrelationInsights(dayNumberSeries(state)).insights) insights.push(row);
+  // П42 «В этот день»: то самое «ощущение движения», которого владелец не находит. Данные уже
+  // есть — дата создания у каждой записи; новой коллекции не понадобилось. Служебные записи
+  // платформы (`systemType`) в это не входят: это его жизнь, а не наша документация о себе.
+  const ownRecords = Object.values(state.notes || {})
+    .filter((note) => note && !note.deleted && !note.systemType && note.title)
+    .map((note) => ({ id: note.id, title: shorten(note.title, 70), day: String(note.createdAt || "").slice(0, 10) }));
+  const anniversary = onThisDay(ownRecords, todayKey());
+  if (anniversary) {
+    insights.push({
+      id: "on-this-day-" + anniversary.milestone,
+      type: "anniversary",
+      icon: "🕰",
+      title: anniversary.title,
+      detail: anniversary.detail,
+      confidence: "высокая",
+      refs: anniversary.refs
+    });
+  }
   const today = todayKey();
   const txs = Object.values(state.financeTransactions || {}).filter((tx) => !tx.deleted);
   // 1. Повторяющиеся расходы по названию/категории.
@@ -21329,6 +21487,11 @@ async function handleAction(action, id) {
     requestAnimationFrame(() => {
       window.scrollTo(0, 0);
       setTimeout(() => window.scrollTo(0, 0), 0);
+      // Тяжёлые экраны (граф с канвасом) дорисовываются ПОСЛЕ первого кадра, и страница успевает
+      // остаться на прежней прокрутке — владелец открывает раздел и видит его середину. Раньше это
+      // было незаметно: до графа вели из главного меню, где прокручивать нечего. Из вторичного меню
+      // список длинный, и промах стал виден. Третий сброс — с запасом на дорисовку.
+      setTimeout(() => window.scrollTo(0, 0), 220);
     });
     return;
   }

@@ -222,8 +222,10 @@ export function renderArtifactAsFeedBubble(item) {
 export function renderArtifactAsCard(item) {
   return [
     `<article class="renderer-card" data-testid="renderer-card" data-render-type="${escapeHtml(item.type)}">`,
-    `<header><strong>${escapeHtml(item.title)}</strong><mark>${escapeHtml(item.status)}</mark></header>`,
-    `<p>${escapeHtml(compactText(item.summary, 180))}</p>`,
+    // §3: внутреннее имя не может быть подписью. Заголовок шёл сырым, и владелец видел на
+    // экране служебное имя нашей рабочей памяти разработки.
+    `<header><strong>${escapeHtml(publicText(item.title))}</strong><mark>${escapeHtml(item.status)}</mark></header>`,
+    `<p>${escapeHtml(publicText(compactText(item.summary, 180)))}</p>`,
     `<footer>${escapeHtml(item.type)} · ${escapeHtml(item.updatedAt.slice(0, 16))}</footer>`,
     `</article>`
   ].join("");

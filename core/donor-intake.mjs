@@ -81,23 +81,26 @@ const IDEAS_ONLY = [
 
 export function classifyLicense(licenseText) {
   const text = String(licenseText || "");
+  // ИЗУЧАТЬ МОЖНО ВСЕГДА, и это не оговорка, а основа конвейера. Лицензия ограничивает
+  // копирование и распространение кода — не чтение, не разбор, не описание того, как проект
+  // решил задачу. Аудит, список возможностей и сравнение «как у них / как у нас» законны для
+  // любого проекта, включая коммерческий. Поэтому `studyAllowed` здесь всегда true, а лицензия
+  // решает РОВНО ОДИН вопрос: берём код дословно или пишем своё по итогам разбора.
   if (!cleanLine(text)) {
-    // Отсутствие файла лицензии — это НЕ «наверное MIT». Это запрет на код: без лицензии
-    // права не переданы вовсе.
-    return { spdx: "", codeAllowed: false, ideasAllowed: true, why: "Файл LICENSE не прочитан — без него права на код не переданы" };
+    return { spdx: "", codeAllowed: false, studyAllowed: true, why: "LICENSE не прочитан — разбираем и пишем своё, дословный код не берём" };
   }
   // Порядок важен: AGPL содержит слова «GENERAL PUBLIC LICENSE», а BSD-2 — подстроку BSD-3.
   for (const row of IDEAS_ONLY) {
     if (row.test.test(text)) {
-      return { spdx: row.spdx, codeAllowed: false, ideasAllowed: true, why: row.spdx + ": код заражает наш, берём только идеи" };
+      return { spdx: row.spdx, codeAllowed: false, studyAllowed: true, why: row.spdx + ": разбираем свободно, свою реализацию пишем сами" };
     }
   }
   for (const row of CODE_OK) {
     if (row.test.test(text)) {
-      return { spdx: row.spdx, codeAllowed: true, ideasAllowed: true, why: row.spdx + ": код можно брать с указанием авторства" };
+      return { spdx: row.spdx, codeAllowed: true, studyAllowed: true, why: row.spdx + ": код можно брать с указанием авторства" };
     }
   }
-  return { spdx: "неизвестна", codeAllowed: false, ideasAllowed: true, why: "Лицензия не опознана — код брать нельзя, пока её не прочитает человек" };
+  return { spdx: "неизвестна", codeAllowed: false, studyAllowed: true, why: "Лицензия не опознана — разбираем и пишем своё, пока её не прочитает человек" };
 }
 
 // ─── 3. СТЕК-ФИЛЬТР ───────────────────────────────────────────────────────────────────────
@@ -155,11 +158,12 @@ export function compareWithOurs(repoText, ourFunctions) {
 export function donorVerdict({ license, stack, comparison, stars }) {
   const overlap = comparison || { already: [], missing: [] };
   const reasons = [];
-  if (license && license.spdx) reasons.push(license.why);
+  if (license && license.why) reasons.push(license.why);
   if (stack && stack.why) reasons.push(stack.why);
 
-  // Отклоняем ТОЛЬКО когда нечего взять вообще. Нечистый стек не повод молчать: принцип из
-  // Python-проекта переносится страницей математики, и именно так взят Graphiti.
+  // Отклоняем ЕДИНСТВЕННО когда брать нечего — всё, что проект умеет, у нас уже сделано.
+  // Ни лицензия, ни стек отказом не являются: разобрать можно любой проект, а своя реализация
+  // по итогам разбора — это работа, а не запрет.
   if (overlap.missing.length === 0 && overlap.already.length > 0) {
     return {
       decision: "отклонить",
@@ -172,26 +176,61 @@ export function donorVerdict({ license, stack, comparison, stars }) {
 
   const codeAllowed = Boolean(license && license.codeAllowed);
   const browserReady = Boolean(stack && stack.usableInBrowser);
+  const gain = overlap.missing.length ? "У нас нет: " + overlap.missing.slice(0, 3).join(" · ") : "Есть чему поучиться: сверки с нашим списком не нашлось";
 
   if (codeAllowed && browserReady) {
     return {
       decision: "код",
-      title: "Можно брать кодом",
-      why: overlap.missing.length ? "У нас нет: " + overlap.missing.slice(0, 3).join(" · ") : "Лицензия и стек позволяют переиспользование",
+      title: "Берём кодом",
+      why: gain,
       reasons,
       queue: true
     };
   }
 
+  // «Разбор» — это ПОЛНОЦЕННЫЙ исход, а не отказ и не утешение. Проект изучается целиком:
+  // возможности, приёмы, как именно решена задача, — и по итогам мы пишем своё. Именно так в
+  // продукт попали дедуп имён из Graphiti и Adamic-Adar в предсказание связей.
   return {
-    decision: "принцип",
-    title: "Только принцип, не код",
-    why: [
-      codeAllowed ? "" : "лицензия запрещает код",
-      browserReady ? "" : "стек не встаёт в браузер"
-    ].filter(Boolean).join(" · ") || "разбираем идею, код не берём",
-    reasons,
+    decision: "разбор",
+    title: "Изучаем и делаем своё",
+    why: gain,
+    reasons: reasons.concat([
+      codeAllowed ? "" : "дословный код не берём — пишем свою реализацию",
+      browserReady ? "" : "стек другой: переносим приём, а не файлы"
+    ].filter(Boolean)),
     queue: true
+  };
+}
+
+// ─── 5A. СВОДКА ПО НЕСКОЛЬКИМ ПРОЕКТАМ ────────────────────────────────────────────────────
+//
+// Правило владельца: одну задачу разбираем не по одному проекту, а по двум-трём сразу — что
+// умеют, чем сильны, КАК именно решили. Один донор задаёт вопрос «а бывает лучше?», три донора
+// на него отвечают. Сводка — вход в проектирование своего, а не пересказ чужих README.
+export function auditBrief(topic, donors) {
+  const rows = (donors || []).filter(Boolean).map((donor) => ({
+    slug: donor.slug || donor.title || "",
+    license: (donor.license && donor.license.spdx) || donor.license || "не прочитана",
+    stack: (donor.stack && donor.stack.stack) || donor.stack || "не определён",
+    // «Как решено» — единственная строка, ради которой сводка и делается.
+    approach: cleanLine(donor.approach || ""),
+    strengths: (donor.strengths || []).slice(0, 4),
+    takeaway: cleanLine(donor.takeaway || "")
+  }));
+  const gaps = [];
+  for (const row of rows) {
+    for (const item of row.strengths) if (!gaps.includes(item)) gaps.push(item);
+  }
+  return {
+    topic: cleanLine(topic || ""),
+    rows,
+    // Разобрано меньше двух — это ещё не сравнение, и выдавать его за сравнение нельзя.
+    comparable: rows.length >= 2,
+    note: rows.length >= 2
+      ? "Разобрано проектов: " + rows.length + ". Своё строим по сводке, а не по одному образцу."
+      : "Для сравнения нужно хотя бы два проекта — пока разобран один.",
+    candidates: gaps.slice(0, 8)
   };
 }
 
