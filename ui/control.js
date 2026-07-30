@@ -260,6 +260,30 @@ function renderOwnerInstructions(ctx) {
 // Контроль (канон design-system/Control.dc.html): два ответа, которых не хватало — куда данные
 // могут уйти (и что именно уйдёт) и что система сделала (с откатом). Данные из app.js
 // (computeOutboundRoutes / computeReceiptJournal), здесь только разметка.
+// Тумблер политики данных. Решение владельца 2026-07-30: приватность — это ОДИН переключатель,
+// а не флажок у каждой функции («это такой вот тумблер, который можно перетягивать в разные
+// стороны»). Стоит прямо над списком маршрутов наружу: сначала правило, потом то, на что оно
+// действует. Оба полюса описаны его словами — быстро против безопасно, без обещаний.
+function renderDataPolicySwitch(ctx) {
+  const mode = ctx.control?.dataPolicy?.mode === "network-allowed" ? "network-allowed" : "local-only";
+  const localActive = mode === "local-only";
+  return [
+    `<section class="data-policy" data-testid="data-policy" data-mode="${escapeHtml(mode)}">`,
+    `<div class="section-title">Что можно делать с данными</div>`,
+    `<p class="outbound-note">Одно правило на всю систему. Локальная модель на этом компьютере работает в любом режиме — «наружу» значит за пределы устройства.</p>`,
+    `<div class="data-policy-options">`,
+    `<button type="button" class="data-policy-option${localActive ? " is-active" : ""}" data-action="set-data-policy" data-id="local-only" data-testid="data-policy-local">`,
+    `<strong>Всё остаётся на этом компьютере</strong><span>Ни один запрос не уходит наружу. Медленнее и неудобнее, зато данные не покидают устройство.</span>`,
+    `</button>`,
+    `<button type="button" class="data-policy-option${localActive ? "" : " is-active"}" data-action="set-data-policy" data-id="network-allowed" data-testid="data-policy-network">`,
+    `<strong>Можно обращаться наружу</strong><span>Быстрее и удобнее. Каждое обращение всё равно видно ниже и попадает в чеки.</span>`,
+    `</button>`,
+    `</div>`,
+    `<em class="data-policy-current" data-testid="data-policy-current">Сейчас: ${localActive ? "всё остаётся на этом компьютере" : "обращения наружу разрешены"}.</em>`,
+    `</section>`
+  ].join("");
+}
+
 function renderOutboundRoutes(ctx) {
   const view = ctx.outboundRoutes || { routes: [], zones: [], activeCount: 0 };
   return [
@@ -377,6 +401,7 @@ export function renderControl(ctx) {
     ),
     renderCalibrationPanel(ctx),
     renderOwnerInstructions(ctx),
+    renderDataPolicySwitch(ctx),
     renderOutboundRoutes(ctx),
     renderReceiptJournal(ctx),
     `</section>`,

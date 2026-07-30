@@ -27,6 +27,11 @@ import {
   supportsNoThinkHint
 } from "./core/ollama-chat.mjs";
 import {
+  DATA_POLICY_MODES,
+  isExternalEndpoint,
+  normalizeDataPolicyMode
+} from "./core/data-policy.mjs";
+import {
   CHAT_CITATION_STOPWORDS,
   chatCitationQuery,
   isModelIdentityQuestion,
@@ -2115,6 +2120,21 @@ function findActiveByokKey(state, providerId) {
   return Object.values(state.control.byokVault).find((entry) => entry.providerId === providerId && !entry.revokedAt) || null;
 }
 
+// ── Тумблер политики данных ────────────────────────────────────────────────────────────────
+// Правило и разбор «внешнего» адреса — в core/data-policy.mjs. Здесь то, что читает состояние.
+function dataPolicyMode(state) {
+  return normalizeDataPolicyMode(state.control && state.control.dataPolicy && state.control.dataPolicy.mode);
+}
+
+// Причина отказа человеческим языком — или пустая строка, если обращение разрешено.
+// Возвращаем ПРИЧИНУ, а не false: владелец должен прочитать, что именно его остановило и где
+// это переключается, иначе честный отказ выглядит как поломка.
+function externalCallBlockReason(state, url) {
+  if (!isExternalEndpoint(url)) return "";
+  if (dataPolicyMode(state) === "network-allowed") return "";
+  return "Режим «Всё остаётся на этом компьютере» включён, поэтому обращение за пределы устройства не отправлено. Переключить можно в Контроле.";
+}
+
 // Only ever invoked after an explicit owner confirm (see call-model-route handler);
 // never fired automatically. locality is "cloud:<providerId>", never "local" - this is
 // the one path in the app that can leave the device, and it must say so honestly.
@@ -2474,6 +2494,9 @@ function normalizeState(input) {
       corruptRecords: [],
       architectureEvents: [],
       capabilities: {},
+      // Тумблер политики данных (см. dataPolicyMode). Значение по умолчанию — самое безопасное:
+      // ничего не уходит с устройства, пока владелец сам не разрешит.
+      dataPolicy: { mode: "local-only", updatedAt: "" },
       byokVault: {},
       mergeReview: {},
       importJobs: {},
@@ -22329,6 +22352,21 @@ async function handleAction(action, id) {
       });
       return;
     }
+    // Тумблер политики данных проверяется ДО обращения, а не после: в режиме «всё остаётся на
+    // этом компьютере» запрос не должен уйти вообще — ни один байт. Отказ честный и с причиной.
+    const blockReason = externalCallBlockReason(store.state, model.endpoint);
+    if (blockReason) {
+      await store.commit("Model route blocked by data policy", (state) => {
+        const current = state.modelProfiles[id];
+        if (current) current.status = "blocked-by-policy";
+        recordProviderRun(state, "models", "route-call", "blocked", "Маршрут «" + model.title + "» не вызван: включён режим «всё остаётся на этом компьютере»", { modelId: id, locality: "local", endpoint: model.endpoint });
+        addAudit(state, "policy.external.blocked", "Внешнее обращение остановлено политикой данных: " + model.title, state.activeNoteId);
+        // Строку для владельца ставим ПОСЛЕДНЕЙ: и recordProviderRun, и addAudit пишут свою
+        // служебную формулировку в commandMessage, и она перекрывала объяснение с причиной.
+        state.commandMessage = blockReason;
+      });
+      return;
+    }
     let result = null;
     let failure = "";
     try {
@@ -24147,6 +24185,28 @@ async function handleAction(action, id) {
   }
   if (action === "import-product-map") {
     await importProductMap();
+    return;
+  }
+  // Тумблер политики данных. Переключение — значимое действие, поэтому у него есть чек и запись
+  // в журнале: владелец должен видеть, КОГДА он разрешил обращения наружу, а не только что они
+  // разрешены сейчас. Подтверждение спрашиваем только на ослабление, не на усиление.
+  if (action === "set-data-policy") {
+    const nextMode = DATA_POLICY_MODES.includes(id) ? id : "local-only";
+    if (dataPolicyMode(store.state) === nextMode) return;
+    if (nextMode === "network-allowed") {
+      const confirmed = window.confirm("Разрешить LifeOS обращаться за пределы этого компьютера? Каждое обращение останется видимым в Контроле, но данные смогут уходить с устройства.");
+      if (!confirmed) return;
+    }
+    await store.commit("Data policy changed", (state) => {
+      if (!state.control.dataPolicy || typeof state.control.dataPolicy !== "object") state.control.dataPolicy = {};
+      state.control.dataPolicy.mode = nextMode;
+      state.control.dataPolicy.updatedAt = now();
+      state.commandMessage = nextMode === "local-only"
+        ? "Теперь всё остаётся на этом компьютере: обращения наружу не отправляются."
+        : "Обращения наружу разрешены. Каждое из них видно в Контроле и попадает в чеки.";
+      addControlReceipt(state, "data-policy", "", state.commandMessage, { surface: "control" });
+      addAudit(state, "policy.data.change", "Политика данных: " + (nextMode === "local-only" ? "всё остаётся на этом компьютере" : "обращения наружу разрешены"), state.activeNoteId);
+    });
     return;
   }
   if (action === "create-rollback-snapshot") {

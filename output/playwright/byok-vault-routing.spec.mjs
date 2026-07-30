@@ -89,6 +89,21 @@ test("BYOK vault: masked key, confirmed cloud call, locality receipt, export red
   const before = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   const receiptsBefore = before.control.receipts.length;
 
+  // ДОБАВЛЕНО 2026-07-30 вместе с тумблером политики данных: облачный маршрут по умолчанию НЕ
+  // вызывается, потому что новое значение по умолчанию — «всё остаётся на этом компьютере»
+  // (решение владельца: приватность — один переключатель на систему). Сначала убеждаемся, что
+  // без разрешения вызова нет, потом разрешаем — то есть проверок стало больше, а не меньше.
+  await openSurface(page, "models");
+  await page.getByTestId("call-model-route").first().click();
+  await page.waitForTimeout(800);
+  const blockedState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
+  const blockedModel = Object.values(blockedState.modelProfiles).find((item) => item.title === "Test Cloud Route");
+  expect(blockedModel.status, "без разрешения владельца облачный вызов не уходит").toBe("blocked-by-policy");
+
+  await openSurface(page, "control");
+  await page.getByTestId("data-policy-network").click();
+  await expect(page.getByTestId("data-policy")).toHaveAttribute("data-mode", "network-allowed");
+
   await openSurface(page, "models");
   await page.getByTestId("call-model-route").first().click();
 

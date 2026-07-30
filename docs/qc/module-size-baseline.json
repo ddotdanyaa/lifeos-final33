@@ -4,7 +4,7 @@
   "files": [
     {
       "file": "app.js",
-      "kb": 1468
+      "kb": 1474
     },
     {
       "file": "ui/v34-platform.js",
@@ -15,12 +15,12 @@
       "kb": 36
     },
     {
-      "file": "ui/control.js",
-      "kb": 30
+      "file": "ui/home.js",
+      "kb": 33
     },
     {
-      "file": "ui/home.js",
-      "kb": 30
+      "file": "ui/control.js",
+      "kb": 32
     },
     {
       "file": "artifact-os-architecture.mjs",
@@ -87,6 +87,10 @@
       "kb": 12
     },
     {
+      "file": "core/similar-thoughts.mjs",
+      "kb": 11
+    },
+    {
       "file": "core/day-correlations.mjs",
       "kb": 10
     },
@@ -101,6 +105,10 @@
     {
       "file": "ui/components/GraphCanvas.js",
       "kb": 9
+    },
+    {
+      "file": "ui/components/AssistantInput.js",
+      "kb": 8
     },
     {
       "file": "ui/habits-goals.js",
@@ -151,10 +159,6 @@
       "kb": 5
     },
     {
-      "file": "ui/components/AssistantInput.js",
-      "kb": 5
-    },
-    {
       "file": "ui/components/InspectorDrawer.js",
       "kb": 5
     },
@@ -168,6 +172,10 @@
     },
     {
       "file": "service-worker.js",
+      "kb": 3
+    },
+    {
+      "file": "core/data-policy.mjs",
       "kb": 3
     },
     {

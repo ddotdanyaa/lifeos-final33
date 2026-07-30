@@ -11102,6 +11102,46 @@ audio {
 
 .outbound-note { margin: 0; font-size: var(--text-sm); line-height: 1.55; color: var(--muted); max-width: 640px; }
 
+/* Тумблер политики данных: два полюса рядом, выбранный виден без чтения текста. */
+.data-policy {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.data-policy-options {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.data-policy-option {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.data-policy-option span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.data-policy-option.is-active {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.data-policy-current {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 .outbound-route {
   display: grid;
   gap: 2px;
