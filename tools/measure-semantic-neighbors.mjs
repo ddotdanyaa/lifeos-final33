@@ -21,7 +21,7 @@ const MODEL = found ? found.slice("--model=".length) : (process.env.OLLAMA_EMBED
 
 // Записи владельца из его же сценария. Пары размечены ДО замера: `related: true` — те, которые он
 // сам назвал бы про одно; `false` — те, где совпадают только слова или вообще ничего.
-const RECORDS = [
+let RECORDS = [
   { id: "goal-car", text: "Хочу купить машину до августа" },
   { id: "sell-old", text: "Оценить продажу старой машины" },
   { id: "free-money", text: "Посчитать свободные деньги за три месяца" },
@@ -41,7 +41,7 @@ const RECORDS = [
 //               Это знание про ЕГО план, и добывается оно графом и его же подтверждениями, а не
 //               близостью фраз. Требовать этого от эмбеддингов — мерить не тот инструмент.
 //   `шум`     — не связаны никак либо совпадают только словом.
-const PAIRS = [
+let PAIRS = [
   { a: "goal-car", b: "sell-old", kind: "смысл", why: "обе про машину" },
   { a: "shift-money", b: "shift-tired", kind: "смысл", why: "одна и та же смена" },
   { a: "goal-car", b: "free-money", kind: "контекст", why: "деньги считаются под эту покупку" },
@@ -51,6 +51,44 @@ const PAIRS = [
   { a: "english", b: "gym", kind: "шум", why: "оба про себя, но про разное" },
   { a: "shift-money", b: "free-money", kind: "шум", why: "совпадает слово «деньги», смысл разный" }
 ];
+
+// ДОБАВЛЕНО 2026-07-30: замер на десяти придуманных записях дал разрыв 0.027 — по такому порог не
+// фиксируется, и это был честный тупик, а не результат. Выход один: мерить на НАСТОЯЩИХ записях
+// владельца с его же разметкой. Файл готовит `tools/build-embedding-pairs.mjs`, метки ставит он.
+// Пары без метки просто пропускаются: незаполненная строка не должна тихо стать «не связаны».
+const pairsArg = process.argv.slice(2).find((item) => item.startsWith("--pairs="));
+if (pairsArg) {
+  const path = pairsArg.slice("--pairs=".length);
+  const { readFileSync, existsSync } = await import("node:fs");
+  if (!existsSync(path)) {
+    console.error("Файла с парами нет: " + path);
+    console.error("Собери его: node tools/build-embedding-pairs.mjs <экспорт.json>");
+    process.exit(1);
+  }
+  const file = JSON.parse(readFileSync(path, "utf8"));
+  const rows = Array.isArray(file.пары) ? file.пары : [];
+  const labelled = rows.filter((row) => /^(да|нет)$/i.test(String(row.связаны || "").trim()));
+  if (labelled.length < 6) {
+    console.error("Размечено пар: " + labelled.length + " из " + rows.length + ". Нужно хотя бы шесть.");
+    console.error("Открой " + path + " и заполни поле «связаны» (да/нет). Без разметки замерять нечего:");
+    console.error("порог, выбранный по неразмеченным парам, — это порог, выбранный наугад.");
+    process.exit(1);
+  }
+  RECORDS.length = 0;
+  PAIRS.length = 0;
+  const known = new Set();
+  for (const row of labelled) {
+    for (const side of ["a", "b"]) {
+      const item = row[side] || {};
+      if (known.has(item.id)) continue;
+      known.add(item.id);
+      RECORDS.push({ id: String(item.id), text: String(item.текст || item.text || "") });
+    }
+    const related = /^да$/i.test(String(row.связаны).trim());
+    PAIRS.push({ a: String(row.a.id), b: String(row.b.id), kind: related ? "смысл" : "шум", why: String(row.почему_предложена || "разметка владельца") });
+  }
+  console.log("Корпус владельца: записей " + RECORDS.length + ", размеченных пар " + PAIRS.length + " (из " + rows.length + ").");
+}
 
 async function up(url) {
   try {
