@@ -4,7 +4,7 @@
   "files": [
     {
       "file": "app.js",
-      "kb": 1465
+      "kb": 1468
     },
     {
       "file": "ui/v34-platform.js",
@@ -35,12 +35,12 @@
       "kb": 23
     },
     {
-      "file": "ui/library.js",
+      "file": "core/ru-parse.mjs",
       "kb": 22
     },
     {
-      "file": "core/ru-parse.mjs",
-      "kb": 20
+      "file": "ui/library.js",
+      "kb": 22
     },
     {
       "file": "ui/graph.js",
@@ -55,6 +55,10 @@
       "kb": 17
     },
     {
+      "file": "ui/chat.js",
+      "kb": 16
+    },
+    {
       "file": "ui/today.js",
       "kb": 16
     },
@@ -64,10 +68,6 @@
     },
     {
       "file": "core/ru-money.mjs",
-      "kb": 15
-    },
-    {
-      "file": "ui/chat.js",
       "kb": 15
     },
     {
@@ -115,6 +115,10 @@
       "kb": 7
     },
     {
+      "file": "core/ollama-chat.mjs",
+      "kb": 7
+    },
+    {
       "file": "core/ru-stem.mjs",
       "kb": 7
     },
@@ -139,6 +143,10 @@
       "kb": 5
     },
     {
+      "file": "core/chat-intents.mjs",
+      "kb": 5
+    },
+    {
       "file": "core/on-this-day.mjs",
       "kb": 5
     },
@@ -160,6 +168,10 @@
     },
     {
       "file": "service-worker.js",
+      "kb": 3
+    },
+    {
+      "file": "core/date-guess.mjs",
       "kb": 3
     },
     {

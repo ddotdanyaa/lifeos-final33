@@ -242,3 +242,13 @@ export function parseTimecodeToSeconds(timecode) {
   if (!parts.length || parts.some((part) => !Number.isFinite(part))) return NaN;
   return parts.reduce((total, part) => total * 60 + part, 0);
 }
+
+// Совпадение по любому из слов, с поправкой на кракозябры: одна и та же фраза приходит и в
+// нормальном виде, и битой перекодировкой, а правило распознавания должно срабатывать в обоих.
+export function hasAnyText(lower, words) {
+  return words.some((word) => {
+    const token = String(word || "").toLocaleLowerCase();
+    const repairedToken = repairMojibake(token).toLocaleLowerCase();
+    return lower.includes(token) || lower.includes(repairedToken);
+  });
+}

@@ -18,7 +18,10 @@ if (localChromium) {
   test.use({ launchOptions: { executablePath: localChromium } });
 }
 
-test.setTimeout(240000);
+// 660 секунд, а не 240: замер 2026-07-30 на этой машине — проверка генерации до 120 секунд плюс
+// настоящий ответ модели (короткий вопрос 77 с, длинный 400 с) и сетап. Прежнего окна не хватало
+// на честное ожидание ГОТОВОГО ответа, а не появления пустого пузыря.
+test.setTimeout(660000);
 
 const appUrl = "http://127.0.0.1:4173";
 
@@ -105,19 +108,30 @@ test("ollama real daemon: probe, live generation, chat answer, receipts - no moc
   // empty-state placeholder before anything is sent, so toContainText("LifeOS") would resolve
   // immediately and race ahead of the real (slow, CPU-bound) generation - wait for the assistant
   // message COUNT to increase instead, which can only become true once a real reply commits.
+  // ИСПРАВЛЕНО 2026-07-30: ждать РОСТ ЧИСЛА сообщений ассистента было недостаточно. Стрим
+  // создаёт пустой пузырь-заглушку сразу при отправке (streaming: true), поэтому счётчик
+  // увеличивался мгновенно, и спека читала состояние ДО ответа модели. Проверка «должен быть
+  // настоящий chat-run» падала не потому, что продукт сломан, а потому что её спросили слишком
+  // рано. Ждём готовый ответ: не streaming и с непустым текстом.
+  const finishedAssistantCount = (snapshot) => Object.values(snapshot.chatMessages || {})
+    .filter((message) => message.role === "assistant" && !message.deleted && !message.streaming && String(message.text || "").trim())
+    .length;
   const beforeChat = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   const receiptsBefore = beforeChat.control.receipts.length;
-  const assistantCountBefore = Object.values(beforeChat.chatMessages || {}).filter((message) => message.role === "assistant").length;
+  const assistantCountBefore = finishedAssistantCount(beforeChat);
   await page.getByTestId("chat-input").first().fill("Кратко: что ты видишь в моих данных LifeOS прямо сейчас?");
   await page.getByTestId("send-chat").click();
+  // Замер на этой машине: короткий ответ `qwen3:4b` с подсказкой `/no_think` — 77 секунд,
+  // без подсказки — 268. Окно берём с запасом, но конечное: висеть вечно спека не должна.
   await page.waitForFunction(
     (countBefore) => {
       const snapshot = window.__lifeosKnowledgeBase.getStateSnapshot();
-      const assistantCount = Object.values(snapshot.chatMessages || {}).filter((message) => message.role === "assistant").length;
-      return assistantCount > countBefore;
+      const finished = Object.values(snapshot.chatMessages || {})
+        .filter((message) => message.role === "assistant" && !message.deleted && !message.streaming && String(message.text || "").trim());
+      return finished.length > countBefore;
     },
     assistantCountBefore,
-    { timeout: 160000 }
+    { timeout: 420000 }
   );
 
   const afterChat = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());

@@ -77,13 +77,16 @@ test("C1.1 streaming: chunked NDJSON response is assembled into the final chat m
   await reset(page);
   await connectOllama(page);
 
+  // Чат ушёл с /api/generate на /api/chat (замер 2026-07-30: только там рассуждение
+  // thinking-модели идёт отдельным полем message.thinking и не попадает в ответ), поэтому
+  // форма чанка теперь message.content, а не response.
   const ndjson = [
-    JSON.stringify({ response: "Локальные ", done: false }),
-    JSON.stringify({ response: "данные ", done: false }),
-    JSON.stringify({ response: "готовы.", done: false }),
-    JSON.stringify({ response: "", done: true })
+    JSON.stringify({ message: { role: "assistant", content: "Локальные " }, done: false }),
+    JSON.stringify({ message: { role: "assistant", content: "данные " }, done: false }),
+    JSON.stringify({ message: { role: "assistant", content: "готовы." }, done: false }),
+    JSON.stringify({ message: { role: "assistant", content: "" }, done: true })
   ].join("\n");
-  await page.route("**/api/generate", (route) => route.fulfill({
+  await page.route("**/api/chat", (route) => route.fulfill({
     status: 200,
     contentType: "application/x-ndjson",
     body: ndjson
@@ -109,9 +112,9 @@ test("C1.2 stop: aborting an in-flight generation finalizes the message honestly
 
   // Delay the mocked response so there is a real window to click Stop while the fetch is
   // still pending - AbortController.abort() rejects the pending fetch regardless of mocking.
-  await page.route("**/api/generate", async (route) => {
+  await page.route("**/api/chat", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 4000));
-    await route.fulfill({ status: 200, contentType: "application/x-ndjson", body: JSON.stringify({ response: "не должно дойти", done: true }) });
+    await route.fulfill({ status: 200, contentType: "application/x-ndjson", body: JSON.stringify({ message: { role: "assistant", content: "не должно дойти" }, done: true }) });
   });
 
   await page.getByTestId("chat-input").first().fill("Долгий вопрос");
@@ -139,10 +142,10 @@ test("C1.3 regenerate: replaces the last assistant answer via a fresh request", 
   await reset(page);
   await connectOllama(page);
 
-  await page.route("**/api/generate", (route) => route.fulfill({
+  await page.route("**/api/chat", (route) => route.fulfill({
     status: 200,
     contentType: "application/x-ndjson",
-    body: JSON.stringify({ response: "Первый ответ", done: true })
+    body: JSON.stringify({ message: { role: "assistant", content: "Первый ответ" }, done: true })
   }));
   await page.getByTestId("chat-input").first().fill("Вопрос для регенерации");
   await page.getByTestId("send-chat").first().click();
@@ -155,11 +158,11 @@ test("C1.3 regenerate: replaces the last assistant answer via a fresh request", 
     return Object.values(state.chatMessages).find((m) => m.role === "assistant" && /Первый ответ/.test(m.text)).id;
   });
 
-  await page.unroute("**/api/generate");
-  await page.route("**/api/generate", (route) => route.fulfill({
+  await page.unroute("**/api/chat");
+  await page.route("**/api/chat", (route) => route.fulfill({
     status: 200,
     contentType: "application/x-ndjson",
-    body: JSON.stringify({ response: "Второй ответ", done: true })
+    body: JSON.stringify({ message: { role: "assistant", content: "Второй ответ" }, done: true })
   }));
   await page.getByTestId("regenerate-chat-answer").click();
 

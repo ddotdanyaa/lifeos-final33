@@ -63,7 +63,14 @@ test("AI memory gate: live model answer never mutates memory directly, only via 
   await page.route("**/api/generate", (route) => route.fulfill({
     status: 200,
     contentType: "application/json",
-    body: JSON.stringify({ response: "This should never become a note by itself." })
+    body: JSON.stringify({ response: "OK" })
+  }));
+  // Ответ чата идёт на /api/chat (см. streamOllamaChatAnswer): без этого перехвата запрос ушёл бы
+  // к НАСТОЯЩЕМУ демону на машине владельца, и спека мерила бы не гейт памяти, а скорость модели.
+  await page.route("**/api/chat", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/x-ndjson",
+    body: JSON.stringify({ message: { role: "assistant", content: "This should never become a note by itself." }, done: true })
   }));
 
   await page.goto("http://127.0.0.1:4173");

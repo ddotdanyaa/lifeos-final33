@@ -81,10 +81,10 @@ test("C1.4 citations: real context notes appear as clickable chips, opening the 
   await page.getByTestId("human-primary-action").click();
 
   await connectOllama(page);
-  await page.route("**/api/generate", (route) => route.fulfill({
+  await page.route("**/api/chat", (route) => route.fulfill({
     status: 200,
     contentType: "application/x-ndjson",
-    body: JSON.stringify({ response: "Вот что нашлось.", done: true })
+    body: JSON.stringify({ message: { role: "assistant", content: "Вот что нашлось." }, done: true })
   }));
 
   await page.getByTestId("chat-input").first().fill("Расскажи про путешествие");

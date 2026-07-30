@@ -7741,6 +7741,14 @@ audio {
   51%, 100% { opacity: 0; }
 }
 
+/* Отметка «Модель думает…» — рассуждение thinking-модели в ответ не попадает, но пузырь до
+   первого символа ответа пустой (замер: две минуты на `qwen3:4b`). Тон — второстепенный:
+   это не ответ, а объяснение паузы. */
+.chat-thinking-note {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .chat-stream-actions {
   margin-top: 8px;
 }
@@ -8948,6 +8956,14 @@ audio {
 .estimate-badge {
   color: var(--text-muted);
   font-size: var(--text-sm);
+}
+
+/* «дата предположена» — дату вслух не назвали, и мы это не скрываем. Тон второстепенный:
+   догадка не должна выглядеть так же уверенно, как сказанный владельцем факт. */
+.task-day-guess {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-style: italic;
 }
 
 .estimate-total {

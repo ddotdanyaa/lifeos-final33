@@ -5,6 +5,7 @@
 // ссылок обратно в app.js нет (audit-module-closure это подтверждает).
 
 import {
+  cleanLine,
   dateKeyFromOffset,
   hasRuWord,
   normalizeRuText,
@@ -298,4 +299,29 @@ export function parseTimeFromText(text) {
     return { startTime, endTime: addMinutesToTime(startTime, 45) };
   }
   return { startTime: "", endTime: "" };
+}
+
+
+// Расписание дела из его же текста: день, начало, конец. Чистая логика — состояние не трогает,
+// поэтому живёт здесь, а не в app.js (П7).
+export function parseTaskSchedule(title, fallbackHint, overrides) {
+  const options = overrides && typeof overrides === "object" ? overrides : {};
+  const combined = [title, fallbackHint].filter(Boolean).join(" ");
+  const parsedTime = parseTimeFromText(combined);
+  const startTime = normalizeTime(options.startTime || parsedTime.startTime || "");
+  const endTime = normalizeTime(options.endTime || parsedTime.endTime || (startTime ? addMinutesToTime(startTime, 45) : ""));
+  const knownDay = cleanLine(options.day || parseDateFromText(combined) || "");
+  return {
+    // Дата, которую владелец не назвал, всё равно проставляется — его решение 2026-07-30:
+    // «Ну как понять пустой? Предположение. Мы же всегда даем предположение». Но она помечается
+    // как предположение: без пометки через месяц догадку не отличить от сказанного вслух факта,
+    // и правку владельца не на что записать. `dayIsGuess` из options важнее собственного вывода —
+    // расписание пересобирается по цепочке (addTaskOnce → addTask), и признак не должен теряться
+    // на втором проходе только потому, что день уже проставлен первым.
+    day: knownDay || todayKey(),
+    dayIsGuess: options.dayIsGuess !== undefined ? Boolean(options.dayIsGuess) : !knownDay,
+    startTime,
+    endTime,
+    dateHint: cleanLine(fallbackHint || "")
+  };
 }

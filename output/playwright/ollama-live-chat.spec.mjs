@@ -61,10 +61,18 @@ test("ollama live chat: real generation when connected, honest fallback, receipt
     contentType: "application/json",
     body: JSON.stringify({ models: [{ name: "llama3.2:1b" }] })
   }));
+  // Проверка генерации по-прежнему идёт на /api/generate (это отдельная кнопка в настройках),
+  // а сам ответ чата — на /api/chat: замер 2026-07-30 показал, что только там рассуждение
+  // thinking-модели уходит в своё поле message.thinking и не подменяет ответ.
   await page.route("**/api/generate", (route) => route.fulfill({
     status: 200,
     contentType: "application/json",
-    body: JSON.stringify({ response: "Mocked local model answer about your notes." })
+    body: JSON.stringify({ response: "OK" })
+  }));
+  await page.route("**/api/chat", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/x-ndjson",
+    body: JSON.stringify({ message: { role: "assistant", content: "Mocked local model answer about your notes." }, done: true })
   }));
 
   await page.goto("http://127.0.0.1:4173");
@@ -95,8 +103,8 @@ test("ollama live chat: real generation when connected, honest fallback, receipt
 
   // honest fallback: once the daemon call starts failing, chat still answers (never
   // crashes, never fakes a model response) using the local rule-based path
-  await page.unroute("**/api/generate");
-  await page.route("**/api/generate", (route) => route.fulfill({ status: 500, body: "down" }));
+  await page.unroute("**/api/chat");
+  await page.route("**/api/chat", (route) => route.fulfill({ status: 500, body: "down" }));
   await page.getByTestId("chat-input").first().fill("Что с ollama");
   await page.getByTestId("send-chat").click();
   await expect(page.getByTestId("chat-panel")).toContainText("Ollama");

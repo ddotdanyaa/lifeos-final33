@@ -19,6 +19,28 @@ import {
   parseReceipt
 } from "./core/receipt-ocr.mjs";
 import {
+  OLLAMA_THINKING_BUDGET,
+  buildOllamaChatPrompt,
+  looksLikeEmbeddingModelName,
+  pickOllamaChatModel,
+  stripModelThinkingBlocks,
+  supportsNoThinkHint
+} from "./core/ollama-chat.mjs";
+import {
+  CHAT_CITATION_STOPWORDS,
+  chatCitationQuery,
+  isModelIdentityQuestion,
+  looksLikeInsightQuestion,
+  looksLikeMemoryRecall,
+  looksLikeQuestion,
+  memoryRecallQuery
+} from "./core/chat-intents.mjs";
+import {
+  DATE_GUESS_MAX_KEPT,
+  daysBetweenDateKeys,
+  learnedDateGuessOffset
+} from "./core/date-guess.mjs";
+import {
   SPOKEN_UNIT_TAIL_RE,
   extractBalanceAmount,
   extractFirstAmount,
@@ -68,6 +90,7 @@ import {
   normalizeTime,
   parseDateFromText,
   parseDateFromTextHumanSafe,
+  parseTaskSchedule,
   parseTimeFromText,
   parseTimeFromTextHumanSafe
 } from "./core/ru-parse.mjs";
@@ -85,6 +108,7 @@ import {
   escapeHtml,
   normalizeRuText,
   hasRuWord,
+  hasAnyText,
   pluralRu,
   uniqueCleanItems,
   stripExtension,
@@ -354,18 +378,41 @@ function timeToMinutes(value) {
 
 
 
-function parseTaskSchedule(title, fallbackHint, overrides) {
-  const options = overrides && typeof overrides === "object" ? overrides : {};
-  const combined = [title, fallbackHint].filter(Boolean).join(" ");
-  const parsedTime = parseTimeFromText(combined);
-  const startTime = normalizeTime(options.startTime || parsedTime.startTime || "");
-  const endTime = normalizeTime(options.endTime || parsedTime.endTime || (startTime ? addMinutesToTime(startTime, 45) : ""));
-  return {
-    day: cleanLine(options.day || parseDateFromText(combined) || todayKey()),
-    startTime,
-    endTime,
-    dateHint: cleanLine(fallbackHint || "")
-  };
+// ── Дата-предположение и обучение на правках владельца ────────────────────────────────────
+// Само правило («какой день ставить, когда день не назван») живёт в core/date-guess.mjs — оно
+// чистое. Здесь остаётся хранилище правок: оно трогает состояние.
+function dateGuessStore(state) {
+  if (!state.control || typeof state.control !== "object") state.control = {};
+  const store = state.control.dateGuess && typeof state.control.dateGuess === "object" ? state.control.dateGuess : {};
+  if (!Array.isArray(store.corrections)) store.corrections = [];
+  state.control.dateGuess = store;
+  return store;
+}
+
+// Владелец передвинул дату, которую мы угадали, — это ответ на наш вопрос, и он записывается.
+// По образцу уже существующего correctTransactionCategory (F1.3: правка категории запоминает
+// правило), только здесь правило одно: какой день ставить, когда день не назван вслух.
+// Зовётся из ВСЕХ мест, где владелец двигает день, а не только из updateTask: «→Завтра» и
+// «перенести невыполненное» меняют task.day напрямую, и без этого вызова самая частая его правка
+// в обучение не попадала вовсе (замерено спекой: 0 записей вместо 3).
+function recordDateGuessCorrection(state, task, nextDay) {
+  const day = cleanLine(nextDay || "");
+  if (!task || !task.dayIsGuess || !day || day === task.day) return;
+  const store = dateGuessStore(state);
+  const phrase = cleanLine(task.dayGuessedFrom || task.title);
+  store.corrections.push({
+    taskId: task.id,
+    phrase,
+    guessedDay: task.day,
+    ownerDay: day,
+    // Смещение считаем от СЕГОДНЯ, а не от прежней догадки: учим ровно один вопрос.
+    offsetDays: daysBetweenDateKeys(todayKey(), day),
+    at: now()
+  });
+  if (store.corrections.length > DATE_GUESS_MAX_KEPT) store.corrections = store.corrections.slice(-DATE_GUESS_MAX_KEPT);
+  // Дата стала сказанной вслух: предположение больше не предположение.
+  task.dayIsGuess = false;
+  addAudit(state, "task.day.corrected", "Дата-предположение исправлена владельцем: " + task.day + " → " + day + " (фраза: " + phrase + ")", task.noteId);
 }
 
 
@@ -2829,6 +2876,11 @@ function normalizeState(input) {
     task.sourceId = state.sources[task.sourceId] && !state.sources[task.sourceId].deleted ? task.sourceId : "";
     task.goalId = state.goals[task.goalId] ? task.goalId : "";
     task.day = cleanLine(task.day || todayKey());
+    // Пометка «дата предположена» переживает перезагрузку (normalizeState-gotcha): задачи из
+    // старых снимков её не имеют, и для них честнее false — мы не знаем, откуда взялась их дата,
+    // и не имеем права записывать чужую правку в обучение.
+    task.dayIsGuess = Boolean(task.dayIsGuess);
+    task.dayGuessedFrom = cleanLine(task.dayGuessedFrom || "");
     task.startTime = normalizeTime(task.startTime || "");
     task.endTime = normalizeTime(task.endTime || "");
     task.dateHint = cleanLine(task.dateHint || "");
@@ -3005,7 +3057,10 @@ function normalizeState(input) {
   if (!/^https?:\/\//.test(state.ollama.endpoint || "")) state.ollama.endpoint = "http://127.0.0.1:11434";
   if (!Array.isArray(state.ollama.models)) state.ollama.models = [];
   state.ollama.status = cleanLine(state.ollama.status || "unchecked");
-  state.ollama.selectedModel = cleanLine(state.ollama.selectedModel || state.ollama.models[0] || "");
+  // Тот же выбор, что и в probeOllama: модель эмбеддингов не должна становиться моделью чата
+  // только потому, что она первая в списке (см. pickOllamaChatModel — это найденный дефект,
+  // а не осторожность). Здесь возможностей от демона нет, поэтому решает имя.
+  state.ollama.selectedModel = cleanLine(state.ollama.selectedModel || pickOllamaChatModel(state.ollama.models.map((name) => ({ name: cleanLine(name), capabilities: [] }))) || "");
   state.ollama.lastError = String(state.ollama.lastError || "");
   state.ollama.lastCheckedAt = String(state.ollama.lastCheckedAt || "");
   state.ollama.lastProbeAt = String(state.ollama.lastProbeAt || state.ollama.lastCheckedAt || "");
@@ -4654,13 +4709,6 @@ function stripCommandNoise(text) {
 
 
 
-function hasAnyText(lower, words) {
-  return words.some((word) => {
-    const token = String(word || "").toLocaleLowerCase();
-    const repairedToken = repairMojibake(token).toLocaleLowerCase();
-    return lower.includes(token) || lower.includes(repairedToken);
-  });
-}
 
 // Срез 2 (v1.4): минимальные людские сущности - заглавные слова НЕ в начале предложения,
 // не входящие в служебный стоп-лист. Честная эвристика, не NER: ловит "позвонить Жене",
@@ -10354,13 +10402,21 @@ function addTask(state, title, scheduleOptions) {
     || null;
   const id = makeId("task");
   const createdAt = now();
+  // День не назван — ставим тот, которому научили правки владельца (см. learnedDateGuessOffset).
+  // Пока правок меньше трёх, это по-прежнему «сегодня».
+  const guessOffset = schedule.dayIsGuess ? learnedDateGuessOffset(dateGuessStore(state).corrections) : 0;
+  const day = schedule.dayIsGuess && guessOffset > 0 ? dateKeyFromOffset(guessOffset) : schedule.day;
   state.tasks[id] = {
     id,
     title: cleanTitle,
     noteId,
     sourceId: options.sourceId && state.sources[options.sourceId] && !state.sources[options.sourceId].deleted ? options.sourceId : "",
     goalId: activeGoal ? activeGoal.id : "",
-    day: schedule.day,
+    day,
+    dayIsGuess: Boolean(schedule.dayIsGuess),
+    // Фраза, из которой дату так и не удалось прочитать. Нужна на правке: без неё непонятно,
+    // ЧТО именно мы не разобрали, и правка учит ни о чём.
+    dayGuessedFrom: schedule.dayIsGuess ? cleanTitle : "",
     startTime: schedule.startTime,
     endTime: schedule.endTime,
     dateHint: schedule.dateHint,
@@ -10468,6 +10524,9 @@ function updateTask(state, taskId, updates) {
   const nextStart = normalizeTime(next.startTime || task.startTime || "");
   const nextEnd = normalizeTime(next.endTime || task.endTime || (nextStart ? addMinutesToTime(nextStart, 45) : ""));
   task.title = nextTitle || task.title;
+  // Правка даты-предположения — обучающий сигнал, а не просто строка в журнале (решение
+  // владельца 2026-07-30).
+  recordDateGuessCorrection(state, task, nextDay);
   task.day = nextDay;
   task.startTime = nextStart;
   task.endTime = nextEnd;
@@ -10775,12 +10834,16 @@ async function probeOllama(endpoint) {
   const response = await fetch(base + "/api/tags", { method: "GET" });
   if (!response.ok) throw new Error("Ollama responded with HTTP " + response.status);
   const payload = await response.json();
-  const models = Array.isArray(payload.models) ? payload.models.map((model) => cleanLine(model.name || model.model || "")).filter(Boolean) : [];
+  const entries = Array.isArray(payload.models) ? payload.models.map((model) => ({
+    name: cleanLine(model.name || model.model || ""),
+    capabilities: Array.isArray(model.capabilities) ? model.capabilities.map((capability) => String(capability).toLowerCase()) : []
+  })).filter((entry) => entry.name) : [];
+  const models = entries.map((entry) => entry.name);
   return {
     endpoint: base,
     status: models.length ? "models_found" : "reachable",
     models,
-    selectedModel: models[0] || "",
+    selectedModel: pickOllamaChatModel(entries),
     lastError: "",
     lastCheckedAt: now(),
     lastProbeAt: now(),
@@ -10971,130 +11034,74 @@ function buildDaySummaryText(state) {
     " привычек выполнено. Деньги сегодня: потрачено " + Math.round(money.todaySpend) + " ₽, баланс " + Math.round(money.balance) + " ₽.";
 }
 
-const CHAT_CITATION_STOPWORDS = new Set(["сегодня", "завтра", "вчера", "утром", "вечером", "себя", "какой", "какая", "какое", "какие", "какого", "уровня", "уровень", "модель", "модели", "версия", "версии", "сравни", "умеешь", "можешь", "расскажи", "объясни", "покажи", "связям", "связи", "связях", "графе", "графу", "инсайты", "инсайт", "типо", "будешь", "делать"]);
-
-// V1 CHAT_BRAIN: the old citation query was the raw question text, so a common word like
-// "сегодня" honestly-but-uselessly title-matched an unrelated task ("СЕГОДНЯ В 4 В
-// ШИНОМОНТАЖ") and got shown as a "source" for a completely different question. Filtering out
-// short/common words before searching means a citation only appears when a real, specific term
-// from the question matches - an empty result here means "no relevant note", not "show recent".
-function chatCitationQuery(text) {
-  return String(text || "")
-    .split(/\s+/)
-    .filter((word) => word.length >= 5 && !CHAT_CITATION_STOPWORDS.has(normalizeTitle(word)))
-    .join(" ");
-}
-
-function looksLikeQuestion(text) {
-  const clean = normalizeRuText(String(text || "")).trim().toLocaleLowerCase();
-  if (!clean) return false;
-  if (clean.includes("?")) return true;
-  const openers = ["как ", "почему ", "что ", "какой ", "какая ", "какое ", "какие ", "какого ", "сколько ", "умеешь", "можешь", "расскажи", "объясни", "сравни", "покажи", "ты "];
-  return openers.some((opener) => clean.startsWith(opener));
-}
-
-function looksLikeInsightQuestion(text) {
-  const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
-  return hasAnyText(clean, ["инсайт", "связи", "связям", "связях", "итог", "проанализируй", "анализ", "обзор", "паттерн", "тенденци"]);
-}
-
-// Срез 8.3: явное намерение «найди/вспомни в памяти X» -> чат ищет minisearch'ем (тот же движок,
-// что панель «Память» в срезе 8.2) и кладёт результат в общий memorySearchReport, чтобы Чат и
-// База показывали одно и то же. Полный сценарий: вопрос -> поиск -> ответ + панель -> клик -> заметка.
-const MEMORY_RECALL_TRIGGERS = ["найди", "найти", "поищи", "поиск по памяти", "что я писал", "что писал", "о чём я писал", "о чем я писал", "покажи заметки", "покажи в памяти", "вспомни про", "вспомни что", "в памяти про", "искать в памяти", "search"];
-const MEMORY_RECALL_STOPWORDS = new Set(["найди", "найти", "поищи", "поиск", "по", "памяти", "память", "в", "во", "что", "я", "писал", "писала", "о", "чем", "чём", "покажи", "показать", "заметки", "заметку", "заметка", "вспомни", "вспомнить", "про", "search", "мне", "все", "всё", "и", "а", "мои", "моих", "было", "были"]);
-function looksLikeMemoryRecall(text) {
-  const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
-  return hasAnyText(clean, MEMORY_RECALL_TRIGGERS);
-}
-function memoryRecallQuery(text) {
-  const tokens = normalizeRuText(String(text || ""))
-    .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-  return tokens.filter((token) => token.length >= 3 && !MEMORY_RECALL_STOPWORDS.has(token)).join(" ");
-}
-
-function isModelIdentityQuestion(text) {
-  const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
-  const asksAboutModel = hasAnyText(clean, ["модель", "модели", "модельного", "уровня", "уровень", "версия", "версии", "gpt", "джпт", "чатгпт"]);
-  return asksAboutModel && looksLikeQuestion(text);
-}
-
-// Live Ollama chat (P5.1): the full local generation path, used only when the owner
-// has already explicitly probed AND tested generation (status "generation_ok") - never
-// attempted speculatively. Citations point back to the real notes the prompt was built
-// from, not invented ones.
-// V1 CHAT_BRAIN rewrite: was English-language and had zero graph/day context, so a real
-// qwen3:4b daemon honestly said "I don't have access to graph insights" (true - the graph
-// was never in the prompt) and answered in English (the prompt was English). Now RU-only,
-// includes the same graph/day facts the app itself computes, and drops the universal 40-word
-// cap for insight-style questions (graphSummary/daySummary are always included; they're
-// short enough not to need a separate budget).
-function buildOllamaChatPrompt(context, citedNotes, question, graphSummary, daySummary, isInsightMode, ownerInstructions) {
-  const citationBlock = citedNotes.length
-    ? "Связанные локальные заметки:\n" + citedNotes.map((note) => "- " + note.title + ": " + shorten(cleanLine(note.body || ""), 200)).join("\n") + "\n\n"
-    : "";
-  // Срез 14: активные правила владельца реально влияют на ответ - вплетаем их в промпт.
-  const instructionBlock = Array.isArray(ownerInstructions) && ownerInstructions.length
-    ? "Правила владельца (соблюдай их): " + ownerInstructions.map((rule) => "«" + rule + "»").join("; ") + ". "
-    : "";
-  // The length cap is load-bearing, not stylistic: against a real qwen3:4b daemon, an
-  // open-ended question with no output-length constraint made the model's own "thinking" phase
-  // ramble unbounded, burning the entire num_predict budget before any response was produced.
-  // Insight-style questions ("какие связи", "проанализируй") get a looser cap so a real answer
-  // about the graph/day facts above isn't truncated to two sentences.
-  const lengthRule = isInsightMode
-    ? "Ответь по делу, используя факты ниже, в пределах 5-6 предложений."
-    : "Отвечай коротко и по делу - не больше 2 коротких предложений, максимум 40 слов.";
-  return "Ты - локальный честный ассистент LifeOS, персональной ОС данных владельца. " +
-    "Отвечай ТОЛЬКО на русском языке, независимо от языка вопроса. " +
-    "Используй ТОЛЬКО факты ниже, ничего не выдумывай. " + lengthRule + " " + instructionBlock +
-    "\n\nАктивный контекст: " + context.title + " - " + context.text +
-    "\n\n" + graphSummary + "\n" + daySummary + "\n\n" + citationBlock +
-    "Вопрос: " + question + "\nОтвет:";
-}
-
-// Defensive safety net: some providers/proxies inline reasoning as a literal
-// <think>...</think> block in the response text instead of Ollama's native separate
-// "thinking" field (verified against a real qwen3:4b daemon: Ollama keeps it out of
-// payload.response as long as num_predict below leaves enough budget - see there for the
-// actual fix). Strip it if present so the owner never sees a scratchpad as the answer.
-function stripModelThinkingBlocks(text) {
-  return String(text || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-}
-
+// Live Ollama chat (P5.1): полный путь локальной генерации. Пробуется ТОЛЬКО когда владелец уже
+// явно проверил генерацию (статус "generation_ok"), никогда наугад. Сборка промпта и выбор
+// модели вынесены в core/ollama-chat.mjs — здесь остаётся поток и работа с состоянием.
 // C1.1: потоковый ответ Ollama (донор-идея LibreChat - читать поток по мере поступления,
 // обновлять UI на каждый чанк). Ollama возвращает NDJSON, не SSE - стрим читается через
 // response.body.getReader(); onChunk получает НАКОПЛЕННЫЙ текст (не дельту) для простоты
 // вызывающей стороны. <think>-зачистка применяется построчно тем же regex, что и в
 // stripModelThinkingBlocks ниже - пока тег не закрыт, текст внутри виден "сырым"
 // (самоисправляется при закрывающем </think>), финальный текст всегда чистый.
-async function streamOllamaChatAnswer(endpoint, model, prompt, numPredict, signal, onChunk) {
+// onThinking(символов) вызывается, пока модель думает: владелец видит «модель думает», а не
+// пустой пузырь и не чужой черновик.
+async function streamOllamaChatAnswer(endpoint, model, prompt, numPredict, signal, onChunk, onThinking) {
   const base = String(endpoint || "").replace(/\/+$/, "");
   const startedAt = Date.now();
-  const response = await fetch(base + "/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // ЗАМЕР 2026-07-30, записан здесь, чтобы следующая сессия не повторяла попытку: `think: false`
-    // на `/api/generate` рассуждение НЕ выключает. Проверено прямым запросом — `qwen3:4b` всё равно
-    // начинает с «Okay, let's…», и владелец видит рассуждение вслух вместо ответа. Флаг работает
-    // только там, где ответ ограничен схемой (`format: "json"` в разборе речи) или на `/api/chat`,
-    // где у размышления свой канал. Переход чата на `/api/chat` — отдельный пакет, не приписка сюда:
-    // ставить здесь флаг-пустышку значило бы отчитаться правкой, которой нет.
-    body: JSON.stringify({ model, prompt, stream: true, options: { num_predict: Number.isFinite(numPredict) ? numPredict : 500 } }),
-    signal
-  });
+  const answerBudget = Number.isFinite(numPredict) ? numPredict : 500;
+  // ЗАМЕР 2026-07-30, два прямых запроса к живому демону (Ollama 0.32.1, `qwen3:4b`) — не догадка:
+  // • `think: false` рассуждение НЕ выключает. Ни на `/api/generate`, ни на `/api/chat`: модель
+  //   всё равно начинает с «Хорошо, мне нужно ответить…», и это попадает прямо в текст ответа.
+  //   Причина в шаблоне самой модели — он безусловно допечатывает `<think>` перед ответом,
+  //   не глядя на флаг (видно в `/api/show`: `{{- if and (ne .Role "assistant") $last }}...<think>`).
+  // • `think: true` на `/api/chat` уводит рассуждение в ОТДЕЛЬНОЕ поле `message.thinking`,
+  //   а `message.content` остаётся чистым ответом.
+  // Значит правильный флаг — размышление ВКЛЮЧИТЬ и не показывать его, а не пытаться выключить.
+  // ЗАМЕР 2026-07-30, тот же живой демон: у семейства qwen3 есть мягкий выключатель `/no_think`
+  // прямо в тексте вопроса, и он честно работает — на одном и том же вопросе рассуждение упало
+  // с 3427 до 1086 символов, всего токенов с 1143 до 366, время с 268 до 77 секунд, а ответ
+  // получился ДОСЛОВНО тот же («Сегодня вы потратили 350 рублей на еду.»). Три с половиной раза
+  // быстрее — это разница между «подождать» и «закрыть чат». Подсказка семейная, не общая:
+  // другая модель увидела бы её как мусор в вопросе, поэтому проверяем имя.
+  const requestBody = (withThinking) => {
+    const content = withThinking && supportsNoThinkHint(model) ? prompt + " /no_think" : prompt;
+    const body = {
+      model,
+      messages: [{ role: "user", content }],
+      stream: true,
+      options: { num_predict: answerBudget + (withThinking ? OLLAMA_THINKING_BUDGET : 0) }
+    };
+    if (withThinking) body.think = true;
+    return JSON.stringify(body);
+  };
+  const headers = { "Content-Type": "application/json" };
+  let response = await fetch(base + "/api/chat", { method: "POST", headers, body: requestBody(true), signal });
+  // Модели без размышления (у владельца установлены `qwen2.5:3b` и `llama3.2:3b`) отвечают на
+  // этот флаг HTTP 400 «"qwen2.5:3b" does not support thinking» — замерено там же. Для них
+  // флага быть не должно, и их `content` и так чистый. Один повтор без флага, не молчаливый
+  // отказ: иначе выбор такой модели в настройках ломал бы чат целиком.
+  if (response.status === 400) {
+    const detail = await response.text().catch(() => "");
+    if (!/thinking/i.test(detail)) throw new Error("Ollama chat responded with HTTP 400");
+    response = await fetch(base + "/api/chat", { method: "POST", headers, body: requestBody(false), signal });
+  }
   if (!response.ok || !response.body) throw new Error("Ollama chat responded with HTTP " + (response.status || "no-body"));
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let accumulated = "";
+  let thinkingChars = 0;
+  let doneReason = "";
   const finish = () => {
     const text = cleanLine(stripModelThinkingBlocks(accumulated));
+    // Пустой ответ при исчерпанном бюджете — не «пустой ответ модели», а конкретная причина,
+    // которую владелец может исправить (выбрать модель без размышления или задать вопрос короче).
+    // Называем её вслух, иначе на экране появится честный локальный fallback без объяснения.
+    if (!text && doneReason === "length" && thinkingChars > 0) {
+      throw new Error("Модель " + model + " израсходовала бюджет на размышление (" + thinkingChars + " символов) и не начала ответ");
+    }
     if (!text) throw new Error("Ollama chat returned an empty response");
-    return { text, latencyMs: Math.max(1, Date.now() - startedAt) };
+    return { text, latencyMs: Math.max(1, Date.now() - startedAt), thinkingChars };
   };
   // Обрабатывает одну NDJSON-строку; возвращает true если это была финальная (done:true).
   const consumeLine = (rawLine) => {
@@ -11106,10 +11113,19 @@ async function streamOllamaChatAnswer(endpoint, model, prompt, numPredict, signa
     } catch {
       return false;
     }
-    if (payload.response) {
-      accumulated += payload.response;
+    const message = payload.message && typeof payload.message === "object" ? payload.message : {};
+    if (message.thinking) {
+      thinkingChars += String(message.thinking).length;
+      // Секунды, а не только символы: ЗАМЕР 2026-07-30 на разборе связей — первый символ ответа
+      // пришёл на 336-й секунде, весь ответ на 400-й. Владелец должен видеть, что время идёт и
+      // что ожидание можно прервать, иначе шесть минут выглядят как зависание.
+      if (typeof onThinking === "function") onThinking(thinkingChars, Math.max(0, Date.now() - startedAt));
+    }
+    if (message.content) {
+      accumulated += message.content;
       onChunk(cleanLine(stripModelThinkingBlocks(accumulated)));
     }
+    if (payload.done) doneReason = String(payload.done_reason || "");
     return Boolean(payload.done);
   };
   while (true) {
@@ -22772,7 +22788,10 @@ async function handleAction(action, id) {
     await store.commit("Task snoozed to tomorrow", (state) => {
       const task = state.tasks[id];
       if (!task || task.deleted) return;
-      task.day = dateKeyFromOffset(1);
+      const tomorrow = dateKeyFromOffset(1);
+      // Это самая частая правка даты у владельца — значит и самый сильный обучающий сигнал.
+      recordDateGuessCorrection(state, task, tomorrow);
+      task.day = tomorrow;
       task.updatedAt = now();
       addAudit(state, "task.snooze", "Задача отложена на завтра: " + shorten(task.title || id, 50), state.activeNoteId);
     });
@@ -22787,6 +22806,7 @@ async function handleAction(action, id) {
       const undone = Object.values(state.tasks || {})
         .filter((task) => !task.deleted && task.status !== "done" && task.day === today);
       for (const task of undone) {
+        recordDateGuessCorrection(state, task, tomorrow);
         task.day = tomorrow;
         task.updatedAt = now();
       }
@@ -22886,6 +22906,18 @@ async function handleAction(action, id) {
             const msg = state.chatMessages[assistantMessageId];
             if (msg) msg.text = partialText;
           });
+        }, (thinkingChars, elapsedMs) => {
+          // Размышление в ответ не попадает (см. streamOllamaChatAnswer), но и молчать про него
+          // нельзя: ЗАМЕР 2026-07-30 на этой машине — короткий вопрос 77 секунд, разбор связей
+          // 400 секунд. Без этой отметки владелец шесть минут смотрит на пустой пузырь с курсором
+          // и решает, что сломалось.
+          if (!store) return;
+          store.streamPatch((state) => {
+            const msg = state.chatMessages[assistantMessageId];
+            if (!msg) return;
+            msg.thinkingChars = thinkingChars;
+            msg.thinkingSeconds = Math.round((Number(elapsedMs) || 0) / 1000);
+          });
         });
         // C1.4: цитаты - структурные данные на сообщении (кликабельные чипы в ui/chat.js),
         // не текст внутри ответа - раньше "Источники: ..." дописывалось прямо в msg.text.
@@ -22895,8 +22927,10 @@ async function handleAction(action, id) {
             msg.text = result.text;
             msg.citations = citedNotes.map((note) => ({ id: note.id, title: note.title }));
             msg.streaming = false;
+            msg.thinkingChars = 0;
+            msg.thinkingSeconds = 0;
           }
-          recordProviderRun(state, "ollama", "chat", "generation_ok", "Ollama chat ответил моделью " + model + " за " + result.latencyMs + "мс (стрим), источников: " + citedNotes.length, { model, citationIds: citedNotes.map((note) => note.id), latencyMs: result.latencyMs });
+          recordProviderRun(state, "ollama", "chat", "generation_ok", "Ollama chat ответил моделью " + model + " за " + result.latencyMs + "мс (стрим), источников: " + citedNotes.length + (result.thinkingChars ? ", размышление " + result.thinkingChars + " символов (владельцу не показано)" : ""), { model, citationIds: citedNotes.map((note) => note.id), latencyMs: result.latencyMs, thinkingChars: result.thinkingChars || 0 });
         });
       } catch (error) {
         const wasStopped = controller.signal.aborted;
@@ -23958,7 +23992,7 @@ async function handleAction(action, id) {
     // отделяет «об одном» от шума с запасом 0.027, англоязычная `nomic-embed-text` — вовсе не
     // отделяет. Признак назначения ищем в имени: другого честного признака Ollama не даёт.
     const installed = Array.isArray(store.state.ollama.models) ? store.state.ollama.models : [];
-    const embeddingModel = installed.find((name) => /embed|bge|e5|minilm|gte/i.test(String(name)));
+    const embeddingModel = installed.find(looksLikeEmbeddingModelName);
     const model = cleanLine(store.state.ollama.embeddingsModel) || embeddingModel || store.state.ollama.selectedModel || installed[0] || "";
     if (!model) {
       await store.commit("Ollama embeddings test blocked", (state) => {

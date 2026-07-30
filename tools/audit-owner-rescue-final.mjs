@@ -1,7 +1,9 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
 
-const EXPECTED_BRANCH = "owner-usable-nonstop-rescue";
+// Ствол один. Решение владельца 2026-07-30: «пусть лучше одна будет, все, что делается, сразу
+// в одну добавляется. И тестировка тоже вся в одной ветке».
+const TRUNK_BRANCH = "owner-usable-nonstop-rescue";
 const REQUIRED_SCRIPTS = [
   "verify",
   "e2e",
@@ -136,7 +138,27 @@ const providerRows = ledger.filter((row) => row.resolution_status === "FIXED_BY_
 const fixedRows = ledger.filter((row) => row.resolution_status === "FIXED_WITH_CODE_AND_TEST");
 const dedupedRows = ledger.filter((row) => row.resolution_status === "DUPLICATE_FIXED_BY_W");
 
-assert(branch === EXPECTED_BRANCH, "branch is owner rescue branch", { branch });
+// ЗАМЕНЕНО 2026-07-30. Здесь стояло сравнение ИМЕНИ ветки со «owner-usable-nonstop-rescue».
+// Имя ветки — не свойство продукта: проверка была красной на любой другой ветке и не поймала
+// ни одного дефекта ни разу. Владелец: «если проверки легкие и тупые, зачем их оставлять? Лучше
+// наоборот тогда менять на сложные проверки... Но только без фанатизма».
+// Ловим настоящую беду вместо имени: работа идёт от УСТАРЕВШЕГО ствола. Если в стволе есть
+// коммиты, которых нет в HEAD, значит правки лежат на старом коде и поедут в конфликт — ровно
+// это случилось в этой сессии, когда в ствол пришли 14 коммитов облачной сессии. Цена проверки —
+// два вызова git, без сети.
+const trunkTip = trySh("git rev-parse --verify refs/remotes/origin/" + TRUNK_BRANCH).ok
+  ? sh("git rev-parse refs/remotes/origin/" + TRUNK_BRANCH)
+  : (trySh("git rev-parse --verify refs/heads/" + TRUNK_BRANCH).ok ? sh("git rev-parse refs/heads/" + TRUNK_BRANCH) : "");
+assert(Boolean(trunkTip), "single trunk branch exists: " + TRUNK_BRANCH, { trunkTip: trunkTip || "missing" });
+assert(branch !== "HEAD" && branch !== "", "HEAD is on a named branch, not detached", { branch });
+if (trunkTip) {
+  const containsTrunk = trySh("git merge-base --is-ancestor " + trunkTip + " HEAD").ok;
+  assert(containsTrunk, "HEAD contains every commit already in the trunk (work is not based on a stale trunk)", {
+    branch,
+    trunk: TRUNK_BRANCH,
+    missingFromHead: containsTrunk ? 0 : Number(trySh("git rev-list --count HEAD.." + trunkTip).output || 0)
+  });
+}
 assert(status === "", "working tree is clean", { status: status || "clean" });
 assert(ledger.length === 1000, "1000-risk ledger has exactly 1000 rows", { rows: ledger.length });
 assert(openRows.length === 0, "1000-risk ledger has zero open/in-progress/revalidate rows", { openRows: openRows.length });

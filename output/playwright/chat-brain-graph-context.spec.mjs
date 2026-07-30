@@ -15,11 +15,12 @@ function findLocalChromium() {
 const localChromium = findLocalChromium();
 if (localChromium) test.use({ launchOptions: { executablePath: localChromium } });
 
-// Реальная генерация qwen3 (reasoning-модель, эмитит <think>-токены) для инсайта на 900 токенов
-// измеренно ~140с на этом железе; плюс отдельная реальная генерация в test-ollama-generation и
-// сетап. 180с не хватало (тест упирался в таймаут на честном пути). Ставим реалистичную границу -
-// это не ослабление проверок (ассерты те же), а честный бюджет под медленную локальную модель.
-test.setTimeout(420000);
+// Реальная генерация qwen3 (reasoning-модель) — честный бюджет под медленную локальную модель,
+// а не ослабление проверок: ассерты те же. ЗАМЕР 2026-07-30 прямым запросом к демону на этом же
+// промпте разбора связей: первый символ ответа на 336-й секунде, весь ответ на 400-й. Плюс
+// проверка генерации до 120 секунд и сетап — отсюда 900. Прежние 420 не покрывали даже один
+// настоящий ответ, и спека падала на честном пути.
+test.setTimeout(900000);
 
 const appUrl = "http://127.0.0.1:4173";
 
@@ -70,6 +71,31 @@ async function sendChat(page, text) {
 
 const hasCyrillic = (text) => /[а-яё]/i.test(text || "");
 
+// ИСПРАВЛЕНО 2026-07-30: считать ВСЕ сообщения ассистента нельзя — стрим создаёт пустой пузырь
+// сразу при отправке (streaming: true), счётчик растёт мгновенно, и спека читала ответ ДО того,
+// как модель написала первый символ. Отсюда и падение «ответ не по-русски»: он был просто пустым.
+const finishedAssistantCount = (snapshot) => Object.values(snapshot.chatMessages || {})
+  .filter((message) => message.role === "assistant" && !message.deleted && !message.streaming && String(message.text || "").trim())
+  .length;
+
+async function waitForFinishedAnswer(page, countBefore, timeout) {
+  await page.waitForFunction(
+    (before) => {
+      const snap = window.__lifeosKnowledgeBase.getStateSnapshot();
+      const finished = Object.values(snap.chatMessages || {})
+        .filter((message) => message.role === "assistant" && !message.deleted && !message.streaming && String(message.text || "").trim());
+      return finished.length > before;
+    },
+    countBefore,
+    { timeout }
+  );
+}
+
+const lastFinishedAnswer = (snapshot) => Object.values(snapshot.chatMessages || {})
+  .filter((message) => message.role === "assistant" && !message.deleted && !message.streaming && String(message.text || "").trim())
+  .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+  .slice(-1)[0];
+
 // V1 CHAT_BRAIN: reproduces the owner's own bad screenshot (2026-07-20) - a Russian question
 // about graph insights that used to get an English "I don't have access" answer with garbage
 // task-title "sources" and a spurious "save as note" proposal on the question itself. All three
@@ -94,14 +120,12 @@ test("V1 CHAT_BRAIN: RU graph-insight question gets a real RU answer with real g
   await expect(page.getByTestId("ollama-status")).toHaveAttribute("data-raw-status", "generation_ok", { timeout: 120000 });
 
   const beforeState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
-  const assistantCountBefore = Object.values(beforeState.chatMessages || {}).filter((m) => m.role === "assistant").length;
+  const assistantCountBefore = finishedAssistantCount(beforeState);
 
   const question = "Ты умеешь давать инсайты по всем связям в графе? Какого уровня ты модель, сравни себя с чатом GPT, на каком уровне, версия 3 или 4?";
   await sendChat(page, question);
-  await page.waitForFunction((countBefore) => {
-    const snap = window.__lifeosKnowledgeBase.getStateSnapshot();
-    return Object.values(snap.chatMessages || {}).filter((m) => m.role === "assistant").length > countBefore;
-  }, assistantCountBefore, { timeout: 30000 });
+  // Этот вопрос отвечается детерминированно из state.ollama, без модели — окно маленькое.
+  await waitForFinishedAnswer(page, assistantCountBefore, 30000);
 
   const afterState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   const ownerMessage = Object.values(afterState.chatMessages).find((m) => m.role === "owner" && m.text === question);
@@ -109,26 +133,34 @@ test("V1 CHAT_BRAIN: RU graph-insight question gets a real RU answer with real g
   // The model-identity branch must answer directly from state.ollama, never inventing a
   // version number - and must not create a "save as note" proposal on the question.
   expect(ownerMessage.proposalId, "a question must not get a save-as-note proposal").toBeFalsy();
-  const modelReply = Object.values(afterState.chatMessages).filter((m) => m.role === "assistant").sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const modelReply = lastFinishedAnswer(afterState);
   expect(modelReply.text).toContain(afterState.ollama.selectedModel);
   expect(hasCyrillic(modelReply.text)).toBe(true);
 
   // Now a pure insight question (no model-identity words) - must go through the real LLM
   // call with real graph facts in the prompt and answer in Russian.
-  const assistantCountBefore2 = Object.values(afterState.chatMessages || {}).filter((m) => m.role === "assistant").length;
+  const assistantCountBefore2 = finishedAssistantCount(afterState);
   const insightQuestion = "Проанализируй связи и дай инсайты по графу";
   await sendChat(page, insightQuestion);
-  await page.waitForFunction((countBefore) => {
-    const snap = window.__lifeosKnowledgeBase.getStateSnapshot();
-    return Object.values(snap.chatMessages || {}).filter((m) => m.role === "assistant").length > countBefore;
-  }, assistantCountBefore2, { timeout: 240000 });
+  // Настоящая генерация на CPU, ЗАМЕРЕНО 2026-07-30 прямым запросом к демону на этом же
+  // промпте: первый символ ответа на 336-й секунде, весь ответ на 400-й (короткий вопрос — 77).
+  // Окно 540 секунд — это измеренное время плюс запас, а не круглое число из головы.
+  await waitForFinishedAnswer(page, assistantCountBefore2, 540000);
 
   const finalState = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
   const insightOwnerMessage = Object.values(finalState.chatMessages).find((m) => m.role === "owner" && m.text === insightQuestion);
   expect(insightOwnerMessage.proposalId, "an insight question must not get a save-as-note proposal either").toBeFalsy();
-  const insightReply = Object.values(finalState.chatMessages).filter((m) => m.role === "assistant").sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const insightReply = lastFinishedAnswer(finalState);
   expect(hasCyrillic(insightReply.text)).toBe(true);
-  // Honest citations: no note titled around "мфц"/"документы" is topically related to a
-  // question about graph structure, so it must not be cited as a "source" for this answer.
-  expect(insightReply.text).not.toContain("мфц");
+  // ИСПРАВЛЕНО 2026-07-30: проверка стояла на ТЕКСТЕ ответа («не должно быть слова мфц») и была
+  // неверной по сути. Живая модель теперь отвечает по настоящим фактам графа, а самый связанный
+  // узел в этом графе действительно называется «Задача: забрать документы из мфц» — запрещать
+  // это слово значит запрещать правду. Исходный дефект из скриншота владельца был другим: чужой
+  // заголовок задачи подставлялся В СПИСОК ИСТОЧНИКОВ ответа. Источники теперь структурные
+  // (message.citations, чипы в ui/chat.js), поэтому и проверяем их, а не буквы в тексте.
+  const insightCitations = insightReply.citations || [];
+  expect(insightCitations.some((citation) => /мфц/i.test(String(citation.title || ""))), "заметка про мфц не может быть источником ответа про структуру графа").toBe(false);
+  // И самодельного списка источников внутри текста быть не должно — именно так это выглядело
+  // на скриншоте, из-за которого пакет CHAT_BRAIN и появился.
+  expect(insightReply.text).not.toMatch(/Источники:/i);
 });
