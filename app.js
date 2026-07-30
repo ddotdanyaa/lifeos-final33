@@ -23805,7 +23805,15 @@ async function handleAction(action, id) {
   if (action === "test-ollama-embeddings") {
     const endpointInput = document.querySelector("#ollama-endpoint");
     const endpoint = endpointInput ? cleanLine(endpointInput.value) : store.state.ollama.endpoint;
-    const model = store.state.ollama.selectedModel || (store.state.ollama.models || [])[0] || "";
+    // Векторы берём у модели ДЛЯ ВЕКТОРОВ, а не у чат-модели. Раньше здесь стоял `selectedModel`,
+    // то есть `qwen3:4b`: /api/embeddings отвечает и на ней, но числа получаются от языковой
+    // модели, а не от обученной на близость, и «похожее по смыслу» строилось бы на них.
+    // Замер 2026-07-30 (`tools/measure-semantic-neighbors.mjs`) на настоящих моделях: `bge-m3`
+    // отделяет «об одном» от шума с запасом 0.027, англоязычная `nomic-embed-text` — вовсе не
+    // отделяет. Признак назначения ищем в имени: другого честного признака Ollama не даёт.
+    const installed = Array.isArray(store.state.ollama.models) ? store.state.ollama.models : [];
+    const embeddingModel = installed.find((name) => /embed|bge|e5|minilm|gte/i.test(String(name)));
+    const model = cleanLine(store.state.ollama.embeddingsModel) || embeddingModel || store.state.ollama.selectedModel || installed[0] || "";
     if (!model) {
       await store.commit("Ollama embeddings test blocked", (state) => {
         state.ollama.embeddingsStatus = "provider_unavailable";

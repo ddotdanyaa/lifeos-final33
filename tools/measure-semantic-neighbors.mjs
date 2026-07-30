@@ -34,15 +34,22 @@ const RECORDS = [
   { id: "gym", text: "Завтра в 14:00 зал, купить протеин" }
 ];
 
+// Первая разметка смешивала ДВА разных отношения, и замер из-за этого обвинял эмбеддинги в том,
+// чего они и не обещают:
+//   `смысл`   — записи об одном и том же предмете или событии. Это ровно то, что вектор умеет.
+//   `контекст`— связаны жизнью владельца, а не языком («Марина против кредита» ↔ «хочу машину»).
+//               Это знание про ЕГО план, и добывается оно графом и его же подтверждениями, а не
+//               близостью фраз. Требовать этого от эмбеддингов — мерить не тот инструмент.
+//   `шум`     — не связаны никак либо совпадают только словом.
 const PAIRS = [
-  { a: "goal-car", b: "sell-old", related: true, why: "продажа старой — часть покупки новой" },
-  { a: "goal-car", b: "free-money", related: true, why: "деньги считаются под эту покупку" },
-  { a: "goal-car", b: "credit-stance", related: true, why: "кредит — способ купить машину" },
-  { a: "shift-money", b: "shift-tired", related: true, why: "одна и та же смена" },
-  { a: "call-mom", b: "dentist", related: false, why: "два разных дела, общего только «надо»" },
-  { a: "goal-car", b: "call-mom", related: false, why: "ничего общего" },
-  { a: "english", b: "gym", related: false, why: "оба про себя, но про разное" },
-  { a: "shift-money", b: "free-money", related: false, why: "совпадает слово «деньги», смысл разный" }
+  { a: "goal-car", b: "sell-old", kind: "смысл", why: "обе про машину" },
+  { a: "shift-money", b: "shift-tired", kind: "смысл", why: "одна и та же смена" },
+  { a: "goal-car", b: "free-money", kind: "контекст", why: "деньги считаются под эту покупку" },
+  { a: "goal-car", b: "credit-stance", kind: "контекст", why: "кредит — способ купить машину" },
+  { a: "call-mom", b: "dentist", kind: "шум", why: "два разных дела, общего только «надо»" },
+  { a: "goal-car", b: "call-mom", kind: "шум", why: "ничего общего" },
+  { a: "english", b: "gym", kind: "шум", why: "оба про себя, но про разное" },
+  { a: "shift-money", b: "free-money", kind: "шум", why: "совпадает слово «деньги», смысл разный" }
 ];
 
 async function up(url) {
@@ -54,11 +61,15 @@ async function up(url) {
   }
 }
 
+// `nomic-embed-text` без задачного префикса работает заметно хуже — это требование самой модели, а
+// не наша догадка. Мерить её без префикса значило бы обвинить модель в том, чего мы ей не дали.
+const PREFIX = /nomic/i.test(MODEL) ? "search_document: " : "";
+
 async function embed(text) {
   const response = await fetch(OLLAMA.replace(/\/+$/, "") + "/api/embeddings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, prompt: text })
+    body: JSON.stringify({ model: MODEL, prompt: PREFIX + text })
   });
   if (!response.ok) throw new Error("Ollama ответил HTTP " + response.status);
   const payload = await response.json();
@@ -112,9 +123,14 @@ let lexical = {};
 try {
   await page.goto(APP_URL + "?measure-semantic=" + Date.now(), { waitUntil: "networkidle", timeout: 60000 });
   await page.locator(".lifeos-shell-v2").waitFor({ state: "visible", timeout: 30000 });
+  // После сброса приложение заводит папку заново, и до этого момента запись не создаётся вовсе
+  // (`createNote` без папки отдаёт пустой id). Первая версия замера этого не ждала и получила
+  // лексическую колонку из нулей — то есть «текст не находит ничего», чего на самом деле нет.
+  await page.evaluate(() => window.__lifeosKnowledgeBase.resetForTest());
+  await page.getByTestId("surface-inbox").first().waitFor({ state: "visible", timeout: 20000 });
+  await page.waitForFunction(() => Boolean(window.__lifeosKnowledgeBase.getStateSnapshot().activeFolderId), null, { timeout: 20000 });
   lexical = await page.evaluate(async ({ records, pairs }) => {
     const api = window.__lifeosKnowledgeBase;
-    await api.resetForTest();
     const ids = {};
     for (const record of records) ids[record.id] = await api.seedOwnerNoteForTest(record.text, 0);
     const scores = {};
@@ -134,7 +150,7 @@ for (const record of RECORDS) vectors[record.id] = await embed(record.text);
 
 const rows = PAIRS.map((pair) => ({
   pair: pair.a + " ↔ " + pair.b,
-  связаны: pair.related,
+  чего: pair.kind,
   почему: pair.why,
   "по тексту": Math.round((lexical[pair.a + "|" + pair.b] || 0) * 1000) / 1000,
   "по смыслу": Math.round(cosine(vectors[pair.a], vectors[pair.b]) * 1000) / 1000
@@ -142,23 +158,34 @@ const rows = PAIRS.map((pair) => ({
 
 console.table(rows);
 
-const relatedScores = rows.filter((row) => row.связаны).map((row) => row["по смыслу"]);
-const noiseScores = rows.filter((row) => !row.связаны).map((row) => row["по смыслу"]);
-const worstRelated = Math.min(...relatedScores);
-const bestNoise = Math.max(...noiseScores);
+const scoresOf = (kind) => rows.filter((row) => row.чего === kind).map((row) => row["по смыслу"]);
+const semantic = scoresOf("смысл");
+const context = scoresOf("контекст");
+const noise = scoresOf("шум");
+const worstSemantic = Math.min(...semantic);
+const bestNoise = Math.max(...noise);
 
-console.log("\nСмысл: худшая настоящая пара " + worstRelated + ", лучший шум " + bestNoise);
-if (worstRelated > bestNoise) {
-  console.log("Разрыв есть. Порог по замеру (середина): " + (Math.round(((worstRelated + bestNoise) / 2) * 1000) / 1000));
+console.log("\nМодель: " + MODEL + (PREFIX ? " (с префиксом «" + PREFIX.trim() + "»)" : ""));
+console.log("Пары об одном предмете: " + JSON.stringify(semantic) + " — худшая " + worstSemantic);
+console.log("Шум: " + JSON.stringify(noise) + " — лучший " + bestNoise);
+console.log("Связи по контексту жизни: " + JSON.stringify(context) + " — от эмбеддингов НЕ ждём, это дело графа");
+
+if (worstSemantic > bestNoise) {
+  const threshold = Math.round(((worstSemantic + bestNoise) / 2) * 1000) / 1000;
+  const margin = Math.round((worstSemantic - bestNoise) * 1000) / 1000;
+  console.log("\nРазрыв ЕСТЬ: " + margin + " (порог по середине — " + threshold + ").");
+  if (semantic.length < 6 || margin < 0.08) {
+    console.log("Но фиксировать порог по нему НЕЛЬЗЯ: пар об одном предмете всего " + semantic.length +
+      ", запас " + margin + ". Нужен корпус пар из настоящих записей владельца, а не из этой заготовки.");
+  }
 } else {
-  console.log("РАЗРЫВА НЕТ: на этих данных эмбеддинги не отделяют смысл от шума.");
-  console.log("Включать «похожее по смыслу» с таким разделением нельзя — связь, которой нет, дороже отсутствующей.");
+  console.log("\nРАЗРЫВА НЕТ: на этих данных модель не отделяет «об одном» от шума.");
+  console.log("Включать «похожее по смыслу» нельзя — связь, которой нет, дороже отсутствующей.");
 }
 
-const lexRelated = Math.min(...rows.filter((row) => row.связаны).map((row) => row["по тексту"]));
-const lexNoise = Math.max(...rows.filter((row) => !row.связаны).map((row) => row["по тексту"]));
-console.log("Текст (для сравнения): худшая настоящая пара " + lexRelated + ", лучший шум " + lexNoise);
-console.log("Пары, которые текст НЕ находит, а смысл находит — это и есть польза эмбеддингов:");
+console.log("\nТекст (для сравнения): пары об одном " + JSON.stringify(rows.filter((row) => row.чего === "смысл").map((row) => row["по тексту"])) +
+  ", лучший шум " + Math.max(...rows.filter((row) => row.чего === "шум").map((row) => row["по тексту"])));
+console.log("Где смысл сильнее текста (в этом и была бы польза):");
 for (const row of rows) {
-  if (row.связаны && row["по тексту"] < 0.1 && row["по смыслу"] > bestNoise) console.log("  · " + row.pair + " (" + row.почему + ")");
+  if (row.чего === "смысл" && row["по тексту"] < 0.1 && row["по смыслу"] > bestNoise) console.log("  · " + row.pair + " — " + row.почему);
 }
