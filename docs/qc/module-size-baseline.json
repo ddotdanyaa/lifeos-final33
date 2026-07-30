@@ -4,7 +4,7 @@
   "files": [
     {
       "file": "app.js",
-      "kb": 1452
+      "kb": 1465
     },
     {
       "file": "ui/v34-platform.js",
@@ -123,6 +123,10 @@
       "kb": 7
     },
     {
+      "file": "core/receipt-ocr.mjs",
+      "kb": 6
+    },
+    {
       "file": "ui/components/ReaderSurface.js",
       "kb": 6
     },
@@ -139,12 +143,12 @@
       "kb": 5
     },
     {
-      "file": "ui/components/InspectorDrawer.js",
+      "file": "ui/components/AssistantInput.js",
       "kb": 5
     },
     {
-      "file": "ui/components/AssistantInput.js",
-      "kb": 4
+      "file": "ui/components/InspectorDrawer.js",
+      "kb": 5
     },
     {
       "file": "ui/components/FlowCanvas.js",
