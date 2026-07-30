@@ -10936,6 +10936,12 @@ async function streamOllamaChatAnswer(endpoint, model, prompt, numPredict, signa
   const response = await fetch(base + "/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    // ЗАМЕР 2026-07-30, записан здесь, чтобы следующая сессия не повторяла попытку: `think: false`
+    // на `/api/generate` рассуждение НЕ выключает. Проверено прямым запросом — `qwen3:4b` всё равно
+    // начинает с «Okay, let's…», и владелец видит рассуждение вслух вместо ответа. Флаг работает
+    // только там, где ответ ограничен схемой (`format: "json"` в разборе речи) или на `/api/chat`,
+    // где у размышления свой канал. Переход чата на `/api/chat` — отдельный пакет, не приписка сюда:
+    // ставить здесь флаг-пустышку значило бы отчитаться правкой, которой нет.
     body: JSON.stringify({ model, prompt, stream: true, options: { num_predict: Number.isFinite(numPredict) ? numPredict : 500 } }),
     signal
   });
@@ -12980,7 +12986,13 @@ function render() {
   if (focusedId) {
     const restored = document.getElementById(focusedId);
     if (restored) {
-      restored.focus();
+      // `preventScroll` обязателен. Возврат фокуса случается на КАЖДОЙ перерисовке, в том числе
+      // сразу после смены экрана, и браузер прокручивает страницу к полю, которое вернул. Полный
+      // прогон 2026-07-30 поймал это тремя спеками: Чат открывался на 634 px, Агенты на 670 px,
+      // Плеер на 9 px — владелец нажимал раздел и попадал в его середину. Три сброса прокрутки в
+      // `set-surface` тут не помогали: фокус возвращается ПОСЛЕ них. Фокус обязан возвращаться,
+      // не двигая вид: одно не имеет отношения к другому.
+      restored.focus({ preventScroll: true });
       if (focusedStart !== null && typeof restored.setSelectionRange === "function") {
         try { restored.setSelectionRange(focusedStart, focusedEnd); } catch (error) { /* поле без выделения */ }
       }
