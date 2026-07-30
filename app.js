@@ -12964,6 +12964,13 @@ function applyTheme(state) {
   }
 }
 
+// Экран, отрисованный в прошлый раз. Нужен ровно для одного: понять, что владелец СМЕНИЛ раздел,
+// и показать новый раздел С НАЧАЛА. Сбросы прокрутки в `set-surface` этого не добивались: они
+// стоят до перерисовки, а тяжёлые экраны дорастают после неё, и браузер возвращает прежний
+// отступ. Проба руками (2026-07-30, `tools/probe-live-interaction.mjs`) поймала четыре раздела из
+// девяти: Календарь открывался на 158 px, Контроль на 400 px, Системы и База на 18 px.
+let lastRenderedSurface = "";
+
 function render() {
   if (!store) return;
   if (graphEngine) {
@@ -13013,6 +13020,15 @@ function render() {
   mountCalendarNowScroll();
   scrollChatThreadToLatest();
   updateSaveStatus();
+  // Новый раздел показывается С НАЧАЛА. Сброс стоит ПОСЛЕ монтирования тяжёлых частей (граф,
+  // календарь, плеер): они дорисовываются здесь же, и сброс до них браузер отменял. Внутренние
+  // прокрутки — «сейчас» в календаре и последнее сообщение в чате — свои и не трогаются: они
+  // двигают СВОЙ контейнер, а не страницу владельца.
+  const renderedSurface = cleanLine(state.activeSurface || "");
+  if (renderedSurface !== lastRenderedSurface) {
+    lastRenderedSurface = renderedSurface;
+    window.scrollTo(0, 0);
+  }
 }
 
 function scheduleProjectionKey(item) {
