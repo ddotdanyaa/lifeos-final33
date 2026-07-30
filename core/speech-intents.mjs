@@ -15,6 +15,9 @@ import {
 import {
   parseDateFromText
 } from "./ru-parse.mjs";
+import {
+  normalizeSpokenAmounts
+} from "./ru-money.mjs";
 
 export function groupForProposalType(type) {
   const key = String(type || "");
@@ -141,6 +144,28 @@ export function validateSpeechIntents(intents, sourceText) {
       const checked = validateSpeechIntentField(schema.fields[name], value);
       if (checked !== null) fields[name] = checked;
     }
+    // Число, которого владелец не произносил, — выдумка, даже если цитата настоящая. Замер
+    // 2026-07-30 на 24 голосовых: `qwen3:4b` вернула «доход 8701 ₽» при сказанном 8700 и смену
+    // «00:00–23:59, 23.99 ч» из фразы про замену масла. Цитату оба прошли: она дословная. Поэтому
+    // у намерений ОТ МОДЕЛИ суммы и часы обязаны стоять в словах владельца цифрами — правила
+    // считать умеют (ставка за час выводится из смены), модель считать не уполномочена.
+    if (cleanLine(raw && raw.origin ? String(raw.origin) : "") === "model") {
+      const spoken = normalizeSpokenAmounts(String(sourceText || ""));
+      const heardNumber = (value) => new RegExp("(?<![\\d.,])" + String(value).replace(".", "[.,]") + "(?![\\d])", "u").test(spoken);
+      const invented = Object.keys(fields).find((name) => {
+        const kind = schema.fields[name];
+        if (kind === "money" || kind === "hours") return !heardNumber(fields[name]);
+        // У времени сверяется ЧАС, а не строка: владелец говорит «с 16», а не «16:00», и требовать
+        // от модели дословного «16:00» значило бы отклонять верное. Зато «Смена 00:00–08:00» из
+        // фразы про август отклоняется — ни нуля, ни восьмёрки он не произносил.
+        if (kind === "time") return !heardNumber(Number(String(fields[name]).slice(0, 2)));
+        return false;
+      });
+      if (invented) {
+        rejected.push({ type, reason: "числа нет в словах владельца: " + invented + "=" + fields[invented] });
+        continue;
+      }
+    }
     if (!schema.anyOf.some((name) => fields[name] !== undefined)) {
       rejected.push({ type, reason: "нет обязательного поля: " + schema.anyOf.join(" или ") });
       continue;
@@ -192,13 +217,16 @@ export const SPEECH_MEETING_RE = /(?<![А-Яа-яЁё])(еду|едем|поед
 export const SPEECH_MEETING_PERSON_RE = /(?<![А-Яа-яЁё])(?:к|ко|с|со)\s+([А-ЯЁ][а-яё]{2,})/u;
 
 // Число, за которым стоит единица измерения, деньгами не является. Без этого «3 часа» из
-// рассказа о смене становилось суммой, а «с 8 до 11» — двумя.
-export const SPEECH_MEASURE_RE = /\d{1,3}(?:[.,]\d)?\s*(?:час[а-яё]*|мин[а-яё]*|лет|год[а-яё]*|кг|км|штук[а-яё]*|%)/giu;
+// рассказа о смене становилось суммой, а «с 8 до 11» — двумя. Страницы, дни и недели добавлены
+// по замеру на настоящей речи: «20 страниц за вечер» доходило до владельца расходом 20 ₽.
+export const SPEECH_MEASURE_RE = /\d{1,3}(?:[.,]\d)?\s*(?:час[а-яё]*|мин[а-яё]*|сек[а-яё]*|лет|год[а-яё]*|кг|км|штук[а-яё]*|страниц[а-яё]*|дн[еяй][а-яё]*|недел[а-яё]*|месяц[а-яё]*|%)/giu;
 
 // Суммы в одной фразе. Голое число считается деньгами только с трёх знаков: в речи «шестнадцать»
 // это час, а не рубли; двузначное становится суммой лишь рядом со словом «рубль».
+// Расшифровка приходит с разговорными числами («28 тысяч», «6 800»), поэтому сначала сумма
+// приводится к цифрам — иначе владелец видит 28 ₽ вместо 28 000 ₽ (замер 2026-07-30).
 export function speechMoneyCandidates(clause) {
-  const text = String(clause || "");
+  const text = normalizeSpokenAmounts(String(clause || ""));
   const blocked = [];
   for (const match of text.matchAll(new RegExp(SPEECH_RANGE_RE.source, "giu"))) blocked.push([match.index, match.index + match[0].length]);
   for (const match of text.matchAll(SPEECH_MEASURE_RE)) blocked.push([match.index, match.index + match[0].length]);
@@ -269,9 +297,12 @@ export function extractSpeechIntents(text) {
   //    превращается в три записи, две из которых он не вводил.
   const money = [];
   clauses.forEach((clause) => {
-    const totalMatch = clause.match(SPEECH_TOTAL_RE);
-    const markerIndex = totalMatch ? clause.indexOf(totalMatch[0]) : -1;
-    const candidates = speechMoneyCandidates(clause);
+    // Слово-итог и суммы ищутся в ОДНОМ И ТОМ ЖЕ тексте: после приведения «28 тысяч» к «28000»
+    // длина фразы меняется, и позиция слова-итога из исходной строки указывала бы не туда.
+    const moneyText = normalizeSpokenAmounts(clause);
+    const totalMatch = moneyText.match(SPEECH_TOTAL_RE);
+    const markerIndex = totalMatch ? moneyText.indexOf(totalMatch[0]) : -1;
+    const candidates = speechMoneyCandidates(moneyText);
     // Слово-итог смотрит ВПЕРЁД: «получается 4700», «итого 4700». Поэтому итогом становится
     // ближайшая сумма ПОСЛЕ слова, и только если после него сумм нет вовсе («4700 всего») —
     // ближайшая перед ним. Без этого правила итогом объявлялась часть: в «потом ещё 1700,

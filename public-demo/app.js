@@ -16,6 +16,7 @@ import {
   extractPeopleNames
 } from "./core/ru-entities.mjs";
 import {
+  SPOKEN_UNIT_TAIL_RE,
   extractBalanceAmount,
   extractFirstAmount,
   extractMerchant,
@@ -23,7 +24,9 @@ import {
   extractMoneyEntities,
   extractMoneyEntitiesHuman,
   inferFinanceCategory,
-  looksLikeBareMoneyEntry
+  looksLikeBareMoneyEntry,
+  normalizeSpokenAmounts,
+  parseShiftEntry
 } from "./core/ru-money.mjs";
 import {
   applyForceTick,
@@ -4875,28 +4878,6 @@ function unsplitPersonForm(state, formName) {
   return true;
 }
 
-// Срез 3 (v1.4): смена одной фразой - "отработал 12 часов, заработал 8700, бензин 1900".
-// Правила/regex, НЕ LLM (закон среза: LLM-парсинг не блокирует ежедневный цикл). Часы,
-// доход по глаголу, все остальные суммы с соседним словом - расходы смены.
-function parseShiftEntry(text) {
-  const clean = normalizeRuText(String(text || "")).toLocaleLowerCase();
-  if (!/(отработал|отработала|смена|смену)/.test(clean)) return null;
-  const hoursMatch = clean.match(/(\d{1,2}(?:[.,]\d)?)\s*час/);
-  const incomeMatch = clean.match(/(?:заработал[а]?|доход|привез[а-я]*|выручка)\s+(\d{3,6})/);
-  const hours = hoursMatch ? Number(hoursMatch[1].replace(",", ".")) : 0;
-  const income = incomeMatch ? Number(incomeMatch[1]) : 0;
-  if (!hours && !income) return null;
-  const expenses = [];
-  for (const match of clean.matchAll(/([а-яё]{3,})\s+(\d{2,6})\b|(\d{2,6})\s+(?:на\s+)?([а-яё]{3,})/g)) {
-    const label = match[1] || match[4];
-    const amount = Number(match[2] || match[3]);
-    if (!label || !amount) continue;
-    if (["заработал", "заработала", "доход", "выручка", "отработал", "отработала", "смена", "смену", "привез", "привезла", "часов", "часа", "час"].includes(label)) continue;
-    if (amount === income || (hoursMatch && String(amount) === hoursMatch[1])) continue;
-    expenses.push({ title: label.charAt(0).toLocaleUpperCase() + label.slice(1), amount });
-  }
-  return { hours, income, expenses };
-}
 
 
 
@@ -4945,6 +4926,11 @@ async function requestSpeechIntentsFromModel(text, options) {
         prompt: buildSpeechIntentPrompt(text),
         stream: false,
         format: "json",
+        // Размышление вслух выключено. Замер 2026-07-30 на 24 голосовых: `qwen3:4b` — модель,
+        // которая стоит у владельца, — вернула НЕ JSON во всех 24 случаях и потратила 11 минут
+        // вечера впустую. С `think:false` та же модель отвечает разбором. Для моделей без
+        // размышления поле безвредно: Ollama его игнорирует.
+        think: false,
         options: { temperature: 0, num_predict: 800 }
       }),
       signal: settings.signal
@@ -5069,7 +5055,12 @@ function analyzeArtifactInput(input, fileMeta, options) {
     || hasAnyText(lower, ["нужно", "надо", "сделать", "купить", "позвонить", "написать", "проверить", "подготовить", "отправить", "записаться", "выбрать", "починить", "оплатить", "задач", "дело", "запланируй", "добавь задач", "поставь задач"])
     || /\b(task|t[o]do)\b/i.test(lower);
   const isIncome = amount > 0 && (hasAnyText(lower, ["зарплата", "доход", "пришла", "получил", "заработал"]) || /\b(income|salary)\b/i.test(lower));
-  const isBalance = amount > 0 && (hasAnyText(lower, ["баланс", "остаток", "карта", "счет"]) || /\baccount\b/i.test(lower));
+  // «Осталось на карте 9 тысяч» уходило РАСХОДОМ на 9000 ₽ (замер 2026-07-30): в списке стояли
+  // «карта» и «счет», а владелец говорит «на карте», «на счету». Подстрочное сравнение падежа не
+  // знает, поэтому здесь стоят целые обороты, а не основы — так же, как в остальных словарях
+  // после пятого случая с русской морфологией. Остаток, записанный расходом, врёт про его деньги
+  // дважды: сумма уходит в минус и баланс не появляется вовсе.
+  const isBalance = amount > 0 && (hasAnyText(lower, ["баланс", "остаток", "осталось на карте", "осталось на счету", "на карте", "на счету", "на счете", "карта", "счет"]) || /\baccount\b/i.test(lower));
   const isSubscription = amount > 0 && (hasAnyText(lower, ["подписка", "ежемесячно", "каждый месяц", "счет"]) || /\b(subscription|bill)\b/i.test(lower));
   const isBudget = amount > 0 && (hasAnyText(lower, ["бюджет", "лимит"]) || /\b(limit|budget)\b/i.test(lower));
   // U2 MONEY_FAST: a bare "amount + category" entry with none of the keywords above (e.g.
@@ -5380,10 +5371,18 @@ function analyzeArtifactInput(input, fileMeta, options) {
     speechIntents = speech.intents;
     const intentDrafts = draftsFromSpeechIntents(speech.intents);
     const clauseDrafts = [];
+    // Смена уже несёт свои деньги: часы, заработок и траты расписаны в ОДНОМ объекте. Клауза
+    // «8 часов 4900» после этого добавляла РАСХОД на тот же заработок (замер 2026-07-30) — доход
+    // владельца превращался в трату. Суммы, которые смена уже забрала, поклаузно не разбираются.
+    const shiftClaimedAmounts = new Set(shift
+      ? [shift.income].concat((shift.expenses || []).map((item) => item.amount)).filter((value) => Number(value) > 0)
+      : []);
+    const moneyDraftTypes = new Set(["finance_expense", "finance_income", "balance", "budget", "subscription"]);
     for (const clause of splitCaptureClauses(text)) {
       if (speech.covered.has(clause)) continue;
       for (const item of analyzeArtifactInput(clause, {}, { noSplit: true }).drafts) {
         if (MACHINERY_DRAFT_IDS.has(item.draftId)) continue;
+        if (moneyDraftTypes.has(item.type) && shiftClaimedAmounts.has(Number(item.fields && item.fields.amount))) continue;
         addDraftOnce(clauseDrafts, item);
       }
     }

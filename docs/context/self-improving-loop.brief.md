@@ -3,7 +3,7 @@ subsystem: self-improving-loop
 covers:
   - app.js:9280-9470
   - ui/control.js
-updated: 2026-07-29
+updated: 2026-07-30
 ---
 
 # Бриф: петля самоулучшения (self-improving loop)
@@ -161,3 +161,7 @@ updated: 2026-07-29
 
 Без сервера гейт **пропускается вслух**, а не проходит молча: молчаливый зелёный здесь выглядел
 бы как «приложение запустилось».
+
+<!-- сверено с кодом 2026-07-30: правки прогона (разговорные суммы в `core/ru-money.mjs`, `think:false`
+     у Ollama, проверка чисел в `validateSpeechIntents`, имя кэша service worker) эту подсистему не
+     меняют — дата поднята после сверки, а не вместо неё. Замер: docs/MEASURE_2026-07-30_SPEECH_INTENTS.md -->

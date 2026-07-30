@@ -1,6 +1,6 @@
 // Схема имени — из удалённой сессии (хеш сборки). Значение обязано измениться вместе со
 // списком ниже: в прекэш добавлен новый модуль, и старый кэш отдал бы оболочку без него.
-const LIFEOS_CACHE = "lifeos-v34-794a06b-donor";
+const LIFEOS_CACHE = "lifeos-v34-spoken-money";
 const SHELL_ASSETS = [
   "/",
   "/index.html",

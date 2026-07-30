@@ -3,7 +3,7 @@ subsystem: graph-engine
 covers:
   - app.js:14800-15800
   - ui/graph.js
-updated: 2026-07-29
+updated: 2026-07-30
 ---
 
 # Бриф: граф жизни и связи (graph engine)
@@ -98,3 +98,7 @@ Louvain (кластеры тем), Брандес (мосты), скоринг �
 не на рёбра графа.
 
 Математика раскладки живёт в `core/graph-math.mjs` (`applyForceTick` и соседи).
+
+<!-- сверено с кодом 2026-07-30: правки прогона (разговорные суммы в `core/ru-money.mjs`, `think:false`
+     у Ollama, проверка чисел в `validateSpeechIntents`, имя кэша service worker) эту подсистему не
+     меняют — дата поднята после сверки, а не вместо неё. Замер: docs/MEASURE_2026-07-30_SPEECH_INTENTS.md -->

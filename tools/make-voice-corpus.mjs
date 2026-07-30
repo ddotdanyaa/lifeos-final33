@@ -11,24 +11,120 @@
 // говорит об этом честно и останавливается.
 //
 // Запуск: node tools/make-voice-corpus.mjs [путь-к-json]
-// Результат: JSON вида [{ said, heard }] — что было сказано и что услышала машина.
+// Результат: JSON вида [{ said, heard, expect }] — что было сказано, что услышала машина и что
+// владелец обязан увидеть объектами. `expect` — это ОЖИДАНИЕ, записанное ДО замера: без него
+// сравнение правил с моделью превращается в разглядывание двух списков, где обе стороны «вроде
+// ничего». Ожидание сформулировано по смыслу сказанного, а не по тому, что умеет разбор, — иначе
+// замер льстит второй раз, теперь уже нам.
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// Фразы владельца из его же сценария: смена, деньги, дела со сроком, чужая позиция, наблюдение.
+// Вечерний дамп владельца: смены, деньги, дела со сроком, встречи, чужая позиция, наблюдения.
 // Числа записаны словами — так их произносит человек, и так их слышит модель.
-const LINES = [
-  "Работаю сегодня с шестнадцати. Потратил восемьсот рублей на такси. Надо ответить Дмитрию до среды.",
-  "Сегодня отработал двенадцать часов, заработал восемь тысяч семьсот, бензин тысяча девятьсот.",
-  "Завтра в четырнадцать ноль ноль зал. Купить протеин две тысячи пятьсот.",
-  "Хочу купить машину до августа. Надо посчитать свободные деньги за три месяца.",
-  "Марина против кредита. Она согласна если без кредита.",
-  "Английский снова откладываю. После тренировки закрываю больше задач.",
-  "Напомни вечером записать доход. Смена с шестнадцати до двадцати двух.",
-  "Счёт за воду пришёл. Оплатить до пятницы тысячу двести."
+//
+// Двадцать четыре записи, а не восемь: разбор надо мерить на объёме одного вечера. На восьми
+// фразах разница между правилами и моделью тонет в единичном случае, а владелец диктует двадцать
+// с лишним раз за день.
+const RECORDS = [
+  {
+    said: "Работаю сегодня с шестнадцати. Потратил восемьсот рублей на такси. Надо ответить Дмитрию до среды.",
+    expect: [{ type: "shift", startTime: "16:00" }, { type: "finance_expense", amount: 800 }, { type: ["task", "reminder"] }]
+  },
+  {
+    said: "Сегодня отработал двенадцать часов, заработал восемь тысяч семьсот, бензин тысяча девятьсот.",
+    expect: [{ type: "shift", hours: 12 }, { type: "finance_income", amount: 8700 }, { type: "finance_expense", amount: 1900 }]
+  },
+  {
+    said: "Завтра в четырнадцать ноль ноль зал. Купить протеин две тысячи пятьсот.",
+    expect: [{ type: "calendar" }, { type: "finance_expense", amount: 2500 }]
+  },
+  {
+    said: "Хочу купить машину до августа. Надо посчитать свободные деньги за три месяца.",
+    expect: [{ type: ["goal", "money_goal"] }, { type: ["task", "reminder"] }]
+  },
+  {
+    said: "Марина против кредита. Она согласна если без кредита.",
+    expect: [{ type: ["claim", "insight", "knowledge"] }]
+  },
+  {
+    said: "Английский снова откладываю. После тренировки закрываю больше задач.",
+    expect: [{ type: ["insight", "knowledge", "note"] }]
+  },
+  {
+    said: "Напомни вечером записать доход. Смена с шестнадцати до двадцати двух.",
+    expect: [{ type: ["reminder", "task"] }, { type: "shift", startTime: "16:00" }]
+  },
+  {
+    said: "Счёт за воду пришёл. Оплатить до пятницы тысячу двести.",
+    expect: [{ type: ["finance_expense", "bill", "subscription"], amount: 1200 }, { type: ["task", "reminder"] }]
+  },
+  {
+    said: "Поработал с восьми до одиннадцати, три часа. Триста шестнадцать после налога пришло. Потом ещё тысяча семьсот, получается четыре тысячи семьсот всего.",
+    expect: [{ type: "shift", hours: 3 }, { type: "finance_income", amount: 4700 }]
+  },
+  {
+    said: "Еду к Володе. Надо в аптеку зайти.",
+    expect: [{ type: "calendar" }, { type: ["task", "reminder"] }]
+  },
+  {
+    said: "Завтра выхожу в семь утра, работаю до семи вечера, двенадцать часов.",
+    expect: [{ type: "shift", hours: 12 }]
+  },
+  {
+    said: "Заплатил за квартиру двадцать восемь тысяч. Осталось на карте девять тысяч.",
+    expect: [{ type: "finance_expense", amount: 28000 }, { type: "balance", amount: 9000 }]
+  },
+  {
+    said: "Позвонить маме в воскресенье. И записаться к стоматологу.",
+    expect: [{ type: ["task", "reminder"] }, { type: ["task", "reminder"] }]
+  },
+  {
+    said: "Купил кроссовки шесть тысяч четыреста. Дорого, но нужны были.",
+    expect: [{ type: "finance_expense", amount: 6400 }]
+  },
+  {
+    said: "Смена была тяжёлая, устал сильно. Спал пять часов.",
+    expect: [{ type: ["insight", "knowledge", "note"] }]
+  },
+  {
+    said: "В среду техосмотр машины в десять утра. Взять документы.",
+    expect: [{ type: "calendar" }, { type: ["task", "reminder"] }]
+  },
+  {
+    said: "За неделю заработал тридцать одну тысячу. Расходы одиннадцать тысяч. Отложить двадцать.",
+    expect: [{ type: "finance_income", amount: 31000 }, { type: "finance_expense", amount: 11000 }]
+  },
+  {
+    said: "Надо поменять масло до конца месяца, примерно четыре тысячи.",
+    expect: [{ type: ["task", "reminder"] }]
+  },
+  {
+    said: "Договорился с Сергеем на субботу, поедем смотреть машину.",
+    expect: [{ type: "calendar" }]
+  },
+  {
+    said: "Начал читать книгу про привычки. Двадцать страниц за вечер.",
+    expect: [{ type: ["insight", "knowledge", "note", "media", "book"] }]
+  },
+  {
+    said: "Отработал с девяти до девятнадцати, десять часов, вышло шесть тысяч восемьсот.",
+    expect: [{ type: "shift", hours: 10 }, { type: "finance_income", amount: 6800 }]
+  },
+  {
+    said: "Забыл записать вчерашнюю смену. Восемь часов, четыре тысячи девятьсот.",
+    expect: [{ type: "shift", hours: 8 }, { type: "finance_income", amount: 4900 }]
+  },
+  {
+    said: "Не хочу больше брать смены три дня подряд. Слишком выматывает.",
+    expect: [{ type: ["insight", "knowledge", "note"] }]
+  },
+  {
+    said: "Проверить страховку до десятого августа. Стоит около двенадцати тысяч.",
+    expect: [{ type: ["task", "reminder"] }]
+  }
 ];
 
 const ENDPOINT = process.env.WHISPER_CPP_ENDPOINT || "http://127.0.0.1:8090";
@@ -74,13 +170,16 @@ async function main() {
   const workDir = mkdtempSync(join(tmpdir(), "lifeos-voice-"));
   const corpus = [];
   try {
-    for (let index = 0; index < LINES.length; index += 1) {
-      const said = LINES[index];
+    for (let index = 0; index < RECORDS.length; index += 1) {
+      const record = RECORDS[index];
       const wavPath = join(workDir, "line-" + index + ".wav");
-      speakToWav(said, wavPath);
+      speakToWav(record.said, wavPath);
       const heard = await transcribe(wavPath);
-      corpus.push({ said, heard });
-      console.log("[" + (index + 1) + "/" + LINES.length + "] " + heard);
+      corpus.push({ said: record.said, heard, expect: record.expect });
+      console.log("[" + (index + 1) + "/" + RECORDS.length + "] " + heard);
+      // Пишем после КАЖДОЙ записи: двадцать четыре фразы — это четверть часа настоящей речи и
+      // настоящей расшифровки, и терять их из-за обрыва на последней — глупо.
+      writeFileSync(outPath, JSON.stringify(corpus, null, 2) + "\n", "utf8");
     }
   } finally {
     rmSync(workDir, { recursive: true, force: true });
