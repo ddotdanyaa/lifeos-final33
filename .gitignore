@@ -4,6 +4,11 @@ node_modules/
 /vendor/
 .env
 .env.*
+# Настоящие ключи от бесплатных LLM-провайдеров. В репозиторий не попадают НИКОГДА:
+# репозиторий публичный, а утёкший ключ выгребают за часы. Образец — tools/ai-keys.example.json.
+ai-keys.json
+tools/ai-keys.json
+tools/ai-keys.report.json
 *.local
 dist/
 build/

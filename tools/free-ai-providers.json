@@ -1,0 +1,174 @@
+{
+  "_": "Реестр бесплатных LLM-провайдеров. ДАННЫЕ, не программа: правится руками, кодом не генерируется.",
+  "_проверено": "2026-07-31 по публичным докам провайдеров и каталогу amardeeplakshkar/awesome-free-llm-apis (MIT). Лимиты и имена моделей дрейфуют — живую проверку делает tools/free-ai-keys.ps1, а не этот файл.",
+  "_доверие": "official = запрос идёт прямо к владельцу модели. aggregator = чужой прокси в середине: он видит твой промпт и твой код. Для секретного не использовать.",
+  "providers": [
+    {
+      "id": "groq",
+      "name": "Groq",
+      "trust": "official",
+      "base": "https://api.groq.com/openai/v1",
+      "env": "GROQ_API_KEY",
+      "signup": "https://console.groq.com/keys",
+      "model": "llama-3.3-70b-versatile",
+      "limits": "30 запросов/мин · 14 400 запросов/сутки",
+      "note": "Самый быстрый из бесплатных. Первый кандидат."
+    },
+    {
+      "id": "cerebras",
+      "name": "Cerebras",
+      "trust": "official",
+      "base": "https://api.cerebras.ai/v1",
+      "env": "CEREBRAS_API_KEY",
+      "signup": "https://cloud.cerebras.ai/",
+      "model": "llama-3.3-70b",
+      "limits": "30 запросов/мин · 14 400 запросов/сутки",
+      "note": "Скорость сравнима с Groq, запас токенов в минуту больше."
+    },
+    {
+      "id": "github",
+      "name": "GitHub Models",
+      "trust": "official",
+      "base": "https://models.github.ai/inference",
+      "base_fallback": "https://models.inference.ai.azure.com",
+      "env": "GITHUB_MODELS_TOKEN",
+      "signup": "https://github.com/settings/personal-access-tokens/new",
+      "model": "openai/gpt-4.1-mini",
+      "limits": "10-15 запросов/мин · 50-150 запросов/сутки · 8K вход / 4K выход",
+      "note": "Аккаунт GitHub у тебя уже есть — это самый короткий путь. Токену нужно право Models: Read-only. Даёт модели класса GPT-4.1 / o4-mini / DeepSeek."
+    },
+    {
+      "id": "google",
+      "name": "Google Gemini (AI Studio)",
+      "trust": "official",
+      "base": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "env": "GEMINI_API_KEY",
+      "signup": "https://aistudio.google.com/app/apikey",
+      "model": "gemini-2.5-flash",
+      "limits": "15 запросов/мин · 1 500 запросов/сутки (Flash)",
+      "note": "Большое окно контекста. У бесплатного тарифа отдельные условия по данным — читать перед отправкой личного."
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "trust": "official",
+      "base": "https://api.mistral.ai/v1",
+      "env": "MISTRAL_API_KEY",
+      "signup": "https://console.mistral.ai/api-keys",
+      "model": "mistral-small-latest",
+      "limits": "1 запрос/сек · до 1 млрд токенов/мес (тариф Experiment)",
+      "note": "Самая щедрая месячная квота. Тариф Experiment требует согласия на обучение на твоих данных — для секретного не брать."
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "trust": "official",
+      "base": "https://openrouter.ai/api/v1",
+      "env": "OPENROUTER_API_KEY",
+      "signup": "https://openrouter.ai/keys",
+      "model": "meta-llama/llama-3.3-70b-instruct:free",
+      "limits": "20 запросов/мин · 200 запросов/сутки на моделях с суффиксом :free",
+      "note": "Один ключ — десятки моделей. Удобен как запасной аэродром."
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA NIM",
+      "trust": "official",
+      "base": "https://integrate.api.nvidia.com/v1",
+      "env": "NVIDIA_API_KEY",
+      "signup": "https://build.nvidia.com/explore/discover",
+      "model": "meta/llama-3.3-70b-instruct",
+      "limits": "40 запросов/мин, расход стартовых кредитов",
+      "note": "Кредиты выдаются на старте и заканчиваются — это не вечный бесплатный тариф."
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face",
+      "trust": "official",
+      "base": "https://router.huggingface.co/v1",
+      "base_fallback": "https://api-inference.huggingface.co/v1",
+      "env": "HF_TOKEN",
+      "signup": "https://huggingface.co/settings/tokens",
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "limits": "около $0.10 кредитов в месяц",
+      "note": "Квота маленькая. Держать как резерв, не как основу."
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "trust": "official",
+      "base": "https://api.cohere.ai/compatibility/v1",
+      "env": "COHERE_API_KEY",
+      "signup": "https://dashboard.cohere.com/api-keys",
+      "model": "command-r-08-2024",
+      "limits": "20 запросов/мин · 1 000 запросов/мес (trial-ключ)",
+      "note": "OpenAI-совместимость частичная, через отдельный путь /compatibility/v1."
+    },
+    {
+      "id": "zhipu",
+      "name": "Zhipu AI (GLM)",
+      "trust": "official",
+      "base": "https://open.bigmodel.cn/api/paas/v4",
+      "env": "ZHIPU_API_KEY",
+      "signup": "https://open.bigmodel.cn/usercenter/apikeys",
+      "model": "glm-4-flash",
+      "limits": "не опубликованы",
+      "note": "Китайский провайдер, регистрация может требовать телефон. Модель glm-4-flash бесплатная."
+    },
+    {
+      "id": "chatanywhere",
+      "name": "chatanywhere (GPT_API_free)",
+      "trust": "aggregator",
+      "base": "https://api.chatanywhere.tech/v1",
+      "env": "CHATANYWHERE_API_KEY",
+      "signup": "https://github.com/chatanywhere/GPT_API_free",
+      "model": "gpt-4o-mini",
+      "limits": "порядка 200 запросов/сутки на gpt-4o-mini, выдаётся по аккаунту GitHub",
+      "note": "ЧУЖОЙ ПРОКСИ к OpenAI. Работает, но твой промпт и твой код проходят через посредника. Только для публичного и черновой работы."
+    },
+    {
+      "id": "pollinations",
+      "name": "Pollinations AI",
+      "trust": "aggregator",
+      "base": "https://gen.pollinations.ai/v1",
+      "env": "POLLINATIONS_API_KEY",
+      "signup": "https://enter.pollinations.ai",
+      "model": "openai",
+      "limits": "сброс раз в час, точных цифр нет",
+      "note": "Чужой прокси. Часто работает вообще без ключа — тем и проверяется."
+    },
+    {
+      "id": "anyapi",
+      "name": "AnyAPI",
+      "trust": "aggregator",
+      "base": "https://api.anyapi.ai/v1",
+      "env": "ANYAPI_API_KEY",
+      "signup": "https://anyapi.ai",
+      "model": "gpt-4o-mini",
+      "limits": "20 запросов/мин · 200 запросов/сутки",
+      "note": "Чужой прокси."
+    },
+    {
+      "id": "unorouter",
+      "name": "UnoRouter",
+      "trust": "aggregator",
+      "base": "https://api.unorouter.com/v1",
+      "env": "UNOROUTER_API_KEY",
+      "signup": "https://unorouter.com/token",
+      "model": "gpt-4o-mini",
+      "limits": "около 1 запроса/мин на модель",
+      "note": "Чужой прокси, лимит очень узкий."
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama (локально)",
+      "trust": "local",
+      "base": "http://127.0.0.1:11434/v1",
+      "env": "OLLAMA_NO_KEY",
+      "signup": "https://ollama.com/download",
+      "model": "qwen3:4b",
+      "limits": "без лимитов, упирается в твоё железо",
+      "note": "Ключ не нужен вообще. Единственный вариант, где ни один байт не уходит наружу. В LifeOS уже подключён (core/ollama-chat.mjs)."
+    }
+  ]
+}
