@@ -8336,6 +8336,77 @@ function computeCalibration(state) {
   };
 }
 
+// ─── ЧЕМУ СИСТЕМА НАУЧИЛАСЬ ЗА ПЕРИОД ─────────────────────────────────────────────────────
+//
+// Требование владельца от 2026-08-01 дословно: «должна быть визуальная компонента, понятная,
+// чтобы понимать вообще, что установилось, что не установилось».
+//
+// Панель калибровки этого НЕ отвечает, и в этом была дыра: она показывает СНИМОК («принято 78%,
+// 12 решений»), а вопрос владельца — про ИЗМЕНЕНИЕ, которое произвели его правки. Между «система
+// знает, что этот тип принимают в 78% случаев» и «сегодня твои три исправления перевели этот тип
+// из „мало данных“ в „по твоим решениям“» разница та же, что между остатком на счёте и выпиской.
+//
+// Считается вычитанием, а не новым хранилищем: калибровка берётся дважды — на всех решениях и на
+// решениях БЕЗ окна — и сравнивается. Поэтому дельта не может разойтись с панелью калибровки:
+// она из неё и получена. Новой коллекции нет (И-7), сущность не заводится.
+function computeLearningDelta(state, sinceIso) {
+  const since = Date.parse(sinceIso || "") || (Date.now() - 86400000);
+  const rows = Object.values(state.decisions || {}).filter((row) => row && !row.deleted && !row.canary);
+  const fresh = rows.filter((row) => (Date.parse(row.createdAt || "") || 0) >= since);
+
+  // Калибровка «как было бы без этих решений»: то же вычисление на урезанном журнале.
+  const before = computeCalibration({
+    ...state,
+    decisions: Object.fromEntries(
+      Object.entries(state.decisions || {}).filter(([, row]) => (Date.parse(row.createdAt || "") || 0) < since)
+    )
+  });
+  const after = computeCalibration(state);
+
+  // Что именно сдвинулось по типам. Переход «мало данных → по твоим решениям» важнее процента:
+  // он означает, что система впервые начала опираться на владельца в этом типе.
+  const changes = [];
+  for (const row of after.types) {
+    const was = before.byType[row.type];
+    if (!was) {
+      // Появление типа в журнале — ещё НЕ изменение поведения: пока решений меньше порога
+      // доверия, уверенность остаётся заявленной, и система ведёт себя ровно как вчера.
+      // Показывать это как «научилась» значит рисовать движение там, где его нет.
+      if (row.trusted) changes.push({ type: row.type, kind: "стал измеренным", now: row, decisions: row.decisions });
+      continue;
+    }
+    if (!was.trusted && row.trusted) {
+      changes.push({ type: row.type, kind: "стал измеренным", now: row, was, decisions: row.decisions - was.decisions });
+      continue;
+    }
+    const shift = row.acceptance - was.acceptance;
+    // Порог 5%: меньше — это шум округления, а не обучение. Показывать его значит врать о движении.
+    if (row.trusted && Math.abs(shift) >= 0.05) {
+      changes.push({ type: row.type, kind: shift > 0 ? "принимается чаще" : "принимается реже", now: row, was, shift, decisions: row.decisions - was.decisions });
+    }
+  }
+
+  const applied = fresh.filter((row) => row.decision === "applied");
+  const edited = fresh.filter((row) => row.edited);
+  return {
+    since: new Date(since).toISOString(),
+    signals: fresh.length,
+    applied: applied.length,
+    dismissed: fresh.length - applied.length,
+    // Правка при принятии — самый честный сигнал: приняли, но поняли наполовину.
+    edited: edited.length,
+    changes: changes.sort((a, b) => Math.abs(b.shift || 1) - Math.abs(a.shift || 1)).slice(0, 6),
+    // Заморозка важнее любой цифры выше: пока канарейка красная, ни одно число не знание.
+    frozen: Boolean(after.canaryFrozen),
+    drifted: Boolean(after.drifted),
+    // Источники, по которым владелец может проверить каждую строку (И-6: без провенанса не показываем).
+    sources: fresh.slice(-8).map((row) => ({
+      id: row.id, type: row.type, decision: row.decision, edited: Boolean(row.edited),
+      dayPart: row.dayPart, noteId: row.noteId || "", sourceId: row.sourceId || "", createdAt: row.createdAt
+    }))
+  };
+}
+
 // Уверенность предложения: эмпирическая, когда данных хватает; заявленная — когда нет.
 // Никогда не «средняя между ними»: смешивать измеренное с назначенным значит перестать
 // понимать, откуда взялось число.
@@ -13513,6 +13584,10 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     // О3: что система знает о СВОИХ предложениях по решениям владельца. Экран не заводим —
     // это данные для уже существующего Контроля (И-7).
     calibration: computeCalibration(state),
+    // «Что установилось, а что нет» — окно СКОЛЬЗЯЩЕЕ, в сутках, а не «с полуночи». Причина
+    // инженерная: местная полночь против UTC уже уводила сроки на день (MEMORY.md §4), и целый
+    // класс этих ошибок здесь просто не возникает.
+    learning: computeLearningDelta(state, new Date(Date.now() - 86400000).toISOString()),
     // О4: согласие и правда отдельно. Если система нравится владельцу, не будучи полезной, это
     // должно быть видно ему, а не только ей.
     sycophancy: computeSycophancy(state),
@@ -24895,6 +24970,7 @@ window.__lifeosKnowledgeBase = {
   // О1–О3: журнал решений, ретро-заполнение и калибровка. Чистая логика — спека обязана уметь
   // проверить их без недели ожидания и без живого владельца.
   computeCalibration,
+  computeLearningDelta,
   calibratedConfidence,
   // О7: вытеснение проверяется целиком — обнаружение, предложение, применение, откат.
   addGoalForTest(title) {
@@ -25054,6 +25130,9 @@ window.__lifeosKnowledgeBase = {
   },
   computeCalibrationForTest() {
     return store ? computeCalibration(store.state) : null;
+  },
+  computeLearningDeltaForTest(sinceIso) {
+    return store ? computeLearningDelta(store.state, sinceIso || new Date(Date.now() - 86400000).toISOString()) : null;
   },
   seedDecisionsForTest(rows) {
     if (!store) return Promise.resolve(0);

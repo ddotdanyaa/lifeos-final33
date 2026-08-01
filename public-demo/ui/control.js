@@ -326,6 +326,75 @@ function renderReceiptJournal(ctx) {
   ].join("");
 }
 
+// ЧЕМУ СИСТЕМА НАУЧИЛАСЬ ЗА СУТКИ. Требование владельца: «понимать, что установилось, что не
+// установилось». Панель калибровки ниже отвечает на другой вопрос — она показывает СНИМОК
+// («принято 78%»), а здесь показано ИЗМЕНЕНИЕ, которое произвели его собственные правки.
+//
+// Три правила, без которых панель начнёт врать:
+//   • Нет сигналов — так и сказано. Нарисованная активность на пустых сутках обесценивает экран
+//     сильнее, чем его отсутствие.
+//   • Заморозка канарейки печатается ПЕРВОЙ и отменяет остальное: пока она красная, ни один
+//     процент ниже не является знанием.
+//   • Каждая строка ведёт к решению, из которого получена (И-6). Вывода без основания нет.
+function renderLearningPanel(ctx) {
+  const learning = ctx.learning;
+  if (!learning) return "";
+  const plural = (n, one, few, many) => (n % 10 === 1 && n % 100 !== 11 ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many));
+
+  if (!learning.signals) {
+    return [
+      `<section class="control-learning" data-testid="control-learning">`,
+      `<h3>Чему система научилась за сутки</h3>`,
+      `<p class="empty-inline" data-testid="learning-empty">За сутки ты ничего не подтверждал и не отклонял — учиться было не на чем. Это не сбой: система молчит, когда сигналов нет.</p>`,
+      `</section>`
+    ].join("");
+  }
+
+  const head = `Сигналов от тебя: ${learning.signals} — принято ${learning.applied}, отклонено ${learning.dismissed}`
+    + (learning.edited ? `, из них с правкой ${learning.edited}` : "");
+
+  return [
+    `<section class="control-learning" data-testid="control-learning">`,
+    `<h3>Чему система научилась за сутки</h3>`,
+    `<p class="control-learning-head" data-testid="learning-signals">${escapeHtml(head)}.</p>`,
+    learning.frozen
+      ? `<p class="control-calibration-drift" data-testid="learning-frozen">Обучение заморожено канарейкой: пока точность на замороженных вердиктах не восстановлена, ни одно изменение ниже не считается знанием.</p>`
+      : "",
+    learning.drifted
+      ? `<p class="control-calibration-drift" data-testid="learning-drift">Твои последние решения разошлись с прежними — история обнулена, система учится заново.</p>`
+      : "",
+    learning.changes.length
+      ? learning.changes.map((change) => {
+          const shift = typeof change.shift === "number"
+            ? ` (${change.shift > 0 ? "+" : ""}${Math.round(change.shift * 100)}%)`
+            : "";
+          return [
+            `<div class="control-learning-row" data-testid="learning-change">`,
+            `<strong>${escapeHtml(change.type)}</strong>`,
+            `<span data-testid="learning-change-kind">${escapeHtml(change.kind)}${shift}</span>`,
+            `<em>${change.decisions} ${plural(change.decisions, "новое решение", "новых решения", "новых решений")}</em>`,
+            `</div>`
+          ].join("");
+        }).join("")
+      : `<p class="control-learning-head" data-testid="learning-no-change">Сигналы записаны, но поведение пока не сдвинулось: их слишком мало, чтобы менять уверенность. Честнее не двигать, чем двигать по шуму.</p>`,
+    learning.sources.length
+      ? [
+          `<details class="control-learning-sources"><summary data-testid="learning-sources-toggle">Из чего это получено</summary>`,
+          learning.sources.map((row) => [
+            `<div class="control-learning-source" data-testid="learning-source">`,
+            `<span>${escapeHtml(row.type || "без типа")}</span>`,
+            `<span>${row.decision === "applied" ? "принято" : "отклонено"}${row.edited ? " с правкой" : ""}</span>`,
+            `<em>${escapeHtml(row.dayPart || "")}</em>`,
+            row.noteId ? button("open-object", "Открыть", { id: row.noteId, kind: "ghost", testId: "learning-source-open" }) : "",
+            `</div>`
+          ].join("")).join(""),
+          `</details>`
+        ].join("")
+      : "",
+    `</section>`
+  ].join("");
+}
+
 // О3 · КАЛИБРОВКА, показанная честно. Уверенности в разборе назначались руками (0.7, 0.72,
 // 0.84) — это привычка автора, а не знание о владельце. Настоящая уверенность — доля
 // предложений этого типа, которые он ПРИНЯЛ.
@@ -399,6 +468,9 @@ export function renderControl(ctx) {
       (event) => `<div class="control-event" data-testid="audit-row"><strong>${escapeHtml(auditTypeLabel(event.type))}</strong><span>${escapeHtml(compactText(auditSummaryText(event.summary || ""), 130))}</span><time>${escapeHtml(auditStamp(event.createdAt || event.at || ""))}</time></div>`,
       `<div class="empty-inline">Изменений пока нет.</div>`
     ),
+    // «Что изменилось» стоит ПЕРЕД «что накоплено»: владелец приходит проверить свои правки,
+    // а не читать сводный процент.
+    renderLearningPanel(ctx),
     renderCalibrationPanel(ctx),
     renderOwnerInstructions(ctx),
     renderDataPolicySwitch(ctx),
