@@ -77,7 +77,22 @@ function renderInsightsPanel(ctx) {
     safeList(insights, (insight) => [
       `<div class="insight-card" data-testid="insight-card" data-insight="${escapeHtml(insight.id)}">`,
       `<span class="insight-icon" aria-hidden="true">${insight.icon}</span>`,
-      `<div class="insight-body"><strong>${escapeHtml(insight.title)}</strong><span>${escapeHtml(insight.detail)}${insight.confidence === "высокая" ? "" : " · пока предположение"}</span></div>`,
+      `<div class="insight-body"><strong>${escapeHtml(insight.title)}</strong><span>${escapeHtml(insight.detail)}${insight.confidence === "высокая" ? "" : " · пока предположение"}</span>`,
+      // Основания вывода. Без них «третий день подряд» — утверждение, которое нечем проверить:
+      // владелец видел вывод, но не мог дойти до записей, из которых он сделан.
+      insight.sources && insight.sources.length
+        ? [
+            `<div class="insight-sources" data-testid="insight-sources">`,
+            `<span class="insight-sources-label">из записей:</span>`,
+            insight.sources.map((source) => [
+              `<button type="button" class="insight-source" data-action="open-note" data-id="${escapeHtml(source.id)}" data-testid="insight-source">`,
+              `${escapeHtml(source.day)} · ${escapeHtml(source.title)}`,
+              `</button>`
+            ].join("")).join(""),
+            `</div>`
+          ].join("")
+        : `<span class="insight-sources-none" data-testid="insight-sources-none">основания не сохранены — этот вывод проверить нечем</span>`,
+      `</div>`,
       // I2: у инсайта-связи ещё «Связать» - подтверждённо создаёт реальное ребро графа (Tana
       // proposals-before-write; §7 confirm+receipt). У остальных инсайтов - только «Закрепить».
       insight.type === "connection"
@@ -85,7 +100,12 @@ function renderInsightsPanel(ctx) {
         : insight.type === "project-suggestion"
           ? button("create-project-cluster", "Создать проект", { id: insight.id, kind: "primary", testId: "create-project-cluster" })
           : "",
+      // Путь от вывода к делу: обработчик существовал, кнопки не было — вывод был тупиком.
+      button("insight-to-deed", "Сделать задачей", { id: insight.id, kind: "ghost", testId: "insight-to-deed" }),
       button("pin-insight", "Закрепить", { id: insight.id, kind: "ghost", testId: "pin-insight" }),
+      // «Не то» — единственная возможность поправить систему там, где она говорит о владельце
+      // своими словами. Без неё выводы копятся, врут и не исправляются.
+      button("dismiss-insight", "Не то", { id: insight.id, kind: "ghost", testId: "dismiss-insight" }),
       `</div>`
     ].join(""), ""),
     `</div>`,

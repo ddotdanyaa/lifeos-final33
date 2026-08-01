@@ -8623,6 +8623,42 @@ audio {
   font-size: var(--text-xs);
 }
 
+/* Основания вывода: даты и записи, из которых он сделан. Переносятся, а не растягивают колонку —
+   переполнение колонок уже ловил visual-integrity.spec.mjs. */
+.insight-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  min-width: 0;
+}
+
+.insight-sources-label,
+.insight-sources-none {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.insight-source {
+  border: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-1);
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insight-source:hover {
+  color: var(--text-main);
+  border-color: var(--line);
+}
+
 .evening-reflection p {
   margin: 0;
   color: var(--text-main);

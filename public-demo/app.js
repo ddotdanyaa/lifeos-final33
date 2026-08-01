@@ -891,6 +891,9 @@ function createInitialState() {
     habits: {},
     entityAliases: {},
     dismissedPersonMerges: [],
+    // Отклонённые владельцем выводы. Вычисленный инсайт объектом не является, поэтому хранится
+    // не он, а его идентификатор — как у отклонённых слияний людей.
+    dismissedInsights: [],
     personSplits: [],
     agentSchedules: {},
     financeAccounts: {},
@@ -2379,6 +2382,7 @@ function normalizeState(input) {
     habits: base.habits || {},
     entityAliases: base.entityAliases && typeof base.entityAliases === "object" ? base.entityAliases : {},
     dismissedPersonMerges: Array.isArray(base.dismissedPersonMerges) ? base.dismissedPersonMerges : [],
+    dismissedInsights: Array.isArray(base.dismissedInsights) ? base.dismissedInsights : [],
     // Формы имён, про которые владелец сказал «это разные люди»: сведение по основе для них
     // отключено. Без этого поля состояние пересобиралось бы белым списком и разделение молча
     // терялось при следующей загрузке.
@@ -10426,10 +10430,13 @@ function addTaskForGoal(state, goalId, title) {
 function ensureInsight(state, title, reason, options) {
   const cleanTitle = cleanLine(title);
   if (!cleanTitle) return "";
-  const existing = Object.values(state.insights || {}).find((insight) => {
-    return insight.status !== "ignored" && normalizeTitle(insight.title) === normalizeTitle(cleanTitle);
-  });
-  if (existing) return existing.id;
+  const same = Object.values(state.insights || {}).filter((insight) => normalizeTitle(insight.title) === normalizeTitle(cleanTitle));
+  const live = same.find((insight) => insight.status !== "ignored");
+  if (live) return live.id;
+  // Отклонённое НЕ пересоздаётся. Прежняя проверка искала только среди неотклонённых, не находила
+  // — и заводила вывод заново: отклонение владельца не подавляло вывод, а воскрешало его.
+  // Возвращаем существующий отклонённый: он есть, и второй копии заводить не нужно (закон №4).
+  if (same.length) return same[0].id;
   return addInsight(state, cleanTitle, reason, options || {});
 }
 
@@ -13655,7 +13662,17 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     memoryLayers: memoryLayers(state),
     resolvedPeople: resolvePeople(state),
     personMergeSuggestions: personMergeSuggestions(state),
-    computedInsights: computeInsights(state),
+    // Источники вывода разворачиваются ЗДЕСЬ: `refs` считались у большинства детекторов и не
+    // рисовались ни разу, поэтому от вывода до записи владелец дойти не мог. Дата обязательна —
+    // «третий день подряд» проверяется датами, а не количеством ссылок.
+    computedInsights: computeInsights(state).map((insight) => ({
+      ...insight,
+      sources: (insight.refs || [])
+        .map((refId) => state.notes[refId])
+        .filter((note) => note && !note.deleted)
+        .slice(0, 4)
+        .map((note) => ({ id: note.id, title: shorten(cleanLine(note.title), 48), day: String(note.createdAt || "").slice(0, 10) }))
+    })),
     lifeFocus: computeLifeFocus(state),
     dayStream: computeDayStream(state),
     lifeSpaces: LIFE_SPACES.map((row) => ({ id: row[0], label: row[1], active: (state.activeSpace || "all") === row[0] })),
@@ -18526,7 +18543,11 @@ function computeInsights(state) {
   // 6. I4: важные хабы (Neo4j centrality идея). 7. I6: доминирующие темы.
   for (const hub of detectGraphHubs(state)) insights.push(hub);
   for (const theme of detectDominantThemes(state)) insights.push(theme);
-  return insights.slice(0, 10);
+  // Отклонённое владельцем не возвращается. Фильтр стоит ЗДЕСЬ, а не в панели: тот же список
+  // кормит вечернюю рефлексию и «верхний инсайт», и отклонённый вывод не должен всплыть там,
+  // где его не отклоняли. Образец — `dismissedPersonMerges`.
+  const dismissed = new Set((state.dismissedInsights || []).map(String));
+  return insights.filter((insight) => !dismissed.has(String(insight.id))).slice(0, 10);
 }
 
 function eveningReflection(state) {
@@ -22194,6 +22215,30 @@ async function handleAction(action, id) {
     });
     return;
   }
+  // «Не то» — единственное место, где владелец может поправить систему в её собственных выводах.
+  // Отклонение обратимо: идентификатор лежит в списке, список виден в Контроле.
+  if (action === "dismiss-insight") {
+    const computed = computeInsights(store.state).find((item) => item.id === id);
+    if (computed) {
+      await store.commit("Вывод отклонён владельцем", (state) => {
+        if (!Array.isArray(state.dismissedInsights)) state.dismissedInsights = [];
+        if (!state.dismissedInsights.includes(String(id))) state.dismissedInsights.push(String(id));
+        addAudit(state, "insight.dismiss", "Вывод отклонён: " + computed.title, computed.refs && computed.refs[0] ? computed.refs[0] : "");
+      });
+    }
+    return;
+  }
+  // «Сделать задачей» — обработчик `insight-to-task` существовал, но ни одна кнопка живого
+  // интерфейса его не вызывала: путь от вывода к делу был написан и недостижим.
+  if (action === "insight-to-deed") {
+    const computed = computeInsights(store.state).find((item) => item.id === id);
+    if (computed) {
+      await store.commit("Задача из вывода", (state) => {
+        addTask(state, computed.title, { noteId: computed.refs && computed.refs[0] ? computed.refs[0] : state.activeNoteId || "" });
+      });
+    }
+    return;
+  }
   if (action === "pin-insight") {
     // Срез 11: закрепить вычисленный инсайт как постоянный артефакт (owner-gated, с receipt).
     const computed = computeInsights(store.state).find((item) => item.id === id);
@@ -25130,6 +25175,18 @@ window.__lifeosKnowledgeBase = {
   },
   computeCalibrationForTest() {
     return store ? computeCalibration(store.state) : null;
+  },
+  ensureInsightForTest(title, reason) {
+    if (!store) return Promise.resolve("");
+    let id = "";
+    return store.commit("Вывод обеспечен для теста", (state) => { id = ensureInsight(state, title, reason, {}); }).then(() => id);
+  },
+  ignoreInsightForTest(insightId) {
+    if (!store) return Promise.resolve(false);
+    return store.commit("Вывод отклонён для теста", (state) => { ignoreInsight(state, insightId); }).then(() => true);
+  },
+  insightsForTest() {
+    return store ? Object.values(store.state.insights || {}).filter((row) => !row.deleted) : [];
   },
   computeLearningDeltaForTest(sinceIso) {
     return store ? computeLearningDelta(store.state, sinceIso || new Date(Date.now() - 86400000).toISOString()) : null;
