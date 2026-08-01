@@ -1,0 +1,100 @@
+:root {
+  --bg: #0f1113;
+  --card: #16191c;
+  --line: #262b30;
+  --text: #e7eaed;
+  --muted: #8b949e;
+  --accent: #4b9fff;
+  --warn: #d9a441;
+  --radius: 10px;
+  --space: 12px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --line: #e3e6ea;
+    --text: #16191c; --muted: #62696f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.top {
+  display: flex; align-items: baseline; gap: var(--space);
+  padding: var(--space) 20px; border-bottom: 1px solid var(--line);
+}
+
+.brand { font-weight: 650; letter-spacing: -0.01em; }
+
+main {
+  max-width: 720px; margin: 0 auto; padding: 20px;
+  display: flex; flex-direction: column; gap: var(--space);
+}
+
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px;
+}
+
+.card h2 { margin: 0 0 10px; font-size: 15px; font-weight: 620; }
+
+textarea {
+  width: 100%; background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+  font: inherit; resize: vertical;
+}
+
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+button {
+  background: var(--card); color: var(--text); border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 12px; font: inherit; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.ghost { color: var(--muted); }
+
+.muted { color: var(--muted); font-size: 13px; }
+
+.fact, .insight, .change, .record {
+  border-top: 1px solid var(--line); padding: 12px 0;
+}
+.fact:first-of-type, .insight:first-of-type { border-top: none; }
+
+.fact-question { border-left: 2px solid var(--warn); padding-left: 10px; }
+
+.fact-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.tag {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+}
+
+.fact-why, .ask { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.ask { color: var(--warn); }
+
+.fact-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
+
+.similar, .sources { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+.chip {
+  font-size: 12px; padding: 3px 8px; color: var(--muted);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.source-line { font-style: italic; }
+.sources-block { margin-top: 10px; }
+.sources-block summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+
+.record p { margin: 4px 0 0; }
+.record.flash { background: rgba(75, 159, 255, 0.12); border-radius: 6px; }
+
+/* Широкое содержимое прокручивается внутри себя — страница не едет вбок. */
+.card { overflow-x: auto; }
