@@ -56,8 +56,10 @@
     "build:public": "node tools/build-public.mjs",
     "preview:public": "node tools/preview-public.mjs",
     "deploy:pages": "node tools/deploy-pages.mjs",
-    "verify": "node --check app.js && node smoke.mjs",
-    "verify:browser-chat": "node tools/browser-chat-proof.mjs"
+    "verify": "node --check app.js && node smoke.mjs && node tools/audit-liveness-gate.mjs",
+    "verify:browser-chat": "node tools/browser-chat-proof.mjs",
+    "audit:liveness": "node tools/audit-liveness.mjs",
+    "audit:liveness-gate": "node tools/audit-liveness-gate.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0"

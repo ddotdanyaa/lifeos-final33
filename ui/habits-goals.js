@@ -1,5 +1,5 @@
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, dataSection, emptyState, escapeHtml, money, safeList } from "./components/shared.js";
+import { button, compactText, dataSection, emptyState, escapeHtml, humanDay, money, safeList, commandNotice } from "./components/shared.js";
 
 function progress(goal) {
   const current = Number(goal.currentAmount || goal.progress || 0);
@@ -42,6 +42,47 @@ function pluralDays(n) {
   return "дней";
 }
 
+// Шаги к цели живут в «Сегодня», но нажатие «Следующий шаг» обязано быть видно ЗДЕСЬ:
+// иначе кнопка выглядит мёртвой на том самом экране, где её нажали.
+function goalSteps(ctx, goal) {
+  return (ctx.tasks || [])
+    .filter((task) => !task.deleted && task.goalId === goal.id && task.status !== "done")
+    .slice(0, 3);
+}
+
+// Единственное место, где прогресс виден числом. Полоска <progress> у цели без суммы всегда
+// показывает 0, поэтому по ней прибавку от «+Прогресс» заметить нельзя.
+function goalProgressLine(goal) {
+  const current = Number(goal.currentAmount || goal.progress || 0);
+  const target = Number(goal.targetAmount || 0);
+  if (target) return "Внесено " + money(current) + " из " + money(target);
+  return current ? "Внесено " + current.toLocaleString("ru-RU") : "Прогресс пока не вносили";
+}
+
+function goalCard(ctx, goal) {
+  const pace = goalPace(goal, ctx.todayKey);
+  const steps = goalSteps(ctx, goal);
+  return [
+    `<article class="goal-card" data-testid="goal-row">`,
+    `<div><strong>${escapeHtml(goal.title || "Цель")}</strong><span>${goal.targetAmount ? money(goal.targetAmount) : goal.targetDate || "без лимита"}</span></div>`,
+    `<progress value="${progress(goal)}" max="100" data-testid="goal-progress-bar"></progress>`,
+    `<div class="goal-hint" data-testid="goal-progress-value">${escapeHtml(goalProgressLine(goal))}</div>`,
+    pace
+      ? `<div class="goal-pace ${pace.onTrack ? "on-track" : "behind"}" data-testid="goal-pace" data-raw-pace="${pace.onTrack ? "ahead" : "behind"}">${pace.onTrack ? "Успеваю" : "Отстаю"} по графику (${pace.diff >= 0 ? "+" : ""}${money(pace.diff)})</div><div class="goal-hint" data-testid="goal-hint">${escapeHtml(pace.hint)}</div>`
+      : "",
+    steps.length
+      ? steps.map((task) => `<div class="goal-hint" data-testid="goal-step">→ ${escapeHtml(task.title)} · ${escapeHtml(humanDay(task.day, ctx.todayKey, ctx.tomorrowKey))}</div>`).join("")
+      : `<div class="goal-hint" data-testid="goal-step-empty">Открытого шага нет — нажми «Следующий шаг».</div>`,
+    `<div class="goal-actions">`,
+    `<input id="goal-progress-${escapeHtml(goal.id)}" aria-label="Goal progress" type="number" min="0" step="0.01" placeholder="Прогресс">`,
+    button("add-goal-progress", "+Прогресс", { id: goal.id, kind: "ghost", testId: "add-goal-progress" }),
+    button("goal-next-task", "Следующий шаг", { id: goal.id, kind: "ghost", testId: "goal-next-task" }),
+    button("toggle-goal", goal.status === "done" ? "Вернуть" : "Закрыть", { id: goal.id, kind: "ghost" }),
+    `</div>`,
+    `</article>`
+  ].join("");
+}
+
 export function renderHabitsGoals(ctx) {
   const domains = ctx.lifeDomains || [];
   const weak = domains.slice().sort((a, b) => Number(a.score || 0) - Number(b.score || 0))[0] || domains[0] || {};
@@ -56,10 +97,11 @@ export function renderHabitsGoals(ctx) {
     ["Восстановление", "ритм, слабый день, отдых"]
   ];
   const body = [
+    commandNotice(ctx.commandMessage, "goals-status"),
     `<div class="habit-goal-dashboard habits-wheel" data-testid="habits-goals-panel">`,
     `<section class="habit-checkin">${dataSection("Чек-ин", ctx.habits, (habit) => `<button class="habit-card" data-action="toggle-habit" data-id="${escapeHtml(habit.id)}" data-testid="habit-row"><span data-testid="habit-toggle">${habit.checkedToday ? "✓" : "○"}</span><strong>${escapeHtml(habit.title || "Привычка")}</strong><em>${escapeHtml(habit.frequency || "ежедневно")}</em></button>`)}${ctx.habits.length ? "" : emptyState("Привычек пока нет", "Напиши: каждый день вода 2л.")}<div class="habit-form-grid"><input id="habit-title" data-testid="habit-title" placeholder="Новая привычка"><select id="habit-frequency" data-testid="habit-frequency"><option value="daily">каждый день</option><option value="weekly">еженедельно</option></select>${button("add-habit-entry", "Добавить", { kind: "primary", testId: "add-habit-entry" })}</div></section>`,
-    `<section class="goal-progress">${dataSection("Цели", ctx.goals, (goal) => `<article class="goal-card" data-testid="goal-row"><div><strong>${escapeHtml(goal.title || "Цель")}</strong><span>${goal.targetAmount ? money(goal.targetAmount) : goal.targetDate || "без лимита"}</span></div><progress value="${progress(goal)}" max="100" data-testid="goal-progress-bar"></progress>${(() => { const pace = goalPace(goal, ctx.todayKey); return pace ? `<div class="goal-pace ${pace.onTrack ? "on-track" : "behind"}" data-testid="goal-pace" data-raw-pace="${pace.onTrack ? "ahead" : "behind"}">${pace.onTrack ? "Успеваю" : "Отстаю"} по графику (${pace.diff >= 0 ? "+" : ""}${money(pace.diff)})</div><div class="goal-hint" data-testid="goal-hint">${escapeHtml(pace.hint)}</div>` : ""; })()}<div class="goal-actions"><input id="goal-progress-${escapeHtml(goal.id)}" aria-label="Goal progress" type="number" min="0" step="0.01" placeholder="Прогресс">${button("add-goal-progress", "+Прогресс", { id: goal.id, kind: "ghost", testId: "add-goal-progress" })}${button("goal-next-task", "Следующий шаг", { id: goal.id, kind: "ghost", testId: "goal-next-task" })}${button("toggle-goal", goal.status === "done" ? "Вернуть" : "Закрыть", { id: goal.id, kind: "ghost" })}</div></article>`)}${ctx.goals.length ? "" : emptyState("Целей пока нет", "Напиши: до 1 июля накопить 30000.")}<div class="goal-form-grid"><input id="goal-title-entry" data-testid="goal-title-entry" placeholder="Новая цель"><input id="goal-target-amount" data-testid="goal-target-amount" type="number" placeholder="Сумма"><input id="goal-target-date" data-testid="goal-target-date" type="date">${button("add-goal-entry", "Добавить", { kind: "primary", testId: "add-goal-entry" })}</div></section>`,
-    `<section class="balance-wheel" data-testid="balance-wheel"><h3>Колесо баланса</h3><div class="wheel-radar">${domains.slice(0, 6).map((domain, index) => `<span style="--i:${index};--score:${Number(domain.score || 50)}"><b>${escapeHtml(domain.title || "Домен")}</b></span>`).join("")}</div><p>${escapeHtml(domains[0]?.nextAction || "Домены жизни усиливаются через задачи, деньги, привычки и знания.")}</p>${button("refresh-insights", "Обновить инсайты", { kind: "ghost", testId: "refresh-insights" })}<div class="domain-list">${domains.slice(0, 6).map((domain) => `<div class="domain-row" data-testid="domain-row" style="--domain-color:${escapeHtml(domain.color || "#7c3aed")}"><span>${escapeHtml(domain.title || "Домен")}</span><div><i style="width:${Number(domain.score || 0)}%"></i></div><strong>${Number(domain.score || 0)}%</strong><em>${escapeHtml(domain.reason || domain.nextAction || "Нужен следующий шаг.")}</em></div>`).join("")}</div></section>`,
+    `<section class="goal-progress">${dataSection("Цели", ctx.goals, (goal) => goalCard(ctx, goal))}${ctx.goals.length ? "" : emptyState("Целей пока нет", "Напиши: до 1 июля накопить 30000.")}<div class="goal-form-grid"><input id="goal-title-entry" data-testid="goal-title-entry" placeholder="Новая цель"><input id="goal-target-amount" data-testid="goal-target-amount" type="number" placeholder="Сумма"><input id="goal-target-date" data-testid="goal-target-date" type="date">${button("add-goal-entry", "Добавить", { kind: "primary", testId: "add-goal-entry" })}</div></section>`,
+    `<section class="balance-wheel" data-testid="balance-wheel"><h3>Колесо баланса</h3><div class="wheel-radar">${domains.slice(0, 6).map((domain, index) => `<span style="--i:${index};--score:${Number(domain.score || 50)}"><b>${escapeHtml(domain.title || "Домен")}</b></span>`).join("")}</div><p>${escapeHtml(domains[0]?.nextAction || "Домены жизни усиливаются через задачи, деньги, привычки и знания.")}</p>${button("refresh-insights", "Обновить инсайты", { kind: "ghost", testId: "refresh-insights" })}${dataSection("Выводы", (ctx.insights || []).slice(0, 5), (insight) => `<div class="goal-hint" data-testid="insight-row"><strong>${escapeHtml(insight.title || "Вывод")}</strong> — ${escapeHtml(compactText(insight.reason || insight.detail || "", 90))}</div>`)}<div class="domain-list">${domains.slice(0, 6).map((domain) => `<div class="domain-row" data-testid="domain-row" style="--domain-color:${escapeHtml(domain.color || "#7c3aed")}"><span>${escapeHtml(domain.title || "Домен")}</span><div><i style="width:${Number(domain.score || 0)}%"></i></div><strong>${Number(domain.score || 0)}%</strong><em>${escapeHtml(domain.reason || domain.nextAction || "Нужен следующий шаг.")}</em></div>`).join("")}</div></section>`,
     `<section class="domain-artifact-board" data-testid="domain-artifact-board"><div class="weak-domain-card" data-testid="weak-domain-card"><strong>Слабый домен: ${escapeHtml(weak.title || "домен")}</strong><span>${escapeHtml(weak.reason || weak.nextAction || "мало сигналов, нужен следующий маленький шаг")}</span></div><div class="domain-artifact-grid">${domainArtifacts.map(([title, text]) => `<article class="domain-artifact-card" data-testid="domain-artifact-card"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></article>`).join("")}</div></section>`,
     `</div>`
   ].join("");

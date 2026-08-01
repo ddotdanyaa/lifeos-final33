@@ -1,6 +1,6 @@
 import { renderFlowCanvas } from "./components/FlowCanvas.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, compactText, dataSection, escapeHtml, publicText, safeList } from "./components/shared.js";
+import { button, compactText, dataSection, escapeHtml, publicText, safeList, surfaceNotice } from "./components/shared.js";
 
 // Срез 13: Agent Center - делегирование задачи агенту + статус/прогресс/результат/история в
 // человеческом UI. Проекции из app.js (delegatableTasks, agentRuns). Всё как предложения -
@@ -123,6 +123,9 @@ function renderNamedAgents(ctx) {
     `<section class="named-agents" data-testid="named-agents">`,
     `<p class="canon-eyebrow">Агенты <em>${agents.length}</em></p>`,
     `<p class="named-agents-note">Каждый агент показывает план до запуска и пишет квитанцию после. Необратимого без подтверждения не делает ни один.</p>`,
+    // Ответ на «Сохранить время»: сохранилось — или чего не хватило. Пустое поле времени —
+    // обычный случай, и раньше кнопка молчала именно в нём.
+    surfaceNotice(ctx, ["agents", "flows"], "agent-schedule-notice"),
     agents.map(agentCard).join(""),
     `</section>`
   ].join("");

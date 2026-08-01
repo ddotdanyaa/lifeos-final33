@@ -1,0 +1,278 @@
+diff --git a/app.js b/app.js
+index 6041200..5c9919d 100644
+--- a/app.js
++++ b/app.js
+@@ -31,6 +31,14 @@ import {
+   isExternalEndpoint,
+   normalizeDataPolicyMode
+ } from "./core/data-policy.mjs";
++import {
++  EMPTY_SURFACE_NOTICE,
++  agentScheduleNoticeText,
++  calendarViewNoticeText,
++  chatEmptySendNoticeText,
++  dataPolicyNoticeText,
++  normalizeSurfaceNotice
++} from "./core/surface-notice.mjs";
+ import {
+   CHAT_CITATION_STOPWORDS,
+   chatCitationQuery,
+@@ -881,6 +889,8 @@ function createInitialState() {
+     surfaceUsage: {},
+     chatDraft: "",
+     commandMessage: "Локальное хранилище готово",
++    // Ответ экрана на последнее нажатие — см. core/surface-notice.mjs.
++    surfaceNotice: Object.assign({}, EMPTY_SURFACE_NOTICE),
+     lastSavedAt: "",
+     folders: {},
+     notes: {},
+@@ -2369,6 +2379,7 @@ function normalizeState(input) {
+     surfaceUsage: base.surfaceUsage && typeof base.surfaceUsage === "object" ? base.surfaceUsage : {},
+     captureAttachments: Array.isArray(base.captureAttachments) ? base.captureAttachments.filter((id) => typeof id === "string" && id).slice(-8) : [],
+     commandMessage: base.commandMessage || "Локальное хранилище готово",
++    surfaceNotice: normalizeSurfaceNotice(base.surfaceNotice),
+     lastSavedAt: base.lastSavedAt || "",
+     folders: base.folders || {},
+     notes: base.notes || {},
+@@ -3157,6 +3168,16 @@ function addAudit(state, type, summary, noteId, options = {}) {
+   if (mutationKind) addReceipt(state, mutationKind, noteId || "", summary, { noteId: noteId || "", locality: options.locality });
+ }
+ 
++// Записать/снять ответ экрана; тексты и правило — в core/surface-notice.mjs.
++function noteOnSurface(state, surface, text) {
++  state.surfaceNotice = normalizeSurfaceNotice({ surface, text, at: now() });
++  return state.surfaceNotice.text;
++}
++
++function clearSurfaceNotice(state) {
++  state.surfaceNotice = Object.assign({}, EMPTY_SURFACE_NOTICE);
++}
++
+ function parseWikiInner(inner) {
+   const parts = String(inner).split("|");
+   const targetTitle = cleanLine(parts[0]);
+@@ -13541,6 +13562,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
+     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
+     theme: state.theme === "dark" || state.theme === "light" ? state.theme : "system",
+     commandMessage: state.commandMessage || "",
++    surfaceNotice: state.surfaceNotice || { surface: "", text: "", at: "" },
+     commandPaletteHtml: renderCommandPalette(state),
+     control: state.control || {},
+     channels: Object.values(state.channels || {}).filter((item) => !item.deleted),
+@@ -22079,7 +22101,12 @@ async function handleAction(action, id) {
+     const field = document.querySelector('[data-agent-time="' + String(id || "").replace(/[^a-z0-9-]/gi, "") + '"]');
+     const time = field ? field.value : "";
+     await store.commit("Расписание агента задано", (state) => {
+-      setAgentSchedule(state, id, time);
++      // Пустое поле «Время»: setAgentSchedule молча возвращал false (core/surface-notice.mjs).
++      const agent = LIFEOS_AGENTS.find((row) => row.id === id);
++      const saved = setAgentSchedule(state, id, time);
++      const kind = saved ? "saved" : !agent ? "unknown-agent" : field ? "empty-time" : "no-field";
++      noteOnSurface(state, state.activeSurface === "flows" ? "flows" : "agents",
++        agentScheduleNoticeText(kind, agent ? agent.name : "", normalizeScheduleTime(time)));
+     });
+     return;
+   }
+@@ -22469,7 +22496,13 @@ async function handleAction(action, id) {
+   // K1.1: переключатель дневного/месячного вида календаря - view-only, как set-graph-mode.
+   if (action === "set-calendar-view") {
+     await store.commit("Calendar view selected", (state) => {
+-      state.calendarView = id === "month" ? "month" : "day";
++      // Вид по умолчанию — день: «Сегодня» на свежем экране законно ничего не меняет, но
++      // отвечает (core/surface-notice.mjs).
++      const nextView = id === "month" ? "month" : "day";
++      const alreadyOpen = state.calendarView === nextView;
++      noteOnSurface(state, "calendar", calendarViewNoticeText(nextView, alreadyOpen));
++      if (alreadyOpen) return;
++      state.calendarView = nextView;
+       addAudit(state, "calendar.view", "Calendar view set to " + state.calendarView, state.activeNoteId);
+     });
+     return;
+@@ -22869,6 +22902,14 @@ async function handleAction(action, id) {
+       || chatInputs[0];
+     const text = input ? input.value : "";
+     const cleanText = String(text || "").trim();
++    // Пустое поле — самый частый способ нажать «Отправить», и раньше экран на это не отвечал
++    // ничем (core/surface-notice.mjs).
++    if (!cleanText) {
++      await store.commit("Chat send with empty message", (state) => {
++        noteOnSurface(state, "chat", chatEmptySendNoticeText(state.ollama));
++      });
++      return;
++    }
+     // C1.6: вложение артефакта в сообщение - выбор из базы (LibreChat attachments-паттерн,
+     // локально: ссылка на существующую заметку, ничего не загружается никуда).
+     const attachmentSelect = document.querySelector("#chat-attachment-select");
+@@ -22926,6 +22967,7 @@ async function handleAction(action, id) {
+       let assistantMessageId = "";
+       store.streamPatch((state) => {
+         state.chatDraft = "";
++        clearSurfaceNotice(state);
+         const ownerMessageId = addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
+         createChatMessageProposal(state, ownerMessageId, cleanText);
+         if (attachmentId && state.notes[attachmentId] && !state.notes[attachmentId].deleted) {
+@@ -22993,6 +23035,7 @@ async function handleAction(action, id) {
+     await store.commit("Chat message sent", (state) => {
+       if (!cleanText) return;
+       state.chatDraft = "";
++      clearSurfaceNotice(state);
+       const productBrainAnswer = wantsDevAnswer ? answerProductBrainQuestion(state, cleanText.replace(/^\/dev\s*/i, "")) : "";
+       if (productBrainAnswer) {
+         state.activeNoteId = PRODUCT_BRAIN_ROOT_ID;
+@@ -24192,18 +24235,29 @@ async function handleAction(action, id) {
+   // разрешены сейчас. Подтверждение спрашиваем только на ослабление, не на усиление.
+   if (action === "set-data-policy") {
+     const nextMode = DATA_POLICY_MODES.includes(id) ? id : "local-only";
+-    if (dataPolicyMode(store.state) === nextMode) return;
++    // Нажатие на уже включённый полюс и отказ от подтверждения — оба законно ничего не меняют,
++    // и оба обязаны быть видны (core/surface-notice.mjs).
++    if (dataPolicyMode(store.state) === nextMode) {
++      await store.commit("Data policy confirmed", (state) => {
++        noteOnSurface(state, "control", dataPolicyNoticeText("same", nextMode));
++      });
++      return;
++    }
+     if (nextMode === "network-allowed") {
+       const confirmed = window.confirm("Разрешить LifeOS обращаться за пределы этого компьютера? Каждое обращение останется видимым в Контроле, но данные смогут уходить с устройства.");
+-      if (!confirmed) return;
++      if (!confirmed) {
++        await store.commit("Data policy change declined", (state) => {
++          noteOnSurface(state, "control", dataPolicyNoticeText("declined", "local-only"));
++        });
++        return;
++      }
+     }
+     await store.commit("Data policy changed", (state) => {
+       if (!state.control.dataPolicy || typeof state.control.dataPolicy !== "object") state.control.dataPolicy = {};
+       state.control.dataPolicy.mode = nextMode;
+       state.control.dataPolicy.updatedAt = now();
+-      state.commandMessage = nextMode === "local-only"
+-        ? "Теперь всё остаётся на этом компьютере: обращения наружу не отправляются."
+-        : "Обращения наружу разрешены. Каждое из них видно в Контроле и попадает в чеки.";
++      state.commandMessage = dataPolicyNoticeText("changed", nextMode);
++      noteOnSurface(state, "control", state.commandMessage);
+       addControlReceipt(state, "data-policy", "", state.commandMessage, { surface: "control" });
+       addAudit(state, "policy.data.change", "Политика данных: " + (nextMode === "local-only" ? "всё остаётся на этом компьютере" : "обращения наружу разрешены"), state.activeNoteId);
+     });
+diff --git a/service-worker.js b/service-worker.js
+index 3b623f2..572d4c1 100644
+--- a/service-worker.js
++++ b/service-worker.js
+@@ -21,6 +21,7 @@ const SHELL_ASSETS = [
+   "/core/donor-intake.mjs",
+   "/core/day-correlations.mjs",
+   "/core/on-this-day.mjs",
++  "/core/surface-notice.mjs",
+   "/artifact-os-architecture.mjs",
+   "/manifest.webmanifest",
+   "/assets/lifeos-icon.svg",
+diff --git a/ui/agents-flows.js b/ui/agents-flows.js
+index d893bbc..c4caf8c 100644
+--- a/ui/agents-flows.js
++++ b/ui/agents-flows.js
+@@ -1,6 +1,6 @@
+ import { renderFlowCanvas } from "./components/FlowCanvas.js";
+ import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
+-import { button, compactText, dataSection, escapeHtml, publicText, safeList } from "./components/shared.js";
++import { button, compactText, dataSection, escapeHtml, publicText, safeList, surfaceNotice } from "./components/shared.js";
+ 
+ // Срез 13: Agent Center - делегирование задачи агенту + статус/прогресс/результат/история в
+ // человеческом UI. Проекции из app.js (delegatableTasks, agentRuns). Всё как предложения -
+@@ -123,6 +123,9 @@ function renderNamedAgents(ctx) {
+     `<section class="named-agents" data-testid="named-agents">`,
+     `<p class="canon-eyebrow">Агенты <em>${agents.length}</em></p>`,
+     `<p class="named-agents-note">Каждый агент показывает план до запуска и пишет квитанцию после. Необратимого без подтверждения не делает ни один.</p>`,
++    // Ответ на «Сохранить время»: сохранилось — или чего не хватило. Пустое поле времени —
++    // обычный случай, и раньше кнопка молчала именно в нём.
++    surfaceNotice(ctx, ["agents", "flows"], "agent-schedule-notice"),
+     agents.map(agentCard).join(""),
+     `</section>`
+   ].join("");
+diff --git a/ui/calendar.js b/ui/calendar.js
+index f803bfc..2c3a383 100644
+--- a/ui/calendar.js
++++ b/ui/calendar.js
+@@ -1,6 +1,6 @@
+ import { renderTimeGrid } from "./components/TimeGrid.js";
+ import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
+-import { button, dataSection, emptyState, escapeHtml, safeList, scheduleLine } from "./components/shared.js";
++import { button, dataSection, emptyState, escapeHtml, safeList, scheduleLine, surfaceNotice } from "./components/shared.js";
+ 
+ // K1.1: месячный вид с плотными полосками событий по дням (донор-идея tui.calendar
+ // month-view) - плюс к уже существующему дневному грид-виду, не вместо него.
+@@ -63,6 +63,9 @@ export function renderCalendar(ctx) {
+   const body = [
+     `<div class="calendar-planner" data-testid="calendar-workbench">`,
+     tabs,
++    // Ответ на нажатие по вкладке. «Сегодня» на свежем экране уже активна, и переключать ей
++    // нечего — но молчать в ответ она не должна, иначе живая вкладка выглядит мёртвой.
++    surfaceNotice(ctx, "calendar", "calendar-view-notice"),
+     mainSection,
+     // Раздела нет вовсе, пока в системах не заполнено ни одного поля-даты: обещание «появятся
+     // после заполнения полей типа дата» рассказывает об устройстве системы, а не о дне владельца.
+diff --git a/ui/chat.js b/ui/chat.js
+index f5bf4a4..4aff07b 100644
+--- a/ui/chat.js
++++ b/ui/chat.js
+@@ -1,5 +1,5 @@
+ import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
+-import { button, compactText, escapeHtml, providerLabel, safeList } from "./components/shared.js";
++import { button, compactText, escapeHtml, providerLabel, safeList, surfaceNotice } from "./components/shared.js";
+ 
+ // R4 CHAT_THREAD_SEARCH: a Jan-style thread search filter. ctx.chatMessages already carries
+ // the full thread (visibleChatMessages has no limit; only the render below used to slice it to
+@@ -161,6 +161,9 @@ export function renderChat(ctx) {
+           return `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}${isStreaming ? " is-streaming" : ""}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : "chat-message-row"}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${message.html || escapeHtml(compactText(message.text || message.content || "", 760))}${isThinking ? `<em class="chat-thinking-note" data-testid="chat-thinking-note">Модель думает… ${Math.max(1, Number(message.thinkingSeconds) || 1)} с. На этом компьютере это минуты — можно остановить.</em>` : ""}${isStreaming ? `<span class="chat-typing-cursor" data-testid="chat-typing-cursor" aria-hidden="true">▍</span>` : ""}</p>${chatAttachment(ctx, message)}${chatCitations(message)}${isStreaming ? `<div class="chat-stream-actions">${button("stop-chat-stream", "Стоп", { kind: "ghost", testId: "stop-chat-stream" })}</div>` : ""}${canRegenerate ? `<div class="chat-stream-actions">${button("regenerate-chat-answer", "Перегенерировать", { kind: "ghost", testId: "regenerate-chat-answer" })}</div>` : ""}${chatProposalPreview(ctx, message)}</article>`;
+         }, `<article class="chat-message assistant chat-empty-hint"><span>LifeOS</span><p>Спроси о своих данных: «сколько я заработал за неделю?», «какая была последняя смена?», «стоит ли завтра работать?»</p></article>`),
+     `</section>`,
++    // Ответ на само нажатие «Отправить», когда отправлять нечего. Стоит прямо над полем ввода:
++    // владелец читает его там, где нажимал, а не на другом экране.
++    surfaceNotice(ctx, "chat", "chat-send-notice"),
+     `<footer class="chat-composer" data-testid="chat-composer"><textarea id="chat-input" data-testid="chat-input" rows="1" placeholder="Спроси о своих данных или запиши мысль…" aria-label="Сообщение в чат" spellcheck="true">${escapeHtml(ctx.chatDraft || "")}</textarea>${chatAttachmentPicker(ctx)}${button("send-chat", "Отправить", { kind: "primary", testId: "send-chat" })}<details class="chat-dev-hint"><summary>/dev</summary><p>Команда /dev отвечает из внутреннего состояния разработки.</p></details></footer>`,
+     `</div>`
+   ].join("");
+diff --git a/ui/components/shared.js b/ui/components/shared.js
+index c2d76a9..2a7ef3e 100644
+--- a/ui/components/shared.js
++++ b/ui/components/shared.js
+@@ -140,6 +140,18 @@ export function button(action, label, options = {}) {
+   return `<button class="${classes.join(" ")}" data-action="${escapeHtml(action)}"${id}${test}${disabled}${title}>${escapeHtml(label)}</button>`;
+ }
+ 
++// Ответ экрана на последнее нажатие (state.surfaceNotice в app.js). Нужен там, где действие
++// законно может НЕ изменить данные: режим уже выбран, поле пустое, служба не запущена. Раньше в
++// этих случаях экран молчал, и правильная работа была неотличима от поломки. Показывается только
++// на том экране, где нажали; класс `human-toast` уже есть в styles.css — своего не заводим.
++// `surface` — имя экрана или список имён: «Агенты» и «Сценарии» рисует один и тот же модуль.
++export function surfaceNotice(ctx, surface, testId) {
++  const notice = ctx.surfaceNotice || {};
++  const owners = Array.isArray(surface) ? surface : [surface];
++  if (!notice.text || !owners.includes(notice.surface)) return "";
++  return `<p class="human-toast" role="status" data-testid="${escapeHtml(testId)}">${escapeHtml(notice.text)}</p>`;
++}
++
+ export function emptyState(title, detail, action = "") {
+   return [
+     `<div class="empty-state" data-testid="empty-state">`,
+diff --git a/ui/control.js b/ui/control.js
+index fba6e33..9e7e92c 100644
+--- a/ui/control.js
++++ b/ui/control.js
+@@ -1,6 +1,6 @@
+ import { renderInspectorDrawer } from "./components/InspectorDrawer.js";
+ import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
+-import { button, compactText, escapeHtml, publicText, safeList } from "./components/shared.js";
++import { button, compactText, escapeHtml, publicText, safeList, surfaceNotice } from "./components/shared.js";
+ 
+ function auditTypeLabel(type) {
+   const map = {
+@@ -280,6 +280,9 @@ function renderDataPolicySwitch(ctx) {
+     `</button>`,
+     `</div>`,
+     `<em class="data-policy-current" data-testid="data-policy-current">Сейчас: ${localActive ? "всё остаётся на этом компьютере" : "обращения наружу разрешены"}.</em>`,
++    // Ответ на само нажатие — включая «ничего не изменилось, режим уже такой». Без него выбранный
++    // полюс молчал в ответ на клик и был неотличим от мёртвой кнопки.
++    surfaceNotice(ctx, "control", "data-policy-notice"),
+     `</section>`
+   ].join("");
+ }

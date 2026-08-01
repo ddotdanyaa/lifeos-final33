@@ -1,6 +1,6 @@
 import { renderInspectorDrawer } from "./components/InspectorDrawer.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, compactText, escapeHtml, publicText, safeList } from "./components/shared.js";
+import { button, compactText, escapeHtml, publicText, safeList, surfaceNotice } from "./components/shared.js";
 
 function auditTypeLabel(type) {
   const map = {
@@ -280,6 +280,9 @@ function renderDataPolicySwitch(ctx) {
     `</button>`,
     `</div>`,
     `<em class="data-policy-current" data-testid="data-policy-current">Сейчас: ${localActive ? "всё остаётся на этом компьютере" : "обращения наружу разрешены"}.</em>`,
+    // Ответ на само нажатие — включая «ничего не изменилось, режим уже такой». Без него выбранный
+    // полюс молчал в ответ на клик и был неотличим от мёртвой кнопки.
+    surfaceNotice(ctx, "control", "data-policy-notice"),
     `</section>`
   ].join("");
 }
@@ -366,6 +369,34 @@ function renderCalibrationPanel(ctx) {
   ].join("");
 }
 
+// СРЕЗ Д · «ЧТО Я ПОНЯЛ О СЕБЕ». Владелец 2026-07-31: «система сама будет писать, что ей нужно
+// далее для разработки». Панель ничего не считает и ничего не меняет — она называет то, что уже
+// измерено калибровкой, антилестью, канарейкой и счётчиком экранов.
+//
+// «Самое слабое место» стоит ПЕРВЫМ и показывается всегда, даже когда данных не хватает: строка
+// «пока не знаю, решений 3 из 8» — это честный ответ, а пустой экран честным ответом не является.
+function renderSelfReviewPanel(ctx) {
+  const review = ctx.selfReview;
+  if (!review) return "";
+  return [
+    `<section class="control-self-review" data-testid="control-self-review">`,
+    `<h3>Что я понял о себе</h3>`,
+    `<p class="control-self-weakest" data-testid="self-review-weakest">${escapeHtml(review.weakest || "")}</p>`,
+    review.candidates && review.candidates.length
+      ? review.candidates.map((row) => [
+        `<div class="control-self-row" data-testid="self-review-row">`,
+        `<strong>${escapeHtml(row.title)}</strong>`,
+        // Основание обязательно и всегда числом: предложение без числа — это мнение системы
+        // о себе, а мнений у неё быть не должно.
+        `<span data-testid="self-review-evidence">${escapeHtml(row.evidence)}</span>`,
+        `<em class="control-self-trust" data-raw-trusted="${row.trusted ? "yes" : "no"}">${row.trusted ? "измерено" : "мало данных"}</em>`,
+        `</div>`
+      ].join("")).join("")
+      : `<p class="control-calibration-thin" data-testid="self-review-empty">Предлагать пока нечего: решений в журнале ${review.total}.</p>`,
+    `</section>`
+  ].join("");
+}
+
 export function renderControl(ctx) {
   const audit = ctx.auditLog || [];
   const snapshots = ctx.control?.rollbackSnapshots || [];
@@ -399,6 +430,9 @@ export function renderControl(ctx) {
       (event) => `<div class="control-event" data-testid="audit-row"><strong>${escapeHtml(auditTypeLabel(event.type))}</strong><span>${escapeHtml(compactText(auditSummaryText(event.summary || ""), 130))}</span><time>${escapeHtml(auditStamp(event.createdAt || event.at || ""))}</time></div>`,
       `<div class="empty-inline">Изменений пока нет.</div>`
     ),
+    // Сначала вывод о себе, потом цифры под ним: владелец пришёл узнать «что не так», а не
+    // читать таблицу принятий и выводить из неё смысл самостоятельно.
+    renderSelfReviewPanel(ctx),
     renderCalibrationPanel(ctx),
     renderOwnerInstructions(ctx),
     renderDataPolicySwitch(ctx),

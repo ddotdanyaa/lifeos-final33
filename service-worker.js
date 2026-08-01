@@ -21,6 +21,7 @@ const SHELL_ASSETS = [
   "/core/donor-intake.mjs",
   "/core/day-correlations.mjs",
   "/core/on-this-day.mjs",
+  "/core/surface-notice.mjs",
   "/artifact-os-architecture.mjs",
   "/manifest.webmanifest",
   "/assets/lifeos-icon.svg",

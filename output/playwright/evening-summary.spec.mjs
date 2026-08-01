@@ -19,6 +19,8 @@ async function reset(page) {
 
 async function quickTask(page, title) {
   await page.locator("#capture-input").fill(title);
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await expect.poll(async () => {
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());

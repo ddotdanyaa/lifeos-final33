@@ -58,6 +58,8 @@ test("G1 GRAPH_ALIVE: zoom controls, fit, minimap jump", async ({ page }) => {
   // Seed a handful of artifacts so the graph has nodes (capture path, no mocks).
   for (const title of ["Проверить отчёт", "Написать письмо", "Позвонить маме"]) {
     await page.locator("#capture-input").fill(title);
+    // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+    await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
     await page.getByTestId("quick-task").click();
   }
   await page.locator("#capture-input").fill("350 бензин");

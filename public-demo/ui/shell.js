@@ -26,6 +26,8 @@ import {
   renderTwin
 } from "./v34-platform.js";
 import { button, escapeHtml } from "./components/shared.js";
+import { searchOwnerData, countFound } from "../core/owner-search.mjs";
+import { LIVENESS, LIVENESS_DATE } from "./liveness-map.js";
 
 // Меню названо словами ВЛАДЕЛЬЦА, а не частями движка. «База», «Граф», «Контроль» — это имена
 // подсистем: так думает разработчик, а не человек, который надиктовал мысль и хочет понять, что
@@ -100,17 +102,38 @@ const navClusters = [
 function navButton(ctx, row, testPrefix = "surface") {
   const [id, label] = row;
   const active = ctx.activeSurface === id || (id === "inbox" && ctx.activeSurface === "capture") ? " active" : "";
-  return `<button class="nav-item${active}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix)}-${escapeHtml(id)}">${escapeHtml(label)}</button>`;
+  // Первая версия пометки жила только во вторичном меню — и это была ошибка ровно наоборот:
+  // девять главных пунктов владелец открывает каждый день, и именно про «Деньги» и «Связи» он
+  // говорил «нажимаешь — ничего не работает». Честность нужна прежде всего там, куда он ходит.
+  return `<button class="nav-item${active}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix)}-${escapeHtml(id)}">${escapeHtml(label)}${livenessMark(id)}</button>`;
 }
 
 // Кластер раскрыт ровно один. Какой — либо тот, что владелец открыл сам, либо тот, в котором
 // лежит текущий экран: провалился в «Аудио» — открыт «Ввод и разбор», и видно, где ты.
 // Одна строка меню. Каркас признаётся прямо в ней, а не ссылается в отдельную группу: владелец
 // видит, куда идёт, не отходя от того, что искал.
+// Пометка «в разработке» ставилась РУКОЙ — флагом `isReady` в списке разделов. Рука устаревает
+// молча: экран чинится, флаг остаётся, или наоборот — экран ломается, а флаг всё ещё обещает.
+// Владелец 2026-07-30: «нажимаешь — ничего не работает, никуда не проваливаешься». Беда не в том,
+// что часть кнопок мертва, а в том, что это не видно ЗАРАНЕЕ: один мёртвый экран отравляет доверие
+// ко всем двадцати шести.
+//
+// Теперь рядом с рукой стоит ИЗМЕРЕНИЕ: `tools/audit-liveness.mjs` открывает каждый экран, жмёт
+// каждый контрол и считает, после скольких из них ничего не изменилось. Число попадает сюда через
+// сгенерированный `ui/liveness-map.js`. Рука может ошибиться, прогон — нет.
+function livenessMark(id) {
+  const row = LIVENESS[id];
+  if (!row || !row.dead) return "";
+  return `<span class="nav-item-draft" title="Перепись ${LIVENESS_DATE}: из ${row.checked} кнопок этого экрана ${row.dead} не делают ничего">${row.dead} не работает</span>`;
+}
+
 function navItem(ctx, [id, label, isReady], testPrefix) {
   const active = ctx.activeSurface === id ? " active" : "";
-  const draftMark = isReady ? "" : `<span class="nav-item-draft">в разработке</span>`;
-  return `<button class="nav-item${active}${isReady ? "" : " draft"}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix || "surface")}-${escapeHtml(id)}">${escapeHtml(label)}${draftMark}</button>`;
+  const measured = livenessMark(id);
+  // Рука важнее числа ровно в одну сторону: если раздел объявлен каркасом, он каркас, даже если
+  // его немногочисленные кнопки живые. Обратное неверно — измерение не заглушается флагом.
+  const draftMark = isReady ? measured : `<span class="nav-item-draft">в разработке</span>`;
+  return `<button class="nav-item${active}${isReady && !measured ? "" : " draft"}" data-action="set-surface" data-id="${escapeHtml(id)}" data-testid="${escapeHtml(testPrefix || "surface")}-${escapeHtml(id)}">${escapeHtml(label)}${draftMark}</button>`;
 }
 
 // П34 · СВОРАЧИВАНИЕ ПО ДАННЫМ. Какой кластер раскрыть по умолчанию — вопрос вкуса ровно до тех
@@ -150,6 +173,51 @@ function activeClusterId(ctx) {
 // `alwaysShowDrafts` — для мобильного листа «Ещё». Он и так открывается намеренно и
 // прокручивается целиком: прятать там каркасы не за что, а прятали — и до них переставало
 // хватать одного касания.
+// Боль владельца 2026-07-30: «поиск сверху „найти“ — зачем он? Написал „граф“ — ничего не находит.
+// „30“ напишу — тоже не находит». Диагноз оказался хуже жалобы: `searchQuery` писался в состояние
+// и рисовался обратно в поле, и больше его не читал НИКТО. Строка «Найти» была украшением.
+//
+// Теперь она отвечает: под шапкой появляется ответ, сгруппированный разделами владельца, и каждая
+// строка открывает найденное. Действие `open-object` уже существует, второго пути не заводим.
+// Поиск делает вендоренный Fuse.js (Apache-2.0) — см. `core/owner-search.mjs`.
+function renderSearchResults(ctx) {
+  const query = String(ctx.searchQuery || "").trim();
+  if (query.length < 2) return "";
+  const groups = searchOwnerData(query, ctx);
+  if (!groups.length) {
+    // Пункт 6 чек-листа результатов поиска (checklist.design): «пустая выдача без пути назад —
+    // тупик, всегда давай выход». Первая версия этого блока говорила только «ничего не нашлось» —
+    // то есть была ровно тем тупиком. Теперь выход есть: сбросить запрос или отдать его в разбор
+    // как новую мысль. Второе важнее: чаще всего владелец ищет то, чего он ещё не записывал.
+    return [
+      `<div class="capture-attachments" data-testid="search-results-empty">`,
+      `<span class="capture-attachments-title">По запросу «${escapeHtml(query)}» ничего не нашлось${query.length > 12 ? " — попробуй короче, одним словом" : ""}</span>`,
+      // Кнопка ровно одна, и это осознанно. Первая версия правки добавляла ещё «Сбросить поиск»
+      // с действием `clear-search` — обработчика такого действия в продукте НЕТ (проверено
+      // поиском по `app.js`), и кнопка была бы мёртвой. Мёртвая кнопка в починке мёртвых кнопок —
+      // это худшее, что можно сделать. Выход даётся один, но настоящий: уйти на экран захвата и
+      // записать то, что искал, — чаще всего владелец ищет то, чего ещё не записывал.
+      button("set-surface", "Записать это как мысль", { id: "capture", kind: "primary", testId: "search-to-capture" }),
+      `</div>`
+    ].join("");
+  }
+  return [
+    `<div class="capture-attachments" data-testid="search-results">`,
+    `<span class="capture-attachments-title">Нашлось ${countFound(groups)} по запросу «${escapeHtml(query)}»</span>`,
+    groups.map((group) => group.rows.map((row) => [
+      `<button class="capture-attachment" data-action="open-object" data-id="${escapeHtml(row.id)}" data-testid="search-result">`,
+      `<strong>${escapeHtml(row.title)}</strong>`,
+      // Сценарий 6: дата и причина рядом с находкой. Владелец узнаёт свою запись по времени, а
+      // доверяет ответу — по объяснению, почему она вообще сюда попала. Без даты «Мысль про
+      // граф» неотличима от такой же мысли месячной давности; без причины поиск остаётся
+      // чёрным ящиком, который иногда угадывает.
+      `<span>${escapeHtml(group.label)}${row.when ? " · " + escapeHtml(row.when) : ""}${row.why ? " · нашёл " + escapeHtml(row.why) : ""}</span>`,
+      `</button>`
+    ].join("")).join("")).join(""),
+    `</div>`
+  ].join("");
+}
+
 function renderNavClusters(ctx, testPrefix = "", alwaysShowDrafts = false) {
   const openId = activeClusterId(ctx);
   const mark = testPrefix ? testPrefix + "-" : "";
@@ -317,7 +385,21 @@ function renderSurface(ctx) {
 
 export function renderNewShell(ctx) {
   return [
-    `<div class="lifeos-shell-v2 surface-${escapeHtml(ctx.activeSurface || "inbox")}">`,
+    // `data-active-surface` читает перепись живого (`tools/audit-liveness.mjs`), чтобы понять,
+    // увёл ли клик на другой экран. Атрибута НЕ СУЩЕСТВОВАЛО нигде в коде — прибор всегда получал
+    // пустую строку, поэтому не замечал переходов и после навигационного клика не возвращался
+    // назад, молча пропуская остаток экрана. Найдено агентом при разборе «нажал — не провалился»:
+    // из-за этого шесть экранов дали 13 контролов вместо тридцати с лишним.
+    //
+    // Имя экрана и так закодировано в классе `surface-…`, но разбирать класс — значит завязывать
+    // измерение на оформление. Отдельный атрибут делает намерение явным и переживает смену CSS.
+    `<div class="lifeos-shell-v2 surface-${escapeHtml(ctx.activeSurface || "inbox")}" data-active-surface="${escapeHtml(ctx.activeSurface || "inbox")}">`,
+    // О-1: вторая вкладка. Полоса стоит над всем и не убирается: пока она видна, ничего из
+    // набранного здесь не сохраняется. Раньше защиты не было вовсе — вкладки затирали друг друга
+    // молча, и «успешная» запись означала потерянный день. Молчать об этом дороже, чем мешать.
+    ctx.tabReadOnly
+      ? `<div class="tab-readonly-banner" role="alert" data-testid="tab-readonly-banner">LifeOS уже открыт в другой вкладке — записываю только там. Здесь можно смотреть и искать, но набранное не сохранится. Закрой ту вкладку или продолжай в ней.</div>`
+      : "",
     `<input id="file-import" data-testid="file-import" type="file" multiple hidden>`,
     `<input id="audio-import" data-testid="audio-import" type="file" accept="audio/*" multiple hidden>`,
     `<input id="backup-import" data-testid="backup-import" type="file" accept="application/json,.json" hidden>`,
@@ -350,6 +432,7 @@ export function renderNewShell(ctx) {
     ``,
     `</div>`,
     `</header>`,
+    renderSearchResults(ctx),
     `<div class="lifeos-frame-v2">`,
     renderNav(ctx),
     `<main class="lifeos-main-v2">${renderSurface(ctx)}</main>`,

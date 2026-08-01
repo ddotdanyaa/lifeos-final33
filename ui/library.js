@@ -1,6 +1,6 @@
 import { renderBookWorkbenchPanel } from "./components/ReaderSurface.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, collapsiblePanel, compactText, dataSection, emptyState, escapeHtml, safeList, sectionStack } from "./components/shared.js";
+import { button, collapsiblePanel, compactText, dataSection, emptyState, escapeHtml, safeList, sectionStack, surfaceNotice } from "./components/shared.js";
 
 function wikiLinks(text) {
   const links = [];
@@ -304,6 +304,9 @@ export function renderLibrary(ctx) {
       body: renderBookWorkbenchPanel(ctx),
       testId: "library-book-panel"
     }),
+    // Ответ экрана на нажатие: без него «Добавить вопрос» при пустом поле молчит, и правильная
+    // работа неотличима от поломки (перепись живого, 2026-07-31).
+    surfaceNotice(ctx, "library", "library-notice"),
     renderMemorySection(ctx),
     semanticSearchSection(ctx),
     active ? renderBacklinksPanel(ctx, active.id) : "",

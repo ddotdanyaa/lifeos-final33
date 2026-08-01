@@ -67,7 +67,7 @@
   --line: rgba(12, 12, 15, 0.1);
   --deep: #1a1a2e;
   --deep-2: #33346b;
-  --accent: #5b5fd6;
+  --accent: #8A6316;
   --amber: #b4832a;
   --blue: #3538cd;
   --green: #2f8f5b;
@@ -104,7 +104,7 @@
     --ink: #ededf0;
     --muted: #8b8b93;
     --line: rgba(255, 255, 255, 0.09);
-    --accent: #7c8cf8;
+    --accent: #d4a548;
     --amber: #e5b84b;
     --green: #8fe0b4;
     --red: #e8705f;
@@ -129,7 +129,7 @@
   --ink: #ededf0;
   --muted: #8b8b93;
   --line: rgba(255, 255, 255, 0.09);
-  --accent: #7c8cf8;
+  --accent: #d4a548;
   --amber: #e5b84b;
   --green: #8fe0b4;
   --red: #e8705f;
@@ -7787,6 +7787,21 @@ audio {
   color: var(--text-muted, #64748b);
 }
 
+/* Срез А · доверие словами. Строка тихая: она объясняет предложение, а не спорит с ним за
+   внимание. Акцент латунью — только когда число получено из решений владельца, а не заявлено
+   разбором: разница между «я измерил» и «я предполагаю» должна быть видна без чтения. */
+.chat-proposal-trust {
+  display: block;
+  font-size: var(--text-xs);
+  line-height: var(--line-height-normal);
+  color: var(--muted);
+  margin-top: var(--space-1);
+}
+
+.chat-proposal-trust[data-raw-trusted="yes"] {
+  color: var(--accent);
+}
+
 .chat-proposal-actions {
   display: flex;
   gap: var(--space-2);
@@ -12408,3 +12423,412 @@ button.graph-growth-day.open i { outline: 2px solid var(--accent); outline-offse
 .capture-attachment-remove:hover {
   color: var(--text-main);
 }
+
+/* ─── СРЕЗ Б · ПОСТРОЧНЫЙ РАЗБОР ───────────────────────────────────────────────────────────
+   Подпись экрана из MVP_HARD_SPEC §14: у каждого вывода слева волосяная вертикаль, переходящая
+   в цитату. Это единственный декоративный элемент, и он несёт смысл — вывод физически растёт из
+   куска записи. Убрать полосу значит потерять требование Т5.
+   Всё на существующих токенах V3: новых не заводится. */
+.parse-breakdown {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-card);
+  margin-bottom: var(--space-4);
+}
+
+.parse-breakdown-title {
+  font-size: var(--text-lg);
+  line-height: var(--line-height-tight);
+  color: var(--ink);
+  margin: 0 0 var(--space-4);
+}
+
+.parse-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.parse-row {
+  /* Полоса основания. Цвет — та же волосяная линия, что и у границ карточек: акцент здесь был бы
+     криком на каждой строке, а кричать должно только измеренное доверие. */
+  border-left: 2px solid var(--line);
+  padding-left: var(--space-4);
+}
+
+.parse-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.parse-row-type {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.parse-row-title {
+  font-size: var(--text-base);
+  line-height: var(--line-height-normal);
+  color: var(--ink);
+}
+
+.parse-row-quote {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  font-style: italic;
+  line-height: var(--line-height-normal);
+  color: var(--muted);
+}
+
+.parse-row-quote::before { content: "«"; }
+.parse-row-quote::after { content: "»"; }
+
+/* Честное «основания не нашёл» вместо пустоты: молчание здесь читалось бы как «оснований и не
+   требуется», а требование Т5 — источник у каждого вывода. */
+.parse-row-noquote {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.parse-row-trust {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--line-height-normal);
+  color: var(--muted);
+}
+
+/* Латунь — только когда число получено из решений владельца. Разница между «я измерил» и
+   «я предполагаю» должна читаться без чтения. */
+.parse-row-trust[data-raw-trusted="yes"] { color: var(--accent); }
+
+.parse-row-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.parse-breakdown-more { margin-top: var(--space-4); }
+
+.parse-breakdown-more > summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.parse-breakdown-more .parse-rows { margin-top: var(--space-4); }
+
+/* «Принять всё» осталось возможным, но перестало быть главным: внизу, тихое, отделённое линией. */
+.parse-breakdown-bulk {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Появление строк — одна оркестрованная последовательность сверху вниз, длительность и кривая те
+   же, что уже живут в проекте. prefers-reduced-motion снимает сдвиг, но не содержание. */
+@media (prefers-reduced-motion: no-preference) {
+  .parse-row {
+    animation: parse-row-in 120ms var(--ease) both;
+  }
+  .parse-row:nth-child(2) { animation-delay: 40ms; }
+  .parse-row:nth-child(3) { animation-delay: 80ms; }
+  .parse-row:nth-child(4) { animation-delay: 120ms; }
+  .parse-row:nth-child(n+5) { animation-delay: 160ms; }
+}
+
+@keyframes parse-row-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ─── СРЕЗ В · ВЕРДИКТ ПО ПОХОЖЕЙ МЫСЛИ ───────────────────────────────────────────────────
+   Строка похожей записи и три кнопки вердикта под ней. Кнопки тихие (ghost): они не спорят с
+   главной кнопкой «Разобрать» за внимание — владелец выносит вердикт, только если система
+   действительно попала в повтор. */
+.similar-thought-row {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+}
+
+.similar-thought-row + .similar-thought-row {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
+}
+
+.similar-thought-verdict {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ─── СРЕЗ Д · ЧТО СИСТЕМА ПОНЯЛА О СЕБЕ ──────────────────────────────────────────────────
+   Панель стоит выше таблицы калибровки: сначала вывод, потом цифры под ним. Латунь — только у
+   строки «самое слабое место»: это единственное, ради чего сюда заходят. */
+.control-self-review {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.control-self-review > h3 {
+  font-size: var(--text-lg);
+  line-height: var(--line-height-tight);
+  color: var(--ink);
+  margin: 0 0 var(--space-3);
+}
+
+.control-self-weakest {
+  font-size: var(--text-base);
+  line-height: var(--line-height-normal);
+  color: var(--accent);
+  margin: 0 0 var(--space-4);
+}
+
+.control-self-row {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.control-self-row > strong {
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.control-self-row > span {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.control-self-trust {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-style: normal;
+}
+
+/* «Измерено» отличается от «мало данных» цветом, а не только словом: разницу между знанием и
+   догадкой владелец должен видеть, не вчитываясь. */
+.control-self-trust[data-raw-trusted="yes"] { color: var(--accent); }
+
+/* ─── О-1 · ВТОРАЯ ВКЛАДКА ────────────────────────────────────────────────────────────────
+   Единственная полоса в продукте, которую нельзя закрыть. Пока она видна, набранное в этой
+   вкладке не сохраняется — и это дороже любой аккуратности оформления. Красный семантический
+   (--danger), потому что это потеря данных, а не совет. */
+.tab-readonly-banner {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding: var(--space-3) var(--space-4);
+  background: var(--danger);
+  color: #fff;
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+  text-align: center;
+}
+
+/* ─── СЦЕНАРИЙ 9 · ВОЗРАЖЕНИЕ ─────────────────────────────────────────────────────────────
+   Не тревога и не запрет: спокойная карточка с числом и раскрываемым основанием. Янтарь
+   (--amber), а не красный: красный означает «сломалось», а здесь ничего не сломано — система
+   просто напоминает владельцу его собственную цель. */
+.objections { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); }
+
+.objection-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius-md);
+}
+
+.objection-card > strong { font-size: var(--text-base); color: var(--ink); }
+.objection-verdict { font-size: var(--text-sm); color: var(--amber); }
+.objection-why > summary { cursor: pointer; font-size: var(--text-sm); color: var(--muted); }
+.objection-why > p { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--muted); line-height: var(--line-height-normal); }
+.objection-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* ─── СЦЕНАРИЙ 4 · ПОЧЕМУ СЕЙЧАС · СЦЕНАРИЙ 8 · НЕЗАКРЫТЫЕ ПЕТЛИ ──────────────────────── */
+.insight-why > summary { cursor: pointer; font-size: var(--text-xs); color: var(--muted); }
+.insight-why > p { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--muted); line-height: var(--line-height-normal); }
+
+.digest-loops { display: grid; gap: var(--space-2); margin: var(--space-4) 0; }
+.digest-loops > h3 { font-size: var(--text-base); color: var(--ink); margin: 0; }
+.digest-loops > ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.digest-loops > ul > li { display: flex; align-items: baseline; gap: var(--space-2); }
+
+.digest-loop-row {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.digest-loop-row:hover { text-decoration: line-through; color: var(--muted); }
+.digest-loop-overdue { font-size: var(--text-xs); color: var(--amber); }
+
+/* ─── Т2 · СКЕЛЕТОН РАЗБОРА ───────────────────────────────────────────────────────────────
+   Форма будущего результата, а не крутящийся кружок: когда придут настоящие строки, экран не
+   дёрнется, и владелец не потеряет место, куда смотрел. Пульсация мягкая и медленная —
+   быстрая мигалка читается как ошибка. */
+.parse-skeleton {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.parse-skeleton-label {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.parse-skeleton-row {
+  border-left: 2px solid var(--line);
+  padding-left: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.parse-skeleton-line {
+  height: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.parse-skeleton-title { width: 62%; }
+.parse-skeleton-quote { width: 88%; height: 10px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .parse-skeleton-line { animation: parse-skeleton-pulse 1400ms var(--ease) infinite; }
+  .parse-skeleton-row:nth-child(3) .parse-skeleton-line { animation-delay: 120ms; }
+  .parse-skeleton-row:nth-child(4) .parse-skeleton-line { animation-delay: 240ms; }
+}
+
+/* Без движения скелетон остаётся: он несёт информацию о том, что работа идёт, а не украшает. */
+@keyframes parse-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Ответ микрофона у самой кнопки записи. Не тревога на весь экран: отказ в доступе — обычное
+   дело при первом нажатии, и пугать им нельзя. Но и молчать нельзя тоже. */
+.capture-mic-error {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+  color: var(--danger);
+}
+
+/* ─── РАЗБОР С ИИ ─────────────────────────────────────────────────────────────────────────
+   Одно действие с двумя глубинами, а не две кнопки. Правая половина — полуовал чуть иного
+   оттенка: видно, что это то же самое, но глубже. Разнести их значит заставить владельца
+   каждый раз выбирать между «сохранить» и «понять». */
+.capture-split {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.capture-split-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.capture-split-ai {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+  padding-left: var(--space-3);
+  padding-right: var(--space-4);
+  /* Тот же цвет семейства, но темнее: это не другое действие, это то же — глубже. */
+  filter: brightness(0.92);
+  /* Волосяная линия вместо жирной границы: половинки должны читаться как одна форма. */
+  border-left: 1px solid var(--line);
+}
+
+.capture-split-ai:hover { filter: brightness(0.86); }
+
+/* ─── ЗАПИСЬ ГОЛОСА У ПОЛЯ ────────────────────────────────────────────────────────────────
+   Нажал «Записать голос» — и сразу видно, что запись идёт, и чем её остановить. Раньше и то и
+   другое жило на экране Аудио, далеко внизу: запись шла молча, и это читалось как сломанный
+   микрофон. Точка пульсирует медленно — быстрая мигалка читается как ошибка. */
+.capture-recording {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.capture-recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex: none;
+}
+
+.capture-recording-error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .capture-recording-dot { animation: capture-recording-pulse 1600ms var(--ease) infinite; }
+}
+
+@keyframes capture-recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ─── ЧТО СКАЗАНО ПРО САМУ СИСТЕМУ ────────────────────────────────────────────────────────
+   Самая ценная обратная связь в продукте — и раньше она тонула среди мыслей про такси и деньги.
+   Латунь на рамке: это единственный блок, который смотрит не на жизнь владельца, а на нас. */
+.digest-feedback {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
+.digest-feedback > h3 { font-size: var(--text-base); color: var(--ink); margin: 0; }
+.digest-feedback > ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.digest-feedback li { display: grid; gap: 2px; }
+.digest-feedback li > strong { font-size: var(--text-sm); color: var(--ink); font-weight: 500; }
+.digest-feedback li > span { font-size: var(--text-xs); color: var(--muted); }
+.digest-feedback-more { font-size: var(--text-xs); color: var(--muted); }

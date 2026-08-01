@@ -15,6 +15,9 @@ import {
   extractEntitiesFromText,
   extractPeopleNames
 } from "./core/ru-entities.mjs";
+import { isLikelyPerson } from "./core/people-filter.mjs";
+import { detectProductFeedback, groupProductFeedback } from "./core/product-feedback.mjs";
+import { computeSelfReview as selfReview } from "./core/self-review.mjs";
 import {
   parseReceipt
 } from "./core/receipt-ocr.mjs";
@@ -31,6 +34,14 @@ import {
   isExternalEndpoint,
   normalizeDataPolicyMode
 } from "./core/data-policy.mjs";
+import {
+  EMPTY_SURFACE_NOTICE,
+  agentScheduleNoticeText,
+  calendarViewNoticeText,
+  chatEmptySendNoticeText,
+  dataPolicyNoticeText,
+  normalizeSurfaceNotice
+} from "./core/surface-notice.mjs";
 import {
   CHAT_CITATION_STOPWORDS,
   chatCitationQuery,
@@ -157,6 +168,16 @@ const CHUNK_PREFIX = "state:chunk:";
 const FALLBACK_PREFIX = "lifeos.v33.knowledge.";
 const CHUNK_SIZE = 120000;
 const AUTO_SAVE_MS = 1500;
+// Сколько ждём одну запись в хранилище, прежде чем признать её зависшей. Пятнадцать секунд —
+// заведомо больше любой честной записи (замеры сохранения полного снимка держатся в пределах
+// секунды даже на большом хранилище) и заведомо меньше терпения человека, у которого перестали
+// работать все кнопки.
+const WRITE_TIMEOUT_MS = 15000;
+// Предел одной записи с микрофона. Двадцать минут — заведомо больше любой надиктовки владельца
+// (замер: самая длинная за июль — 7 минут) и заведомо меньше того, что успеет натворить забытый
+// микрофон.
+const MAX_RECORDING_MS = 20 * 60 * 1000;
+let recordingAutoStopTimer = 0;
 const SOURCE_NOTE_TEXT_LIMIT = 60000;
 // Порог не на ХРАНЕНИЕ, а на способ хранения: до него байты едут в снимке состояния строкой
 // base64 (дёшево и удобно), после — блобом в отдельной записи IndexedDB. Потолка на размер
@@ -863,6 +884,11 @@ function createInitialState() {
     // только ОТКЛОНЕНИЯ от умолчания панели, поэтому новая панель работает без миграции.
     panelOpen: {},
     captureDraft: "",
+    // Т2: что система делает ПРЯМО СЕЙЧАС. Не хранится на диске и не переживает перезагрузку —
+    // это состояние экрана, а не данные. Поле объявлено здесь, чтобы вид не читал undefined.
+    busy: null,
+    // Срез В: черновик, для которого подсказка о повторе уже отклонена вердиктом «новое».
+    similarVerdictFor: "",
     // Прикреплённые в композиторе файлы: ТОЛЬКО идентификаторы записей. Статус (сохранён,
     // расшифровывается, расшифровано, звука нет) всегда берётся из самой записи при отрисовке,
     // иначе на экране жила бы вторая, устаревающая копия правды.
@@ -874,6 +900,9 @@ function createInitialState() {
     navClusterOpen: "",
     // О1: журнал решений владельца. Пустой до первого решения — накопление, а не выдумка.
     decisions: {},
+    // Что владелец сказал ПРО САМУ СИСТЕМУ. Отдельно от `improvements` (то, что система заметила
+    // о себе сама): источник разный, и смешивать их значит потерять, чьё это наблюдение.
+    productFeedback: {},
     // О6: короткие ставки — те, ответ на которые приходит в тот же день.
     bets: {},
     // У0 (П13): сколько раз владелец открывал каждое рабочее место и когда в последний раз.
@@ -881,6 +910,8 @@ function createInitialState() {
     surfaceUsage: {},
     chatDraft: "",
     commandMessage: "Локальное хранилище готово",
+    // Ответ экрана на последнее нажатие — см. core/surface-notice.mjs.
+    surfaceNotice: Object.assign({}, EMPTY_SURFACE_NOTICE),
     lastSavedAt: "",
     folders: {},
     notes: {},
@@ -1000,6 +1031,9 @@ function createInitialState() {
       lastImportSummary: "",
       receipts: [],
       rollbackSnapshots: [],
+      // Сценарий 9: возражения, которые владелец уже снял. Поле заводится ЗДЕСЬ, при создании,
+      // а не в миграции: commit() рисует раньше, чем normalizeState успевает добавить поле.
+      dismissedObjections: [],
       corruptRecords: [],
       architectureEvents: [],
       privacyZones: {
@@ -2362,13 +2396,16 @@ function normalizeState(input) {
     lensDraft: normalizeLensDraft(base.lensDraft),
     panelOpen: normalizePanelOpen(base.panelOpen),
     captureDraft: String(base.captureDraft || ""),
+    similarVerdictFor: String(base.similarVerdictFor || ""),
     navMoreOpen: Boolean(base.navMoreOpen),
     navClusterOpen: cleanLine(base.navClusterOpen || ""),
     decisions: base.decisions && typeof base.decisions === "object" ? base.decisions : {},
+    productFeedback: base.productFeedback && typeof base.productFeedback === "object" ? base.productFeedback : {},
     bets: base.bets && typeof base.bets === "object" ? base.bets : {},
     surfaceUsage: base.surfaceUsage && typeof base.surfaceUsage === "object" ? base.surfaceUsage : {},
     captureAttachments: Array.isArray(base.captureAttachments) ? base.captureAttachments.filter((id) => typeof id === "string" && id).slice(-8) : [],
     commandMessage: base.commandMessage || "Локальное хранилище готово",
+    surfaceNotice: normalizeSurfaceNotice(base.surfaceNotice),
     lastSavedAt: base.lastSavedAt || "",
     folders: base.folders || {},
     notes: base.notes || {},
@@ -2491,6 +2528,9 @@ function normalizeState(input) {
       lastImportSummary: "",
       receipts: [],
       rollbackSnapshots: [],
+      // Сценарий 9: возражения, которые владелец уже снял. Поле заводится ЗДЕСЬ, при создании,
+      // а не в миграции: commit() рисует раньше, чем normalizeState успевает добавить поле.
+      dismissedObjections: [],
       corruptRecords: [],
       architectureEvents: [],
       capabilities: {},
@@ -3155,6 +3195,16 @@ function addAudit(state, type, summary, noteId, options = {}) {
   state.commandMessage = summary;
   const mutationKind = classifyStrongMutation(type);
   if (mutationKind) addReceipt(state, mutationKind, noteId || "", summary, { noteId: noteId || "", locality: options.locality });
+}
+
+// Записать/снять ответ экрана; тексты и правило — в core/surface-notice.mjs.
+function noteOnSurface(state, surface, text) {
+  state.surfaceNotice = normalizeSurfaceNotice({ surface, text, at: now() });
+  return state.surfaceNotice.text;
+}
+
+function clearSurfaceNotice(state) {
+  state.surfaceNotice = Object.assign({}, EMPTY_SURFACE_NOTICE);
 }
 
 function parseWikiInner(inner) {
@@ -5557,6 +5607,22 @@ function analyzeArtifactInput(input, fileMeta, options) {
     }
     for (const intent of speech.intents) mark(SPEECH_INTENT_SCHEMA[intent.type].label);
   }
+  // САМООБУЧЕНИЕ ПРОДУКТА. Владелец 2026-08-01: «если сделать самообучающийся сценарий, то всё
+  // остальное будет постепенно улучшаться после каждого дня моих голосовых».
+  //
+  // Самая ценная обратная связь в продукте обрабатывалась хуже всего: когда он говорил про САМУ
+  // систему («инсайты непонятные», «микрофон не работает», «хочу кнопку с ИИ»), это падало в
+  // общую кучу мыслей и умирало там. Теперь узнаётся отдельным типом, с цитатой и с датой.
+  //
+  // Разбор идёт по предложениям: в одной надиктовке владелец говорит и про смену в такси, и про
+  // то, что система криво показывает. Это две разные записи, а не одна.
+  for (const feedback of detectProductFeedback(text)) {
+    addDraftOnce(drafts, draft("product-feedback-" + normalizeTitle(feedback.title).slice(0, 24), "product_feedback",
+      feedback.title, "control", "Ты сказал это про саму систему — " + feedback.kind, feedback.quote, {
+      kind: feedback.kind,
+      title: feedback.title
+    }, 0.8));
+  }
   addDraftOnce(drafts, draft("automation-context", "chat", "Открыть контекст в чате", "automation", "Чат привязывается к активному артефакту", quote, {
     mode: "local"
   }, 0.74));
@@ -7897,6 +7963,24 @@ function applyProposal(state, proposalId) {
         noteId: proposal.noteId
       });
     }
+  } else if (proposal.type === "product_feedback") {
+    // Замечание о продукте становится объектом с цитатой и датой. Система его НЕ ЧИНИТ и не
+    // притворяется, что может: код по этим записям пишет человек. Ценность в том, что теперь он
+    // получает их списком, а не выуживает из двадцати голосовых за неделю.
+    objectId = makeId("feedback");
+    const createdAt = now();
+    state.productFeedback[objectId] = {
+      id: objectId,
+      title: cleanLine(proposal.title),
+      kind: cleanLine((fields && fields.kind) || ""),
+      quote: cleanLine(proposal.quote || ""),
+      sourceId: cleanLine(proposal.sourceId || ""),
+      noteId: cleanLine(proposal.noteId || ""),
+      status: "open",
+      deleted: false,
+      createdAt,
+      updatedAt: createdAt
+    };
   } else if (proposal.type === "supersede") {
     // О7: старая цель не удаляется — на ней появляется ссылка на новую, дата и причина.
     objectId = applyGoalSupersede(state, fields, proposal);
@@ -8213,6 +8297,87 @@ function recordOwnerDecision(state, proposal, decision, options) {
   return id;
 }
 
+// ─── СРЕЗ В · ВЕРДИКТ ПО ПОХОЖЕЙ МЫСЛИ ────────────────────────────────────────────────────
+//
+// Владелец 2026-07-30: «я закидываю двадцать мыслей в день… система должна видеть похожие старые
+// идеи и помечать как дубль или уточнение». Похожие показывались с 30 июля, но сказать по ним
+// было нечего — и потому подсказка ничему не училась.
+//
+// Вердикт — самый ценный обучающий сигнал в продукте, потому что он про САМУ ПОДСКАЗКУ, а не про
+// содержание мысли. Все три вердикта пишутся ОДНИМ типом («похожая мысль»), чтобы калибровка
+// считала одну понятную величину: как часто подсказка о повторе оказывается права. Разведи их по
+// трём типам — и ни по одному не наберётся порога в 8 решений.
+//
+// Отображение решений на существующую семантику журнала, без изобретения новых полей:
+//   • «дубль»     → applied            — система угадала полностью;
+//   • «уточнение» → applied + edited   — угадала наполовину, ровно то, что значит `edited`;
+//   • «новое»     → dismissed          — ошиблась.
+const SIMILAR_VERDICT_TYPE = "похожая мысль";
+
+const SIMILAR_VERDICTS = {
+  duplicate: { decision: "applied", edited: false, word: "дубль" },
+  supersede: { decision: "applied", edited: true, word: "уточнение" },
+  distinct: { decision: "dismissed", edited: false, word: "новое" }
+};
+
+// Провенанс (И-6) обязателен, и он здесь есть: похожая запись и есть источник подсказки.
+// Предложение синтетическое и в `state.proposals` не заводится намеренно — оно никогда не было
+// показано как предложение, и висеть в очереди ему незачем.
+function recordSimilarVerdict(state, noteId, verdictKey) {
+  const rule = SIMILAR_VERDICTS[verdictKey];
+  if (!rule) return "";
+  return recordOwnerDecision(state, {
+    id: makeId("similar"),
+    type: SIMILAR_VERDICT_TYPE,
+    // Заявленная уверенность подсказки. Эмпирическую посчитает калибровка — на этих же записях.
+    confidence: 0.72,
+    noteId: cleanLine(noteId || ""),
+    sourceId: ""
+  }, rule.decision, { edited: rule.edited, origin: "similar-verdict" });
+}
+
+// Сам вердикт. Три ветки ведут себя по-разному с ДАННЫМИ, но одинаково — с обучением.
+function applySimilarVerdict(state, noteId, verdictKey) {
+  const rule = SIMILAR_VERDICTS[verdictKey];
+  const older = state.notes ? state.notes[cleanLine(noteId || "")] : null;
+  if (!rule || !older || older.deleted) return "";
+  const draft = String(state.captureDraft || "").trim();
+  recordSimilarVerdict(state, older.id, verdictKey);
+
+  if (verdictKey === "duplicate") {
+    // Смысл подсказки в том, чтобы повтор НЕ РОДИЛСЯ. Поэтому запись не заводится вовсе,
+    // а черновик уходит — иначе владелец нажимает «дубль» и видит свой текст на месте,
+    // то есть ничего не произошло.
+    state.captureDraft = "";
+    state.activeNoteId = older.id;
+    addAudit(state, "similar.duplicate", "Повтор не заведён: это уже есть в записи «" + shorten(older.title || "", 60) + "»", older.id);
+    return noteOnSurface(state, "inbox", "Не стал заводить второй раз — открыл ту запись.");
+  }
+
+  if (verdictKey === "supersede") {
+    // Уточнение обязано оставить ОДНУ живую запись, а не вторую такую же (требование Т7).
+    // Новая создаётся обычным путём, старая получает ссылку на неё — как цели в О7.
+    if (!draft) return noteOnSurface(state, "inbox", "Нечем уточнять: поле пустое.");
+    const sourceId = captureTextArtifact(state, draft);
+    const freshNoteId = sourceId && state.sources[sourceId] ? cleanLine(state.sources[sourceId].noteId || "") : "";
+    if (!freshNoteId) return noteOnSurface(state, "inbox", "Запись не создалась — уточнять нечего.");
+    // Поля проставляются ЗДЕСЬ, при событии, а не через нормализацию: commit() рисует раньше,
+    // чем normalizeState успевает добавить поле, и экран показал бы старую запись живой.
+    older.supersededBy = freshNoteId;
+    older.supersededAt = now();
+    older.updatedAt = now();
+    addAudit(state, "similar.supersede", "Запись «" + shorten(older.title || "", 60) + "» помечена заменённой", freshNoteId);
+    return noteOnSurface(state, "inbox", "Уточнил прежнюю запись, а не завёл вторую.");
+  }
+
+  // «Новое»: с данными не делаем ничего — владелец сказал, что это другая мысль. Гасим саму
+  // подсказку для ЭТОГО черновика, иначе она останется висеть и вердикт будет выглядеть
+  // непринятым.
+  state.similarVerdictFor = draft;
+  addAudit(state, "similar.distinct", "Подсказка о повторе отклонена владельцем", older.id);
+  return noteOnSurface(state, "inbox", "Понял, это другая мысль.");
+}
+
 // ─── О2 · РЕТРО-ЗАПОЛНЕНИЕ ────────────────────────────────────────────────────────────────
 //
 // Журнал решений начинается пустым, и первые недели считать по нему нечего. Но решения-то были
@@ -8345,6 +8510,33 @@ function calibratedConfidence(state, proposal) {
   const row = calibration.byType[cleanLine((proposal && proposal.type) || "?")];
   if (!row || !row.trusted) return { value: declared, source: "заявлено разбором", trusted: false };
   return { value: row.acceptance, source: row.status, trusted: true, decisions: row.decisions };
+}
+
+// Срез А · ЧЕСТНОЕ ДОВЕРИЕ НА ЭКРАНЕ.
+//
+// `calibratedConfidence` считала правильное число с самого О3 и не вызывалась в продукте ни разу:
+// она была экспортирована только в тестовую упряжь. Владелец всё это время видел `0.72` —
+// привычку автора разбора, а не долю СВОИХ принятий. Провод прокладывается здесь, в одной точке
+// на весь вид, чтобы второго источника этого числа в проекте не завелось.
+//
+// Калибровка считается ОДИН раз на весь список: `calibratedConfidence` пересчитывает её на каждый
+// вызов, и на сотне предложений это была бы сотня проходов по журналу.
+//
+// Наружу уходит ФРАЗА, а не число. Правило `ui/home.js:156` не знает исключений: «уверенность
+// 72%» ничего не говорит человеку, «мало данных: 3 из 8» говорит всё.
+function proposalsWithTrust(state) {
+  const calibration = computeCalibration(state);
+  return Object.values(state.proposals || {}).map((proposal) => {
+    const row = calibration.byType[cleanLine((proposal && proposal.type) || "?")];
+    // Порядок веток — от самого честного к самому слабому. Заморозка старше дрейфа, дрейф старше
+    // нехватки данных: если канарейка показала падение, доля принятий уже ничего не доказывает.
+    const trust = !row
+      ? { trusted: false, words: "предварительно" }
+      : (row.trusted
+        ? { trusted: true, words: "по твоим решениям: берёшь " + Math.round(row.acceptance * 100) + "% · решений " + row.decisions, decisions: row.decisions }
+        : { trusted: false, words: row.status });
+    return Object.assign({}, proposal, { trust });
+  });
 }
 
 // ─── О8 · КАНАРЕЙКА ───────────────────────────────────────────────────────────────────────
@@ -8604,6 +8796,27 @@ function applyOwnerProfileToProposal(state, proposal) {
   return proposal;
 }
 
+// ─── СРЕЗ Д · ЧТО СИСТЕМА ПОНЯЛА О СЕБЕ ───────────────────────────────────────────────────
+//
+// Второй цикл: не обучение на данных владельца (оно уже работает), а взгляд системы на СВОИ
+// ошибки — «что во мне стоит починить». Правила и пороги живут в `core/self-review.mjs`: модуль
+// чистый, ничего не знает про state и потому проверяется без браузера. Здесь только сбор уже
+// посчитанных чисел в одном месте.
+function computeSelfReview(state) {
+  return selfReview({
+    calibration: computeCalibration(state),
+    canary: (state.control && state.control.canary) ? checkCanary(state) : null,
+    sycophancy: computeSycophancy(state),
+    surfaceUsage: state.surfaceUsage || {},
+    // Тип, которым записан вердикт по похожей мысли: его доля принятых и есть точность подсказки.
+    hintType: SIMILAR_VERDICT_TYPE,
+    minDecisionsForTrust: MIN_DECISIONS_FOR_TRUST,
+    // Проверка пользы ВРЕМЕНЕМ: тип вывода, который двадцать раз проверили и ни разу не получили
+    // дела. Отклонение — мнение в момент показа; здесь между выводом и приговором прошла неделя.
+    insightBets: insightBetsByType(state)
+  });
+}
+
 // ─── О6 · КОРОТКИЙ ГОРИЗОНТ ───────────────────────────────────────────────────────────────
 //
 // Выборка растёт медленно, если каждая ставка проверяется неделями. Короткий горизонт — ставки,
@@ -8615,7 +8828,13 @@ function applyOwnerProfileToProposal(state, proposal) {
 // на том, чего не было.
 const SHORT_HORIZON_HOURS = 24;
 
-function openShortBet(state, kind, objectId, expectation, sourceId) {
+const INSIGHT_HORIZON_HOURS = 24 * 7;
+
+function openShortBet(state, kind, objectId, expectation, sourceId, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  // Срок задаёт тот, кто открывает ставку, и он записан НА САМОЙ ставке. Выводить горизонт при
+  // разрешении из вида ставки — значит однажды поменять правило и молча пересудить старые.
+  const horizonHours = Number(opts.horizonHours) > 0 ? Number(opts.horizonHours) : SHORT_HORIZON_HOURS;
   const id = makeId("bet");
   const createdAt = now();
   state.bets[id] = {
@@ -8625,10 +8844,20 @@ function openShortBet(state, kind, objectId, expectation, sourceId) {
     // Что именно мы утверждаем. Без этого «ставка» — просто отметка времени.
     expectation: cleanLine(expectation),
     sourceId: cleanLine(sourceId || ""),
-    horizonHours: SHORT_HORIZON_HOURS,
-    dueAt: new Date(Date.now() + SHORT_HORIZON_HOURS * 3600 * 1000).toISOString(),
+    // Тип вывода, за который отвечает ставка. Без него статистика знает «выводы не сработали»,
+    // но не знает КАКИЕ, — а чинить надо тип, а не «выводы вообще».
+    insightType: cleanLine(opts.insightType || ""),
+    // Записи, из которых сделан вывод. Разрешение ищет действие ТОЛЬКО среди привязанных к ним:
+    // любой более широкий способ («он на этой неделе вообще что-то делал») засчитывал бы
+    // совпадение по времени за следствие.
+    refs: Array.isArray(opts.refs) ? opts.refs.map((ref) => cleanLine(ref)).filter(Boolean).slice(0, 12) : [],
+    horizonHours,
+    dueAt: new Date(Date.now() + horizonHours * 3600 * 1000).toISOString(),
     status: "open",
     outcome: "",
+    // Чем именно ставка закрыта, словами. Без этой строки владелец видит «промах» и не может
+    // проверить, что мы вообще смотрели.
+    evidence: "",
     resolvedAt: "",
     deleted: false,
     createdAt,
@@ -8637,9 +8866,125 @@ function openShortBet(state, kind, objectId, expectation, sourceId) {
   return id;
 }
 
+// Была ли у владельца эта неделя вообще. Ставка на вывод разрешается по тому, что он сделал, —
+// значит если он не открывал систему, «ничего не выросло» говорит о неделе, а не о выводе.
+// Признак берём из его собственных данных: создавалась ли за окно ставки хоть одна запись,
+// задача, вложение или трата. Удалённые считаются тоже: удалённая запись всё равно доказывает,
+// что в тот день он был.
+function ownerActivityStamps(state) {
+  const stamps = [];
+  for (const collection of [state.notes, state.tasks, state.sources, state.financeTransactions]) {
+    for (const row of Object.values(collection || {})) {
+      const stamp = row ? Date.parse(row.createdAt || "") || 0 : 0;
+      if (stamp) stamps.push(stamp);
+    }
+  }
+  return stamps;
+}
+
+// Действие, которым вывод может ответить. Смотрим на РЕАЛЬНЫЕ объекты и только на те, что тянутся
+// к записям-источникам вывода. Возвращаем не `true`, а строку-основание: «попадание» без указания,
+// что именно выросло, проверить нечем.
+function insightBetAction(state, bet) {
+  const refs = new Set((bet.refs || []).filter(Boolean));
+  const opened = Date.parse(bet.createdAt || "") || 0;
+  const tasks = Object.values(state.tasks || {});
+  // 1. Задача, заведённая ПОСЛЕ ставки под одной из записей-источников. Самый прямой ответ:
+  // вывод прочитан и превращён в дело.
+  for (const task of tasks) {
+    if (!task || task.deleted || !refs.has(task.noteId || "")) continue;
+    if ((Date.parse(task.createdAt || "") || 0) <= opened) continue;
+    return "Из источников вывода выросла задача «" + shorten(task.title || "", 40) + "»"
+      + (task.status === "done" ? ", и она закрыта" : "");
+  }
+  // 2. Движение по проекту, который и есть якорь ставки (кластер заметок → проект). Сам факт
+  // создания проекта ответом НЕ считается: проект заводится в тот же миг, что и ставка, и
+  // засчитывать его значило бы объявлять такую ставку попаданием ещё до всякой проверки.
+  // Считается то, что появилось позже: новый пункт или закрытый пункт. Про `status === "done"`
+  // честно: закрывать проекты продукт сегодня не умеет вовсе, поэтому работающий сигнал здесь —
+  // пункт, а проверка самого проекта стоит на будущее и сегодня ничего не решает.
+  const project = state.projects ? state.projects[bet.objectId] : null;
+  if (project && !project.deleted) {
+    if (project.status === "done") return "Проект «" + shorten(project.title || "", 40) + "» закрыт";
+    for (const item of Object.values(state.projectItems || {})) {
+      if (!item || item.deleted || item.projectId !== project.id) continue;
+      const born = Date.parse(item.createdAt || "") || 0;
+      const closed = item.status === "done" ? Date.parse(item.updatedAt || "") || 0 : 0;
+      if (born <= opened && closed <= opened) continue;
+      return "В проекте «" + shorten(project.title || "", 40) + "» "
+        + (closed > opened ? "закрыт пункт «" : "появился пункт «") + shorten(item.title || "", 40) + "»";
+    }
+  }
+  // 3. Задача, которая под источником вывода уже стояла и закрылась ПОСЛЕ ставки. Тоже действие:
+  // вывод не завёл новое дело, а сдвинул стоявшее.
+  for (const task of tasks) {
+    if (!task || task.deleted || task.status !== "done" || !refs.has(task.noteId || "")) continue;
+    if ((Date.parse(task.updatedAt || "") || 0) <= opened) continue;
+    return "Задача «" + shorten(task.title || "", 40) + "» из источников вывода закрыта";
+  }
+  return "";
+}
+
+// Разрешение ставки на вывод. Три исхода и ни одного четвёртого; ни один из них не спрашивает
+// владельца — все три читаются из состояния объектов.
+function resolveInsightBet(state, bet, activity) {
+  const anchor = (state.insights && state.insights[bet.objectId])
+    || (state.projects && state.projects[bet.objectId])
+    || null;
+  if (!anchor || anchor.deleted) {
+    return { outcome: "unverifiable", evidence: "Вывода больше нет — проверять нечего" };
+  }
+  // Ни одной записи-источника и ни одного проекта: тянуть не за что. Такая ставка непроверяема по
+  // построению (так живут выводы вроде «расходы за неделю выросли» — у них `refs` пуст), и
+  // записывать её в промахи значило бы наказывать тип вывода за то, что мы не умеем его
+  // проследить.
+  if (!(bet.refs || []).length && !(state.projects && state.projects[bet.objectId])) {
+    return { outcome: "unverifiable", evidence: "У вывода нет записей-источников — следить не за чем" };
+  }
+  const from = Date.parse(bet.createdAt || "") || 0;
+  const to = Date.parse(bet.dueAt || "") || Date.now();
+  if (!activity.some((stamp) => stamp > from && stamp <= to)) {
+    return { outcome: "unverifiable", evidence: "За это окно владелец не записал ничего — недели не было" };
+  }
+  const action = insightBetAction(state, bet);
+  if (action) return { outcome: "hit", evidence: action };
+  const days = Math.round((Number(bet.horizonHours) || INSIGHT_HORIZON_HOURS) / 24);
+  return {
+    outcome: "miss",
+    evidence: "За " + days + " " + pluralRu(days, "день", "дня", "дней")
+      + " из вывода не выросло ни задачи, ни движения по проекту"
+  };
+}
+
+// Польза по типам выводов. Непроверяемые не входят никуда, кроме собственного счётчика: ставка
+// без ответа — не наблюдение, и включать её значило бы записать тип в бесполезные за неделю,
+// которой у владельца не было.
+function insightBetsByType(state) {
+  const rows = new Map();
+  for (const bet of Object.values(state.bets || {})) {
+    if (!bet || bet.deleted || bet.kind !== "insight-action" || bet.status !== "resolved") continue;
+    const type = cleanLine(bet.insightType || "") || "без типа";
+    if (!rows.has(type)) rows.set(type, { type, hit: 0, miss: 0, unverifiable: 0 });
+    const row = rows.get(type);
+    if (bet.outcome === "hit") row.hit += 1;
+    else if (bet.outcome === "miss") row.miss += 1;
+    else row.unverifiable += 1;
+  }
+  return [...rows.values()]
+    .map((row) => Object.assign(row, {
+      scored: row.hit + row.miss,
+      accuracy: row.hit + row.miss ? row.hit / (row.hit + row.miss) : 0
+    }))
+    .sort((a, b) => b.scored - a.scored);
+}
+
 // Разрешение: смотрим на РЕАЛЬНОЕ состояние объекта, а не спрашиваем систему, права ли она.
 function resolveShortBets(state) {
   const report = { hit: 0, miss: 0, unverifiable: 0 };
+  // Активность владельца нужна только ставкам на вывод и стоит одного прохода по всем записям.
+  // Считаем лениво и один раз на прогон: ставки разрешаются пачкой, и перебирать базу под каждую —
+  // лишняя работа на ровном месте.
+  let activity = null;
   for (const bet of Object.values(state.bets || {})) {
     if (!bet || bet.deleted || bet.status !== "open") continue;
     if (Date.parse(bet.dueAt || "") > Date.now()) continue;
@@ -8649,16 +8994,28 @@ function resolveShortBets(state) {
         // Объекта не стало — проверить нечего, и выдумывать исход нельзя.
         bet.status = "resolved";
         bet.outcome = "unverifiable";
+        bet.evidence = "Задачи больше нет — проверять нечего";
         report.unverifiable += 1;
       } else {
         const done = task.status === "done";
         bet.status = "resolved";
         bet.outcome = done ? "hit" : "miss";
+        bet.evidence = done ? "Задача закрыта в тот же день" : "К концу суток задача осталась открытой";
         report[done ? "hit" : "miss"] += 1;
       }
+    } else if (bet.kind === "insight-action") {
+      // О6-Б: вывод проверяется неделей и по реальным объектам. Ветка сознательно отдельная от
+      // `task-today`: у неё другой горизонт, другой якорь и другое понятие «ответа пришёл».
+      if (!activity) activity = ownerActivityStamps(state);
+      const verdict = resolveInsightBet(state, bet, activity);
+      bet.status = "resolved";
+      bet.outcome = verdict.outcome;
+      bet.evidence = verdict.evidence;
+      report[verdict.outcome] += 1;
     } else {
       bet.status = "resolved";
       bet.outcome = "unverifiable";
+      bet.evidence = "Такой вид ставки проверять нечем";
       report.unverifiable += 1;
     }
     bet.resolvedAt = now();
@@ -9192,12 +9549,20 @@ function saveSourceTranscript(state, sourceId, transcriptText, options) {
 // ЖЕ расшифровку и добавляет только то, чего правила не поняли. Асинхронно и отдельно, потому
 // что разбор владельца ждать модель не обязан: она может быть выключена, занята или не
 // установлена, и в каждом из этих случаев он всё равно уже получил свои объекты.
-async function runSpeechIntentModelForSource(sourceId) {
-  const snapshot = store.getState();
+async function runSpeechIntentModelForSource(sourceId, options) {
+  // У хранилища НЕТ метода `getState` — есть `getStateSnapshot`. Разбор моделью падал на этой
+  // строке ВСЕГДА, но до кнопки «с ИИ» его никто не вызывал: тумблер `speechIntents` выключен по
+  // умолчанию, и путь был мёртвым. Первое же нажатие уронило экран целиком.
+  const snapshot = store.state;
   const source = snapshot.sources ? snapshot.sources[sourceId] : null;
   if (!source || source.deleted) return { status: "no-source", intents: [] };
   const settings = snapshot.ollama || {};
-  if (settings.speechIntents !== true) return { status: "off", intents: [] };
+  // `force` — владелец нажал «Разобрать с ИИ» руками. Тумблер `speechIntents` управляет тем,
+  // лезет ли модель САМА при каждом захвате (по умолчанию нет: она может быть выключена, занята
+  // или просто медленная, и заставлять ждать её каждый раз нечестно). Явное нажатие — другое
+  // дело: владелец согласился подождать и знает, чего просит.
+  const forced = Boolean(options && options.force);
+  if (!forced && settings.speechIntents !== true) return { status: "off", intents: [] };
   const text = String(source.transcriptText || source.text || "");
   if (!text.trim()) return { status: "no-text", intents: [] };
   const result = await requestSpeechIntentsFromModel(text, {
@@ -9993,6 +10358,21 @@ async function startAudioRecording() {
     mediaRecorder.start();
     recordingRuntime.status = "recording";
     recordingRuntime.error = "";
+    // В-9 из карты отказов (docs/MVP_NEGATIVE_CASES.md): «уснул с открытым микрофоном».
+    // Запись, оставленная включённой, — не редкость и не ошибка владельца: он нажал, отвлёкся,
+    // ушёл. Без предела она пишет часами, съедает память вкладки и превращает индикатор
+    // «идёт запись» в постоянную деталь интерфейса, на которую перестают смотреть.
+    //
+    // Останавливаем сами через MAX_RECORDING_MS и СОХРАНЯЕМ то, что успело записаться: обрывать
+    // без сохранения значит потерять всё, что он успел сказать до того, как отвлёкся.
+    clearTimeout(recordingAutoStopTimer);
+    recordingAutoStopTimer = setTimeout(() => {
+      if (recordingRuntime.status !== "recording") return;
+      stopAudioRecording().catch(() => {
+        // Остановка не удалась — но висеть в «идёт запись» всё равно нельзя.
+        recordingRuntime.status = "idle";
+      });
+    }, MAX_RECORDING_MS);
   } catch (error) {
     recordingRuntime.status = "error";
     recordingRuntime.error = String((error && error.message) || error);
@@ -12886,6 +13266,10 @@ const VIEW_ONLY_COMMIT_SUMMARIES = new Set([
   "Graph search cleared",
   "Folder selected",
   "Note opened",
+  // «Объект открыт» — это переход, а не правка данных: Ctrl+Z должен отменять последнее ДЕЙСТВИЕ
+  // владельца, а не то, что он провалился в карточку. Раньше строка сюда не попала, и каждое
+  // открытие объекта занимало шаг истории отмены.
+  "Объект открыт",
   "Task control opened",
   "Reminder control opened",
   "Plan control opened",
@@ -12901,6 +13285,74 @@ const VIEW_ONLY_COMMIT_SUMMARIES = new Set([
   "Test surface selected",
   "Тема изменена"
 ]);
+
+// ─── О-1 · ДВЕ ВКЛАДКИ ────────────────────────────────────────────────────────────────────
+//
+// Измерено 2026-07-31: защиты не было НИКАКОЙ. Ни `BroadcastChannel`, ни `navigator.locks`, ни
+// обработчика `storage`. Хранилище пишет снимок ВСЕГО состояния, поэтому две открытые вкладки
+// означали: последняя запись затирает состояние целиком, включая мысли, надиктованные в другой.
+// Отказ тихий — запись «успешна», данных нет.
+//
+// Владелец начинает ежедневное использование 1 августа с ноутбука и телефона. Забытая вкладка —
+// не гипотеза, а норма. Один таб мог стереть день записей, и никто бы не заметил.
+//
+// Правило простое и потому надёжное: пишет ТА вкладка, что открыта раньше. Новая объявляет о
+// себе, старая отвечает «здесь занято», новая уходит в чтение и честно об этом говорит. Именно
+// в эту сторону, а не наоборот: в старой вкладке может лежать несохранённый черновик, и отдать
+// ей право записи — единственный способ его не потерять.
+//
+// Без BroadcastChannel (старый браузер, приватный режим) продукт работает как раньше — то есть
+// без защиты. Врать про защиту, которой нет, нельзя: `tabGuard.supported` это показывает.
+const TAB_CHANNEL = "lifeos-tabs";
+
+const tabGuard = {
+  supported: typeof BroadcastChannel === "function",
+  channel: null,
+  id: Math.random().toString(36).slice(2) + "-" + Date.now(),
+  // Пока не доказано обратное, вкладка считает себя главной: одна открытая вкладка — обычный
+  // случай, и заставлять её ждать ответа, которого не будет, значит ломать нормальную работу.
+  readOnly: false,
+  bornAt: Date.now()
+};
+
+function armTabGuard(onChange) {
+  if (!tabGuard.supported) return;
+  try {
+    tabGuard.channel = new BroadcastChannel(TAB_CHANNEL);
+  } catch {
+    tabGuard.supported = false;
+    return;
+  }
+  tabGuard.channel.onmessage = (event) => {
+    const message = event && event.data ? event.data : {};
+    if (!message.id || message.id === tabGuard.id) return;
+    if (message.kind === "hello") {
+      // Кто-то открылся. Если мы старше — говорим об этом; решать будет он сам.
+      if (!tabGuard.readOnly) {
+        tabGuard.channel.postMessage({ kind: "busy", id: tabGuard.id, bornAt: tabGuard.bornAt });
+      }
+      return;
+    }
+    if (message.kind === "busy" && Number(message.bornAt) < tabGuard.bornAt && !tabGuard.readOnly) {
+      tabGuard.readOnly = true;
+      if (onChange) onChange();
+      return;
+    }
+    if (message.kind === "bye" && tabGuard.readOnly) {
+      // Старшая вкладка закрылась — право записи освободилось.
+      tabGuard.readOnly = false;
+      if (onChange) onChange();
+    }
+  };
+  tabGuard.channel.postMessage({ kind: "hello", id: tabGuard.id, bornAt: tabGuard.bornAt });
+  window.addEventListener("pagehide", () => {
+    try {
+      tabGuard.channel.postMessage({ kind: "bye", id: tabGuard.id });
+    } catch {
+      // Вкладка закрывается — жаловаться уже некому.
+    }
+  });
+}
 
 class ReactiveStore {
   constructor(repo) {
@@ -12927,6 +13379,16 @@ class ReactiveStore {
     // C1.1: настоящий момент, когда "streaming:true" гарантированно устарел - свежая
     // загрузка страницы, ни один поток физически не может быть ещё жив.
     for (const message of Object.values(this.state.chatMessages || {})) message.streaming = false;
+    // То же самое, и по той же причине, для записи с микрофона. Владелец 2026-08-01: «запись
+    // идёт, хотя ничего не нажимал».
+    //
+    // `audioRecordingStatus` — это состояние ЖЕЛЕЗА, а оно сохранялось в снимок вместе с
+    // данными. Вкладку закрыли во время записи (или запись оборвалась) — статус «recording»
+    // пережил перезагрузку, а самого `MediaRecorder` уже нет. Экран честно рисовал «идёт
+    // запись», остановить её было нечем, и микрофон при этом не работал вовсе.
+    //
+    // Свежая загрузка страницы — момент, когда ни один поток физически не может быть жив.
+    if (this.state.control) this.state.control.audioRecordingStatus = { status: "idle", error: "" };
   }
 
   subscribe(listener) {
@@ -12937,12 +13399,58 @@ class ReactiveStore {
     for (const listener of this.listeners) listener(this.state);
   }
 
+  // ЗАВИСШАЯ ЗАПИСЬ РОНЯЛА ВЕСЬ ЭКРАН. Владелец 2026-08-01: «весь экран виснет».
+  //
+  // Очередь была строгой цепочкой: `writeQueue = writeQueue.then(task, task)`. Одна запись в
+  // IndexedDB, которая не завершилась НИКОГДА (браузер занят, блокировка от другой вкладки,
+  // квота), навсегда останавливала цепочку. А каждый обработчик действия делает
+  // `await store.commit(...)` — значит после этого не срабатывала уже НИ ОДНА кнопка. Продукт
+  // выглядел полностью зависшим, хотя рисовался нормально: отсюда и «сохраняю» в углу навсегда.
+  //
+  // Сторож: запись не имеет права висеть дольше WRITE_TIMEOUT_MS. Вышло время — цепочка
+  // отпускается, состояние в памяти цело, владельцу сказано, что сохранить не удалось.
+  // Изоляция отказов (CLAUDE.md §7): падение подсистемы не роняет платформу.
+  //
+  // Сама запись при этом НЕ отменяется — отменить транзакцию IndexedDB нельзя, и врать, что она
+  // не пройдёт, тоже нельзя. Она может завершиться позже; мы лишь перестаём её ждать.
   enqueueWrite(task) {
-    this.writeQueue = this.writeQueue.then(task, task);
+    const guarded = () => new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        if (settled) return;
+        this.saveState = "error";
+        updateSaveStatus();
+        // Тихо зависнуть хуже, чем честно сказать: владелец должен знать, что набранное сейчас
+        // живёт только в памяти вкладки.
+        bootError = new Error("Запись в хранилище не завершилась за " + Math.round(WRITE_TIMEOUT_MS / 1000) + " с");
+        finish();
+      }, WRITE_TIMEOUT_MS);
+      Promise.resolve()
+        .then(task)
+        .catch(() => {})
+        .finally(() => {
+          clearTimeout(timer);
+          finish();
+        });
+    });
+    this.writeQueue = this.writeQueue.then(guarded, guarded);
     return this.writeQueue;
   }
 
   async persistCurrent(revision, afterSave) {
+    // О-1: вторая вкладка не пишет. Совсем. Состояние в памяти живёт и рисуется — владелец может
+    // читать и искать, — но на диск уходит только из главной вкладки. Иначе снимок этой вкладки
+    // затрёт всё, что за это время надиктовано в той.
+    if (tabGuard.readOnly) {
+      this.saveState = "readonly";
+      updateSaveStatus();
+      return;
+    }
     return this.enqueueWrite(async () => {
       try {
         this.saveState = "saving";
@@ -13517,8 +14025,36 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     // должно быть видно ему, а не только ей.
     sycophancy: computeSycophancy(state),
     canary: (state.control && state.control.canary) ? checkCanary(state) : null,
+    // Самообучение продукта: что владелец сказал про саму систему. Свежие сверху — вчерашнее
+    // замечание важнее позапрошлонедельного, потому что продукт с тех пор менялся.
+    productFeedback: Object.values(state.productFeedback || {})
+      .filter((row) => row && !row.deleted)
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
+    // Сценарий 9: возражения. Список почти всегда пустой — и это правильно: система, которая
+    // спорит каждый день, перестаёт быть услышанной.
+    objections: computeObjections(state).filter((row) => !(state.control.dismissedObjections || []).includes(row.id)),
+    // Владелец 31.07.2026: «у меня даже микрофон на сайте не работает, записать пришлось писать
+    // это всё руками». Ошибка записи ЛОВИЛАСЬ (`recordingRuntime.error`) и уезжала в
+    // `control.audioRecordingStatus` — то есть в панель «Мой день», далеко от кнопки, которую он
+    // нажал. Кнопка молчала, и это читалось как «микрофон не работает» вместо «браузер не дал
+    // доступ». Ответ обязан стоять там, где нажали.
+    micError: cleanLine((state.control && state.control.audioRecordingStatus && state.control.audioRecordingStatus.error) || ""),
+    // Т2: «если что-то грузится, пусть этот значок появляется, что грузится» — претензия №3.
+    // Наружу идёт не факт занятости, а ЧТО ИМЕННО делается: «Загрузка…» без предмета врёт не
+    // меньше, чем молчание.
+    busy: state.busy || null,
+    // О-1: вкладка знает, пишет она или только читает. Экран обязан это показать — молчание
+    // здесь стоит дня записей.
+    tabReadOnly: Boolean(tabGuard.readOnly),
+    // Срез Д: что система поняла о СЕБЕ. Второй цикл — не обучение на данных владельца, а
+    // предложения о самом продукте. Экран не заводим: это данные для Контроля (И-7).
+    selfReview: computeSelfReview(state),
     surfaceUsage: state.surfaceUsage || {},
     captureDraft: state.captureDraft || "",
+    // Срез В: для какого текста подсказка о повторе уже получила вердикт «новое». Гасится
+    // сравнением с текущим черновиком, а не флагом: владелец допишет фразу — подсказка обязана
+    // вернуться, потому что это уже другая мысль.
+    similarVerdictFor: String(state.similarVerdictFor || ""),
     // Статус каждого прикреплённого файла считается ЗДЕСЬ, из самой записи, а не хранится
     // рядом с идентификатором: иначе на экране жила бы устаревающая копия правды.
     captureAttachments: (state.captureAttachments || [])
@@ -13541,6 +14077,7 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     claims: Object.values(state.claims || {}).filter((item) => !item.deleted),
     theme: state.theme === "dark" || state.theme === "light" ? state.theme : "system",
     commandMessage: state.commandMessage || "",
+    surfaceNotice: state.surfaceNotice || { surface: "", text: "", at: "" },
     commandPaletteHtml: renderCommandPalette(state),
     control: state.control || {},
     channels: Object.values(state.channels || {}).filter((item) => !item.deleted),
@@ -13572,9 +14109,27 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     graphDateFilter: cleanLine(state.graphView.dateFilter || ""),
     habits,
     highlights: Object.values(state.highlights || {}).filter((item) => !item.deleted),
+    // Выводы-артефакты (state.insights, их пишет refreshDeterministicInsights) — это НЕ
+    // computedInsights: те считаются на лету для Дома. Эти хранятся, и до сих пор их не
+    // показывал ни один экран: кнопка «Обновить инсайты» работала в пустоту.
+    insights: Object.values(state.insights || {})
+      .filter((item) => !item.deleted && item.status === "open")
+      .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))),
     latestSource: humanVisibleSource(state) || latestSource(state),
     lifeDomains: lifeDomainStats(state),
-    notes: Object.values(state.notes || {}).filter((note) => !note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    // Сценарий 7 · Т6: служебные записи платформы — не жизнь владельца. Претензия дословно:
+    // «в связи заходишь — всё равно ID, Type, Title, Owner, всё выглядит криво». Эти слова живут
+    // не в разметке, а в СОДЕРЖИМОМ наших собственных записей о себе («Artifact OS Contract»,
+    // «Owner Complaints», «Provider Gates Map»), которые лежали в общей базе наравне с его
+    // мыслями — и всплывали в похожих, в связях и в поиске.
+    //
+    // Правило то же, что уже применяет `computeInsights`: запись с `systemType` вон с
+    // поверхностей владельца. Ничего не удаляется — они остаются в Dev / Product Brain, где им и
+    // место, и включаются отдельным фильтром графа.
+    notes: Object.values(state.notes || {}).filter((note) => !note.deleted && !note.systemType).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    // Полный список — для тех мест, что обязаны видеть всё: граф с включённым Dev-фильтром,
+    // экспорт, Контроль. Разделение явное, чтобы «спрятали» не превратилось в «потеряли».
+    allNotes: Object.values(state.notes || {}).filter((note) => !note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     deletedNotes: Object.values(state.notes || {}).filter((note) => note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     backlinks: state.backlinks || {},
     memoryLayers: memoryLayers(state),
@@ -13621,7 +14176,10 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
     modelProfiles: Object.values(state.modelProfiles || {}).filter((item) => !item.deleted),
     personalTwinSnapshots: Object.values(state.personalTwinSnapshots || {}).filter((item) => !item.deleted).map((item) => ({ id: item.id, title: item.title, summary: item.summary, noteId: item.noteId, status: item.status, deleted: item.deleted, createdAt: item.createdAt, updatedAt: item.updatedAt, hasPayload: Boolean(item.payload) })),
     planBlocks,
-    proposals: Object.values(state.proposals || {}),
+    // Срез А: у каждого предложения на экране теперь есть ЧЕСТНОЕ доверие, а не назначенное
+    // руками 0.72. `calibratedConfidence` существовала с О3 и не вызывалась в продукте ни разу —
+    // владелец видел привычку автора вместо доли своих же принятий.
+    proposals: proposalsWithTrust(state),
     projectItems: Object.values(state.projectItems || {}).filter((item) => !item.deleted),
     projects: Object.values(state.projects || {}).filter((item) => !item.deleted),
     questions: Object.values(state.questions || {}).filter((item) => !item.deleted),
@@ -15948,8 +16506,49 @@ function computeDayDigestView(state) {
     questions: asks.slice(0, 8).map((proposal) => digestQuestion(state, proposal)),
     hint: sources.length
       ? "Разбор читает только сегодняшние захваты и ничего не записывает — на выходе предложения и вопросы."
-      : "За сегодня захватов ещё не было. Запиши мысль, скинь файл или голосовое — и разбор будет из чего собрать."
+      : "За сегодня захватов ещё не было. Запиши мысль, скинь файл или голосовое — и разбор будет из чего собрать.",
+    // Сценарий 8: незакрытые петли. День нельзя считать закрытым, пока владелец не решил, что с
+    // ними — иначе завтра начинается с нуля, и вечерний итог остаётся отчётом, а не переходом.
+    openLoops: openLoopsForDay(state, day)
   };
+}
+
+// Что осталось незакрытым сегодня. Только задачи со сроком сегодня или раньше: «когда-нибудь»
+// не является незакрытой петлёй — это список желаний, и тащить его в завтра значит превратить
+// завтрашнее утро в ту же свалку.
+function openLoopsForDay(state, day) {
+  return Object.values(state.tasks || {})
+    .filter((task) => task && !task.deleted && task.status !== "done")
+    .filter((task) => cleanLine(task.day || "") && cleanLine(task.day) <= day)
+    .sort((a, b) => String(a.day).localeCompare(String(b.day)))
+    .slice(0, 7)
+    .map((task) => ({
+      id: task.id,
+      title: shorten(task.title || "", 70),
+      // Просроченное называется просроченным. «Ещё вчера» — это не упрёк, а факт, по которому
+      // владелец решает быстрее, чем по дате.
+      overdue: cleanLine(task.day) < day,
+      day: cleanLine(task.day || "")
+    }));
+}
+
+// Перенос на завтра. Единственная кнопка, ради которой вечерний итог вообще существует: без неё
+// он рассказывает о дне и ничего с ним не делает.
+function carryLoopsToTomorrow(state) {
+  const day = todayKey();
+  const tomorrow = dateKeyFromOffset(1);
+  const loops = openLoopsForDay(state, day);
+  for (const loop of loops) {
+    const task = state.tasks[loop.id];
+    if (!task || task.deleted || task.status === "done") continue;
+    task.day = tomorrow;
+    task.updatedAt = now();
+  }
+  if (loops.length) {
+    addAudit(state, "day.carry", "Перенесено на завтра: " + loops.length, "");
+    addReceipt(state, "decision", "", "Незакрытое за " + day + " перенесено на завтра: " + loops.length, { surface: "capture" });
+  }
+  return loops.length;
 }
 
 function answerDigestQuestion(state, compositeId) {
@@ -17699,6 +18298,42 @@ function computeGoalForecast(state) {
   return { rows: rows.sort((a, b) => a.percent - b.percent), underestimated: computeUnderestimated(state), hasFlow: flow.known };
 }
 
+// ─── СЦЕНАРИЙ 9 · СИСТЕМА ВОЗРАЖАЕТ ───────────────────────────────────────────────────────
+//
+// Владелец: «Поеду отдыхать» → «Ты сам поставил цель 200 000, в этом месяце не хватает 43 000.
+// Поэтому не рекомендую». Ключевое слово — САМ ПОСТАВИЛ. Система не судит и не запрещает: она
+// напоминает владельцу его же цель его же числами и оставляет решение ему.
+//
+// Возражение появляется ТОЛЬКО когда есть три вещи разом: собственная цель владельца, срок и
+// посчитанный разрыв. Без любой из них это уже не возражение, а нравоучение — и оно запрещено.
+//
+// Порог 45%: ниже половины «скорее не выйдет», и молчать об этом нечестно. Выше — цель идёт
+// нормально, и лезть с предупреждением значит стать тем, кого выключают.
+const OBJECTION_PROBABILITY_GATE = 45;
+
+function computeObjections(state) {
+  const forecast = computeGoalForecast(state);
+  if (!forecast.hasFlow) return [];
+  return (forecast.rows || [])
+    .filter((row) => row.percent < OBJECTION_PROBABILITY_GATE)
+    .slice(0, 2)
+    .map((row) => ({
+      id: row.id,
+      // Возражение говорит ЕГО словами о ЕГО цели, а не о нашей оценке.
+      title: "Ты сам поставил: «" + row.title + "» к " + row.deadline,
+      // Число всегда рядом с утверждением: «не рекомендую» без числа — это мнение.
+      verdict: "При нынешнем темпе шансы " + row.percent + "% — скорее не выйдет.",
+      // Основание раскрывается, а не подразумевается: владелец должен иметь возможность
+      // не поверить и проверить.
+      explanation: row.explanation,
+      // Решает он. Мы называем оба выхода, не подталкивая ни к одному.
+      choices: [
+        { label: "Открыть цель", action: "set-surface", id: "goals" },
+        { label: "Понял, всё равно так", action: "dismiss-objection", id: row.id }
+      ]
+    }));
+}
+
 // «Где недооценил» — только по фактам: перерасход против собственного бюджета и сроки,
 // которые уже двигали. Никаких «ты обычно недооцениваешь» без числа за спиной.
 function computeUnderestimated(state) {
@@ -18998,7 +19633,15 @@ function buildHumanCaptureAnswer(state) {
 
   // Срез 2: найденные люди видны сразу в разборе - владелец видит, КОГО система узнала
   // в его вводе, до применения чего-либо.
-  const peopleFound = source && source.analysis && source.analysis.entities && Array.isArray(source.analysis.entities.people) ? source.analysis.entities.people : [];
+  // Боль владельца 2026-07-30: «люди пять… он искусственное за людей теперь считает». Видно это
+  // не только в Графе, но и здесь, в разборе: строка «Люди: Финансовый» на главном экране —
+  // прилагательное, записанное в собеседники. Извлекатель ловит имя по русской подсказке, и
+  // «финансовый прогноз» после предлога выглядит для него именем.
+  //
+  // Отсев — тем же правилом, что в Графе и в карточке объекта: одна болезнь, одно лекарство.
+  // Фильтруем ЗДЕСЬ, а не в разметке, чтобы не появилось третьего места с той же логикой.
+  const peopleRaw = source && source.analysis && source.analysis.entities && Array.isArray(source.analysis.entities.people) ? source.analysis.entities.people : [];
+  const peopleFound = peopleRaw.filter((name) => isLikelyPerson(name));
   if (peopleFound.length) facts.push("Люди: " + peopleFound.join(", ") + ".");
 
   secondary = secondary.concat([
@@ -21371,7 +22014,10 @@ function updateSaveStatus() {
     dirty: "есть правка",
     saving: "сохраняю",
     saved: "сохранено",
-    error: "ошибка"
+    error: "ошибка",
+    // О-1: состояние, о котором нельзя молчать. Владелец печатает и видит текст на экране —
+    // и обязан знать, что этот текст никуда не сохраняется, ПОКА он печатает, а не потом.
+    readonly: "только чтение — открыто в другой вкладке"
   };
   status.textContent = map[store.saveState] || "готово";
   status.dataset.state = store.saveState;
@@ -21684,6 +22330,15 @@ async function handleAction(action, id) {
   }
   if (action === "set-surface") {
     await store.commit("Рабочее место открыто", (state) => {
+      // Переход на экран, который уже открыт, — не ошибка владельца: так он спрашивает «а где
+      // результат-то?». Молчание здесь неотличимо от сломанной кнопки, и перепись живого
+      // 2026-07-31 нашла ровно это: «Открыть Записи» с экрана Записей числилась мёртвой.
+      // Отвечаем словами вместо тишины; сам переход при этом выполняется как обычно.
+      if (cleanLine(id || "inbox") === cleanLine(state.activeSurface || "")) {
+        noteOnSurface(state, cleanLine(state.activeSurface || "inbox"), "Ты уже здесь — результат на этом экране.");
+      } else {
+        clearSurfaceNotice(state);
+      }
       state.activeSurface = id || "inbox";
       state.commandPaletteOpen = false;
       // У0 (П13): чем владелец пользуется на самом деле. Пять строк — и П34 сможет сворачивать
@@ -22033,7 +22688,17 @@ async function handleAction(action, id) {
       const hidden = new Set(layout.hiddenKeys);
       if (action === "hide-widget") hidden.add(id);
       else if (action === "show-widget") hidden.delete(id);
-      else order = moveWidgetInLayout(state, id, action === "move-widget-up" ? "up" : "down");
+      else {
+        const before = order.join("|");
+        order = moveWidgetInLayout(state, id, action === "move-widget-up" ? "up" : "down");
+        // Виджет уже на краю — двигать некуда, и это законный исход. Но молча он выглядит как
+        // сломанная стрелка: перепись живого 2026-07-31 нашла «↓» мёртвой ровно у нижнего
+        // виджета. Отвечаем словами вместо тишины (правило core/surface-notice.mjs).
+        if (order.join("|") === before) {
+          noteOnSurface(state, cleanLine(state.activeSurface || "inbox"),
+            action === "move-widget-up" ? "Этот блок и так первый." : "Этот блок и так последний.");
+        }
+      }
       state.dashboardLayout = { order, hidden: [...hidden] };
     });
     return;
@@ -22079,7 +22744,12 @@ async function handleAction(action, id) {
     const field = document.querySelector('[data-agent-time="' + String(id || "").replace(/[^a-z0-9-]/gi, "") + '"]');
     const time = field ? field.value : "";
     await store.commit("Расписание агента задано", (state) => {
-      setAgentSchedule(state, id, time);
+      // Пустое поле «Время»: setAgentSchedule молча возвращал false (core/surface-notice.mjs).
+      const agent = LIFEOS_AGENTS.find((row) => row.id === id);
+      const saved = setAgentSchedule(state, id, time);
+      const kind = saved ? "saved" : !agent ? "unknown-agent" : field ? "empty-time" : "no-field";
+      noteOnSurface(state, state.activeSurface === "flows" ? "flows" : "agents",
+        agentScheduleNoticeText(kind, agent ? agent.name : "", normalizeScheduleTime(time)));
     });
     return;
   }
@@ -22125,7 +22795,17 @@ async function handleAction(action, id) {
     if (computed) {
       await store.commit("Инсайт закреплён", (state) => {
         const noteId = computed.refs && computed.refs[0] ? computed.refs[0] : state.activeNoteId || "";
-        addInsight(state, computed.title, computed.detail + " · закреплено из авто-инсайта (" + computed.confidence + " уверенность)", { noteId });
+        const insightId = addInsight(state, computed.title, computed.detail + " · закреплено из авто-инсайта (" + computed.confidence + " уверенность)", { noteId });
+        // Закрепление сегодня само по себе не значит ничего — это одобрение, а не польза.
+        // Утверждение, которое можно проверить: за неделю из этого вывода вырастет дело. Ставка
+        // разрешится по реальным задачам из его же источников, без единого вопроса владельцу.
+        if (insightId) {
+          openShortBet(state, "insight-action", insightId, "приведёт к действию за неделю: " + shorten(computed.title, 60), "", {
+            horizonHours: INSIGHT_HORIZON_HOURS,
+            insightType: computed.type || "",
+            refs: Array.isArray(computed.refs) ? computed.refs : []
+          });
+        }
       });
     }
     return;
@@ -22168,6 +22848,14 @@ async function handleAction(action, id) {
         if (note && !note.deleted) addProjectItem(state, projectId, note.title || "Заметка", "note");
       }
       addAudit(state, "insight.project", "Проект «" + cluster.theme + "» создан из кластера (" + cluster.members.length + " заметок)", projectId);
+      // Та же проверка временем, что и у закреплённого вывода: сам факт создания проекта
+      // попаданием НЕ считается — он происходит в тот же миг, что и ставка. Считается движение
+      // по нему за неделю.
+      openShortBet(state, "insight-action", projectId, "проект сдвинется за неделю: " + shorten(cluster.theme, 60), "", {
+        horizonHours: INSIGHT_HORIZON_HOURS,
+        insightType: "project-suggestion",
+        refs: Array.isArray(cluster.members) ? cluster.members : []
+      });
     });
     return;
   }
@@ -22469,7 +23157,13 @@ async function handleAction(action, id) {
   // K1.1: переключатель дневного/месячного вида календаря - view-only, как set-graph-mode.
   if (action === "set-calendar-view") {
     await store.commit("Calendar view selected", (state) => {
-      state.calendarView = id === "month" ? "month" : "day";
+      // Вид по умолчанию — день: «Сегодня» на свежем экране законно ничего не меняет, но
+      // отвечает (core/surface-notice.mjs).
+      const nextView = id === "month" ? "month" : "day";
+      const alreadyOpen = state.calendarView === nextView;
+      noteOnSurface(state, "calendar", calendarViewNoticeText(nextView, alreadyOpen));
+      if (alreadyOpen) return;
+      state.calendarView = nextView;
       addAudit(state, "calendar.view", "Calendar view set to " + state.calendarView, state.activeNoteId);
     });
     return;
@@ -22521,9 +23215,18 @@ async function handleAction(action, id) {
     return;
   }
   if (action === "new-note") {
-    const title = promptValue("Note title", "Untitled");
-    if (!title) return;
-    await store.commit("Note created", (state) => {
+    // Владелец 2026-07-30: «нажимаешь — ничего не работает, никуда не проваливаешься». Здесь это
+    // было буквально так: на любой отказ от вопроса про название (Esc, «Отмена», закрытый
+    // браузером диалог) не оставалось НИЧЕГО — ни записи, ни экрана, ни следа. Отказ от ИМЕНИ
+    // отменял саму ЗАПИСЬ, хотя нажатие «Новая заметка» — это уже решение её завести.
+    // Теперь безымянная запись всё равно создаётся и открывается: имя у неё черновое, и
+    // переименовать её можно прямо в поле «Название» — оно на том же экране.
+    // Вопрос остаётся ПЕРЕД записью намеренно: коммит на большом хранилище идёт около секунды, и
+    // диалог, показанный после него, выскакивал бы уже поверх созданной заметки.
+    const title = promptValue("Название заметки", "Новая заметка") || "Новая заметка";
+    await store.commit("Заметка создана", (state) => {
+      // createNote сам делает запись активной — с этого и начинается «проваливание»: экран Базы
+      // открывается уже на ней.
       createNote(state, title, state.activeFolderId, "# " + title + "\n");
       state.activeSurface = "library";
     });
@@ -22569,17 +23272,28 @@ async function handleAction(action, id) {
     // Пустое поле при прикреплённых файлах — это не «нечего делать»: владелец прикрепил два
     // голосовых и ждёт, что их разберут. Раньше нажатие не делало НИЧЕГО и выглядело зависанием.
     if (!cleanLine(text) && (store.state.captureAttachments || []).length) {
-      await parseCaptureAttachments();
+      await withBusy("разбираю прикреплённое", () => parseCaptureAttachments());
+      return;
+    }
+    // Пустое поле и ничего не прикреплено — тоже не повод молчать. Нажатие без ответа читается
+    // как сломанная кнопка (перепись живого от 2026-07-31 нашла её мёртвой ровно в этом
+    // состоянии), а молчащая кнопка хуже отсутствующей: она обещает и не делает.
+    if (!cleanLine(text)) {
+      await store.commit("Разбирать нечего", (state) => {
+        noteOnSurface(state, state.activeSurface || "inbox", "Пока нечего разбирать — напиши мысль или прикрепи файл.");
+      });
       return;
     }
     // Закон №7: вопрос остаётся вопросом. Ответ собирается ДО commit (поиск асинхронный),
     // а сам commit только сохраняет запись вопроса и ответ — ни одного предложения из него.
     if (looksLikeQuestion(text)) {
-      const answer = await buildGroundedAnswer(store.state, text);
+      // Т2: поиск по своим записям — самая долгая из «мгновенных» операций. Название работы
+      // конкретное: владелец должен понимать, ЧТО система сейчас делает, а не что она занята.
+      const answer = await withBusy("ищу в твоих записях", () => buildGroundedAnswer(store.state, text));
       await store.commit("Ответ на вопрос", (state) => storeGroundedAnswer(state, answer));
       return;
     }
-    await store.commit("Inbox captured", (state) => captureTextArtifact(state, text));
+    await withBusy("читаю запись и ищу похожие", () => store.commit("Inbox captured", (state) => captureTextArtifact(state, text)));
     return;
   }
   if (action === "clear-capture") {
@@ -22682,10 +23396,124 @@ async function handleAction(action, id) {
     await store.commit("All proposals applied", (state) => applyAllProposals(state));
     return;
   }
+  // Срез В: три вердикта — три действия, потому что диспетчер несёт только action и id.
+  // Разбирать строку в одном обработчике было бы дешевле на две строки и дороже в чтении.
+  if (action === "thought-verdict-duplicate" || action === "thought-verdict-supersede" || action === "thought-verdict-distinct") {
+    const verdictKey = action.replace("thought-verdict-", "");
+    await store.commit("Вердикт по похожей мысли: " + (SIMILAR_VERDICTS[verdictKey] || {}).word, (state) => {
+      applySimilarVerdict(state, id, verdictKey);
+    });
+    return;
+  }
+  // Сценарий 8: перенос незакрытого на завтра. Одна кнопка вместо семи открытий задачи.
+  // Выгрузка замечаний о продукте — тем, кто пишет код. Это и есть замыкание петли, которую
+  // владелец назвал главной: его голосовые за неделю превращаются в список работы с цитатами,
+  // а не остаются двадцатью записями, из которых надо что-то выуживать.
+  //
+  // Markdown, а не JSON: список читает человек, а не программа.
+  if (action === "export-product-feedback") {
+    const rows = Object.values(store.state.productFeedback || {}).filter((row) => row && !row.deleted);
+    if (!rows.length) {
+      await store.commit("Выгружать нечего", (state) => {
+        noteOnSurface(state, cleanLine(state.activeSurface || "capture"), "Пока ты ничего не говорил про саму систему — выгружать нечего.");
+      });
+      return;
+    }
+    const lines = ["# Что доработать в LifeOS", "", "Собрано из записей владельца. Цитаты дословные.", ""];
+    for (const group of groupProductFeedback(rows)) {
+      lines.push("## " + group.kind + " — " + group.rows.length, "");
+      for (const row of group.rows) {
+        lines.push("- **" + row.title + "**");
+        lines.push("  - сказано: " + String(row.createdAt || "").slice(0, 10));
+        if (row.quote && row.quote !== row.title) lines.push("  - дословно: «" + row.quote + "»");
+      }
+      lines.push("");
+    }
+    const blob = new Blob([lines.join(String.fromCharCode(10))], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "lifeos-что-доработать.md";
+    link.click();
+    URL.revokeObjectURL(url);
+    await store.commit("Замечания выгружены", (state) => {
+      noteOnSurface(state, cleanLine(state.activeSurface || "capture"), "Выгрузил " + rows.length + " — файл «что доработать» скачан.");
+    });
+    return;
+  }
+  // ─── РАЗБОР С ИИ ────────────────────────────────────────────────────────────────────────
+  //
+  // Владелец 2026-08-01, на своей же мысли про смену в такси: «этот разбор по цифрам, по датам,
+  // по времени. Но этого недостаточно, чтобы по смыслу понять. Поэтому две кнопки: разобрать —
+  // и разобрать с Оллама».
+  //
+  // Он прав по существу. Правила видят «завтра», «12 часов», «такси» — и не видят, что за этим
+  // стоит РЕШЕНИЕ, которое надо принять сегодня вечером. Смысл достаётся только моделью.
+  //
+  // Вся машинерия для этого уже была: `requestSpeechIntentsFromModel` с JSON-форматом, валидатор
+  // намерений, слияние без дублей, построение предложений тем же путём, что у правил. Она была
+  // заперта за выключенным по умолчанию тумблером и работала только для аудио. Здесь она
+  // открывается кнопкой — и работает для любого текста.
+  if (action === "capture-with-ai") {
+    const input = document.querySelector("#capture-input");
+    const text = input ? input.value : store.state.captureDraft;
+    if (!cleanLine(text)) {
+      await store.commit("Разбирать нечего", (state) => {
+        noteOnSurface(state, cleanLine(state.activeSurface || "inbox"), "Сначала напиши мысль — модели нужно, что разбирать.");
+      });
+      return;
+    }
+    await withBusy("думаю над смыслом — это дольше обычного", async () => {
+      // Сначала запись сохраняется правилами, как обычно: если модель выключена, недоступна или
+      // ответит мусором, владелец всё равно уже получил свои объекты и НИЧЕГО не потерял.
+      let sourceId = "";
+      await store.commit("Inbox captured", (state) => { sourceId = captureTextArtifact(state, text); });
+      if (!sourceId) return;
+      const result = await runSpeechIntentModelForSource(sourceId, { force: true });
+      await store.commit("Ответ разбора с ИИ", (state) => {
+        // Провайдер честен всегда (CLAUDE.md §7): «модель не отвечает» пишется как есть, а не
+        // маскируется под «ничего не найдено».
+        const words = result.status === "ok"
+          ? (result.intents.length
+            ? "Модель добавила смыслов: " + result.intents.length + ". Они внизу, среди выводов."
+            : "Модель прочитала, но ничего сверх правил не увидела.")
+          : result.status === "off" || result.status === "not-connected"
+            ? "Локальная модель не выбрана. Включи её в «Подключениях» — разбор по правилам уже сохранён."
+            : "Модель не ответила (" + result.status + "). Разбор по правилам сохранён — ничего не потеряно.";
+        noteOnSurface(state, cleanLine(state.activeSurface || "inbox"), words);
+      });
+    });
+    return;
+  }
+  // Сценарий 9: возражение снимается на сегодня, а не спорит дальше. Решает владелец (И-1).
+  if (action === "dismiss-objection") {
+    await store.commit("Возражение снято", (state) => {
+      const list = Array.isArray(state.control.dismissedObjections) ? state.control.dismissedObjections : [];
+      if (!list.includes(id)) list.push(id);
+      state.control.dismissedObjections = list;
+      noteOnSurface(state, cleanLine(state.activeSurface || "inbox"), "Понял. Больше не поднимаю — цель осталась, напоминание снято.");
+    });
+    return;
+  }
+  if (action === "carry-loops-tomorrow") {
+    await store.commit("Незакрытое перенесено на завтра", (state) => {
+      const moved = carryLoopsToTomorrow(state);
+      noteOnSurface(state, cleanLine(state.activeSurface || "capture"), moved
+        ? "Перенёс на завтра: " + moved + ". Утром они будут первыми."
+        : "Переносить нечего — незакрытого за сегодня не осталось.");
+    });
+    return;
+  }
   if (action === "apply-source-proposals") {
     await store.commit("Artifact proposals applied", (state) => {
       const safeTypes = ["knowledge-summary", "task", "calendar", "plan", "reminder", "finance_expense", "finance_income", "balance", "budget", "subscription", "bill", "habit", "routine", "goal", "money_goal", "insight", "knowledge", "note", "claim", "question", "review", "book"];
       const count = applySourceProposals(state, id || "", safeTypes);
+      // Принимать было нечего — и это законный исход, а не поломка. Но молча он выглядит ровно
+      // как сломанная кнопка: перепись живого 2026-07-31 нашла «Добавить в LifeOS» мёртвой
+      // именно здесь. Отвечаем словами; правило — core/surface-notice.mjs.
+      if (!count) {
+        noteOnSurface(state, cleanLine(state.activeSurface || "inbox"), "Принимать нечего: по этой записи открытых предложений не осталось.");
+      }
       for (const proposal of Object.values(state.proposals || {})) {
         if (proposal.status !== "open" || proposal.sourceId !== id) continue;
         if (["agent", "chat", "flow", "control", "provider_connection_request"].includes(proposal.type)) {
@@ -22869,6 +23697,14 @@ async function handleAction(action, id) {
       || chatInputs[0];
     const text = input ? input.value : "";
     const cleanText = String(text || "").trim();
+    // Пустое поле — самый частый способ нажать «Отправить», и раньше экран на это не отвечал
+    // ничем (core/surface-notice.mjs).
+    if (!cleanText) {
+      await store.commit("Chat send with empty message", (state) => {
+        noteOnSurface(state, "chat", chatEmptySendNoticeText(state.ollama));
+      });
+      return;
+    }
     // C1.6: вложение артефакта в сообщение - выбор из базы (LibreChat attachments-паттерн,
     // локально: ссылка на существующую заметку, ничего не загружается никуда).
     const attachmentSelect = document.querySelector("#chat-attachment-select");
@@ -22926,6 +23762,7 @@ async function handleAction(action, id) {
       let assistantMessageId = "";
       store.streamPatch((state) => {
         state.chatDraft = "";
+        clearSurfaceNotice(state);
         const ownerMessageId = addChatMessage(state, "owner", cleanText, "", state.activeNoteId);
         createChatMessageProposal(state, ownerMessageId, cleanText);
         if (attachmentId && state.notes[attachmentId] && !state.notes[attachmentId].deleted) {
@@ -22993,6 +23830,7 @@ async function handleAction(action, id) {
     await store.commit("Chat message sent", (state) => {
       if (!cleanText) return;
       state.chatDraft = "";
+      clearSurfaceNotice(state);
       const productBrainAnswer = wantsDevAnswer ? answerProductBrainQuestion(state, cleanText.replace(/^\/dev\s*/i, "")) : "";
       if (productBrainAnswer) {
         state.activeNoteId = PRODUCT_BRAIN_ROOT_ID;
@@ -23082,6 +23920,7 @@ async function handleAction(action, id) {
     return;
   }
   if (action === "stop-audio-recording") {
+    clearTimeout(recordingAutoStopTimer);
     await stopAudioRecording();
     return;
   }
@@ -23504,18 +24343,62 @@ async function handleAction(action, id) {
     });
     return;
   }
+  // Перепись живого (2026-07-30) поймала здесь три молчащие кнопки. Молчали они по разным
+  // причинам, и лечатся они тоже по-разному: пустое поле — сказать, чего не хватает; успех —
+  // назвать «было → стало»; результат, который виден на другом экране, — показать его и здесь.
   if (action === "add-goal-progress") {
     const input = document.getElementById("goal-progress-" + id);
-    const amount = input ? Number(input.value || 0) : 0;
-    await store.commit("Goal progress added", (state) => addGoalProgress(state, id, amount, "manual"));
+    const raw = input ? String(input.value || "").trim() : "";
+    const amount = Number(raw);
+    await store.commit("Goal progress added", (state) => {
+      const goal = state.goals[id];
+      if (!goal || goal.deleted) {
+        state.commandMessage = "Эта цель больше не в списке — обнови экран «Цели».";
+        return;
+      }
+      if (!raw || !Number.isFinite(amount) || amount <= 0) {
+        state.commandMessage = "Впиши в поле «Прогресс» у цели «" + shorten(goal.title, 40) + "» число больше нуля — прибавлять пока нечего.";
+        return;
+      }
+      const before = Number(goal.progress || 0);
+      addGoalProgress(state, id, amount, "manual");
+      const after = Number(goal.progress || 0);
+      state.commandMessage = "Цель «" + shorten(goal.title, 40) + "»: прогресс " + before.toLocaleString("ru-RU") + " → " + after.toLocaleString("ru-RU")
+        + (goal.targetAmount ? " из " + Number(goal.targetAmount).toLocaleString("ru-RU") : "")
+        + (goal.status === "done" ? ". Цель закрыта." : ".");
+    });
     return;
   }
   if (action === "goal-next-task") {
-    await store.commit("Goal next task added", (state) => addTaskForGoal(state, id, ""));
+    await store.commit("Goal next task added", (state) => {
+      const goal = state.goals[id];
+      if (!goal || goal.deleted) {
+        state.commandMessage = "Эта цель больше не в списке — обнови экран «Цели».";
+        return;
+      }
+      const taskId = addTaskForGoal(state, id, "");
+      const task = taskId ? state.tasks[taskId] : null;
+      state.commandMessage = task
+        ? "Шаг к цели создан: «" + shorten(task.title, 46) + "» на " + (task.day === todayKey() ? "сегодня" : task.day) + ". Он же ждёт в «Сегодня»."
+        : "Шаг не создан: у цели «" + shorten(goal.title, 40) + "» нет названия, из которого его собрать.";
+    });
     return;
   }
   if (action === "refresh-insights") {
-    await store.commit("Insights refreshed", (state) => refreshDeterministicInsights(state));
+    await store.commit("Insights refreshed", (state) => {
+      const openCount = (value) => Object.values(value.insights || {}).filter((item) => !item.deleted && item.status === "open").length;
+      const before = openCount(state);
+      refreshDeterministicInsights(state);
+      const after = openCount(state);
+      // «Ноль выводов» бывает по двум разным причинам: не из чего считать — и посчитано,
+      // но поводов нет. Сказать про них одно и то же значит соврать в обе стороны.
+      const watched = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status === "active").length
+        + Object.values(state.habits || {}).filter((habit) => !habit.deleted && habit.status === "active").length;
+      if (after > before) state.commandMessage = "Выводы пересчитаны: новых " + (after - before) + ", всего открытых " + after + ".";
+      else if (after) state.commandMessage = "Выводы пересчитаны: новых нет, прежние " + after + " всё ещё открыты.";
+      else if (watched) state.commandMessage = "Выводы пересчитаны: поводов не нашлось — по активным целям, привычкам и повторяющимся расходам вопросов нет.";
+      else state.commandMessage = "Выводов пока не из чего собрать: заведи цель или привычку — и они появятся здесь после пересчёта.";
+    });
     return;
   }
   if (action === "ignore-insight") {
@@ -23541,13 +24424,29 @@ async function handleAction(action, id) {
     return;
   }
   if (action === "add-question-entry") {
+    // Та же болезнь, что у десяти других контролов, разобранных 2026-07-31: `addQuestion`
+    // возвращает "" на пустом заголовке и выходит молча, а экран об этом не говорит. Владелец
+    // жмёт «Добавить», ничего не происходит, и правильная работа неотличима от поломки.
+    // Отвечаем на том же экране, где нажали, — механизмом `noteOnSurface`, а не вторым каналом.
     const input = document.querySelector("#question-title");
-    const title = input ? input.value : "";
-    await store.commit("Question added", (state) => addQuestion(state, title, "Owner-added question", {
-      noteId: state.activeNoteId,
-      sourceId: sourceForNote(state, state.activeNoteId)?.id || "",
-      quote: title
-    }));
+    const title = cleanLine(input ? input.value : "");
+    if (!title) {
+      await store.commit("Вопрос не добавлен: пусто", (state) => noteOnSurface(state, "library", "Напиши вопрос в поле рядом — пустой не сохраняю."));
+      return;
+    }
+    await store.commit("Вопрос добавлен", (state) => {
+      const id = addQuestion(state, title, "Owner-added question", {
+        noteId: state.activeNoteId,
+        sourceId: sourceForNote(state, state.activeNoteId)?.id || "",
+        quote: title
+      });
+      // Вопрос показывается в списке только рядом с активной записью. Без записи он сохранён,
+      // но не виден — и это надо сказать вслух, иначе экран снова молчит при успехе.
+      noteOnSurface(state, "library", state.activeNoteId
+        ? "Вопрос добавлен: «" + shorten(title, 40) + "»"
+        : "Вопрос сохранён, но показывается рядом с записью — открой любую запись, чтобы увидеть его.");
+      return id;
+    });
     return;
   }
   if (action === "add-review-entry") {
@@ -23677,7 +24576,23 @@ async function handleAction(action, id) {
     return;
   }
   if (action === "extract-highlights") {
-    await store.commit("Highlights extracted", (state) => extractHighlightsFromSource(state, id));
+    await store.commit("Highlights extracted", (state) => {
+      const source = state.sources[id];
+      if (!source || source.deleted) {
+        state.commandMessage = "Этого материала больше нет в очереди чтения — обнови «Чтение».";
+        return;
+      }
+      const savedFor = (value) => Object.values(value.highlights || {}).filter((item) => !item.deleted && item.sourceId === id).length;
+      const before = savedFor(state);
+      extractHighlightsFromSource(state, id);
+      const after = savedFor(state);
+      const name = shorten(source.name || "материал", 40);
+      // Пустой результат бывает по двум разным причинам, и назвать их одинаково — соврать.
+      if (after > before) state.commandMessage = "Из «" + name + "» вытащено цитат: " + (after - before) + ". Они справа, в «Выделениях».";
+      else if (after) state.commandMessage = "Новых цитат в «" + name + "» нет: все " + after + " уже сохранены.";
+      else if (!(source.text || source.transcriptText)) state.commandMessage = "У «" + name + "» ещё нет текста: PDF и EPUB сначала просят «Извлечь текст», остальное можно вписать цитатой в поле рядом.";
+      else state.commandMessage = "В «" + name + "» не нашлось строк длиннее 32 символов — такую цитату проще вписать руками в поле рядом.";
+    });
     return;
   }
   if (action === "add-highlight-entry") {
@@ -23705,8 +24620,26 @@ async function handleAction(action, id) {
   }
   if (action === "update-reading-progress") {
     const input = document.getElementById("reading-progress-" + id);
-    const progress = input ? Number(input.value || 0) : 0;
-    await store.commit("Reading progress updated", (state) => updateReadingProgress(state, id, progress));
+    const raw = input ? String(input.value || "").trim() : "";
+    const progress = Number(raw);
+    await store.commit("Reading progress updated", (state) => {
+      const item = state.readingItems[id];
+      if (!item || item.deleted) {
+        state.commandMessage = "Эта книга больше не в очереди чтения — обнови «Чтение».";
+        return;
+      }
+      const name = shorten(item.title || "книга", 40);
+      if (!raw || !Number.isFinite(progress) || progress < 0 || progress > 100) {
+        state.commandMessage = "Прогресс «" + name + "» задаётся числом от 0 до 100 — впиши его в поле слева и нажми «Сохранить» ещё раз.";
+        return;
+      }
+      const before = Math.round(Number(item.progress || 0));
+      updateReadingProgress(state, id, progress);
+      const after = Math.round(Number(item.progress || 0));
+      state.commandMessage = before === after
+        ? "Прогресс «" + name + "» уже " + after + "% — сохранять нечего, впиши другое число."
+        : "Прогресс «" + name + "»: " + before + "% → " + after + "%" + (after >= 100 ? ". Книга отмечена прочитанной." : ".");
+    });
     return;
   }
   if (action === "add-finance") {
@@ -24192,18 +25125,29 @@ async function handleAction(action, id) {
   // разрешены сейчас. Подтверждение спрашиваем только на ослабление, не на усиление.
   if (action === "set-data-policy") {
     const nextMode = DATA_POLICY_MODES.includes(id) ? id : "local-only";
-    if (dataPolicyMode(store.state) === nextMode) return;
+    // Нажатие на уже включённый полюс и отказ от подтверждения — оба законно ничего не меняют,
+    // и оба обязаны быть видны (core/surface-notice.mjs).
+    if (dataPolicyMode(store.state) === nextMode) {
+      await store.commit("Data policy confirmed", (state) => {
+        noteOnSurface(state, "control", dataPolicyNoticeText("same", nextMode));
+      });
+      return;
+    }
     if (nextMode === "network-allowed") {
       const confirmed = window.confirm("Разрешить LifeOS обращаться за пределы этого компьютера? Каждое обращение останется видимым в Контроле, но данные смогут уходить с устройства.");
-      if (!confirmed) return;
+      if (!confirmed) {
+        await store.commit("Data policy change declined", (state) => {
+          noteOnSurface(state, "control", dataPolicyNoticeText("declined", "local-only"));
+        });
+        return;
+      }
     }
     await store.commit("Data policy changed", (state) => {
       if (!state.control.dataPolicy || typeof state.control.dataPolicy !== "object") state.control.dataPolicy = {};
       state.control.dataPolicy.mode = nextMode;
       state.control.dataPolicy.updatedAt = now();
-      state.commandMessage = nextMode === "local-only"
-        ? "Теперь всё остаётся на этом компьютере: обращения наружу не отправляются."
-        : "Обращения наружу разрешены. Каждое из них видно в Контроле и попадает в чеки.";
+      state.commandMessage = dataPolicyNoticeText("changed", nextMode);
+      noteOnSurface(state, "control", state.commandMessage);
       addControlReceipt(state, "data-policy", "", state.commandMessage, { surface: "control" });
       addAudit(state, "policy.data.change", "Политика данных: " + (nextMode === "local-only" ? "всё остаётся на этом компьютере" : "обращения наружу разрешены"), state.activeNoteId);
     });
@@ -24553,6 +25497,45 @@ function renderError(error) {
   ].join("");
 }
 
+// ─── Т2 · ВИДНО, ЧТО ПРОИСХОДИТ ───────────────────────────────────────────────────────────
+//
+// Претензия владельца №3 дословно: «чтобы всё отображалось, чтобы всё было видно. Если что-то
+// грузится, пусть этот значок появляется, что грузится».
+//
+// Измерено 31.07.2026: в проекте не было НИ ОДНОГО скелетона, спиннера или `aria-busy` —
+// `grep skeleton|spinner|is-loading|aria-busy` по styles.css и ui/*.js давал ноль. Разбор шёл
+// молча, и владелец справедливо читал это как зависание.
+//
+// Занятость держится ВНЕ состояния хранилища: это про экран, а не про данные, и переживать
+// перезагрузку ей незачем. Поэтому меняем поле напрямую и рисуем, минуя commit(): commit
+// сохраняет, а сохранять «я сейчас думаю» нечего.
+//
+// Бюджет задержек — docs/MVP_UX_MAP.md §2. Здесь его часть: пока идёт работа, на месте будущего
+// результата стоит его ФОРМА, а не абстрактный прямоугольник — иначе экран дёргается при
+// подстановке.
+function markBusy(what) {
+  if (!store) return;
+  store.state.busy = { what: cleanLine(what), at: Date.now() };
+  render();
+}
+
+function clearBusy() {
+  if (!store || !store.state.busy) return;
+  store.state.busy = null;
+  render();
+}
+
+async function withBusy(what, task) {
+  markBusy(what);
+  try {
+    return await task();
+  } finally {
+    // Снимаем ВСЕГДА, в том числе после падения: индикатор, который остался висеть после
+    // ошибки, выглядит как вечная загрузка и хуже, чем его отсутствие.
+    clearBusy();
+  }
+}
+
 async function refreshEnvironmentStatus() {
   if (!store) return;
   const estimate = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : {};
@@ -24837,6 +25820,11 @@ function armServiceWorkerAutoReload() {
 
 async function boot() {
   app.innerHTML = "<div class=\"loading-shell\">Открываю локальный LifeOS</div>";
+  // О-1 ставится ДО хранилища: если вкладка вторая, она не должна успеть записать даже один раз.
+  armTabGuard(() => {
+    updateSaveStatus();
+    render();
+  });
   armServiceWorkerAutoReload();
   bindGlobalEvents();
   repository = new KnowledgeRepository();
@@ -24861,6 +25849,18 @@ async function boot() {
   }
   if (!Object.keys(store.state.decisions || {}).length) {
     await store.commit("Журнал решений дополнен из аудита", (state) => backfillDecisionsFromAudit(state));
+  }
+  // Срез Д · О8 перестаёт быть инертной. `freezeCanary` была написана, покрыта тестами и НЕ
+  // ВЫЗЫВАЛАСЬ в продукте ни разу: единственная ссылка вела в тестовую упряжь. Значит
+  // единственная защита от медленного дрейфа — та, что смотрит не на данные обучения, — не
+  // работала вовсе, а панель в Контроле показывала «не заморожена» и выглядела как норма.
+  //
+  // Морозим ровно один раз, когда решений накопилось 50. Раньше — нечего замораживать; повторно —
+  // значит подменить эталон свежими данными и потерять весь смысл проверки.
+  if (!(store.state.control && store.state.control.canary && store.state.control.canary.frozenAt)) {
+    if (Object.keys(store.state.decisions || {}).length >= CANARY_SIZE) {
+      await store.commit("Канарейка заморожена", (state) => freezeCanary(state));
+    }
   }
   render();
   refreshEnvironmentStatus().catch((error) => {

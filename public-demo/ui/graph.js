@@ -2,6 +2,7 @@ import { renderGraphCanvas } from "./components/GraphCanvas.js";
 import { renderInspectorDrawer } from "./components/InspectorDrawer.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
 import { button, escapeHtml, safeList } from "./components/shared.js";
+import { filterPeople } from "../core/people-filter.mjs";
 
 // Срез 10: разрешение сущностей-людей. Канонические люди (алиасы слиты) + предложения слить
 // неоднозначные пары (owner-gated). Проекции приходят из app.js (resolvePeople,
@@ -35,8 +36,19 @@ function personMergeRow(suggestion) {
 }
 
 function renderPeoplePanel(ctx) {
-  const people = ctx.resolvedPeople || [];
-  const suggestions = ctx.personMergeSuggestions || [];
+  // Боль владельца 2026-07-30: «Люди пять… он искусственное за людей теперь считает». В список
+  // приходили наши же технические слова — Whisper, PWA, install prompt, — потому что служебные
+  // записи лежат в одном хранилище с мыслями. Счётчик, которому нельзя верить, хуже отсутствующего.
+  //
+  // Убранное не прячется молча: под списком стоит честная строка «убрано N не-людей». Скрытое
+  // без объяснения — то же враньё, что и показанное лишнее.
+  const { kept: people, dropped } = filterPeople(ctx.resolvedPeople || []);
+  const keptNames = new Set(people.map((person) => person.name));
+  // Предложение слить двух «людей» бессмысленно, если один из них — подсистема.
+  const suggestions = (ctx.personMergeSuggestions || []).filter((row) => {
+    const names = [row.leftName, row.rightName, row.name].filter(Boolean);
+    return !names.length || names.every((name) => keptNames.has(name));
+  });
   return [
     `<section class="info-panel people-panel" data-testid="people-panel">`,
     `<div class="section-title">Люди <span class="people-count" data-testid="people-count">${people.length}</span></div>`,
@@ -46,6 +58,9 @@ function renderPeoplePanel(ctx) {
     people.length
       ? `<div class="person-list" data-testid="person-list">${safeList(people, personRow, "")}</div>`
       : `<div class="empty-inline" data-testid="people-empty">Имена появятся здесь, когда встретятся в твоих записях. «Данил» и «Даня» я узнаю как одного человека.</div>`,
+    dropped.length
+      ? `<div class="empty-inline" data-testid="people-dropped" title="${escapeHtml(dropped.map((row) => row.name + " — " + row.why).join(" · "))}">Убрано ${dropped.length}: это подсистемы, а не люди</div>`
+      : "",
     `</section>`
   ].join("");
 }

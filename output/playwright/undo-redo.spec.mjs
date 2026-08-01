@@ -23,6 +23,8 @@ test("P1.1 undo/redo: Ctrl+Z reverts a task creation, Ctrl+Shift+Z restores it",
   await reset(page);
 
   await page.locator("#capture-input").fill("Отменяемая задача");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await expect.poll(async () => {
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
@@ -53,6 +55,8 @@ test("P1.1 undo/redo: Ctrl+Z reverts a task creation, Ctrl+Shift+Z restores it",
 test("P1.1 undo: navigation between the mutation and Ctrl+Z is not what gets undone", async ({ page }) => {
   await reset(page);
   await page.locator("#capture-input").fill("Отменяемая задача");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await expect.poll(async () => {
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
@@ -78,6 +82,8 @@ test("P1.1 undo: navigation between the mutation and Ctrl+Z is not what gets und
 test("P1.1 undo: does not intercept Ctrl+Z while typing in a text field", async ({ page }) => {
   await reset(page);
   await page.locator("#capture-input").fill("Отменяемая задача");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await expect.poll(async () => {
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());

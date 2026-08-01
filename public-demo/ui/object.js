@@ -1,4 +1,5 @@
 import { button, escapeHtml, safeList } from "./components/shared.js";
+import { looksTechnical } from "../core/people-filter.mjs";
 
 // Объект (канон design-system/Artifact Inspector.dc.html): экран, в который «проваливается»
 // любая карточка. Ничего своего не считает — всё приходит проекцией ctx.objectInspector из
@@ -99,8 +100,17 @@ function renderPeopleReview(review) {
 // Похожие записи. Название честное: это сходство ТЕКСТА, а не смысла — модели эмбеддингов в
 // продукте нет, и выдавать одно за другое нельзя. Подпись говорит это прямо, чтобы владелец знал
 // цену находке, а у каждой строки видно, за что она сюда попала.
+// Боль владельца 2026-07-30: справа в карточке он видел «контракт объекта · метод · рендер ·
+// квитанции · PWA BOOT · install prompt · whisper транскрипт» — то есть служебные записи системы,
+// выданные за похожие на его мысль. Корень тот же, что у счётчика «Люди 5»: наши собственные
+// записи лежат в одном хранилище с мыслями владельца. Здесь закрывается место, где он это видит.
 function renderSimilar(similar) {
-  if (!similar || !similar.length) return "";
+  const rows = (similar || []).filter((row) => !looksTechnical(row && row.title));
+  if (!rows.length) return "";
+  return renderSimilarRows(rows);
+}
+
+function renderSimilarRows(similar) {
   return [
     `<div class="object-similar" data-testid="object-similar">`,
     `<p class="canon-eyebrow">Похожее по тексту</p>`,

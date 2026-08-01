@@ -1,6 +1,6 @@
 import { renderTimeGrid } from "./components/TimeGrid.js";
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, dataSection, emptyState, escapeHtml, safeList, scheduleLine } from "./components/shared.js";
+import { button, dataSection, emptyState, escapeHtml, safeList, scheduleLine, surfaceNotice } from "./components/shared.js";
 
 // K1.1: месячный вид с плотными полосками событий по дням (донор-идея tui.calendar
 // month-view) - плюс к уже существующему дневному грид-виду, не вместо него.
@@ -63,6 +63,9 @@ export function renderCalendar(ctx) {
   const body = [
     `<div class="calendar-planner" data-testid="calendar-workbench">`,
     tabs,
+    // Ответ на нажатие по вкладке. «Сегодня» на свежем экране уже активна, и переключать ей
+    // нечего — но молчать в ответ она не должна, иначе живая вкладка выглядит мёртвой.
+    surfaceNotice(ctx, "calendar", "calendar-view-notice"),
     mainSection,
     // Раздела нет вовсе, пока в системах не заполнено ни одного поля-даты: обещание «появятся
     // после заполнения полей типа дата» рассказывает об устройстве системы, а не о дне владельца.

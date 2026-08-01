@@ -1,0 +1,271 @@
+diff --git a/app.js b/app.js
+index 6041200..7080db3 100644
+--- a/app.js
++++ b/app.js
+@@ -13572,6 +13572,12 @@ function buildNewShellContext(state, activeNote, runtimeSignals = {}) {
+     graphDateFilter: cleanLine(state.graphView.dateFilter || ""),
+     habits,
+     highlights: Object.values(state.highlights || {}).filter((item) => !item.deleted),
++    // Выводы-артефакты (state.insights, их пишет refreshDeterministicInsights) — это НЕ
++    // computedInsights: те считаются на лету для Дома. Эти хранятся, и до сих пор их не
++    // показывал ни один экран: кнопка «Обновить инсайты» работала в пустоту.
++    insights: Object.values(state.insights || {})
++      .filter((item) => !item.deleted && item.status === "open")
++      .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))),
+     latestSource: humanVisibleSource(state) || latestSource(state),
+     lifeDomains: lifeDomainStats(state),
+     notes: Object.values(state.notes || {}).filter((note) => !note.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+@@ -23504,18 +23510,62 @@ async function handleAction(action, id) {
+     });
+     return;
+   }
++  // Перепись живого (2026-07-30) поймала здесь три молчащие кнопки. Молчали они по разным
++  // причинам, и лечатся они тоже по-разному: пустое поле — сказать, чего не хватает; успех —
++  // назвать «было → стало»; результат, который виден на другом экране, — показать его и здесь.
+   if (action === "add-goal-progress") {
+     const input = document.getElementById("goal-progress-" + id);
+-    const amount = input ? Number(input.value || 0) : 0;
+-    await store.commit("Goal progress added", (state) => addGoalProgress(state, id, amount, "manual"));
++    const raw = input ? String(input.value || "").trim() : "";
++    const amount = Number(raw);
++    await store.commit("Goal progress added", (state) => {
++      const goal = state.goals[id];
++      if (!goal || goal.deleted) {
++        state.commandMessage = "Эта цель больше не в списке — обнови экран «Цели».";
++        return;
++      }
++      if (!raw || !Number.isFinite(amount) || amount <= 0) {
++        state.commandMessage = "Впиши в поле «Прогресс» у цели «" + shorten(goal.title, 40) + "» число больше нуля — прибавлять пока нечего.";
++        return;
++      }
++      const before = Number(goal.progress || 0);
++      addGoalProgress(state, id, amount, "manual");
++      const after = Number(goal.progress || 0);
++      state.commandMessage = "Цель «" + shorten(goal.title, 40) + "»: прогресс " + before.toLocaleString("ru-RU") + " → " + after.toLocaleString("ru-RU")
++        + (goal.targetAmount ? " из " + Number(goal.targetAmount).toLocaleString("ru-RU") : "")
++        + (goal.status === "done" ? ". Цель закрыта." : ".");
++    });
+     return;
+   }
+   if (action === "goal-next-task") {
+-    await store.commit("Goal next task added", (state) => addTaskForGoal(state, id, ""));
++    await store.commit("Goal next task added", (state) => {
++      const goal = state.goals[id];
++      if (!goal || goal.deleted) {
++        state.commandMessage = "Эта цель больше не в списке — обнови экран «Цели».";
++        return;
++      }
++      const taskId = addTaskForGoal(state, id, "");
++      const task = taskId ? state.tasks[taskId] : null;
++      state.commandMessage = task
++        ? "Шаг к цели создан: «" + shorten(task.title, 46) + "» на " + (task.day === todayKey() ? "сегодня" : task.day) + ". Он же ждёт в «Сегодня»."
++        : "Шаг не создан: у цели «" + shorten(goal.title, 40) + "» нет названия, из которого его собрать.";
++    });
+     return;
+   }
+   if (action === "refresh-insights") {
+-    await store.commit("Insights refreshed", (state) => refreshDeterministicInsights(state));
++    await store.commit("Insights refreshed", (state) => {
++      const openCount = (value) => Object.values(value.insights || {}).filter((item) => !item.deleted && item.status === "open").length;
++      const before = openCount(state);
++      refreshDeterministicInsights(state);
++      const after = openCount(state);
++      // «Ноль выводов» бывает по двум разным причинам: не из чего считать — и посчитано,
++      // но поводов нет. Сказать про них одно и то же значит соврать в обе стороны.
++      const watched = Object.values(state.goals || {}).filter((goal) => !goal.deleted && goal.status === "active").length
++        + Object.values(state.habits || {}).filter((habit) => !habit.deleted && habit.status === "active").length;
++      if (after > before) state.commandMessage = "Выводы пересчитаны: новых " + (after - before) + ", всего открытых " + after + ".";
++      else if (after) state.commandMessage = "Выводы пересчитаны: новых нет, прежние " + after + " всё ещё открыты.";
++      else if (watched) state.commandMessage = "Выводы пересчитаны: поводов не нашлось — по активным целям, привычкам и повторяющимся расходам вопросов нет.";
++      else state.commandMessage = "Выводов пока не из чего собрать: заведи цель или привычку — и они появятся здесь после пересчёта.";
++    });
+     return;
+   }
+   if (action === "ignore-insight") {
+@@ -23677,7 +23727,23 @@ async function handleAction(action, id) {
+     return;
+   }
+   if (action === "extract-highlights") {
+-    await store.commit("Highlights extracted", (state) => extractHighlightsFromSource(state, id));
++    await store.commit("Highlights extracted", (state) => {
++      const source = state.sources[id];
++      if (!source || source.deleted) {
++        state.commandMessage = "Этого материала больше нет в очереди чтения — обнови «Чтение».";
++        return;
++      }
++      const savedFor = (value) => Object.values(value.highlights || {}).filter((item) => !item.deleted && item.sourceId === id).length;
++      const before = savedFor(state);
++      extractHighlightsFromSource(state, id);
++      const after = savedFor(state);
++      const name = shorten(source.name || "материал", 40);
++      // Пустой результат бывает по двум разным причинам, и назвать их одинаково — соврать.
++      if (after > before) state.commandMessage = "Из «" + name + "» вытащено цитат: " + (after - before) + ". Они справа, в «Выделениях».";
++      else if (after) state.commandMessage = "Новых цитат в «" + name + "» нет: все " + after + " уже сохранены.";
++      else if (!(source.text || source.transcriptText)) state.commandMessage = "У «" + name + "» ещё нет текста: PDF и EPUB сначала просят «Извлечь текст», остальное можно вписать цитатой в поле рядом.";
++      else state.commandMessage = "В «" + name + "» не нашлось строк длиннее 32 символов — такую цитату проще вписать руками в поле рядом.";
++    });
+     return;
+   }
+   if (action === "add-highlight-entry") {
+@@ -23705,8 +23771,26 @@ async function handleAction(action, id) {
+   }
+   if (action === "update-reading-progress") {
+     const input = document.getElementById("reading-progress-" + id);
+-    const progress = input ? Number(input.value || 0) : 0;
+-    await store.commit("Reading progress updated", (state) => updateReadingProgress(state, id, progress));
++    const raw = input ? String(input.value || "").trim() : "";
++    const progress = Number(raw);
++    await store.commit("Reading progress updated", (state) => {
++      const item = state.readingItems[id];
++      if (!item || item.deleted) {
++        state.commandMessage = "Эта книга больше не в очереди чтения — обнови «Чтение».";
++        return;
++      }
++      const name = shorten(item.title || "книга", 40);
++      if (!raw || !Number.isFinite(progress) || progress < 0 || progress > 100) {
++        state.commandMessage = "Прогресс «" + name + "» задаётся числом от 0 до 100 — впиши его в поле слева и нажми «Сохранить» ещё раз.";
++        return;
++      }
++      const before = Math.round(Number(item.progress || 0));
++      updateReadingProgress(state, id, progress);
++      const after = Math.round(Number(item.progress || 0));
++      state.commandMessage = before === after
++        ? "Прогресс «" + name + "» уже " + after + "% — сохранять нечего, впиши другое число."
++        : "Прогресс «" + name + "»: " + before + "% → " + after + "%" + (after >= 100 ? ". Книга отмечена прочитанной." : ".");
++    });
+     return;
+   }
+   if (action === "add-finance") {
+diff --git a/ui/components/ReaderSurface.js b/ui/components/ReaderSurface.js
+index 45f7bd3..f5acbff 100644
+--- a/ui/components/ReaderSurface.js
++++ b/ui/components/ReaderSurface.js
+@@ -1,4 +1,4 @@
+-import { button, compactText, dataSection, escapeHtml, safeList } from "./shared.js";
++import { button, compactText, dataSection, escapeHtml, safeList, surfaceNotice } from "./shared.js";
+ 
+ function readingFor(ctx, sourceId) {
+   return (ctx.readingItems || []).find((item) => item.sourceId === sourceId) || null;
+@@ -43,9 +43,17 @@ export function renderBookWorkbenchPanel(ctx) {
+   ].join("");
+ }
+ 
++// Сколько цитат уже сохранено из этого материала. Без этого числа «Найти цитаты» ничего не
++// меняет на экране, где её нажали: сами цитаты уезжают в правую колонку и легко теряются
++// среди пяти последних, а повторное нажатие вообще не добавляет ничего нового.
++function savedQuotes(ctx, sourceId) {
++  return (ctx.highlights || []).filter((item) => item.sourceId === sourceId).length;
++}
++
+ export function renderReaderSurface(ctx) {
+   const books = ctx.bookSources || [];
+   return [
++    surfaceNotice(ctx.commandMessage, "reader-status"),
+     `<div class="reader-surface" data-testid="reader-surface">`,
+     `<aside class="reader-list">`,
+     `<h3>Очередь чтения</h3>`,
+@@ -55,7 +63,8 @@ export function renderReaderSurface(ctx) {
+       const progressBar = reading
+         ? `<div class="reading-progress-bar" data-testid="reading-progress-bar"><span style="width:${Math.max(0, Math.min(100, Math.round(reading.progress || 0)))}%"></span></div>`
+         : "";
+-      return `<article class="book-source-card" data-testid="book-source-card"><strong>${escapeHtml(book.name || "Текст")}</strong><span>${escapeHtml(sourceStatus(book))}</span>${reading ? `<em>${Math.round(reading.progress || 0)}%</em>` : ""}${progressBar}${button("open-source-note", "Открыть источник", { id: book.id, kind: "ghost" })}${isGatedBook(book) ? button("extract-book-text", "Извлечь текст", { id: book.id, kind: "primary", testId: "extract-book-text" }) : ""}<input id="highlight-title-${escapeHtml(book.id)}" data-testid="highlight-title" aria-label="Текст цитаты" placeholder="Цитата или мысль"><span class="book-card-actions">${button("extract-highlights", "Найти цитаты", { id: book.id, kind: "ghost", testId: "extract-highlights" })}${button("add-highlight-entry", "Добавить цитату", { id: book.id, kind: "ghost", testId: "add-highlight-entry" })}</span>${reading ? `<label class="reading-progress-mini">Прогресс<input id="reading-progress-${escapeHtml(reading.id)}" data-testid="reading-progress" type="number" min="0" max="100" value="${escapeHtml(reading.progress || 0)}" aria-label="Прогресс чтения"></label>${button("update-reading-progress", "Сохранить", { id: reading.id, kind: "ghost", testId: "update-reading-progress" })}` : ""}</article>`;
++      const quotes = savedQuotes(ctx, book.id);
++      return `<article class="book-source-card" data-testid="book-source-card"><strong>${escapeHtml(book.name || "Текст")}</strong><span>${escapeHtml(sourceStatus(book))}</span><span data-testid="book-quote-count">${quotes ? "Цитат сохранено: " + quotes : "Цитат пока нет"}</span>${reading ? `<em>${Math.round(reading.progress || 0)}%</em>` : ""}${progressBar}${button("open-source-note", "Открыть источник", { id: book.id, kind: "ghost" })}${isGatedBook(book) ? button("extract-book-text", "Извлечь текст", { id: book.id, kind: "primary", testId: "extract-book-text" }) : ""}<input id="highlight-title-${escapeHtml(book.id)}" data-testid="highlight-title" aria-label="Текст цитаты" placeholder="Цитата или мысль"><span class="book-card-actions">${button("extract-highlights", "Найти цитаты", { id: book.id, kind: "ghost", testId: "extract-highlights" })}${button("add-highlight-entry", "Добавить цитату", { id: book.id, kind: "ghost", testId: "add-highlight-entry" })}</span>${reading ? `<label class="reading-progress-mini">Прогресс<input id="reading-progress-${escapeHtml(reading.id)}" data-testid="reading-progress" type="number" min="0" max="100" placeholder="сейчас ${Math.round(reading.progress || 0)}%" aria-label="Прогресс чтения"></label>${button("update-reading-progress", "Сохранить", { id: reading.id, kind: "ghost", testId: "update-reading-progress" })}` : ""}</article>`;
+     }, `<div class="empty-inline">Импортируй TXT или MD.</div>`),
+     button("import-file", "Добавить текст", { kind: "primary", testId: "book-import" }),
+     `</aside>`,
+diff --git a/ui/components/shared.js b/ui/components/shared.js
+index c2d76a9..0abb4e2 100644
+--- a/ui/components/shared.js
++++ b/ui/components/shared.js
+@@ -140,6 +140,17 @@ export function button(action, label, options = {}) {
+   return `<button class="${classes.join(" ")}" data-action="${escapeHtml(action)}"${id}${test}${disabled}${title}>${escapeHtml(label)}</button>`;
+ }
+ 
++// Честный ответ экрана на нажатие (перепись живого, 2026-07-30). Часть кнопок «ничего не
++// делала» не потому, что код не отработал, а потому что результат было негде увидеть: не
++// хватало данных, и продукт об этом молчал. Молчащая кнопка читается как сломанная, поэтому
++// у экрана есть строка, где он говорит, что произошло и чего не хватило. Текст берётся из
++// того же state.commandMessage, что и строка состояния на Доме, — второго канала не заводим.
++export function surfaceNotice(message, testId) {
++  const text = String(message ?? "").trim();
++  if (!text) return "";
++  return `<p class="workspace-draft-note surface-notice" role="status" data-testid="${escapeHtml(testId)}">${escapeHtml(text)}</p>`;
++}
++
+ export function emptyState(title, detail, action = "") {
+   return [
+     `<div class="empty-state" data-testid="empty-state">`,
+diff --git a/ui/habits-goals.js b/ui/habits-goals.js
+index 4e5e13a..2b81ff9 100644
+--- a/ui/habits-goals.js
++++ b/ui/habits-goals.js
+@@ -1,5 +1,5 @@
+ import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
+-import { button, dataSection, emptyState, escapeHtml, money, safeList } from "./components/shared.js";
++import { button, compactText, dataSection, emptyState, escapeHtml, humanDay, money, safeList, surfaceNotice } from "./components/shared.js";
+ 
+ function progress(goal) {
+   const current = Number(goal.currentAmount || goal.progress || 0);
+@@ -42,6 +42,47 @@ function pluralDays(n) {
+   return "дней";
+ }
+ 
++// Шаги к цели живут в «Сегодня», но нажатие «Следующий шаг» обязано быть видно ЗДЕСЬ:
++// иначе кнопка выглядит мёртвой на том самом экране, где её нажали.
++function goalSteps(ctx, goal) {
++  return (ctx.tasks || [])
++    .filter((task) => !task.deleted && task.goalId === goal.id && task.status !== "done")
++    .slice(0, 3);
++}
++
++// Единственное место, где прогресс виден числом. Полоска <progress> у цели без суммы всегда
++// показывает 0, поэтому по ней прибавку от «+Прогресс» заметить нельзя.
++function goalProgressLine(goal) {
++  const current = Number(goal.currentAmount || goal.progress || 0);
++  const target = Number(goal.targetAmount || 0);
++  if (target) return "Внесено " + money(current) + " из " + money(target);
++  return current ? "Внесено " + current.toLocaleString("ru-RU") : "Прогресс пока не вносили";
++}
++
++function goalCard(ctx, goal) {
++  const pace = goalPace(goal, ctx.todayKey);
++  const steps = goalSteps(ctx, goal);
++  return [
++    `<article class="goal-card" data-testid="goal-row">`,
++    `<div><strong>${escapeHtml(goal.title || "Цель")}</strong><span>${goal.targetAmount ? money(goal.targetAmount) : goal.targetDate || "без лимита"}</span></div>`,
++    `<progress value="${progress(goal)}" max="100" data-testid="goal-progress-bar"></progress>`,
++    `<div class="goal-hint" data-testid="goal-progress-value">${escapeHtml(goalProgressLine(goal))}</div>`,
++    pace
++      ? `<div class="goal-pace ${pace.onTrack ? "on-track" : "behind"}" data-testid="goal-pace" data-raw-pace="${pace.onTrack ? "ahead" : "behind"}">${pace.onTrack ? "Успеваю" : "Отстаю"} по графику (${pace.diff >= 0 ? "+" : ""}${money(pace.diff)})</div><div class="goal-hint" data-testid="goal-hint">${escapeHtml(pace.hint)}</div>`
++      : "",
++    steps.length
++      ? steps.map((task) => `<div class="goal-hint" data-testid="goal-step">→ ${escapeHtml(task.title)} · ${escapeHtml(humanDay(task.day, ctx.todayKey, ctx.tomorrowKey))}</div>`).join("")
++      : `<div class="goal-hint" data-testid="goal-step-empty">Открытого шага нет — нажми «Следующий шаг».</div>`,
++    `<div class="goal-actions">`,
++    `<input id="goal-progress-${escapeHtml(goal.id)}" aria-label="Goal progress" type="number" min="0" step="0.01" placeholder="Прогресс">`,
++    button("add-goal-progress", "+Прогресс", { id: goal.id, kind: "ghost", testId: "add-goal-progress" }),
++    button("goal-next-task", "Следующий шаг", { id: goal.id, kind: "ghost", testId: "goal-next-task" }),
++    button("toggle-goal", goal.status === "done" ? "Вернуть" : "Закрыть", { id: goal.id, kind: "ghost" }),
++    `</div>`,
++    `</article>`
++  ].join("");
++}
++
+ export function renderHabitsGoals(ctx) {
+   const domains = ctx.lifeDomains || [];
+   const weak = domains.slice().sort((a, b) => Number(a.score || 0) - Number(b.score || 0))[0] || domains[0] || {};
+@@ -56,10 +97,11 @@ export function renderHabitsGoals(ctx) {
+     ["Восстановление", "ритм, слабый день, отдых"]
+   ];
+   const body = [
++    surfaceNotice(ctx.commandMessage, "goals-status"),
+     `<div class="habit-goal-dashboard habits-wheel" data-testid="habits-goals-panel">`,
+     `<section class="habit-checkin">${dataSection("Чек-ин", ctx.habits, (habit) => `<button class="habit-card" data-action="toggle-habit" data-id="${escapeHtml(habit.id)}" data-testid="habit-row"><span data-testid="habit-toggle">${habit.checkedToday ? "✓" : "○"}</span><strong>${escapeHtml(habit.title || "Привычка")}</strong><em>${escapeHtml(habit.frequency || "ежедневно")}</em></button>`)}${ctx.habits.length ? "" : emptyState("Привычек пока нет", "Напиши: каждый день вода 2л.")}<div class="habit-form-grid"><input id="habit-title" data-testid="habit-title" placeholder="Новая привычка"><select id="habit-frequency" data-testid="habit-frequency"><option value="daily">каждый день</option><option value="weekly">еженедельно</option></select>${button("add-habit-entry", "Добавить", { kind: "primary", testId: "add-habit-entry" })}</div></section>`,
+-    `<section class="goal-progress">${dataSection("Цели", ctx.goals, (goal) => `<article class="goal-card" data-testid="goal-row"><div><strong>${escapeHtml(goal.title || "Цель")}</strong><span>${goal.targetAmount ? money(goal.targetAmount) : goal.targetDate || "без лимита"}</span></div><progress value="${progress(goal)}" max="100" data-testid="goal-progress-bar"></progress>${(() => { const pace = goalPace(goal, ctx.todayKey); return pace ? `<div class="goal-pace ${pace.onTrack ? "on-track" : "behind"}" data-testid="goal-pace" data-raw-pace="${pace.onTrack ? "ahead" : "behind"}">${pace.onTrack ? "Успеваю" : "Отстаю"} по графику (${pace.diff >= 0 ? "+" : ""}${money(pace.diff)})</div><div class="goal-hint" data-testid="goal-hint">${escapeHtml(pace.hint)}</div>` : ""; })()}<div class="goal-actions"><input id="goal-progress-${escapeHtml(goal.id)}" aria-label="Goal progress" type="number" min="0" step="0.01" placeholder="Прогресс">${button("add-goal-progress", "+Прогресс", { id: goal.id, kind: "ghost", testId: "add-goal-progress" })}${button("goal-next-task", "Следующий шаг", { id: goal.id, kind: "ghost", testId: "goal-next-task" })}${button("toggle-goal", goal.status === "done" ? "Вернуть" : "Закрыть", { id: goal.id, kind: "ghost" })}</div></article>`)}${ctx.goals.length ? "" : emptyState("Целей пока нет", "Напиши: до 1 июля накопить 30000.")}<div class="goal-form-grid"><input id="goal-title-entry" data-testid="goal-title-entry" placeholder="Новая цель"><input id="goal-target-amount" data-testid="goal-target-amount" type="number" placeholder="Сумма"><input id="goal-target-date" data-testid="goal-target-date" type="date">${button("add-goal-entry", "Добавить", { kind: "primary", testId: "add-goal-entry" })}</div></section>`,
+-    `<section class="balance-wheel" data-testid="balance-wheel"><h3>Колесо баланса</h3><div class="wheel-radar">${domains.slice(0, 6).map((domain, index) => `<span style="--i:${index};--score:${Number(domain.score || 50)}"><b>${escapeHtml(domain.title || "Домен")}</b></span>`).join("")}</div><p>${escapeHtml(domains[0]?.nextAction || "Домены жизни усиливаются через задачи, деньги, привычки и знания.")}</p>${button("refresh-insights", "Обновить инсайты", { kind: "ghost", testId: "refresh-insights" })}<div class="domain-list">${domains.slice(0, 6).map((domain) => `<div class="domain-row" data-testid="domain-row" style="--domain-color:${escapeHtml(domain.color || "#7c3aed")}"><span>${escapeHtml(domain.title || "Домен")}</span><div><i style="width:${Number(domain.score || 0)}%"></i></div><strong>${Number(domain.score || 0)}%</strong><em>${escapeHtml(domain.reason || domain.nextAction || "Нужен следующий шаг.")}</em></div>`).join("")}</div></section>`,
++    `<section class="goal-progress">${dataSection("Цели", ctx.goals, (goal) => goalCard(ctx, goal))}${ctx.goals.length ? "" : emptyState("Целей пока нет", "Напиши: до 1 июля накопить 30000.")}<div class="goal-form-grid"><input id="goal-title-entry" data-testid="goal-title-entry" placeholder="Новая цель"><input id="goal-target-amount" data-testid="goal-target-amount" type="number" placeholder="Сумма"><input id="goal-target-date" data-testid="goal-target-date" type="date">${button("add-goal-entry", "Добавить", { kind: "primary", testId: "add-goal-entry" })}</div></section>`,
++    `<section class="balance-wheel" data-testid="balance-wheel"><h3>Колесо баланса</h3><div class="wheel-radar">${domains.slice(0, 6).map((domain, index) => `<span style="--i:${index};--score:${Number(domain.score || 50)}"><b>${escapeHtml(domain.title || "Домен")}</b></span>`).join("")}</div><p>${escapeHtml(domains[0]?.nextAction || "Домены жизни усиливаются через задачи, деньги, привычки и знания.")}</p>${button("refresh-insights", "Обновить инсайты", { kind: "ghost", testId: "refresh-insights" })}${dataSection("Выводы", (ctx.insights || []).slice(0, 5), (insight) => `<div class="goal-hint" data-testid="insight-row"><strong>${escapeHtml(insight.title || "Вывод")}</strong> — ${escapeHtml(compactText(insight.reason || insight.detail || "", 90))}</div>`)}<div class="domain-list">${domains.slice(0, 6).map((domain) => `<div class="domain-row" data-testid="domain-row" style="--domain-color:${escapeHtml(domain.color || "#7c3aed")}"><span>${escapeHtml(domain.title || "Домен")}</span><div><i style="width:${Number(domain.score || 0)}%"></i></div><strong>${Number(domain.score || 0)}%</strong><em>${escapeHtml(domain.reason || domain.nextAction || "Нужен следующий шаг.")}</em></div>`).join("")}</div></section>`,
+     `<section class="domain-artifact-board" data-testid="domain-artifact-board"><div class="weak-domain-card" data-testid="weak-domain-card"><strong>Слабый домен: ${escapeHtml(weak.title || "домен")}</strong><span>${escapeHtml(weak.reason || weak.nextAction || "мало сигналов, нужен следующий маленький шаг")}</span></div><div class="domain-artifact-grid">${domainArtifacts.map(([title, text]) => `<article class="domain-artifact-card" data-testid="domain-artifact-card"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></article>`).join("")}</div></section>`,
+     `</div>`
+   ].join("");

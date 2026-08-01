@@ -62,6 +62,8 @@ test("notion-grade pack: chat markdown, fuzzy search, live mini-cards, snooze", 
 
   // Seed: a task and an expense so Home cards have data.
   await page.locator("#capture-input").fill("Проверить отчёт");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await page.locator("#capture-input").fill("350 бензин");
   await page.getByTestId("capture-text").click();

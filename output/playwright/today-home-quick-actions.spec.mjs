@@ -47,6 +47,8 @@ test("U1 TODAY_HOME: each of the 4 quick actions creates a real artifact in <=2 
   // 1) Задача - click 1: type text, click 2: quick-task reads the textarea directly and
   // creates the task immediately (no template step needed once text is present).
   await page.locator("#capture-input").fill("Проверить почту");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await expect.poll(async () => {
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
@@ -56,6 +58,8 @@ test("U1 TODAY_HOME: each of the 4 quick actions creates a real artifact in <=2 
 
   // 2) Трата - click 1 opens the "Расход: " template, click 2 ("Разобрать") submits it for
   // classification+proposal-apply, matching quick-expense's existing (pre-U1) behavior exactly.
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-expense").click();
   await expect(page.locator("#capture-input")).toHaveValue("Расход: ");
   await page.locator("#capture-input").fill("Расход: 350 бензин");
@@ -70,6 +74,8 @@ test("U1 TODAY_HOME: each of the 4 quick actions creates a real artifact in <=2 
   // (same dual-path pattern as quick-task) and captures it as a source immediately.
   await page.locator("#capture-input").fill("Идея: новый маршрут пробежки");
   const sourcesBeforeNote = await page.evaluate(() => Object.keys(window.__lifeosKnowledgeBase.getStateSnapshot().sources).length);
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-note").click();
   await expect.poll(async () => {
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());

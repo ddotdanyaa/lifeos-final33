@@ -53,6 +53,8 @@ test("T1.3 recurring: completing a daily task spawns tomorrow's occurrence", asy
 
   // Capture a repeating task; the parser tags it repeat=daily.
   await page.locator("#capture-input").fill("Каждый день зарядка");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await expect.poll(async () => {
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());
@@ -76,8 +78,12 @@ test("T1.3 recurring: completing a daily task spawns tomorrow's occurrence", asy
 test("T1.7 frog: main task floats to the now slot", async ({ page }) => {
   await reset(page);
   await page.locator("#capture-input").fill("Обычная задача");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await page.locator("#capture-input").fill("Важное дело");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
 
   await openSurface(page, "today");
@@ -107,6 +113,8 @@ test("T1.5 time estimate: parsed from text, shown as a badge, summed for the day
 test("T1.6 subtasks: add + toggle a checklist item inside a task, progress badge updates", async ({ page }) => {
   await reset(page);
   await page.locator("#capture-input").fill("Собрать отчёт");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await expect.poll(async () => {
     const state = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());

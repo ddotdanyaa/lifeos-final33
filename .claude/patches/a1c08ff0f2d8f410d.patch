@@ -1,0 +1,92 @@
+diff --git a/app.js b/app.js
+index 6041200..cd3f4b2 100644
+--- a/app.js
++++ b/app.js
+@@ -12886,6 +12886,10 @@ const VIEW_ONLY_COMMIT_SUMMARIES = new Set([
+   "Graph search cleared",
+   "Folder selected",
+   "Note opened",
++  // «Объект открыт» — это переход, а не правка данных: Ctrl+Z должен отменять последнее ДЕЙСТВИЕ
++  // владельца, а не то, что он провалился в карточку. Раньше строка сюда не попала, и каждое
++  // открытие объекта занимало шаг истории отмены.
++  "Объект открыт",
+   "Task control opened",
+   "Reminder control opened",
+   "Plan control opened",
+@@ -22521,9 +22525,18 @@ async function handleAction(action, id) {
+     return;
+   }
+   if (action === "new-note") {
+-    const title = promptValue("Note title", "Untitled");
+-    if (!title) return;
+-    await store.commit("Note created", (state) => {
++    // Владелец 2026-07-30: «нажимаешь — ничего не работает, никуда не проваливаешься». Здесь это
++    // было буквально так: на любой отказ от вопроса про название (Esc, «Отмена», закрытый
++    // браузером диалог) не оставалось НИЧЕГО — ни записи, ни экрана, ни следа. Отказ от ИМЕНИ
++    // отменял саму ЗАПИСЬ, хотя нажатие «Новая заметка» — это уже решение её завести.
++    // Теперь безымянная запись всё равно создаётся и открывается: имя у неё черновое, и
++    // переименовать её можно прямо в поле «Название» — оно на том же экране.
++    // Вопрос остаётся ПЕРЕД записью намеренно: коммит на большом хранилище идёт около секунды, и
++    // диалог, показанный после него, выскакивал бы уже поверх созданной заметки.
++    const title = promptValue("Название заметки", "Новая заметка") || "Новая заметка";
++    await store.commit("Заметка создана", (state) => {
++      // createNote сам делает запись активной — с этого и начинается «проваливание»: экран Базы
++      // открывается уже на ней.
+       createNote(state, title, state.activeFolderId, "# " + title + "\n");
+       state.activeSurface = "library";
+     });
+diff --git a/ui/library.js b/ui/library.js
+index 1c406c5..4a2e756 100644
+--- a/ui/library.js
++++ b/ui/library.js
+@@ -12,6 +12,22 @@ function wikiLinks(text) {
+   return links;
+ }
+ 
++// Строка списка Базы. Открытая запись раньше ничем не отличалась от остальных, и нажатие по ней
++// не делало РОВНО НИЧЕГО: состояние уже такое, разметка не менялась, владелец жал в пустоту.
++// Теперь открытая строка, во-первых, подписана как открытая, а во-вторых, ведёт дальше — в
++// карточку объекта (то же действие, что кнопка «Открыть объект» в шапке). Один список, два шага
++// вглубь: выбрать запись → провалиться в её объект.
++function noteSidebarRow(note, activeId) {
++  const isActive = Boolean(activeId) && note.id === activeId;
++  const attrs = isActive ? ` aria-current="true"` : "";
++  return [
++    `<button class="knowledge-note-row${isActive ? " active" : ""}" data-action="${isActive ? "open-object" : "open-note"}" data-id="${escapeHtml(note.id)}" data-testid="note-row"${attrs}>`,
++    `<strong>${escapeHtml(note.title || "Заметка")}</strong>`,
++    `<span>${isActive ? "открыть объект" : escapeHtml(wikiLinks(note.body || "").length + " связей")}</span>`,
++    `</button>`
++  ].join("");
++}
++
+ function renderClaimEntry(claim) {
+   return `<div class="knowledge-card" data-testid="claim-row"><strong>${escapeHtml(compactText(claim.title || claim.text, 80))}</strong>${button("claim-to-task", "В задачу", { id: claim.id, kind: "ghost", testId: "claim-to-task" })}</div>`;
+ }
+@@ -277,7 +293,7 @@ export function renderLibrary(ctx) {
+ 
+   const body = [
+     `<div class="knowledge-layout library-layout" data-testid="knowledge-workbench">`,
+-    `<aside class="knowledge-sidebar"><input id="library-search" placeholder="Поиск по базе" aria-label="Поиск по базе">${dataSection("Заметки", notes, (note) => `<button class="knowledge-note-row" data-action="open-note" data-id="${escapeHtml(note.id)}" data-testid="note-row"><strong>${escapeHtml(note.title || "Заметка")}</strong><span>${wikiLinks(note.body || "").length} связей</span></button>`)}${notes.length ? "" : emptyState("База пустая", "Сохрани идею или импортируй текст.")}${button("new-note", "Новая заметка", { kind: "primary", testId: "new-note" })}</aside>`,
++    `<aside class="knowledge-sidebar"><input id="library-search" placeholder="Поиск по базе" aria-label="Поиск по базе">${dataSection("Заметки", notes, (note) => noteSidebarRow(note, active ? active.id : ""))}${notes.length ? "" : emptyState("База пустая", "Сохрани идею или импортируй текст.")}${button("new-note", "Новая заметка", { kind: "primary", testId: "new-note" })}</aside>`,
+     `<article class="markdown-editor-surface">`,
+     noteHeader,
+     active ? `<header><span>Markdown</span><h3>${escapeHtml(active?.title || "Заметка")}</h3></header><textarea id="note-body" data-testid="note-body">${escapeHtml(active.body || "")}</textarea><div class="wikilink-preview" data-testid="wikilink-preview"><strong>Связи</strong>${safeList(links, (link) => `<button data-action="focus-graph-node" data-id="${escapeHtml(link)}">${escapeHtml(link)}</button>`, `<span>Wikilinks появятся как [[Название]].</span>`)}</div>` : `<div class="empty-inline">Выбери заметку.</div>`,
+diff --git a/ui/v34-platform.js b/ui/v34-platform.js
+index 8a50d8e..95ad758 100644
+--- a/ui/v34-platform.js
++++ b/ui/v34-platform.js
+@@ -30,8 +30,13 @@ function noteButton(noteId) {
+   return noteId ? button("open-graph-node", "Открыть артефакт", { id: noteId, kind: "ghost", testId: "open-v34-note" }) : "";
+ }
+ 
++// «В граф» обещала переход и не делала его: действие только помечало узел выбранным, а сам граф —
++// ДРУГОЙ экран, и на текущем не менялось ничего. Владелец нажимал и никуда не проваливался.
++// Теперь строка ведёт в карточку объекта — тем же действием `open-object`, что и «Открыть объект»
++// в Базе. Граф при этом наводится на тот же узел (см. обработчик), поэтому связь с графом не
++// потеряна: экраны продолжают смотреть на один объект.
+ function graphButton(id) {
+-  return id ? button("focus-graph-node", "В граф", { id, kind: "ghost", testId: "focus-v34-node" }) : "";
++  return id ? button("open-object", "Объект", { id, kind: "ghost", testId: "focus-v34-node" }) : "";
+ }
+ 
+ function feedEventRow(event) {

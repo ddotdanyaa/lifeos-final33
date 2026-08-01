@@ -1,10 +1,10 @@
 {
-  "measuredAt": "2026-07-30",
+  "measuredAt": "2026-08-01",
   "targetKb": 80,
   "files": [
     {
       "file": "app.js",
-      "kb": 1474
+      "kb": 1552
     },
     {
       "file": "ui/v34-platform.js",
@@ -12,14 +12,18 @@
     },
     {
       "file": "core/speech-intents.mjs",
-      "kb": 36
+      "kb": 46
     },
     {
       "file": "ui/home.js",
-      "kb": 33
+      "kb": 45
     },
     {
       "file": "ui/control.js",
+      "kb": 35
+    },
+    {
+      "file": "ui/shell.js",
       "kb": 32
     },
     {
@@ -31,11 +35,11 @@
       "kb": 23
     },
     {
-      "file": "ui/shell.js",
-      "kb": 23
+      "file": "core/ru-parse.mjs",
+      "kb": 22
     },
     {
-      "file": "core/ru-parse.mjs",
+      "file": "ui/graph.js",
       "kb": 22
     },
     {
@@ -43,11 +47,11 @@
       "kb": 22
     },
     {
-      "file": "ui/graph.js",
-      "kb": 20
+      "file": "core/ru-entities.mjs",
+      "kb": 18
     },
     {
-      "file": "core/ru-entities.mjs",
+      "file": "ui/components/PlayerSurface.js",
       "kb": 18
     },
     {
@@ -56,6 +60,14 @@
     },
     {
       "file": "ui/chat.js",
+      "kb": 17
+    },
+    {
+      "file": "ui/components/AssistantInput.js",
+      "kb": 16
+    },
+    {
+      "file": "ui/components/shared.js",
       "kb": 16
     },
     {
@@ -75,16 +87,12 @@
       "kb": 15
     },
     {
-      "file": "ui/components/PlayerSurface.js",
-      "kb": 14
-    },
-    {
-      "file": "ui/components/shared.js",
+      "file": "ui/agents-flows.js",
       "kb": 13
     },
     {
-      "file": "ui/agents-flows.js",
-      "kb": 12
+      "file": "core/self-review.mjs",
+      "kb": 11
     },
     {
       "file": "core/similar-thoughts.mjs",
@@ -99,6 +107,14 @@
       "kb": 10
     },
     {
+      "file": "ui/digest.js",
+      "kb": 10
+    },
+    {
+      "file": "ui/habits-goals.js",
+      "kb": 10
+    },
+    {
       "file": "core/owner-themes.mjs",
       "kb": 9
     },
@@ -107,11 +123,15 @@
       "kb": 9
     },
     {
-      "file": "ui/components/AssistantInput.js",
+      "file": "core/owner-search.mjs",
       "kb": 8
     },
     {
-      "file": "ui/habits-goals.js",
+      "file": "core/people-filter.mjs",
+      "kb": 8
+    },
+    {
+      "file": "core/surface-notice.mjs",
       "kb": 8
     },
     {
@@ -127,6 +147,10 @@
       "kb": 7
     },
     {
+      "file": "core/product-feedback.mjs",
+      "kb": 7
+    },
+    {
       "file": "core/ru-stem.mjs",
       "kb": 7
     },
@@ -135,15 +159,15 @@
       "kb": 7
     },
     {
-      "file": "core/receipt-ocr.mjs",
-      "kb": 6
+      "file": "ui/components/ParseBreakdown.js",
+      "kb": 7
     },
     {
       "file": "ui/components/ReaderSurface.js",
-      "kb": 6
+      "kb": 7
     },
     {
-      "file": "ui/digest.js",
+      "file": "core/receipt-ocr.mjs",
       "kb": 6
     },
     {
@@ -164,6 +188,10 @@
     },
     {
       "file": "ui/components/FlowCanvas.js",
+      "kb": 4
+    },
+    {
+      "file": "ui/components/HumanAnswerCard.js",
       "kb": 4
     },
     {
@@ -191,15 +219,19 @@
       "kb": 3
     },
     {
-      "file": "ui/components/HumanAnswerCard.js",
-      "kb": 3
-    },
-    {
       "file": "ui/components/MoneyDashboard.js",
       "kb": 3
     },
     {
+      "file": "ui/components/ParseSkeleton.js",
+      "kb": 2
+    },
+    {
       "file": "ui/components/WorkspaceLayout.js",
+      "kb": 2
+    },
+    {
+      "file": "ui/liveness-map.js",
       "kb": 2
     },
     {

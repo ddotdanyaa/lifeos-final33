@@ -88,6 +88,63 @@ function renderBehaviorPatterns(ctx) {
   ].join("");
 }
 
+// СЦЕНАРИЙ 8 · НЕЗАКРЫТЫЕ ПЕТЛИ. Вечерний итог рассказывал о дне и ничего с ним не делал:
+// открытые задачи оставались висеть, и завтрашнее утро начиналось с нуля. Здесь появляется
+// единственное движение, ради которого итог вообще нужен — «перенести на завтра».
+//
+// Список короткий намеренно: семь строк максимум. Двадцать незакрытых петель вечером усталый
+// человек не разбирает — он закрывает вкладку.
+function renderOpenLoops(digest) {
+  const loops = digest.openLoops || [];
+  if (!loops.length) return "";
+  const overdue = loops.filter((row) => row.overdue).length;
+  return [
+    `<div class="digest-loops" data-testid="digest-open-loops">`,
+    `<h3>Осталось незакрытым — ${loops.length}${overdue ? ` · просрочено ${overdue}` : ""}</h3>`,
+    `<ul>`,
+    loops.map((row) => [
+      `<li data-testid="digest-loop">`,
+      // Закрыть петлю можно прямо отсюда — это и есть самый частый исход разбора вечером:
+      // «а это я уже сделал». Действие `toggle-task` уже существует, второго пути не заводим.
+      `<button class="digest-loop-row" data-action="toggle-task" data-id="${escapeHtml(row.id)}" data-testid="digest-loop-done" title="Отметить сделанным">${escapeHtml(row.title)}</button>`,
+      row.overdue ? `<span class="digest-loop-overdue">ещё с ${escapeHtml(row.day)}</span>` : "",
+      `</li>`
+    ].join("")).join(""),
+    `</ul>`,
+    button("carry-loops-tomorrow", "Перенести всё на завтра", { kind: "calm", testId: "carry-loops-tomorrow" }),
+    `</div>`
+  ].join("");
+}
+
+// САМООБУЧЕНИЕ ПРОДУКТА. Владелец 2026-08-01: «если сделать самообучающийся сценарий, то всё
+// остальное будет улучшаться после каждого дня моих голосовых».
+//
+// Здесь видно то, что он сказал ПРО САМУ СИСТЕМУ — его же словами, с датой. И одна кнопка,
+// которая превращает неделю голосовых в список работы с цитатами.
+//
+// Система по этим записям себя НЕ чинит и не притворяется, что может: код пишет человек.
+// Ценность в том, что теперь замечания не тонут среди мыслей про такси и деньги.
+function renderProductFeedback(ctx) {
+  const rows = ctx.productFeedback || [];
+  if (!rows.length) return "";
+  const shown = rows.slice(0, 5);
+  return [
+    `<div class="digest-feedback" data-testid="digest-product-feedback">`,
+    `<h3>Что ты сказал про саму систему — ${rows.length}</h3>`,
+    `<ul>`,
+    shown.map((row) => [
+      `<li data-testid="product-feedback-row">`,
+      `<strong>${escapeHtml(row.title)}</strong>`,
+      `<span>${escapeHtml(row.kind || "")} · ${escapeHtml(String(row.createdAt || "").slice(0, 10))}</span>`,
+      `</li>`
+    ].join("")).join(""),
+    `</ul>`,
+    rows.length > shown.length ? `<span class="digest-feedback-more">и ещё ${rows.length - shown.length}</span>` : "",
+    button("export-product-feedback", "Выгрузить, что доработать", { kind: "calm", testId: "export-product-feedback" }),
+    `</div>`
+  ].join("");
+}
+
 export function renderDayDigest(ctx) {
   const digest = ctx.dayDigest || { stages: [], questions: [], hasReport: false, sourceCount: 0, hint: "" };
   const runLabel = digest.hasReport ? "Разобрать заново" : "Разобрать день";
@@ -101,6 +158,8 @@ export function renderDayDigest(ctx) {
     digest.hasReport
       ? `<p class="digest-ran" data-testid="digest-ran">Разобрано ${escapeHtml(digest.ranAt)} · ${digest.readyCount} ${plural(digest.readyCount, "предложение ждёт", "предложения ждут", "предложений ждут")} решения на Доме${digest.questions.length ? ` · ${digest.questions.length} ${plural(digest.questions.length, "вопрос", "вопроса", "вопросов")} ниже` : ""}</p>`
       : "",
+    renderProductFeedback(ctx),
+    renderOpenLoops(digest),
     renderStages(digest),
     renderContradictions(ctx),
     renderBehaviorPatterns(ctx),

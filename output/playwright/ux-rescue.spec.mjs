@@ -59,6 +59,8 @@ test.skip("P_OWNER_UX_001 calm home, quick task, review, calendar, graph and mob
   await page.screenshot({ path: "output/playwright/ux-home-calm.png", fullPage: true });
 
   await page.getByTestId("capture-input").fill("завтра в 6 тренировка");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").click();
   await expect(page.getByTestId("home-command-message")).toContainText("Готово: задача создана");
   const quickSnapshot = await page.evaluate(() => window.__lifeosKnowledgeBase.getStateSnapshot());

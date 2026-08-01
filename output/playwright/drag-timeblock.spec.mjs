@@ -81,6 +81,8 @@ test("drag timeblock: dragging an unscheduled task onto an hour row assigns it t
   await reset(page);
   await openSurface(page, "inbox");
   await page.getByTestId("capture-input").fill("Купить молоко");
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("quick-task").first().click();
 
   await expect.poll(async () => page.evaluate(() => {

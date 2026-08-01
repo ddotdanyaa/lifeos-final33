@@ -1,9 +1,12 @@
 import { renderAssistantInput } from "./components/AssistantInput.js";
 import { renderGroundedAnswer } from "./components/GroundedAnswer.js";
 import { renderHumanAnswerCard } from "./components/HumanAnswerCard.js";
+import { openBreakdownRows, renderParseBreakdown } from "./components/ParseBreakdown.js";
+import { renderParseSkeleton } from "./components/ParseSkeleton.js";
 import { renderRecordPanel } from "./components/PlayerSurface.js";
 import { renderTimeGrid } from "./components/TimeGrid.js";
-import { button, emptyState, escapeHtml, money, plural, safeList, taskUrgency } from "./components/shared.js";
+import { button, emptyState, escapeHtml, money, plural, safeList, surfaceNotice, taskUrgency } from "./components/shared.js";
+import { shorten } from "../core/text.mjs";
 import { taskRow } from "./today.js";
 
 function renderMyDay(ctx) {
@@ -60,8 +63,166 @@ function renderMorningSummary(ctx) {
 // «Что я заметил» — то, зачем он сюда смотрит. И «уверенность: средняя» заменено на
 // человеческую оговорку «пока предположение»: у высокой уверенности оговорки нет вовсе,
 // потому что подпись к каждому выводу превращает вывод обратно в отчёт механизма.
+// Боль владельца 2026-07-30 дословно: «пять заметок об одной теме, создать проект. Вот я нажимаю,
+// хочу узнать, что за заметка, а я не могу открыть это».
+//
+// Оказалось, что данные для этого уже есть: инсайт-кластер несёт `members`/`refs` — id тех самых
+// заметок, из которых он сделан. Не хватало ровно кнопок. Вывод, который нельзя раскрыть до
+// источника, — это утверждение системы о себе; раскрытый — это путь владельца к своим записям.
+// Действие `open-source-note` уже существует, второго пути не заводим.
+function renderInsightSources(ctx, insight) {
+  const refs = insight.members || insight.refs || [];
+  if (!refs.length) return "";
+  const notes = Array.isArray(ctx.notes) ? ctx.notes : Object.values(ctx.notes || {});
+  const byId = new Map(notes.map((note) => [note.id, note]));
+  const rows = refs.slice(0, 5).map((id) => {
+    const note = byId.get(id);
+    return { id, title: (note && (note.title || note.text)) || "запись" };
+  });
+  return [
+    `<div class="insight-sources" data-testid="insight-sources">`,
+    rows.map((row) => button("open-source-note", shorten(row.title, 28), { id: row.id, kind: "ghost", testId: "insight-source" })).join(""),
+    refs.length > rows.length ? `<span class="insight-sources-more">и ещё ${refs.length - rows.length}</span>` : "",
+    `</div>`
+  ].join("");
+}
+
+// Дефект, который вскрыл снимок 2026-07-30: четыре мысли об одном давали ОДНУ карточку кластера
+// («4 заметки об одной теме») и сверх неё ещё три попарные — «Похоже, X и Y об одном», «X и Z»,
+// «X и W». Один и тот же факт сказан четыре раза, и владелец листает шум вместо выводов.
+//
+// Правило: попарная связь — это черновик кластера. Как только кластер назван, черновики гасятся.
+// Гасим только те пары, у которых ОБЕ записи уже внутри названного кластера: связь, уходящая
+// наружу, остаётся — она сообщает новое.
+// Правило обобщено после второго снимка: гасится не только попарная связь. «Сегодня ты думаешь
+// об одном» (`today-one-theme` из `core/owner-themes.mjs`) и «4 заметки об одной теме» несли тот
+// же факт и те же четыре источника — владелец читал одно наблюдение дважды подряд.
+//
+// Общая формулировка: если ВСЕ источники вывода уже внутри названного кластера, вывод ничего не
+// добавляет — кластер сказал это и вдобавок предлагает действие. Наружные источники спасают
+// вывод: связь, уходящая за пределы кластера, сообщает новое и остаётся.
+const COVERABLE_TYPES = new Set(["connection", "theme"]);
+
+function dropInsightsCoveredByClusters(insights) {
+  const covered = [];
+  for (const insight of insights) {
+    const members = insight.members || [];
+    if (insight.type === "project-suggestion" && members.length >= 3) covered.push(new Set(members));
+  }
+  if (!covered.length) return insights;
+  return insights.filter((insight) => {
+    if (!COVERABLE_TYPES.has(insight.type)) return true;
+    const refs = insight.refs || [];
+    if (!refs.length) return true;
+    return !covered.some((group) => refs.every((id) => group.has(id)));
+  });
+}
+
+// Боль владельца 2026-07-30, дословно: «пять заметок об одной теме, сила связи ноль шестьдесят
+// семь… почему так, такое маленькое, ничего непонятное». И его же формулировка того, как надо:
+// «Ты три раза за неделю говорил про прогноз. Может быть, это для тебя важно?»
+//
+// Разница не в длине, а в том, ЧЬИМ языком сказано. «5 заметок об одной теме» — это отчёт
+// механизма о своей работе. «Ты возвращался к этому четыре раза» — наблюдение о владельце.
+// Правило из скилла `design:ux-copy`: писать со стороны человека, называть вещи так, как он их
+// узнаёт, и не давать ни одному слову двойной работы.
+//
+// Переписывается ПРЕДСТАВЛЕНИЕ, а не движок: тексты рождаются в `app.js` и `core/owner-themes.mjs`,
+// которые правит соседняя сессия. Здесь только слой показа — движок не трогаем.
+function humanizeInsight(insight) {
+  const count = (insight.members || insight.refs || []).length;
+  const terms = String(insight.detail || "").match(/Общее(?: слово|)?: ([^·]+)/);
+  const topic = terms ? terms[1].split(",")[0].trim() : "";
+
+  if (insight.type === "project-suggestion" && count >= 3) {
+    return {
+      title: "Ты возвращался к этому " + count + " " + plural(count, "раз", "раза", "раз") + " — собрать в проект?",
+      detail: topic ? "Общее слово: " + topic : "Записи ниже — об одном"
+    };
+  }
+  if (insight.id === "today-one-theme") {
+    return { title: "Сегодня ты думаешь об одном", detail: "Почти все сегодняшние записи про это" };
+  }
+  // «Частая тема: „прогноз“ · Встречается в 4 заметках» — механизм считает вхождения. Владельцу
+  // важно не число вхождений, а то, что он к этому ВОЗВРАЩАЕТСЯ.
+  if (/^Частая тема/.test(insight.title || "")) {
+    const word = (insight.title.match(/«([^»]+)»/) || [])[1] || "";
+    return {
+      title: "Ты снова про " + (word ? "«" + word + "»" : "одно и то же"),
+      detail: count ? "Это " + count + " " + plural(count, "запись", "записи", "записей") + " — похоже, для тебя это важно" : "Похоже, для тебя это важно"
+    };
+  }
+  if (insight.type === "connection") {
+    return { title: "Похоже, это про одно и то же", detail: topic ? "Общее слово: " + topic : "" };
+  }
+  // Числа уверенности наружу не выходят никогда: «сила связи 0,67» — это внутренняя кухня,
+  // и владелец справедливо сказал, что она ему ничего не сообщает.
+  return {
+    title: insight.title || "",
+    detail: String(insight.detail || "").replace(/·?\s*(сила связи|вес|score|confidence)[^·]*/gi, "").trim()
+  };
+}
+
+// СЦЕНАРИЙ 9 · СИСТЕМА ВОЗРАЖАЕТ, НО НЕ ЗАПРЕЩАЕТ.
+//
+// Владелец: «Поеду отдыхать» → «Ты сам поставил цель 200 000, в этом месяце не хватает 43 000.
+// Поэтому не рекомендую». Ключевое — САМ ПОСТАВИЛ: система напоминает ему его же цель его же
+// числами. Она не судит, не морализирует и не блокирует; последнее слово всегда за ним.
+//
+// Возражений максимум два и почти всегда ноль. Система, которая спорит каждый день, перестаёт
+// быть услышанной — и тогда молчит уже по-настоящему важное.
+function renderObjections(ctx) {
+  const rows = ctx.objections || [];
+  if (!rows.length) return "";
+  return [
+    `<section class="objections" data-testid="objections">`,
+    rows.map((row) => [
+      `<div class="objection-card" data-testid="objection-card">`,
+      `<strong>${escapeHtml(row.title)}</strong>`,
+      `<span class="objection-verdict" data-testid="objection-verdict">${escapeHtml(row.verdict)}</span>`,
+      // Основание раскрывается, а не подразумевается: владелец обязан иметь возможность
+      // не поверить и проверить, откуда взялось число.
+      `<details class="objection-why"><summary>Почему так считаю</summary><p data-testid="objection-why">${escapeHtml(row.explanation || "")}</p></details>`,
+      `<div class="objection-actions">`,
+      (row.choices || []).map((choice) => button(choice.action, choice.label, { id: choice.id, kind: "ghost" })).join(""),
+      `</div>`,
+      `</div>`
+    ].join("")).join(""),
+    `</section>`
+  ].join("");
+}
+
+// СЦЕНАРИЙ 4 · «ПОЧЕМУ ИМЕННО СЕЙЧАС».
+//
+// Вывод без ответа на этот вопрос — утверждение системы о себе. Владелец 2026-07-30: «почему так,
+// такое маленькое, ничего непонятное». Ответ строится ТОЛЬКО из того, что у инсайта уже есть:
+// число опорных записей и дата самой свежей. Ни одного придуманного основания: нет данных —
+// нет строки. Молчание честнее правдоподобного объяснения.
+function insightWhyNow(insight) {
+  const refs = insight.members || insight.refs || [];
+  const parts = [];
+  if (refs.length >= 2) parts.push("собрано из " + refs.length + " " + plural(refs.length, "записи", "записей", "записей"));
+  // Порог у типа — тот же, по которому инсайт вообще родился. Повторять его словами важно:
+  // «три раза» объясняет появление лучше, чем любая формулировка про закономерность.
+  if (insight.type === "recurring") parts.push("повод — повтор, а не разовый случай");
+  if (insight.type === "trend") parts.push("сравниваю эту неделю с прошлой");
+  if (insight.type === "overdue") parts.push("срок уже прошёл");
+  if (insight.type === "forgotten") parts.push("к этому давно не возвращался");
+  if (insight.type === "anniversary") parts.push("ровно об этом ты писал год назад");
+  if (!parts.length) return "";
+  return [
+    `<details class="insight-why" data-testid="insight-why">`,
+    `<summary>Почему сейчас</summary>`,
+    `<p data-testid="insight-why-text">${escapeHtml(parts.join(" · "))}. ${escapeHtml(insight.confidence === "высокая" ? "Считаю это фактом." : "Пока это предположение — проверь по источникам ниже.")}</p>`,
+    `</details>`
+  ].join("");
+}
+
 function renderInsightsPanel(ctx) {
-  const insights = ctx.computedInsights || [];
+  const insights = dropInsightsCoveredByClusters(ctx.computedInsights || []).map((insight) => {
+    const human = humanizeInsight(insight);
+    return { ...insight, title: human.title, detail: human.detail };
+  });
   if (!insights.length) {
     return [
       `<section class="insights-panel insights-empty" data-testid="insights-panel">`,
@@ -78,8 +239,14 @@ function renderInsightsPanel(ctx) {
       `<div class="insight-card" data-testid="insight-card" data-insight="${escapeHtml(insight.id)}">`,
       `<span class="insight-icon" aria-hidden="true">${insight.icon}</span>`,
       `<div class="insight-body"><strong>${escapeHtml(insight.title)}</strong><span>${escapeHtml(insight.detail)}${insight.confidence === "высокая" ? "" : " · пока предположение"}</span></div>`,
+      // Сценарий 4: «почему ИМЕННО СЕЙЧАС». Раньше вывод появлялся молча, и владелец справедливо
+      // спрашивал, откуда он взялся. Ответ собирается из того, что у инсайта уже есть: сколько
+      // записей за ним стоит и когда была последняя. Выдумывать причину нельзя — если оснований
+      // не видно, строки просто нет.
+      insightWhyNow(insight),
       // I2: у инсайта-связи ещё «Связать» - подтверждённо создаёт реальное ребро графа (Tana
       // proposals-before-write; §7 confirm+receipt). У остальных инсайтов - только «Закрепить».
+      renderInsightSources(ctx, insight),
       insight.type === "connection"
         ? button("link-connection", "Связать", { id: insight.id, kind: "ghost", testId: "link-connection" })
         : insight.type === "project-suggestion"
@@ -364,9 +531,23 @@ export function renderAssistantHome(ctx) {
     // 1. С чего всё начинается. Ввод стоит первым, потому что продукт начинается со сказанного,
     //    а не с отчёта о том, что уже лежит в базе.
     renderAssistantInput(ctx),
+    // Ответ экрана на нажатие. Дом был единственной поверхностью без него, и перепись живого
+    // 2026-07-31 нашла ровно то, чем это оборачивается: «Разобрать» при пустом поле честно
+    // решала ничего не делать — и была неотличима от сломанной.
+    surfaceNotice(ctx, ["inbox", "capture", "home"], "home-surface-notice"),
     // 2. Что произошло с последним сказанным. Ответ на вопрос владельца «ну и что?».
     renderGroundedAnswer(ctx),
-    renderHumanAnswerCard(ctx),
+    // Срез Б: построчный разбор идёт ПЕРЕД карточкой-итогом. Итог отвечает «что дальше», разбор
+    // отвечает «что именно понято» — и второй вопрос у владельца возникает первым. Когда разбор
+    // есть, карточка-итог со своей одной кнопкой не показывается вовсе: два главных действия на
+    // экране — это ноль главных действий.
+    // Сценарий 9: возражение стоит ПОСЛЕ разбора и ДО «что делать дальше» — оно про решение,
+    // которое владелец собирается принять, а не про то, что он только что сказал.
+    renderObjections(ctx),
+    // Т2: пока идёт разбор — на его месте стоит форма будущего результата. Скелетон и разбор
+    // взаимно исключают друг друга: показать оба разом значит обещать вдвое больше, чем есть.
+    ctx.busy ? renderParseSkeleton(ctx) : renderParseBreakdown(ctx),
+    openBreakdownRows(ctx).length ? "" : renderHumanAnswerCard(ctx),
     // 3. Что делать дальше — только когда разбирать нечего. Иначе это второе главное действие.
     hasFreshUnderstanding ? "" : renderLifeFocus(ctx),
     `</div>`,

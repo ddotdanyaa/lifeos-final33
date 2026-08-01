@@ -93,6 +93,8 @@ test("import pipeline: dedup merge-review and chunked background import with can
   const lines = Array.from({ length: totalLines }, (_, index) => "Bulk import line " + token + " #" + index).join("\n");
   await page.getByTestId("capture-input").fill(lines);
   const notesBefore = Object.keys(afterMerge.notes).length;
+  // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+  await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
   await page.getByTestId("bulk-import-lines").click();
   await openSurface(page, "feed");
   await expect(page.getByTestId("import-job-row").first()).toBeVisible();

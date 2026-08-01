@@ -1,5 +1,5 @@
 import { renderWorkspaceLayout } from "./components/WorkspaceLayout.js";
-import { button, compactText, escapeHtml, providerLabel, safeList } from "./components/shared.js";
+import { button, compactText, escapeHtml, providerLabel, safeList, surfaceNotice } from "./components/shared.js";
 
 // R4 CHAT_THREAD_SEARCH: a Jan-style thread search filter. ctx.chatMessages already carries
 // the full thread (visibleChatMessages has no limit; only the render below used to slice it to
@@ -52,6 +52,11 @@ function chatProposalPreview(ctx, message) {
     `<div class="chat-proposal-preview" data-testid="chat-proposal-preview" data-raw-status="open" data-raw-type="${escapeHtml(proposal.type)}">`,
     `<span class="chat-proposal-type">${escapeHtml(typeLabel)}</span>`,
     `<strong>${escapeHtml(proposal.title)}</strong>`,
+    // Срез А: доверие словами, из журнала решений владельца. Число процентов внутри фразы —
+    // это ЕГО доля принятий по этому типу, а не назначенная разбором уверенность.
+    proposal.trust && proposal.trust.words
+      ? `<span class="chat-proposal-trust" data-testid="proposal-trust" data-raw-trusted="${proposal.trust.trusted ? "yes" : "no"}">${escapeHtml(proposal.trust.words)}</span>`
+      : "",
     `<div class="chat-proposal-actions">`,
     button("apply-proposal", "Применить", { id: proposal.id, kind: "primary", testId: "chat-proposal-apply" }),
     button("dismiss-proposal", "Отклонить", { id: proposal.id, kind: "ghost", testId: "chat-proposal-dismiss" }),
@@ -161,6 +166,9 @@ export function renderChat(ctx) {
           return `<article class="chat-message ${message.role === "assistant" ? "assistant" : "owner"}${isStreaming ? " is-streaming" : ""}" data-message-id="${escapeHtml(message.id || "")}" data-receipt-id="${escapeHtml(message.receiptId || "")}" data-testid="${isSearching ? "chat-thread-search-result" : "chat-message-row"}"><span>${message.role === "assistant" ? "LifeOS" : "Ты"}</span><p>${message.html || escapeHtml(compactText(message.text || message.content || "", 760))}${isThinking ? `<em class="chat-thinking-note" data-testid="chat-thinking-note">Модель думает… ${Math.max(1, Number(message.thinkingSeconds) || 1)} с. На этом компьютере это минуты — можно остановить.</em>` : ""}${isStreaming ? `<span class="chat-typing-cursor" data-testid="chat-typing-cursor" aria-hidden="true">▍</span>` : ""}</p>${chatAttachment(ctx, message)}${chatCitations(message)}${isStreaming ? `<div class="chat-stream-actions">${button("stop-chat-stream", "Стоп", { kind: "ghost", testId: "stop-chat-stream" })}</div>` : ""}${canRegenerate ? `<div class="chat-stream-actions">${button("regenerate-chat-answer", "Перегенерировать", { kind: "ghost", testId: "regenerate-chat-answer" })}</div>` : ""}${chatProposalPreview(ctx, message)}</article>`;
         }, `<article class="chat-message assistant chat-empty-hint"><span>LifeOS</span><p>Спроси о своих данных: «сколько я заработал за неделю?», «какая была последняя смена?», «стоит ли завтра работать?»</p></article>`),
     `</section>`,
+    // Ответ на само нажатие «Отправить», когда отправлять нечего. Стоит прямо над полем ввода:
+    // владелец читает его там, где нажимал, а не на другом экране.
+    surfaceNotice(ctx, "chat", "chat-send-notice"),
     `<footer class="chat-composer" data-testid="chat-composer"><textarea id="chat-input" data-testid="chat-input" rows="1" placeholder="Спроси о своих данных или запиши мысль…" aria-label="Сообщение в чат" spellcheck="true">${escapeHtml(ctx.chatDraft || "")}</textarea>${chatAttachmentPicker(ctx)}${button("send-chat", "Отправить", { kind: "primary", testId: "send-chat" })}<details class="chat-dev-hint"><summary>/dev</summary><p>Команда /dev отвечает из внутреннего состояния разработки.</p></details></footer>`,
     `</div>`
   ].join("");

@@ -1,4 +1,4 @@
-import { button, compactText, dataSection, escapeHtml, safeList } from "./shared.js";
+import { button, compactText, dataSection, escapeHtml, safeList, commandNotice } from "./shared.js";
 
 function readingFor(ctx, sourceId) {
   return (ctx.readingItems || []).find((item) => item.sourceId === sourceId) || null;
@@ -43,9 +43,17 @@ export function renderBookWorkbenchPanel(ctx) {
   ].join("");
 }
 
+// Сколько цитат уже сохранено из этого материала. Без этого числа «Найти цитаты» ничего не
+// меняет на экране, где её нажали: сами цитаты уезжают в правую колонку и легко теряются
+// среди пяти последних, а повторное нажатие вообще не добавляет ничего нового.
+function savedQuotes(ctx, sourceId) {
+  return (ctx.highlights || []).filter((item) => item.sourceId === sourceId).length;
+}
+
 export function renderReaderSurface(ctx) {
   const books = ctx.bookSources || [];
   return [
+    commandNotice(ctx.commandMessage, "reader-status"),
     `<div class="reader-surface" data-testid="reader-surface">`,
     `<aside class="reader-list">`,
     `<h3>Очередь чтения</h3>`,
@@ -55,7 +63,8 @@ export function renderReaderSurface(ctx) {
       const progressBar = reading
         ? `<div class="reading-progress-bar" data-testid="reading-progress-bar"><span style="width:${Math.max(0, Math.min(100, Math.round(reading.progress || 0)))}%"></span></div>`
         : "";
-      return `<article class="book-source-card" data-testid="book-source-card"><strong>${escapeHtml(book.name || "Текст")}</strong><span>${escapeHtml(sourceStatus(book))}</span>${reading ? `<em>${Math.round(reading.progress || 0)}%</em>` : ""}${progressBar}${button("open-source-note", "Открыть источник", { id: book.id, kind: "ghost" })}${isGatedBook(book) ? button("extract-book-text", "Извлечь текст", { id: book.id, kind: "primary", testId: "extract-book-text" }) : ""}<input id="highlight-title-${escapeHtml(book.id)}" data-testid="highlight-title" aria-label="Текст цитаты" placeholder="Цитата или мысль"><span class="book-card-actions">${button("extract-highlights", "Найти цитаты", { id: book.id, kind: "ghost", testId: "extract-highlights" })}${button("add-highlight-entry", "Добавить цитату", { id: book.id, kind: "ghost", testId: "add-highlight-entry" })}</span>${reading ? `<label class="reading-progress-mini">Прогресс<input id="reading-progress-${escapeHtml(reading.id)}" data-testid="reading-progress" type="number" min="0" max="100" value="${escapeHtml(reading.progress || 0)}" aria-label="Прогресс чтения"></label>${button("update-reading-progress", "Сохранить", { id: reading.id, kind: "ghost", testId: "update-reading-progress" })}` : ""}</article>`;
+      const quotes = savedQuotes(ctx, book.id);
+      return `<article class="book-source-card" data-testid="book-source-card"><strong>${escapeHtml(book.name || "Текст")}</strong><span>${escapeHtml(sourceStatus(book))}</span><span data-testid="book-quote-count">${quotes ? "Цитат сохранено: " + quotes : "Цитат пока нет"}</span>${reading ? `<em>${Math.round(reading.progress || 0)}%</em>` : ""}${progressBar}${button("open-source-note", "Открыть источник", { id: book.id, kind: "ghost" })}${isGatedBook(book) ? button("extract-book-text", "Извлечь текст", { id: book.id, kind: "primary", testId: "extract-book-text" }) : ""}<input id="highlight-title-${escapeHtml(book.id)}" data-testid="highlight-title" aria-label="Текст цитаты" placeholder="Цитата или мысль"><span class="book-card-actions">${button("extract-highlights", "Найти цитаты", { id: book.id, kind: "ghost", testId: "extract-highlights" })}${button("add-highlight-entry", "Добавить цитату", { id: book.id, kind: "ghost", testId: "add-highlight-entry" })}</span>${reading ? `<label class="reading-progress-mini">Прогресс<input id="reading-progress-${escapeHtml(reading.id)}" data-testid="reading-progress" type="number" min="0" max="100" placeholder="сейчас ${Math.round(reading.progress || 0)}%" aria-label="Прогресс чтения"></label>${button("update-reading-progress", "Сохранить", { id: reading.id, kind: "ghost", testId: "update-reading-progress" })}` : ""}</article>`;
     }, `<div class="empty-inline">Импортируй TXT или MD.</div>`),
     button("import-file", "Добавить текст", { kind: "primary", testId: "book-import" }),
     `</aside>`,

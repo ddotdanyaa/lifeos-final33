@@ -2,6 +2,14 @@ import { button, escapeHtml } from "./shared.js";
 
 export function renderHumanAnswerCard(ctx) {
   const answer = ctx.answer || {};
+  // Перепись живого 2026-07-31 нашла «Главное действие» мёртвым на пустом экране — и была права
+  // по существу, а не придиралась. Когда разбирать нечего, эта карточка повторяет композер
+  // слово в слово: та же кнопка, то же действие, тот же ответ. Два одинаковых главных действия
+  // на экране — это ноль главных действий, и второе нажатие честно ничего не меняет.
+  //
+  // Карточка не «прячется, чтобы гейт позеленел»: она перестаёт существовать в состоянии, где ей
+  // нечего сказать. Появилась запись или черновик — вернулась и снова отвечает на «ну и что?».
+  if (!ctx.latestSource && !String(ctx.captureDraft || "").trim()) return "";
   const facts = Array.isArray(answer.facts) && answer.facts.length ? answer.facts : ["Я разберу ввод и покажу действие до любых изменений."];
   const primary = answer.primary || { label: "Разобрать ввод", action: "capture-text", id: "", disabled: false };
   const secondary = Array.isArray(answer.secondary) ? answer.secondary : [];

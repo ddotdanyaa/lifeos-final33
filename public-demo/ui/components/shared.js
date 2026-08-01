@@ -140,6 +140,34 @@ export function button(action, label, options = {}) {
   return `<button class="${classes.join(" ")}" data-action="${escapeHtml(action)}"${id}${test}${disabled}${title}>${escapeHtml(label)}</button>`;
 }
 
+// Честный ответ экрана на нажатие (перепись живого, 2026-07-30). Часть кнопок «ничего не
+// делала» не потому, что код не отработал, а потому что результат было негде увидеть: не
+// хватало данных, и продукт об этом молчал. Молчащая кнопка читается как сломанная, поэтому
+// у экрана есть строка, где он говорит, что произошло и чего не хватило. Текст берётся из
+// того же state.commandMessage, что и строка состояния на Доме, — второго канала не заводим.
+// ВРЕМЕННО ДВА ИМЕНИ, и это честно названный долг. Два агента независимо решили одну задачу и
+// назвали функцию одинаково — это ровно тот дубль по смыслу, который мы вычищаем из продукта.
+// Побеждает версия ниже: она привязывает записку к ЭКРАНУ, где нажали, а эта показывает общее
+// сообщение последней команды. Долг: перевести Цели и Чтение на `state.surfaceNotice` и удалить
+// эту функцию. Пока имя называет то, что она делает на самом деле.
+export function commandNotice(message, testId) {
+  const text = String(message ?? "").trim();
+  if (!text) return "";
+  return `<p class="workspace-draft-note surface-notice" role="status" data-testid="${escapeHtml(testId)}">${escapeHtml(text)}</p>`;
+}
+
+// Ответ экрана на последнее нажатие (state.surfaceNotice в app.js). Нужен там, где действие
+// законно может НЕ изменить данные: режим уже выбран, поле пустое, служба не запущена. Раньше в
+// этих случаях экран молчал, и правильная работа была неотличима от поломки. Показывается только
+// на том экране, где нажали; класс `human-toast` уже есть в styles.css — своего не заводим.
+// `surface` — имя экрана или список имён: «Агенты» и «Сценарии» рисует один и тот же модуль.
+export function surfaceNotice(ctx, surface, testId) {
+  const notice = ctx.surfaceNotice || {};
+  const owners = Array.isArray(surface) ? surface : [surface];
+  if (!notice.text || !owners.includes(notice.surface)) return "";
+  return `<p class="human-toast" role="status" data-testid="${escapeHtml(testId)}">${escapeHtml(notice.text)}</p>`;
+}
+
 export function emptyState(title, detail, action = "") {
   return [
     `<div class="empty-state" data-testid="empty-state">`,

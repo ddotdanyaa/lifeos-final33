@@ -55,6 +55,8 @@ test("G2.5 force sliders persist to graphView and drive the live layout", async 
   await reset(page);
   for (const title of ["Проверить отчёт", "Написать письмо", "Позвонить маме"]) {
     await page.locator("#capture-input").fill(title);
+    // Срез Г: кнопка переехала в «Ещё» вместе с требованием Т1 — раскрываем блок.
+    await page.locator('[data-testid="capture-more"]').evaluate((el) => { el.open = true; });
     await page.getByTestId("quick-task").click();
   }
   await openSurface(page, "graph");
